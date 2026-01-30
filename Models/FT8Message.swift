@@ -235,36 +235,62 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
     
     // MARK: - Band
     enum Band: String, Codable, CaseIterable {
-        case band80m = "80m"
-        case band60m = "60m"
-        case band40m = "40m"
-        case band30m = "30m"
-        case band20m = "20m"
-        case band17m = "17m"
-        case band15m = "15m"
-        case band12m = "12m"
-        case band10m = "10m"
-        case unknown = "Unknown"
-        
-        var frequency: Double {
-            switch self {
-            case .band80m: 3_574_000.0 // Hz
-            case .band60m: 5_357_000.0
-            case .band40m: 7_074_000.0
-            case .band30m: 10_136_000.0
-            case .band20m: 14_074_000.0
-            case .band17m: 18_074_000.0
-            case .band15m: 21_074_000.0
-            case .band12m: 24_924_000.0
-            case .band10m: 28_074_000.0
-            case .unknown: .nan
+        case band160m = "160m"
+        case band80m  = "80m"
+        case band60m  = "60m"
+        case band40m  = "40m"
+        case band30m  = "30m"
+        case band20m  = "20m"
+        case band17m  = "17m"
+        case band15m  = "15m"
+        case band12m  = "12m"
+        case band10m  = "10m"
+        case band6m   = "6m"
+        case unknown  = "Unknown"
+
+        // Returns the standard dial frequency in Hz for the given mode.
+        // Returns nil if the band/mode combination is not supported.
+        func frequency(for mode: FT8MessageMode) -> Double? {
+            switch mode {
+            case .ft8:
+                switch self {
+                case .band160m: return 1_840_000
+                case .band80m:  return 3_574_000
+                case .band60m:  return 5_357_000
+                case .band40m:  return 7_074_000
+                case .band30m:  return 10_136_000
+                case .band20m:  return 14_074_000
+                case .band17m:  return 18_074_000
+                case .band15m:  return 21_074_000
+                case .band12m:  return 24_915_000
+                case .band10m:  return 28_074_000
+                case .band6m:   return 50_313_000
+                case .unknown:  return nil
+                }
+
+            case .ft4:
+                switch self {
+                case .band160m: return 1_840_000
+                case .band80m:  return 3_575_000
+                case .band60m:  return 5_357_000
+                case .band40m:  return 7_047_500
+                case .band30m:  return 10_140_000
+                case .band20m:  return 14_080_000
+                case .band17m:  return 18_104_000
+                case .band15m:  return 21_140_000
+                case .band12m:  return 24_919_000
+                case .band10m:  return 28_080_000
+                case .band6m:   return 50_318_000
+                case .unknown:  return nil
+                }
             }
         }
-        
+
         static var validBands: [Band] {
-            Band.allCases.filter { $0 != .unknown }
+            allCases.filter { $0 != .unknown }
         }
     }
+
     
     // MARK: - Participant Parsing
     static func parseParticipants(
@@ -446,7 +472,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         FT8Message:
           text: "\(text)"
           mode: \(mode.rawValue)
-          band: \(band.rawValue) (\(band.frequency) Hz)
+          band: \(band.rawValue) (\(band.frequency(for: mode)) Hz)
           timestamp: \(timestamp)
           cycle: \(cycle.rawValue)
           isRealtime: \(isRealtime)
@@ -467,3 +493,4 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         """
     }
 }
+

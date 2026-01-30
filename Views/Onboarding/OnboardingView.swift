@@ -10,7 +10,7 @@ import SwiftUI
 struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @State private var currentPage = 0
-    private let totalPages = 11
+    private let totalPages = 12
 
     var body: some View {
         ZStack {
@@ -23,8 +23,6 @@ struct OnboardingView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
-            
-            
 
             VStack {
                 HStack {
@@ -98,21 +96,6 @@ struct OnboardingView: View {
                 }
             }
         case 7:
-            onboardingPage(image: "person.crop.circle.badge.checkmark", color: .indigo, title: "onb_title_station") {
-                VStack(spacing: 8) {
-                    Text("onb_station_text1")
-                    Text("onb_station_text2")
-                }
-            }
-        case 8: // AutoSequencing
-            onboardingPage(image: "gearshape.fill", color: .purple, title: "onb_title_autosequencing") {
-                VStack(spacing: 8) {
-                    Text("onb_autosequencing_text1")
-                    Text("onb_autosequencing_text2")
-                    Text("onb_autosequencing_text3")
-                }
-            }
-        case 9: // Logbook
             onboardingPage(image: "book.fill", color: .brown, title: "onb_title_logbook") {
                 VStack(spacing: 8) {
                     Text("onb_logbook_text1")
@@ -120,7 +103,35 @@ struct OnboardingView: View {
                     Text("onb_logbook_text3")
                 }
             }
+        case 8:
+            onboardingPage(image: "gearshape.fill", color: .purple, title: "onb_title_autosequencing") {
+                VStack(spacing: 8) {
+                    Text("onb_autosequencing_text1")
+                    Text("onb_autosequencing_text2")
+                    Text("onb_autosequencing_text3")
+                }
+            }
+        case 9:
+
+            onboardingPage(image: "person.crop.circle.badge.checkmark", color: .indigo, title: "onb_title_station") {
+                VStack(spacing: 8) {
+                    Text("onb_station_text1")
+                    Text("onb_station_text2")
+                }
+            }
         case 10:
+            onboardingPage(
+                image: "play.circle.fill",
+                color: .orange,
+                title: "Getting Started"
+            ) {
+                Text("onb_gstarted_text1")
+                Text("onb_gstarted_text2")
+                Text("onb_gstarted_text3")
+                Text("onb_gstarted_text4")
+                Text("onb_gstarted_text5")
+            }
+        case 11:
             finishPage()
         default:
             EmptyView()
@@ -136,22 +147,22 @@ struct OnboardingView: View {
     ) -> some View {
         VStack(spacing: 24) {
             Spacer()
-            
+
             Image(systemName: image)
                 .font(.system(size: 100))
                 .foregroundStyle(color)
                 .symbolEffect(.bounce, options: .speed(0.05))
-            
+
             Text(title)
                 .font(.largeTitle)
                 .bold()
-            
+
             content()
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-            
+
             Spacer()
-            
+
             Text("onb_slide_continue")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -162,20 +173,20 @@ struct OnboardingView: View {
     private func finishPage() -> some View {
         VStack(spacing: 24) {
             Spacer()
-            
+
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 100))
                 .foregroundStyle(.green)
                 .symbolEffect(.bounce)
-            
+
             Text("onb_finish_title")
                 .font(.largeTitle)
                 .bold()
-            
+
             Text("onb_finish_text")
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-            
+
             Button {
                 hasCompletedOnboarding = true
             } label: {
@@ -186,7 +197,7 @@ struct OnboardingView: View {
             .tint(.green)
             .controlSize(.large)
             .padding(.horizontal, 40)
-            
+
             Spacer()
         }
     }

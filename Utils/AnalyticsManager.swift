@@ -28,34 +28,32 @@ enum RadioActivityType: String {
 
 /// Singleton manager to handle anonymous app metrics, App Store compliant.
 final class AnalyticsManager {
+
     private let appLogger = AppLogger(category: "ANL")
-    
+
     // MARK: - Singleton
     static let shared = AnalyticsManager()
-    
+
     // MARK: - Radio Activity State
     private var activeRadioActivity: RadioActivityType?
     private var radioActivityStartTime: Date?
 
     private init() {
-        // Default to true if the key doesn't exist yet
         UserDefaults.standard.register(defaults: ["analyticsEnabled": true])
-        
+
         #if DEBUG
-                // Disable analytics during development to avoid polluting production data
         self.isAnalyticsEnabled = false
         #else
         let saved = UserDefaults.standard.bool(forKey: "analyticsEnabled")
         self.isAnalyticsEnabled = saved
-                // Set the initial state for the SDK
         Analytics.setAnalyticsCollectionEnabled(saved)
         #endif
     }
-    
+
     // MARK: - Properties
     private var sessionDecodedMessages: Int = 0
     private var sessionQSOs: Int = 0
-    
+
     /// Internal toggle to enable/disable data collection
     var isAnalyticsEnabled: Bool {
         didSet {
@@ -65,7 +63,7 @@ final class AnalyticsManager {
             #endif
         }
     }
-    
+
     // MARK: - Firebase Lifecycle
     func configureFirebase() {
         #if !DEBUG
@@ -73,16 +71,32 @@ final class AnalyticsManager {
         Analytics.setAnalyticsCollectionEnabled(isAnalyticsEnabled)
         #endif
     }
-    
-    
-    // MARK: - Usage Events
+
+    // MARK: - App Lifecycle
     func logAppOpened() {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent(AnalyticsEventAppOpen, parameters: nil)
     }
-    
+
+    // MARK: - Rate & Share Events
+
+    func logRateConfirmed() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("rate_confirmed", parameters: nil)
+    }
+
+    func logRatePostponed() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("rate_postponed", parameters: nil)
+    }
+
+    func logShareCompleted() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("share_completed", parameters: nil)
+    }
+
     // MARK: - Radio Activity Tracking
-    
+
     func startRadioActivity(_ activity: RadioActivityType) {
         guard isAnalyticsEnabled else { return }
         guard activeRadioActivity != activity else { return }
@@ -92,11 +106,11 @@ final class AnalyticsManager {
         activeRadioActivity = activity
         radioActivityStartTime = Date()
     }
-    
+
     func stopRadioActivity() {
         flushRadioActivityUsage()
     }
-    
+
     private func flushRadioActivityUsage() {
         guard
             isAnalyticsEnabled,
@@ -119,12 +133,13 @@ final class AnalyticsManager {
         activeRadioActivity = nil
         radioActivityStartTime = nil
     }
-    
+
     // MARK: - Decoded Messages Logic
+
     func addDecodedMessages(count: Int = 1) {
         sessionDecodedMessages += count
     }
-    
+
     func flushDecodedMessages() {
         guard isAnalyticsEnabled, sessionDecodedMessages > 0 else { return }
         Analytics.logEvent("messages_decoded", parameters: [
@@ -132,12 +147,13 @@ final class AnalyticsManager {
         ])
         sessionDecodedMessages = 0
     }
-    
+
     // MARK: - QSO Logic
+
     func addQSOs(count: Int = 1) {
         sessionQSOs += count
     }
-    
+
     func flushQSOs() {
         guard isAnalyticsEnabled, sessionQSOs > 0 else { return }
         Analytics.logEvent("qso_logged", parameters: [
@@ -145,8 +161,9 @@ final class AnalyticsManager {
         ])
         sessionQSOs = 0
     }
-    
+
     // MARK: - ADIF Export
+
     func logADIFExport(qsoCount: Int, exportType: String = "file") {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent("adif_export", parameters: [
@@ -154,9 +171,9 @@ final class AnalyticsManager {
             "export_type": exportType
         ])
     }
-    
+
     // MARK: - Background Management
-    /// Flushes accumulated counters when the app moves to the background
+
     func flushAllOnBackground(scenePhase: ScenePhase) {
         if scenePhase == .background || scenePhase == .inactive {
             flushDecodedMessages()
@@ -164,7 +181,9 @@ final class AnalyticsManager {
             stopRadioActivity()
         }
     }
-    
+
+    // MARK: - Screen Tracking
+
     func trackScreen(_ screen: AnalyticsScreen) {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent(
@@ -175,14 +194,14 @@ final class AnalyticsManager {
             ]
         )
     }
-    
+
     func trackViewMode(_ mode: ViewMode) {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent("view_mode_selected", parameters: [
             "view_mode": mode.rawValue.lowercased()
         ])
     }
-    
+
     func trackRadioModeChange(isFT4: Bool) {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent("radio_mode_changed", parameters: [

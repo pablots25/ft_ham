@@ -6,6 +6,26 @@
 //
 
 import SwiftUI
+import SafariServices
+
+// MARK: - In-app Safari View
+
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        let configuration = SFSafariViewController.Configuration()
+        configuration.entersReaderIfAvailable = false
+
+        let controller = SFSafariViewController(url: url, configuration: configuration)
+        controller.preferredControlTintColor = UIColor.systemBlue
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {
+        // No updates needed
+    }
+}
 
 // MARK: - Configuration View
 
@@ -22,6 +42,7 @@ enum ViewMode: String, Codable, CaseIterable, Identifiable {
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     
+    @State private var showHelp = false
     @State private var sliderTempValue: Float = 1.0
     
     private let appLogger = AppLogger(category: "APP")
@@ -122,7 +143,9 @@ struct ConfigurationView: View {
                 
                 Divider()
                 
-                NavigationLink(destination: HelpView()) {
+                Button {
+                    showHelp = true
+                } label: {
                     Text("Help")
                         .font(.headline)
                         .foregroundStyle(.blue)
@@ -159,6 +182,12 @@ struct ConfigurationView: View {
                 copyrightSection
             }
             .padding()
+        }
+        .sheet(isPresented: $showHelp) {
+            SafariView(
+                url: URL(string: "https://ftham.turrion.dev/#getting-started")!
+            )
+            .ignoresSafeArea()
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -370,23 +399,97 @@ struct ConfigurationView: View {
     }
     
     private var bandView: some View {
-        VStack {
+        let bands = FT8Message.Band.validBands
+        let mode: FT8Message.FT8MessageMode = viewModel.isFT4 ? .ft4 : .ft8
+        let frequencyHz = viewModel.selectedBand.frequency(for: mode)
+
+        let frequencyText: String = {
+            guard let hz = frequencyHz else {
+                return "— MHz"
+            }
+            return String(format: "%.3f MHz", hz / 1_000_000)
+        }()
+
+        let selectedIndex: Int? = bands.firstIndex(of: viewModel.selectedBand)
+
+        return VStack(spacing: 10) {
             HStack(spacing: 10) {
                 Text("Band:")
-                Text("\(viewModel.selectedBand.frequency / 1_000_000, specifier: "%.3f") MHz")
+                Text(frequencyText)
                     .foregroundStyle(.secondary)
             }
-            
-            Picker("Band", selection: $viewModel.selectedBand) {
-                ForEach(FT8Message.Band.validBands, id: \.self) { band in
-                    Text(band.rawValue)
-                        .tag(band)
+
+            ScrollViewReader { proxy in
+                HStack(spacing: 6) {
+
+                    // MARK: - Left arrow
+                    Button {
+                        guard let index = selectedIndex, index > 0 else { return }
+                        let newBand = bands[index - 1]
+                        withAnimation {
+                            viewModel.selectedBand = newBand
+                            proxy.scrollTo(newBand, anchor: .center)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.headline)
+                            .padding(8)
+                    }
+                    .disabled(selectedIndex == 0)
+
+                    // MARK: - Scrollable bands
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(bands, id: \.self) { band in
+                                Button {
+                                    withAnimation {
+                                        viewModel.selectedBand = band
+                                        proxy.scrollTo(band, anchor: .center)
+                                    }
+                                } label: {
+                                    Text(band.rawValue)
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            band == viewModel.selectedBand
+                                            ? Color.accentColor
+                                            : Color.secondary.opacity(0.2)
+                                        )
+                                        .foregroundColor(
+                                            band == viewModel.selectedBand
+                                            ? .white
+                                            : .primary
+                                        )
+                                        .clipShape(Capsule())
+                                }
+                                .id(band)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+
+                    // MARK: - Right arrow
+                    Button {
+                        guard let index = selectedIndex, index < bands.count - 1 else { return }
+                        let newBand = bands[index + 1]
+                        withAnimation {
+                            viewModel.selectedBand = newBand
+                            proxy.scrollTo(newBand, anchor: .center)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.headline)
+                            .padding(8)
+                    }
+                    .disabled(selectedIndex == bands.count - 1)
                 }
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 5)
         }
     }
+
+
+
     
     private var viewModeView: some View {
         VStack {

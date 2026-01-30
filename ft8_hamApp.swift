@@ -52,6 +52,7 @@ struct ft8_hamApp: App {
             ContentView()
                 .environmentObject(viewModel)
                 .modifier(QSOLogConfirmationModifier(manager: viewModel))
+                .inAppPrompts()
         }
         .onChange(of: scenePhase) { _, newPhase in
             AnalyticsManager.shared.flushAllOnBackground(scenePhase: newPhase)

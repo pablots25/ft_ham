@@ -10,6 +10,7 @@ xcuserdata/
 DerivedData/
 Build/
 .build/
+Assets.xcassets
 
 # Sensitive Firebase/Configuration Files
 GoogleService-Info.plist
