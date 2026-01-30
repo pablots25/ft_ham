@@ -86,5 +86,5 @@ This EULA is governed by the laws of Spain.
 10. Contact
 - For questions about licensing, privacy, or app usage, contact:  
   Pablo Turrión San Pedro  
-  Email: pablots1@gmail.com  
+  Email: ea4iql@turrion.dev 
   Callsign: EA4IQL
