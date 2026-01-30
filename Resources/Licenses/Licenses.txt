@@ -1,0 +1,114 @@
+--- End-User License Agreement (EULA) ---
+
+FT8 Ham
+
+Please read this End-User License Agreement carefully before using this app.
+
+1. Acceptance
+By using this app, you agree to the terms of this EULA.
+
+2. License
+You are granted a non-exclusive, non-transferable license to use the app.
+
+3. Restrictions
+You may not reverse engineer, distribute, or sublicense this app without explicit permission.
+Restrictions in this EULA apply to the app as a compiled and distributed package. Individual third-party libraries included under MIT licenses may have more permissive terms as specified in their licenses.
+
+4. Disclaimer
+The app is provided "as-is" without any warranties. The collection of anonymous usage metrics by Firebase does not affect the functionality of the app.
+
+5. Governing Law
+This EULA is governed by the laws of Spain.
+
+6. Privacy and Tracking
+- This app respects your privacy. Firebase Analytics collects only **anonymous usage metrics**.
+- The app may request permission for App Tracking Transparency (ATT) to comply with Apple policies.
+- You can choose to **disable analytics** in the app settings at any time.
+- No personal data is shared with third parties outside Firebase services.
+
+7. Export of Data (Optional Features)
+- Users may export ADIF files, logs, or other local data.
+- Exported files contain only the data created by the user and are not shared externally unless the user chooses to export them.
+- Once exported, data files are under the user’s control, and the app developer is not responsible for how exported data is shared externally.
+
+8. Updates to this EULA and Licenses
+- This EULA may be updated when new third-party libraries are added or when app policies change.
+- Users will be informed of major changes via app update notes or in-app notices.
+
+9. Third-Party Licenses
+
+- **KISS FFT**  
+  Copyright (c) 2003-2010 Mark Borgerding. All rights reserved.  
+  SPDX-License-Identifier: BSD-3-Clause  
+  Redistribution and use in source and binary forms, with or without modification,
+  are permitted provided that the following conditions are met:
+  1. Redistributions of source code must retain the above copyright notice, this
+     list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice, this
+     list of conditions and the following disclaimer in the documentation and/or
+     other materials provided with the distribution.
+  3. Neither the name of the copyright holder nor the names of its contributors may
+     be used to endorse or promote products derived from this software without
+     specific prior written permission.
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+  OF THE POSSIBILITY OF SUCH DAMAGE.
+
+- **ft8_lib**  
+  Copyright (c) 2018-2025 kgoba  
+  MIT License  
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+- **FT8 Ham (core app)**  
+  Copyright (c) 2026 Pablo Turrión San Pedro (EA4IQL)  
+  MIT License  
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+- **Firebase iOS SDK (Analytics, Core, Installations)**  
+  Copyright 2011-2026 Google Inc.  
+  Licensed under the Apache License, Version 2.0  
+  http://www.apache.org/licenses/LICENSE-2.0  
+  The Firebase SDK is provided "as-is" without warranty of any kind. It may collect
+  anonymous usage data to improve the software. No personally identifiable information
+  is collected unless explicitly authorized by the user.
+
+10. Contact
+- For questions about licensing, privacy, or app usage, contact:  
+  Pablo Turrión San Pedro  
+  Email: pablots1@gmail.com  
+  Callsign: EA4IQL

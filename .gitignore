@@ -1,0 +1,102 @@
+# Xcode
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+xcuserdata/
+DerivedData/
+Build/
+.build/
+
+# Sensitive Firebase/Configuration Files
+GoogleService-Info.plist
+*.plist.local
+*.plist.dev
+*.plist.prod
+.env
+.env.local
+.env.*.local
+config.local.swift
+
+# API Keys & Credentials
+*.key
+*.p8
+*.p12
+*.pfx
+*.cer
+*.crt
+secrets/
+credentials/
+
+# CocoaPods
+Pods/
+Podfile.lock
+*.podspec.lock
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+
+# OS
+Thumbs.db
+ehthumbs.db
+
+# Temporary Files
+*.tmp
+*.temp
+*.log
+*.bak
+*.backup
+
+# Build artifacts
+build/
+dist/
+*.app
+*.ipa
+
+# Carthage
+Carthage/Build/
+Cartfile.resolved
+
+# Accio dependency management
+Dependencies/
+.accio/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+fastlane/test_output/**/*
+
+# Code coverage
+*.coverage
+.cov
+coverage/
+*.profdata
+
+# Local development
+.venv
+env/
+venv/
+ENV/
