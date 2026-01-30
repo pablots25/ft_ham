@@ -12,7 +12,7 @@ An iOS application for FT8/FT4 digital amateur radio communication. FT Ham enabl
 
 ## For More Information
 
-Visit the [FT Ham Landing Page](https://ft8ham.com) for:
+Visit the [FT Ham Landing Page](https://ftham.turrion.dev/) for:
 - Detailed app documentation
 - Quick start guides
 - Feature overview
