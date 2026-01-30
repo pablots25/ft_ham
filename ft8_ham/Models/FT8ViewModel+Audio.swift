@@ -103,6 +103,13 @@ extension FT8ViewModel {
         if let lastMessage = result.messages.last(where: { $0.msgType != .internalTimestamp }) {
             decodedMessage = lastMessage
         }
+
+        let decodedCount = result.messages.filter {
+            $0.msgType != .internalTimestamp && !$0.isTX
+        }.count
+        if decodedCount > 0 {
+            AnalyticsManager.shared.addDecodedMessages(count: decodedCount)
+        }
         
         waterfallVM.addVerticalLabels(result.labels)
         

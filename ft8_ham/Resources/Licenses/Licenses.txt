@@ -1,0 +1,133 @@
+# End-User License Agreement (EULA)
+
+## FT8 Ham
+
+Please read this End-User License Agreement carefully before using this app.
+
+---
+
+## 1. Acceptance
+
+By installing, accessing, or using this app, you agree to the terms of this End-User License Agreement (“EULA”).
+
+---
+
+## 2. License
+
+The **FT8 Ham** application is **open-source software licensed under the MIT License**.
+
+You are granted a worldwide, royalty-free, non-exclusive license to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software, subject to the terms of the MIT License included with this app.
+
+---
+
+## 3. Scope of This EULA
+
+This EULA applies **only to the use of the compiled application as distributed through official app stores**.
+
+Nothing in this EULA is intended to restrict, replace, or override the rights granted to you under the MIT License or other applicable open-source licenses included with this app.
+
+Third-party libraries included in the app are governed by their respective licenses, which may grant additional rights.
+
+---
+
+## 4. Disclaimer of Warranty
+
+The app is provided **“as is”**, without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement.
+
+The use of Firebase Analytics to collect **anonymous and aggregated usage metrics** does not affect the functionality of the app and is provided solely to improve stability and user experience.
+
+---
+
+## 5. Governing Law
+
+This EULA is governed by the laws of Spain, **without prejudice to mandatory consumer protection laws applicable in the user’s country of residence**.
+
+---
+
+## 6. Privacy and Tracking
+
+- This app respects your privacy.
+- Firebase Analytics collects **anonymous, aggregated usage metrics only**.
+- The app may request permission for App Tracking Transparency (ATT) to comply with Apple platform requirements.
+- You can choose to **disable analytics** in the app settings at any time.
+- No personal data is shared with third parties outside Firebase services.
+
+---
+
+## 7. Export of Data (Optional Features)
+
+- Users may export ADIF files, logs, or other locally generated data.
+- Exported files contain only data created by the user.
+- Exported data is not shared externally unless the user explicitly chooses to do so.
+- Once exported, data files are under the user’s control, and the app developer is not responsible for any third-party handling or redistribution of those files.
+
+---
+
+## 8. Updates to This EULA and Licenses
+
+- This EULA may be updated to reflect changes in app functionality or the inclusion of new third-party libraries.
+- Updates will not restrict rights granted under open-source licenses.
+- Users will be informed of major changes through app update notes or in-app notices.
+
+---
+
+## 9. Third-Party and Open-Source Licenses
+
+This app includes the following open-source components:
+
+---
+
+### KISS FFT
+
+Copyright (c) 2003–2010 Mark Borgerding  
+SPDX-License-Identifier: BSD-3-Clause
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions, and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions, and the following disclaimer in the documentation and/or other materials provided with the distribution.
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+
+---
+
+### ft8_lib
+
+Copyright (c) 2018–2025 kgoba  
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND.
+
+---
+
+### FT8 Ham (core application)
+
+Copyright (c) 2026 Pablo Turrión San Pedro (EA4IQL)  
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND.
+
+---
+
+### Firebase iOS SDK (Analytics, Core, Installations)
+
+Copyright 2011–2026 Google Inc.  
+Licensed under the Apache License, Version 2.0
+
+The Firebase SDK is provided “as is” without warranties of any kind.  
+A copy of the Apache License, Version 2.0, is included with this app.
+
+---
+
+## 10. Contact
+
+For questions about licensing, privacy, or app usage, contact:
+
+**Pablo Turrión San Pedro**  
+Email: ea4iql@turrion.dev  
+Callsign: EA4IQL

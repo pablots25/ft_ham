@@ -222,15 +222,24 @@ struct ConfigurationView: View {
         }
         .onChange(of: viewModel.callsign) { _, newValue in
             validCallsign = isValidCallsign(newValue)
+            if validCallsign && !newValue.isEmpty {
+                AnalyticsManager.shared.logConfigurationSaved()
+            }
         }
         .onChange(of: viewModel.locator) { _, newValue in
             validLocator = isValidLocator(newValue)
+            if validLocator && !newValue.isEmpty {
+                AnalyticsManager.shared.logConfigurationSaved()
+            }
         }
         .onChange(of: viewModel.frequency) { _, newValue in
             if focusedInput != .frequency {
                 frequencyText = Self.frequencyFormatter.string(
                     from: NSNumber(value: newValue / 1000)
                 ) ?? frequencyText
+            }
+            if newValue > 0 {
+                AnalyticsManager.shared.logConfigurationSaved()
             }
         }
     }

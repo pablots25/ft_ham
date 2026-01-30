@@ -401,6 +401,7 @@ struct TermsSheet: View {
                 Spacer()
                 
                 Button(action: {
+                    AnalyticsManager.shared.logTermsAccepted()
                     hasAcceptedTerms = true
                     dismiss()
                 }) {

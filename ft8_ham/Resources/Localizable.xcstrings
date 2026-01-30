@@ -1544,7 +1544,7 @@
         },
         "es" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "3. Establece tu indicativo y locator"
           }
         }
@@ -1562,7 +1562,7 @@
         },
         "es" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "4. Activa TX/RX para comenzar a monitorizar señales FT8/FT4"
           }
         }
@@ -2982,7 +2982,6 @@
       }
     },
     "View app logs" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -78,6 +78,18 @@ final class AnalyticsManager {
         Analytics.logEvent(AnalyticsEventAppOpen, parameters: nil)
     }
 
+    // MARK: - Onboarding & Legal
+
+    func logOnboardingCompleted() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("onboarding_completed", parameters: nil)
+    }
+
+    func logTermsAccepted() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("terms_accepted", parameters: nil)
+    }
+
     // MARK: - Rate & Share Events
 
     func logRateConfirmed() {
@@ -95,6 +107,13 @@ final class AnalyticsManager {
         Analytics.logEvent("share_completed", parameters: nil)
     }
 
+    // MARK: - Configuration
+
+    func logConfigurationSaved() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("configuration_saved", parameters: nil)
+    }
+
     // MARK: - Radio Activity Tracking
 
     func startRadioActivity(_ activity: RadioActivityType) {
@@ -105,9 +124,22 @@ final class AnalyticsManager {
 
         activeRadioActivity = activity
         radioActivityStartTime = Date()
+
+        if activity == .tx {
+            Analytics.logEvent("transmission_started", parameters: nil)
+        }
     }
 
-    func stopRadioActivity() {
+    func stopRadioActivity(success: Bool? = nil, failureReason: String? = nil) {
+        if let success {
+            if success {
+                Analytics.logEvent("transmission_success", parameters: nil)
+            } else {
+                Analytics.logEvent("transmission_failed", parameters: [
+                    "reason": failureReason ?? "unknown"
+                ])
+            }
+        }
         flushRadioActivityUsage()
     }
 

@@ -29,6 +29,7 @@ struct OnboardingView: View {
                     Spacer()
                     if currentPage < totalPages - 1 {
                         Button("Skip") {
+                            AnalyticsManager.shared.logOnboardingCompleted()
                             hasCompletedOnboarding = true
                         }
                         .padding(.trailing, 20)
@@ -188,6 +189,7 @@ struct OnboardingView: View {
                 .padding(.horizontal, 32)
 
             Button {
+                AnalyticsManager.shared.logOnboardingCompleted()
                 hasCompletedOnboarding = true
             } label: {
                 Text("onb_finish_button")
