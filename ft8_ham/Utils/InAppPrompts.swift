@@ -1,6 +1,6 @@
 //
 //  InAppPrompts.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 4/1/26.
 //

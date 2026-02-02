@@ -1,6 +1,6 @@
 //
 //  FullScreenWaterfallView.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 24/11/25.
 //

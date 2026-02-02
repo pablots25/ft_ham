@@ -1,6 +1,6 @@
 //
 //  GridMapView.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 23/11/25.
 //

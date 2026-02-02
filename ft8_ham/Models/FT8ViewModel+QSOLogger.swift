@@ -1,6 +1,6 @@
 //
 //  QSOLogExtension.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 9/1/26.
 //

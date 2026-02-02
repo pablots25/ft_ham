@@ -1,6 +1,6 @@
 //
 //  SlotManager.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 15/12/25.
 //

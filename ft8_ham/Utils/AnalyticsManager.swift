@@ -1,6 +1,6 @@
 //
 //  AnalyticsManager.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 2026-01-04.
 //
