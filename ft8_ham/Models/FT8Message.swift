@@ -83,6 +83,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
     let locator: String?       // Sender
     let dxCallsign: String?    // Receiver
     let dxLocator: String?     // Receiver
+    let cqModifier: String?
     
     let senderCountry: CountryInfo
     let dxCountry: CountryInfo
@@ -115,26 +116,37 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         // Assign TX cycle based on timestamp and mode (FT4 / FT8)
         self.cycle = FT8Message.calculateCycle(from: timestamp, mode: mode)
         
+        // Parse message once for all operations
+        let parts = FT8Message.splitParts(text)
+        
         // Auto-detect FT8 message type
-        msgType = FT8Message.detectMessageType(text)
-        self.messageTxtSNR = FT8Message.extractSNR(from: text, type: msgType)
+        msgType = FT8Message.detectMessageType(text: text, parts: parts)
+        self.messageTxtSNR = FT8Message.extractSNR(parts: parts, type: msgType)
         
         self.allowsReply = (msgType != .unknown && !isTX) ? allowsReply : false
         
         // Extract sender / receiver information
-        let participants = FT8Message.parseParticipants(from: text)
+        let participants = FT8Message.parseParticipants(parts: parts)
         
         // Assign sender info
         callsign = participants.senderCallsign
         locator = participants.senderLocator
-        senderCountry = callsign.flatMap { CountryResolver.countryAndCoordinates(for: $0) }
-        ?? CountryInfo(country: nil, coordinates: nil)
-        
+        if let call = callsign {
+            senderCountry = CountryResolver.countryAndCoordinates(for: call)
+        } else {
+            senderCountry = CountryInfo(country: nil, coordinates: nil)
+        }
+                
         // Assign receiver info
         dxCallsign = participants.receiverCallsign
         dxLocator = participants.receiverLocator
-        dxCountry = dxCallsign.flatMap { CountryResolver.countryAndCoordinates(for: $0) }
-        ?? CountryInfo(country: nil, coordinates: nil)
+        if let dx = dxCallsign {
+            dxCountry = CountryResolver.countryAndCoordinates(for: dx)
+        } else {
+            dxCountry = CountryInfo(country: nil, coordinates: nil)
+        }
+
+        cqModifier = FT8Message.parseCQStructure(parts)?.modifier
         
         let myCallsign = UserDefaults.standard.string(forKey: "callsign")
 
@@ -148,8 +160,8 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
             forMe = false
         }
 
-        
-        FT8Message.appLogger.debug("New: \(self.text) (\(self.msgType))")
+        let snrDisplay = measuredSNR.isNaN ? "N/A" : String(format: "%.0f", measuredSNR)
+        FT8Message.appLogger.debug("New message: \(self.text) (\(self.msgType), SNR: \(snrDisplay))")
     }
     
     // Convenience initializer for internal timestamp messages
@@ -180,6 +192,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         self.locator = nil
         self.dxCallsign = nil
         self.dxLocator = nil
+        self.cqModifier = nil
         self.senderCountry = CountryInfo(country: nil, coordinates: nil)
         self.dxCountry = CountryInfo(country: nil, coordinates: nil)
     }
@@ -292,38 +305,79 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
     }
 
     
+    // MARK: - FT8 CQ Token Whitelist (from WSJT-X grammar)
+    static let validCQTokens: Set<String> = [
+        "DX","EU","NA","SA","AF","AS","OC","ANT",
+        "POTA","SOTA","WWFF","IOTA"
+    ]
+
+    // MARK: - Parsing helpers
+    private static func splitParts(_ text: String) -> [Substring] {
+        text.uppercased().split(separator: " ")
+    }
+
+    // MARK: - Internal CQ grammar parser
+    private static func parseCQStructure(_ parts: [Substring]) -> (
+        modifier: String?,
+        callsign: String?,
+        locator: String?
+    )? {
+        guard parts.count >= 2, parts[0] == "CQ" else {
+            return nil
+        }
+
+        // CQ CALL [GRID]
+        if isValidCallsign(String(parts[1])) {
+            let locator = (parts.count >= 3 && isValidLocator(String(parts[2])))
+                ? String(parts[2])
+                : nil
+
+            return (nil, String(parts[1]), locator)
+        }
+
+        // CQ TOKEN CALL [GRID]
+        if parts.count >= 3,
+           validCQTokens.contains(String(parts[1])),
+           isValidCallsign(String(parts[2])) {
+
+            let locator = (parts.count >= 4 && isValidLocator(String(parts[3])))
+                ? String(parts[3])
+                : nil
+
+            return (String(parts[1]), String(parts[2]), locator)
+        }
+
+        return nil
+    }
+
+    static func extractCQModifier(from text: String) -> String? {
+        let parts = text.uppercased().split(separator: " ")
+        return parseCQStructure(parts)?.modifier
+    }
+
     // MARK: - Participant Parsing
     static func parseParticipants(
-        from text: String
+        parts: [Substring]
     ) -> (
         senderCallsign: String?,
         senderLocator: String?,
         receiverCallsign: String?,
         receiverLocator: String?
     ) {
-        let parts = text.uppercased().split(separator: " ")
         guard parts.count >= 2 else {
             return (nil, nil, nil, nil)
         }
 
-        // CQ <sender> [<locator>]
-        if parts[0] == "CQ" {
-            let senderCall = String(parts[1])
-
-            var senderLocator: String? = nil
-            if parts.count >= 3, isValidLocator(String(parts[2])) {
-                senderLocator = String(parts[2])
-            }
-
-            return (
-                senderCallsign: senderCall,
-                senderLocator: senderLocator,
-                receiverCallsign: nil,
-                receiverLocator: nil
-            )
+        if let cq = parseCQStructure(parts) {
+            return (cq.callsign, cq.locator, nil, nil)
         }
 
         // <receiver> <sender> <xxx>
+        guard isValidCallsign(String(parts[0])),
+              isValidCallsign(String(parts[1])) else {
+            return (nil, nil, nil, nil)
+        }
+
         let receiverCall = String(parts[0])
         let senderCall = String(parts[1])
 
@@ -343,40 +397,37 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
     
     
     // MARK: - Message Type Detection
-    static func detectMessageType(_ text: String) -> FT8MessageType {
-        let parts = text.uppercased().split(separator: " ")
-        
+    static func detectMessageType(text: String, parts: [Substring]) -> FT8MessageType {
         guard !parts.isEmpty else { return .unknown }
         
         if isInternalTimestamp(text) {
             return .internalTimestamp
         }
         
-        // CQ messages
-        if parts[0] == "CQ" {
+        if parseCQStructure(parts) != nil {
             return .cq
         }
         
-        // RR73 / RRR / 73 responses (check before standard signal report)
-        if parts.contains("RR73") { return .rr73 }
-        if parts.contains("RRR") { return .rrr }
-        if parts.contains("73") { return .final73 }
+        let p = parseParticipants(parts: parts)
         
-        // Standard exchanges between two callsigns
-        if parts.count >= 3,
-           isValidCallsign(String(parts[0])),
-           isValidCallsign(String(parts[1])) {
+        if let s = p.senderCallsign,
+           let r = p.receiverCallsign {
             
-            let third = parts[2]
+            if parts.contains("RR73") { return .rr73 }
+            if parts.contains("RRR") { return .rrr }
+            if parts.contains("73") { return .final73 }
             
-            if isValidLocator(String(third)) {
+            if parts.count == 3,
+            let locator = p.senderLocator,
+            isValidLocator(locator) {
                 return .gridExchange
-            } else if isSignalReport(third) {
-                if third.contains("R"){
-                    return .rSignalReport
-                }else{
-                    return .standardSignalReport
-                }
+            }
+            
+            if parts.count == 3,
+            isSignalReport(parts[2]) {
+                return parts[2].contains("R")
+                    ? .rSignalReport
+                    : .standardSignalReport
             }
         }
         
@@ -425,9 +476,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
     }    
     
     // MARK: - Extract SNR from text
-    static func extractSNR(from text: String, type: FT8MessageType) -> Double {
-        let parts = text.uppercased().split(separator: " ")
-        
+    static func extractSNR(parts: [Substring], type: FT8MessageType) -> Double {
         guard !parts.isEmpty else { return .nan }
         
         func parseNumber(_ str: String) -> Double? {

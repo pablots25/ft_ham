@@ -14,6 +14,9 @@ struct TransmissionView: View {
     @State private var columnFrame: CGRect = .zero
     @AppStorage("hasSeenSlideToReplyTutorial") private var hasSeenTutorial: Bool = false
     @State private var showTutorial: Bool = false
+    
+    @AppStorage("showOnlyInvolved")
+    private var showOnlyInvolved: Bool = false
 
     var body: some View {
         GeometryReader { geo in
@@ -95,7 +98,7 @@ private extension TransmissionView {
             
             VStack {
                 QSOStatusView()
-//                DXInfoFields()
+                //                DXInfoFields()
                 MessageSelector()
             }
             .padding(.horizontal, 40)
@@ -121,47 +124,75 @@ private extension TransmissionView {
             TransmissionButtonsBar()
             Divider()
             QSOStatusView().padding(.horizontal)
-//            DXInfoFields().padding(.horizontal)
+            //            DXInfoFields().padding(.horizontal)
             MessageSelector().padding(.horizontal)
         }
     }
     
     var messagesSection: some View {
         HStack(alignment: .top, spacing: 12) {
+            let receivedFiltered = showOnlyInvolved
+            ? viewModel.receivedMessages.filter { $0.forMe || $0.isTX }
+            : viewModel.receivedMessages
+            
+            let txFiltered = showOnlyInvolved
+            ? viewModel.transmittedMessages.filter { $0.forMe || $0.isTX }
+            : viewModel.transmittedMessages
+            
             messagesColumn(
-                title: "Received",
-                messages: viewModel.receivedMessages,
+                section: .received,
+                messages: receivedFiltered,
                 clearAction: viewModel.clearReceived,
                 allowReply: true
             )
             Divider()
             messagesColumn(
-                title: "Transmitted",
-                messages: viewModel.transmittedMessages,
+                section: .transmitted,
+                messages: txFiltered,
                 clearAction: viewModel.clearTransmitted
             )
         }
     }
     
     func messagesColumn(
-        title: LocalizedStringKey,
+        section: TransmissionSection,
         messages: [FT8Message],
         clearAction: @escaping () -> Void,
         allowReply: Bool = false
     ) -> some View {
         ZStack {
             VStack(alignment: .center) {
-                HStack {
-                    Text(title)
+                HStack(spacing: 10){
+                    Text(section.localizedName)
                         .font(.headline)
-                    Button("Clear", action: clearAction)
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
+                    Button(String(localized: "Clear"), action: clearAction)
                         .disabled(messages.isEmpty)
+                    
+                    if(allowReply){
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                showOnlyInvolved.toggle()
+                            }
+                        } label: {
+                            Image(systemName: showOnlyInvolved
+                                  ? "line.3.horizontal.decrease.circle.fill"
+                                  : "line.3.horizontal.decrease.circle")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
+                            .accessibilityLabel("Filter messages")
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .padding(.bottom, 2)
+                .padding(.vertical, 6)
+                
                 if !hasSeenTutorial, allowReply {
                     MessageListView(
                         messages: [PreviewMocks.rxMessages.first!],
-                        allowReply: allowReply
+                        allowReply: allowReply,
+                        showOnlyInvolved: $showOnlyInvolved
                     )
                     .background(
                         GeometryReader { proxy in
@@ -169,18 +200,22 @@ private extension TransmissionView {
                                 .onAppear {
                                     columnFrame = proxy.frame(in: .named("TransmissionSpace"))
                                 }
-                                .onChange(of: proxy.size) {
+                                .onChange(of: proxy.size) { _ in
                                     columnFrame = proxy.frame(in: .named("TransmissionSpace"))
                                 }
                         }
                     )
                 } else {
-                    MessageListView(messages: messages, allowReply: allowReply)
+                    MessageListView(
+                        messages: messages,
+                        allowReply: allowReply,
+                        showOnlyInvolved: $showOnlyInvolved
+                    )
                 }
             }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 2)
+            
+        }.frame(maxWidth: .infinity)
+            .padding(.bottom, 2)
     }
 }
 

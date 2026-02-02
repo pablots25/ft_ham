@@ -20,7 +20,6 @@ extension FT8ViewModel {
         
         dxCallsign = qsoManager.lockedDXCallsign
         dxLocator = qsoManager.lockedDXLocator
-        lastSentSNR = message.measuredSNR
         
         self.autoSequencingEnabled = true
         if autoSequencingEnabled {
@@ -108,7 +107,14 @@ extension FT8ViewModel {
         dxLocator = ""
         lastSentSNR = Double(Int.min)
         lastReceivedSNR = Double(Int.min)
-        isReadyForTX = true
+        
+        // Resume calling CQ if TX loop is active, otherwise stay idle
+        if transmitLoopActive {
+            qsoManager.startCallingCQ()
+            isReadyForTX = true
+        } else {
+            isReadyForTX = false
+        }
         
         invalidatePendingTX(reason: "QSO reset")
     }

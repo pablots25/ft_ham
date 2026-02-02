@@ -44,12 +44,14 @@ func isValidCallsign(_ text: String) -> Bool {
         return false
     }
 
+    // FT8/FT4 callsign validation: 
+    // In FT8, any callsign with "/" is valid - there's no closed list of modifiers
     // 1–3 alphanumeric prefix characters
-    // Exactly one digit
+    // Exactly one digit  
     // 1–3 trailing letters
-    // Optional single suffix (/P, /MM, /QRP, /1, etc.)
+    // Optional: slash followed by any alphanumeric suffix (P, MM, QRP, 1, /ABC, etc.)
     // Multiple suffixes are NOT allowed
-    let pattern = #"^[A-Z0-9]{1,3}\d[A-Z]{1,3}(\/[A-Z0-9]{1,5})?$"#
+    let pattern = #"^[A-Z0-9]{1,3}\d[A-Z]{1,3}(/[A-Z0-9]+)?$"#
 
     return upper.range(of: pattern, options: .regularExpression) != nil
 }

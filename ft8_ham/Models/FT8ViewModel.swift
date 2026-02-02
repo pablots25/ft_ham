@@ -7,6 +7,7 @@
 
 import Accelerate
 import Combine
+import CoreLocation
 import Foundation
 import SwiftUI
 import os.signpost
@@ -18,7 +19,11 @@ private let performanceLog = OSLog(subsystem: "com.ft8ham.app", category: "Perfo
 
 // MARK: - ViewModel
 @MainActor
-final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
+final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLLocationManagerDelegate {
+    
+    // MARK: - Location Manager
+    private let locationManager = CLLocationManager()
+    private var lastUserLocator: String?
     
     // MARK: - Constants
     internal enum Constants {
@@ -102,7 +107,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var transmitLoopActive = false
     @Published var wavURL: URL?
     
-    @Published var isReadyForTX = true
+    @Published var isReadyForTX = false
     @MainActor
     private var readyForTXContinuation: CheckedContinuation<Void, Never>?
     internal var firstLoopRX = true
@@ -123,11 +128,17 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var dxCallsign = ""
     @Published var dxLocator = ""
     @Published var lastReceivedSNR: Double = .nan
-    @Published var lastSentSNR:  Double = .nan
+    @Published var lastSentSNR: Double = .nan
     
     
     @Published var allMessages: [String] = [""]
-    @Published var selectedMessageIndex: Int? = 0
+    @Published var selectedMessageIndex: Int? = 0 {
+        didSet {
+            if oldValue != selectedMessageIndex {
+                appLogger.debug("selectedMessageIndex changed: \(String(describing: oldValue)) → \(String(describing: selectedMessageIndex))")
+            }
+        }
+    }
     @Published var cycleProgress: Double = 0
 
     // MARK: - Message Caching
@@ -235,6 +246,18 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         self.isFT4 = storedIsFT4
         self.lastReceivedSNR = 0
         
+        setupLogbook()
+        setupAudioSubscriptions()
+        setupQSOSubscriptions()
+        setupMessageRefreshSubscriptions()
+        setupPreviewData()
+        configureLocationManager()
+        
+        refreshMessagesIfNeeded(reason: "initial load")
+    }
+    
+    @MainActor
+    private func setupLogbook() {
         if !hasLoadedLogbook {
             self.qsoList = logbookManager.loadEntries()
             self.adifURL = logbookManager.saveInternalLog(self.qsoList) ?? logbookManager.getEmptyADIFURL()
@@ -251,10 +274,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             .store(in: &cancellables)
         
         workedLocators = []
-        
-        setupAudioSubscriptions()
-        setupQSOSubscriptions()
-        
+    }
+    
+    @MainActor
+    private func setupPreviewData() {
         if isPreview {
             receivedMessages = PreviewMocks.rxMessages
             transmittedMessages = PreviewMocks.txMessages
@@ -264,8 +287,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             
             qsoList = PreviewMocks.qsoList
         }
-
-        // Setup subscriptions to refresh messages when semantic inputs change only
+    }
+    
+    @MainActor
+    private func setupMessageRefreshSubscriptions() {
         let userDefaultsChanges = NotificationCenter.default
             .publisher(for: UserDefaults.didChangeNotification)
             .map { _ in () }
@@ -294,12 +319,6 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             self?.refreshMessagesIfNeeded(reason: "message-relevant state changed")
         }
         .store(in: &cancellables)
-
-        // Initial message refresh if valid values exist
-        refreshMessagesIfNeeded(reason: "initial load")
-
-        // Removed previous unconditional allMessages generation here
-        // and selectedMessageIndex is set inside refreshMessagesIfNeeded if generation occurs
     }
     
     // MARK: - Private Helper for Message Refresh
@@ -314,7 +333,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             locator: locator,
             dxCallsign: dxCallsign,
             dxLocator: dxLocator,
-            snrToSend: lastSentSNR
+            snrToSend: lastSentSNR,
+            cqModifier: UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE"
         )
 
         if let lastParams = lastGeneratedMessageParams, lastParams == currentParams {
@@ -323,7 +343,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
         appLogger.info("Regenerating messages due to: \(reason)")
         allMessages = generateMessages()
-        selectedMessageIndex = 0
+        // Only reset message index if we're not in an active QSO
+        // During QSO, regeneration happens (e.g., power updates) but we should preserve
+        // the selected message that was chosen for the current transmission
+        if qsoManager.qsoState.lockedCallsign == nil {
+            selectedMessageIndex = 0
+        }
         lastGeneratedMessageParams = currentParams
     }
 
@@ -360,11 +385,83 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         adifURL = logbookManager.saveInternalLog([])
     }
 
+    // MARK: - Location Manager Setup
+    @MainActor
+    func configureLocationManager() {
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+        
+        // Check current authorization status
+        let status = locationManager.authorizationStatus
+        
+        switch status {
+        case .notDetermined:
+            // Request authorization
+            locationManager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways:
+            // Already authorized, start updates
+            locationManager.startUpdatingLocation()
+            appLogger.info("Location services authorized, starting updates")
+        case .denied, .restricted:
+            appLogger.warning("Location services not authorized: \(status.rawValue)")
+        @unknown default:
+            appLogger.warning("Unknown location authorization status")
+        }
+    }
+
+    // MARK: - CLLocationManagerDelegate
+    @MainActor
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        appLogger.info("Location authorization changed to: \(status.rawValue)")
+        
+        switch status {
+        case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.startUpdatingLocation()
+            appLogger.info("Starting location updates after authorization")
+        case .denied, .restricted:
+            appLogger.warning("Location access denied or restricted")
+        case .notDetermined:
+            break
+        @unknown default:
+            break
+        }
+    }
+    
+    @MainActor
+    func locationManager(_ manager: CLLocationManager,
+                         didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+
+        let newLocator = MaidenheadGrid.locator(
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude,
+            precision: 4
+        )
+
+        // Avoid unnecessary updates
+        guard newLocator != lastUserLocator else { return }
+        lastUserLocator = newLocator
+
+        // Update the stored locator
+        if self.locator != newLocator {
+            self.locator = newLocator
+            appLogger.info("Updated locator to: \(newLocator) from GPS location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+        }
+    }
+
+    @MainActor
+    func locationManager(_ manager: CLLocationManager,
+                         didFailWithError error: Error) {
+        appLogger.warning("Location manager error: \(error.localizedDescription)")
+    }
+
     // MARK: - Deinitialization
     deinit {
         sequencerTask?.cancel()
         cancellables.removeAll()
         audioManager.cleanup()
+        locationManager.stopUpdatingLocation()
         Task { @MainActor in
             UIApplication.shared.isIdleTimerDisabled = false
         }

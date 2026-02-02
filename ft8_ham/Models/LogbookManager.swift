@@ -17,13 +17,28 @@ struct LogEntry: Identifiable {
     let band: String
     let rstSent: String
     let rstRcvd: String
+    let stationCallsign: String?
+    let cqModifier: String?
+    let mySigInfo: String?
 }
 
 final class LogbookManager {
     private let appLogger = AppLogger(category: "LOGBK")
     
-    private let fileName = "ft8_log.adi"
+    private let persistentFileName = "ft8_log.adi"
     private let adifHeader = "ADIF Export from FT8Ham\n<ADIF_VER:5>3.1.4\n<EOH>\n"
+    
+    // MARK: - Export filename with timestamp (for user exports)
+    private var exportFileName: String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+
+        let timestamp = formatter.string(from: Date())
+        return "ft8_log_\(timestamp).adi"
+    }
 
     // MARK: - Load entries from disk
     func loadEntries() -> [LogEntry] {
@@ -71,6 +86,9 @@ final class LogbookManager {
         let band = extractField(record, field: "BAND")
         let rSent = extractField(record, field: "RST_SENT")
         let rRcvd = extractField(record, field: "RST_RCVD")
+        let mySig = extractField(record, field: "MY_SIG")
+        let mySigInfo = extractField(record, field: "MY_SIG_INFO")
+        let stationCall = extractField(record, field: "STATION_CALLSIGN")
         let qsoDateRaw = extractField(record, field: "QSO_DATE")
         let timeOnRaw = extractField(record, field: "TIME_ON")
 
@@ -113,7 +131,10 @@ final class LogbookManager {
             mode: "FT8",
             band: band,
             rstSent: rSent,
-            rstRcvd: rRcvd
+            rstRcvd: rRcvd,
+            stationCallsign: stationCall.isEmpty ? nil : stationCall,
+            cqModifier: mySig.isEmpty ? nil : mySig,
+            mySigInfo: mySigInfo.isEmpty ? nil : mySigInfo
         )
     }
 
@@ -133,13 +154,22 @@ final class LogbookManager {
         var adifContent = adifHeader
         for entry in qsoList {
             adifContent += "<CALL:\(entry.callsign.count)>\(entry.callsign) "
-            adifContent += "<GRID:\(entry.grid.count)>\(entry.grid) "
-            adifContent += "<MODE:3>\(entry.mode) "
+            if let station = entry.stationCallsign, !station.isEmpty {
+                adifContent += "<STATION_CALLSIGN:\(station.count)>\(station) "
+            }
             adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
+            adifContent += "<MODE:3>\(entry.mode) "
             adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "
             adifContent += "<RST_RCVD:\(entry.rstRcvd.count)>\(entry.rstRcvd) "
             adifContent += "<QSO_DATE:8>\(dateFormatter.string(from: entry.date)) "
             adifContent += "<TIME_ON:6>\(timeFormatter.string(from: entry.date)) "
+            let special = adifFields(for: entry)
+            for (key, value) in special {
+                adifContent += "<\(key):\(value.count)>\(value) "
+            }
+            if !entry.grid.isEmpty {
+                adifContent += "<GRID:\(entry.grid.count)>\(entry.grid) "
+            }
             adifContent += "<EOR>\n"
         }
 
@@ -154,11 +184,53 @@ final class LogbookManager {
     }
 
     // MARK: - Helpers
+    private func adifFields(for entry: LogEntry) -> [String: String] {
+        guard let mod = entry.cqModifier else { return [:] }
+
+        func field(_ key: String, _ value: String?) -> [String: String] {
+            guard let v = value, !v.isEmpty else { return [:] }
+            return [key: v]
+        }
+
+        switch mod {
+        case "POTA":
+            return field("MY_SIG", "POTA")
+                .merging(field("MY_SIG_INFO",
+                               entry.mySigInfo ?? UserDefaults.standard.string(forKey: "myPotaRef"))) { $1 }
+
+        case "SOTA":
+            return field("MY_SIG", "SOTA")
+                .merging(field("MY_SIG_INFO",
+                               entry.mySigInfo ?? UserDefaults.standard.string(forKey: "mySotaRef"))) { $1 }
+
+        case "WWFF":
+            return field("MY_SIG", "WWFF")
+                .merging(field("MY_SIG_INFO",
+                               entry.mySigInfo ?? UserDefaults.standard.string(forKey: "myWwffRef"))) { $1 }
+
+        case "IOTA":
+            return field("MY_SIG", "IOTA")
+                .merging(field("MY_SIG_INFO",
+                               entry.mySigInfo ?? UserDefaults.standard.string(forKey: "myIotaRef"))) { $1 }
+
+        // Geographic filters (DX, EU, NA, SA, AF, AS, OC, ANT) never go to ADIF
+        default:
+            return [:]
+        }
+    }
+
     private func getFileURL() -> URL? {
         FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)
             .first?
-            .appendingPathComponent(fileName)
+            .appendingPathComponent(persistentFileName)
+    }
+    
+    private func getExportFileURL() -> URL? {
+        FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)
+            .first?
+            .appendingPathComponent(exportFileName)
     }
     
     func getEmptyADIFURL() -> URL {

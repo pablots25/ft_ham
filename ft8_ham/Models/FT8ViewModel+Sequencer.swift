@@ -98,7 +98,7 @@ extension FT8ViewModel {
                             )
                             
                             self.rxLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
-                            await self.handleDecodedMessages(msgs)
+                            await self.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
                             
                             await MainActor.run { self.isHarvestingRX = false }
                         }
@@ -109,7 +109,7 @@ extension FT8ViewModel {
                             // If it's the first loop, trigger a "Partial slot" message so the user sees
                             // the timestamp and the data loss warning immediately.
                             if self.firstLoopRX {
-                                await self.handleDecodedMessages([["text": "Partial slot"]])
+                                await self.handleDecodedMessages([["text": "Partial slot"]], slotIndex: completedSlotIndex)
                             }
                         } else {
                             self.rxLogger.warning("Skipping harvest: Decode in progress")
@@ -188,7 +188,11 @@ extension FT8ViewModel {
             return .skip
         }
         
-        if self.transmitLoopActive {
+        // Check if we should transmit based on QSO state machine
+        // Only TX when: calling CQ, in a "sending" state, or isReadyForTX (immediate response)
+        let shouldTX = (self.transmitLoopActive && qsoManager.shouldTransmitThisSlot()) || self.isReadyForTX
+        
+        if shouldTX {
             let isMyTurn: Bool
             switch self.txSlotPreference {
             case .followClock: isMyTurn = (slot.isEven == self.evenCycle)
@@ -197,6 +201,8 @@ extension FT8ViewModel {
             }
             
             if isMyTurn {
+                // Clear isReadyForTX after using it to prevent repeated TX
+                self.isReadyForTX = false
                 appLogger.debug("Sequencer Decided: TRANSMIT (Slot \(slot.slotIndex), Even: \(slot.isEven))")
                 return .transmit
             }
@@ -333,6 +339,7 @@ extension FT8ViewModel {
         }
         
         let message = allMessages[selectedIndex]
+        txLogger.debug("TX message selection: index=\(selectedIndex), message='\(message)', dxCallsign='\(dxCallsign)'")
         
         guard isValidCallsign(callsign), isValidLocator(locator) else {
             audioError = "Invalid callsign/locator"
@@ -360,6 +367,10 @@ extension FT8ViewModel {
         
         transmittedMessages.append(txMessage)
         txLogger.info("Added to TX list: \(message)")
+        
+        // Clear isReadyForTX after successful TX preparation
+        self.isReadyForTX = false
+        
         AnalyticsManager.shared.startRadioActivity(.tx)
         audioManager.playAudio(audioData)
         txLogger.info("TX Started: \(message)")

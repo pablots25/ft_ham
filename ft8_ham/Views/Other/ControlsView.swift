@@ -229,73 +229,96 @@ struct TransmissionControlPanel: View {
 
 struct QSOStatusView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
-
+    
     private var statusColor: Color {
         switch viewModel.qsoManager.qsoState {
-        // Idle
+            // Idle
         case .idle: return .gray
-
-        // CQ
+            
+            // CQ
         case .callingCQ: return .yellow
-//        case .listeningCQ: return .orange
-
-        // Grid exchange
+            //        case .listeningCQ: return .orange
+            
+            // Grid exchange
         case .sendingGrid: return .purple
-//        case .listeningGrid: return .blue
-
-        // Report exchange
+            //        case .listeningGrid: return .blue
+            
+            // Report exchange
         case .sendingReport: return .purple
         case .listeningReport: return .blue
-
-        // R-Report exchange
+            
+            // R-Report exchange
         case .sendingRReport: return .purple
         case .listeningRReport: return .blue
-
-        // RRR / 73 exchange
+            
+            // RRR / 73 exchange
         case .sendingRRR: return .purple
         case .listeningRRR: return .blue
         case .sending73: return .brown
-
-        // Completed / Timeout
+            
+            // Completed / Timeout
         case .completed: return .green
         case .timeout: return .red
         }
     }
-
+    private var shouldShowRetry: Bool {
+        viewModel.qsoManager.retryCounter > 0 && viewModel.qsoManager.isAwaitingResponse()
+    }
+    
+    private var displayedRetryCount: Int {
+        min(viewModel.qsoManager.retryCounter, viewModel.qsoManager.maxRetrySlots)
+    }
+    
     var body: some View {
         HStack {
             VStack(spacing: 2) {
-                Text(viewModel.qsoManager.qsoState.description)
-                    .foregroundStyle(statusColor)
                 
+                // Status + (x/y)
+                HStack(spacing: 4) {
+                    Text(viewModel.qsoManager.qsoState.description)
+                        .foregroundStyle(statusColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .layoutPriority(1)
+                    
+                    if shouldShowRetry {
+                        Text("(\(displayedRetryCount)/\(viewModel.qsoManager.maxRetrySlots))")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                    
+                    Spacer(minLength: 0)
+                }
+                
+                // Callsign + Locator
                 HStack(spacing: 2) {
                     if !viewModel.qsoManager.lockedDXCallsign.isEmpty {
                         Text(viewModel.qsoManager.lockedDXCallsign)
                             .font(.footnote)
                             .foregroundStyle(.gray)
+                            .lineLimit(1)
                     }
                     
                     if !viewModel.qsoManager.lockedDXLocator.isEmpty {
                         Text("(\(viewModel.qsoManager.lockedDXLocator))")
                             .font(.footnote)
                             .foregroundStyle(.gray)
+                            .lineLimit(1)
                     }
+                    
+                    Spacer(minLength: 0)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-
             Button("Stop QSO") {
                 viewModel.resetQSOState()
             }
             .buttonStyle(.borderedProminent)
             .disabled(!viewModel.qsoManager.isQSOOngoing())
-            .frame(alignment: .center)
-
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 5)
     }
-
 }
-

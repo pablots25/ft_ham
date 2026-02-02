@@ -14,29 +14,28 @@ struct MessageListView: View {
     let messages: [FT8Message]
     let allowReply: Bool
 
+    @Binding var showOnlyInvolved: Bool
+
+    private var filteredMessages: [FT8Message] {
+        guard showOnlyInvolved else { return messages }
+        return messages.filter { $0.forMe || $0.isTX }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // MARK: - Header
 
-            HStack(alignment: .center, spacing: 20) {
-                Text("Time")
-                Text("dB")
-                    .opacity(allowReply ? 1.0 : 0.0)
-                Text("Freq.")
-                Text("Δt")
-                    .opacity(allowReply ? 1.0 : 0.0)
-            }
-            .padding(.horizontal, 4)
-            .font(.caption2)
-            .dynamicTypeSize(.medium ... .accessibility5)
-            .foregroundStyle(.secondary)
+            MessageListHeaderView(
+                allowReply: allowReply,
+                showOnlyInvolved: $showOnlyInvolved
+            )
 
             Divider()
                 .padding(.vertical, 2)
 
             ScrollViewReader { scrollProxy in
                 List {
-                    if messages.isEmpty {
+                    if filteredMessages.isEmpty {
                         Text("No messages")
                             .foregroundStyle(.gray)
                             .frame(maxWidth: .infinity, minHeight: 30)
@@ -44,7 +43,7 @@ struct MessageListView: View {
                             .listRowSeparator(.hidden)
                             .id("empty")
                     } else {
-                        ForEach(messages) { msg in
+                        ForEach(filteredMessages) { msg in
                             if msg.msgType == .internalTimestamp {
                                 MessageView(msg: msg)
                                     .font(.caption2)
@@ -77,16 +76,14 @@ struct MessageListView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                // Scroll to last message whenever messages append
-                .onChange(of: messages.last?.id) { _, lastId in
+                .onChange(of: filteredMessages.last?.id) { lastId in
                     guard let lastId else { return }
                     withAnimation {
                         scrollProxy.scrollTo(lastId, anchor: .bottom)
                     }
                 }
-                // Scroll to last message on appear
                 .onAppear {
-                    if let lastId = messages.last?.id {
+                    if let lastId = filteredMessages.last?.id {
                         scrollProxy.scrollTo(lastId, anchor: .bottom)
                     }
                 }

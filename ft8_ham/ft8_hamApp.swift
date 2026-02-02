@@ -57,7 +57,7 @@ struct ft8_hamApp: App {
                     AnalyticsManager.shared.logAppOpened()
                 }
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             AnalyticsManager.shared.flushAllOnBackground(scenePhase: newPhase)
         }
     }

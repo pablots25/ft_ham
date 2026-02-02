@@ -117,9 +117,16 @@ final class InAppPrompts: ObservableObject {
         let defaults = UserDefaults.standard
         AnalyticsManager.shared.logRateConfirmed()
 
-        if let scene = UIApplication.shared.connectedScenes
-            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-            AppStore.requestReview(in: scene)
+        if #available(iOS 16.0, *) {
+            if let scene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                AppStore.requestReview(in: scene)
+            }
+        } else {
+            if let scene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                SKStoreReviewController.requestReview(in: scene)
+            }
         }
 
         defaults.set(true, forKey: Keys.hasShownRatePrompt)

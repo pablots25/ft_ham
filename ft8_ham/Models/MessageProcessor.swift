@@ -24,13 +24,15 @@ struct MessageParams: Equatable {
     let dxCallsign: String
     let dxLocator: String
     let snrToSend: Double
+    let cqModifier: String
 
     static func ==(lhs: MessageParams, rhs: MessageParams) -> Bool {
         return lhs.callsign == rhs.callsign &&
                lhs.locator == rhs.locator &&
                lhs.dxCallsign == rhs.dxCallsign &&
                lhs.dxLocator == rhs.dxLocator &&
-               (lhs.snrToSend.isNaN && rhs.snrToSend.isNaN || lhs.snrToSend == rhs.snrToSend)
+               (lhs.snrToSend.isNaN && rhs.snrToSend.isNaN || lhs.snrToSend == rhs.snrToSend) &&
+               lhs.cqModifier == rhs.cqModifier
     }
 }
 
@@ -202,7 +204,9 @@ actor MessageProcessor {
         let slotLen = isFT4 ? 7.5 : 15.0
         let computedTimestamp = Date(timeIntervalSince1970: timestampRaw - slotLen)
         
-        let snr = (dict["snr"] as? Double) ?? (dict["snr_db"] as? Double) ?? .nan
+        // Get SNR from decoder; -99 is a sentinel meaning "could not compute" so treat as NaN
+        let rawSnr = (dict["snr"] as? Double) ?? (dict["snr_db"] as? Double) ?? .nan
+        let snr = (rawSnr <= -99) ? .nan : rawSnr
         let freq = (dict["frequency"] as? Double) ?? .nan
         let timeOffset = (dict["timeDelta"] as? Double) ?? (dict["time"] as? Double) ?? .nan
         let ldpc = (dict["ldpcErrors"] as? Int) ?? (dict["ldpc_errors"] as? Int) ?? 0

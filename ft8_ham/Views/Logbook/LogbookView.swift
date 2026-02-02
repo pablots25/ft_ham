@@ -25,6 +25,24 @@ struct LogbookView: View {
 
                         Text(entry.grid)
                             .foregroundStyle(.secondary)
+
+                        if let station = entry.stationCallsign, !station.isEmpty {
+                            Text("Station: \(station)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let cqModifier = entry.cqModifier, !cqModifier.isEmpty {
+                            if let sigInfo = entry.mySigInfo, !sigInfo.isEmpty {
+                                Text("\(cqModifier): \(sigInfo)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("\(cqModifier)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
 
                     Spacer()
@@ -54,6 +72,10 @@ struct LogbookView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+
+                        Text("Mode: \(entry.mode)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
 
                         Text(dateFormatter.string(from: entry.date))
                             .font(.caption)
@@ -114,7 +136,7 @@ struct LogbookView: View {
         .onAppear {
             sortQSOsByDate()
         }
-        .onChange(of: viewModel.qsoList.count) {
+        .onChange(of: viewModel.qsoList.count) { _ in
             sortQSOsByDate()
         }
     }

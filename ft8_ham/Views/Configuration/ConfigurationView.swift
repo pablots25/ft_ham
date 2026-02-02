@@ -56,6 +56,7 @@ struct ConfigurationView: View {
     }
     
     @FocusState private var focusedInput: FocusField?
+        @State private var lastFocusedInput: FocusField?
     
     @State private var validCallsign = false
     @State private var validLocator = false
@@ -66,6 +67,13 @@ struct ConfigurationView: View {
     // Editable local state
     @State private var callsignText: String = ""
     @State private var frequencyText: String = ""
+    
+    // CQ modifier state
+    @AppStorage("cqModifier") private var cqModifier: String = "NONE"
+    @AppStorage("myPotaRef") private var myPotaRef: String = ""
+    @AppStorage("mySotaRef") private var mySotaRef: String = ""
+    @AppStorage("myWwffRef") private var myWwffRef: String = ""
+    @AppStorage("myIotaRef") private var myIotaRef: String = ""
     
     let configColumns = [GridItem(.flexible()), GridItem(.flexible())]
     
@@ -117,9 +125,25 @@ struct ConfigurationView: View {
             VStack(spacing: 20) {
                 // MARK: Configuration fields
                 
+                VStack(spacing: 0){
+                    LazyVGrid(columns: configColumns, spacing: 10) {
+                        callsignView
+                        locatorView
+                    }
+                    .padding(.bottom, 5)
+                    
+                    Text("Callsign modifiers are allowed")
+                        .font(.footnote)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
+                }
+                
+                cqModifierSection
+                
+                Divider()
+                
                 LazyVGrid(columns: configColumns, spacing: 10) {
-                    callsignView
-                    locatorView
                     modeView
                     cycleView
                 }
@@ -129,6 +153,8 @@ struct ConfigurationView: View {
                 frequencyView
                 
                 inputGainView
+    
+                Divider()
                 
                 qsoConfigSection
                 
@@ -181,7 +207,7 @@ struct ConfigurationView: View {
                 
                 copyrightSection
             }
-            .padding()
+            .padding(.horizontal)
         }
         .sheet(isPresented: $showHelp) {
             SafariView(
@@ -193,15 +219,16 @@ struct ConfigurationView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         
         // Commit on focus change
-        .onChange(of: focusedInput) { oldValue, newValue in
-            if oldValue == .callsign && newValue != .callsign {
+        .onChange(of: focusedInput) { newValue in
+            if lastFocusedInput == .callsign && newValue != .callsign {
                 commitCallsign()
             }
-            if oldValue == .locator && newValue != .locator {
+            if lastFocusedInput == .locator && newValue != .locator {
                 commitLocator()
             }
-            if oldValue == .frequency && newValue != .frequency {
+            if lastFocusedInput == .frequency && newValue != .frequency {
                 commitFrequencyText()
+                        lastFocusedInput = newValue
             }
         }
         .onTapGesture {
@@ -220,19 +247,19 @@ struct ConfigurationView: View {
                 from: NSNumber(value: viewModel.frequency / 1000)
             ) ?? ""
         }
-        .onChange(of: viewModel.callsign) { _, newValue in
+        .onChange(of: viewModel.callsign) { newValue in
             validCallsign = isValidCallsign(newValue)
             if validCallsign && !newValue.isEmpty {
                 AnalyticsManager.shared.logConfigurationSaved()
             }
         }
-        .onChange(of: viewModel.locator) { _, newValue in
+        .onChange(of: viewModel.locator) { newValue in
             validLocator = isValidLocator(newValue)
             if validLocator && !newValue.isEmpty {
                 AnalyticsManager.shared.logConfigurationSaved()
             }
         }
-        .onChange(of: viewModel.frequency) { _, newValue in
+        .onChange(of: viewModel.frequency) { newValue in
             if focusedInput != .frequency {
                 frequencyText = Self.frequencyFormatter.string(
                     from: NSNumber(value: newValue / 1000)
@@ -275,7 +302,7 @@ struct ConfigurationView: View {
                 .frame(width: 120)
                 .focused($focusedInput, equals: .callsign)
                 .lineLimit(1)
-                .onChange(of: callsignText) { _, newValue in
+                .onChange(of: callsignText) { newValue in
                     callsignText = newValue.uppercased()
                     validCallsign = isValidCallsign(callsignText)
                 }
@@ -296,7 +323,7 @@ struct ConfigurationView: View {
                 .frame(width: 80)
                 .focused($focusedInput, equals: .locator)
                 .lineLimit(1)
-                .onChange(of: viewModel.locator) { _, newValue in
+                .onChange(of: viewModel.locator) { newValue in
                     var text = newValue.uppercased()
                     text.removeAll(where: { $0.isWhitespace })
                     if text.count > 4 {
@@ -391,15 +418,19 @@ struct ConfigurationView: View {
             }.padding(.horizontal, 40)
             
             HStack {
-                Button("<") {
+                Button {
                     viewModel.frequency = max(0, viewModel.frequency - 10)
+                } label: {
+                    Image(systemName: "chevron.left")
                 }
                 .buttonStyle(.borderedProminent)
                 
                 Slider(value: $viewModel.frequency, in: 0.1 ... 3000, step: 10)
                 
-                Button(">") {
+                Button {
                     viewModel.frequency = min(3000, viewModel.frequency + 10)
+                } label: {
+                    Image(systemName: "chevron.right")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -441,9 +472,8 @@ struct ConfigurationView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.headline)
-                            .padding(8)
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(selectedIndex == 0)
 
                     // MARK: - Scrollable bands
@@ -488,11 +518,11 @@ struct ConfigurationView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.right")
-                            .font(.headline)
-                            .padding(8)
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(selectedIndex == bands.count - 1)
                 }
+                .padding(.horizontal, 20)
             }
         }
     }
@@ -584,6 +614,79 @@ struct ConfigurationView: View {
         .padding(.horizontal)
     }
 
+    private var cqModifierSection: some View {
+        VStack(alignment: .center, spacing: 5) {
+            HStack{
+                Text("CQ Modifier")
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                
+                Picker("CQ Type", selection: $cqModifier) {
+                    Text("None").tag("NONE")
+                    
+                    // Geographic filters (never in ADIF)
+                    Text("DX (Long distance)").tag("DX")
+                    Text("EU (Europe)").tag("EU")
+                    Text("NA (North America)").tag("NA")
+                    Text("SA (South America)").tag("SA")
+                    Text("AF (Africa)").tag("AF")
+                    Text("AS (Asia)").tag("AS")
+                    Text("OC (Oceania)").tag("OC")
+                    Text("ANT (Antarctica)").tag("ANT")
+                    
+                    // Activation modifiers (go to ADIF)
+                    Text("POTA (Parks)").tag("POTA")
+                    Text("SOTA (Summits)").tag("SOTA")
+                    Text("WWFF (Flora & Fauna)").tag("WWFF")
+                    Text("IOTA (Islands)").tag("IOTA")
+                }
+                .pickerStyle(.automatic)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 0)
+            }
+            
+            if cqModifier == "POTA" {
+                HStack {
+                    Text("POTA Reference:")
+                    TextField("e.g. EA-1234", text: $myPotaRef)
+                        .textFieldStyle(.roundedBorder)
+                        .textCase(.uppercase)
+                        .autocapitalization(.allCharacters)
+                }
+                .padding(.horizontal)
+            } else if cqModifier == "SOTA" {
+                HStack {
+                    Text("SOTA Reference:")
+                    TextField("e.g. EA/MD-001", text: $mySotaRef)
+                        .textFieldStyle(.roundedBorder)
+                        .textCase(.uppercase)
+                        .autocapitalization(.allCharacters)
+                }
+                .padding(.horizontal)
+            } else if cqModifier == "WWFF" {
+                HStack {
+                    Text("WWFF Reference:")
+                    TextField("e.g. EAFF-0456", text: $myWwffRef)
+                        .textFieldStyle(.roundedBorder)
+                        .textCase(.uppercase)
+                        .autocapitalization(.allCharacters)
+                }
+                .padding(.horizontal)
+            } else if cqModifier == "IOTA" {
+                HStack {
+                    Text("IOTA Reference:")
+                    TextField("e.g. EU-005", text: $myIotaRef)
+                        .textFieldStyle(.roundedBorder)
+                        .textCase(.uppercase)
+                        .autocapitalization(.allCharacters)
+                }
+                .padding(.horizontal)
+            }
+        }
+        
+    }
+    
     private var qsoConfigSection: some View {
         let togglesColumns = [
             GridItem(.flexible())

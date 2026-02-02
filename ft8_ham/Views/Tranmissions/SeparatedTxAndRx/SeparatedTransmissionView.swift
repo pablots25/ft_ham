@@ -10,15 +10,18 @@ import SwiftUI
 struct SeparatedTransmissionView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
 
-    let title: LocalizedStringKey
+    let section: TransmissionSection
     let allowReply: Bool
 
     @State private var columnFrame: CGRect = .zero
     @AppStorage("hasSeenSlideToReplyTutorial") private var hasSeenTutorial: Bool = false
     @State private var showTutorial: Bool = false
 
-    init(title: LocalizedStringKey, allowReply: Bool = false) {
-        self.title = title
+    @AppStorage("showOnlyInvolvedSeparatedTX")
+    private var showOnlyInvolved: Bool = false
+
+    init(section: TransmissionSection, allowReply: Bool = false) {
+        self.section = section
         self.allowReply = allowReply
     }
 
@@ -127,58 +130,78 @@ struct SeparatedTransmissionView: View {
 
     private var messagesSection: some View {
         HStack(alignment: .top, spacing: 12) {
-            if allowReply {
-                messagesColumn(
-                    title: title,
-                    messages: viewModel.receivedMessages,
-                    clearAction: viewModel.clearReceived,
-                    allowReply: allowReply
-                )
-            } else {
-                messagesColumn(
-                    title: title,
-                    messages: viewModel.transmittedMessages,
-                    clearAction: viewModel.clearTransmitted,
-                    allowReply: allowReply
-                )
-            }
+            let filtered = showOnlyInvolved
+                ? (allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages)
+                    .filter { $0.forMe || $0.isTX }
+                : (allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages)
+            
+            let clearAction = allowReply ? viewModel.clearReceived : viewModel.clearTransmitted
+            
+            messagesColumn(
+                section: section,
+                messages: filtered,
+                clearAction: clearAction,
+                allowReply: allowReply
+            )
         }
     }
 
     private func messagesColumn(
-        title: LocalizedStringKey,
+        section: TransmissionSection,
         messages: [FT8Message],
         clearAction: @escaping () -> Void,
         allowReply: Bool = false
     ) -> some View {
         ZStack {
             VStack(alignment: .center) {
-                HStack {
-                    Text(title) // Works with LocalizedStringKey
-                        .font(.headline)
-                    Button("Clear", action: clearAction)
-                        .disabled(messages.isEmpty)
-                }
-                .padding(.bottom, 2)
-                if !hasSeenTutorial, allowReply {
-                    SeparatedMsgListView(
-                        messages: [PreviewMocks.rxMessages.first!],
-                        allowReply: allowReply
-                    )
-                    .background(
-                        GeometryReader { proxy in
-                            Color.clear
-                                .onAppear {
-                                    columnFrame = proxy.frame(in: .named("SeparatedTransmissionSpace"))
+                    HStack {
+                        Text(section.localizedName)
+                            .font(.headline)
+                            .minimumScaleFactor(0.8)
+                            .lineLimit(1)
+                        Button(String(localized: "Clear"), action: clearAction)
+                                    .disabled(messages.isEmpty)
+
+                        Spacer()
+
+                        if(allowReply){
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    showOnlyInvolved.toggle()
                                 }
-                                .onChange(of: proxy.size) {
-                                    columnFrame = proxy.frame(in: .named("SeparatedTransmissionSpace"))
-                                }
+                            } label: {
+                                Image(systemName: showOnlyInvolved
+                                      ? "line.3.horizontal.decrease.circle.fill"
+                                      : "line.3.horizontal.decrease.circle")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
+                                .accessibilityLabel("Filter messages")
+                            }
+                            .buttonStyle(.plain)
                         }
-                    )
-                } else {
-                    SeparatedMsgListView(messages: messages, allowReply: allowReply)
-                }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 6)
+                    if !hasSeenTutorial, allowReply {
+                        SeparatedMsgListView(
+                            messages: [PreviewMocks.rxMessages.first!],
+                            allowReply: allowReply, showOnlyInvolved: $showOnlyInvolved
+                        )
+                        .background(
+                            GeometryReader { proxy in
+                                Color.clear
+                                    .onAppear {
+                                        columnFrame = proxy.frame(in: .named("SeparatedTransmissionSpace"))
+                                    }
+                                    .modifier(SeparatedTransmissionView.SizeChangeModifier(proxy: proxy, update: { newFrame in
+                                        columnFrame = newFrame
+                                    }))
+                            }
+                        )
+                    } else {
+                        SeparatedMsgListView(messages: messages, allowReply: allowReply, showOnlyInvolved: $showOnlyInvolved)
+                    }
+                
             }
         }
         .frame(maxWidth: .infinity)
@@ -187,11 +210,30 @@ struct SeparatedTransmissionView: View {
 }
 
 #Preview("SeparatedTransmissionView") {
-    SeparatedTransmissionView(title: "Received", allowReply: true)
+    SeparatedTransmissionView(section: .received, allowReply: true)
         .environmentObject(
             FT8ViewModel(
                 txMessages: PreviewMocks.txMessages,
                 rxMessages: PreviewMocks.rxMessages
             )
         )
+}
+
+// MARK: - iOS 16+ Size Change Modifier
+extension SeparatedTransmissionView {
+    struct SizeChangeModifier: ViewModifier {
+        let proxy: GeometryProxy
+        let update: (CGRect) -> Void
+
+        func body(content: Content) -> some View {
+            if #available(iOS 17.0, *) {
+                content
+                    .onChange(of: proxy.size) { _ in
+                        update(proxy.frame(in: .named("SeparatedTransmissionSpace")))
+                    }
+            } else {
+                content
+            }
+        }
+    }
 }

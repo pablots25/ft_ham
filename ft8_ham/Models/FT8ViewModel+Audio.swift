@@ -54,7 +54,7 @@ extension FT8ViewModel {
     // MARK: - Optimized RX Decode Handling
     // Called from setupAudioSubscriptions when a buffer is ready
     @MainActor
-    internal func handleDecodedMessages(_ decodedAny: [Any]) async {
+    internal func handleDecodedMessages(_ decodedAny: [Any], slotIndex: Int?) async {
         let batch = decodedAny as? [[String: Any]] ?? []
         rxLogger.debug("handleDecodedMessages: processing batch of \(batch.count)")
         
@@ -69,15 +69,22 @@ extension FT8ViewModel {
             decodeSelfTXMessages: decodeSelfTXMessages
         )
         
-        await self.applyBatchUpdates(result)
+        await self.applyBatchUpdates(result, slotIndex: slotIndex)
     }
     
     // MARK: - Apply Batch Updates
     @MainActor
-    internal func applyBatchUpdates(_ result: BatchProcessResult) async {
+    internal func applyBatchUpdates(_ result: BatchProcessResult, slotIndex: Int?) async {
         let performanceLog = OSLog(subsystem: "com.ft8ham.app", category: "Performance")
         os_signpost(.begin, log: performanceLog, name: "UI Update")
         defer { os_signpost(.end, log: performanceLog, name: "UI Update") }
+        
+        // Reset response tracking for this slot before processing messages
+        qsoManager.prepareForRXSlot()
+        
+        // Track if this slot contained our TX - if so, we shouldn't expect a response yet
+        let slotContainedOurTX = result.messages.contains { $0.isTX } ||
+        (slotIndex != nil && lastTransmittedSlotIndex == slotIndex)
         
         for message in result.messages {
             if !message.isTX {
@@ -97,6 +104,16 @@ extension FT8ViewModel {
                 )
                 
                 handleRXAction(action)
+            }
+        }
+        
+        // After processing all messages in the slot, check for timeout
+        // Only trigger timeout if this was an RX slot (not our TX slot)
+        // DX's response will come in the slot AFTER we transmit
+        if !slotContainedOurTX {
+            let timeoutAction = qsoManager.handleQSOTimeout()
+            if timeoutAction != .ignore {
+                handleRXAction(timeoutAction)
             }
         }
         
@@ -158,6 +175,9 @@ extension FT8ViewModel {
                 toggleTransmit()
             }
             isReadyForTX = true
+            Task { @MainActor in
+                await tryImmediateTXIfPossible()
+            }
             
         case .sendReport(let dxCall, let report):
             appLogger.info("Applying action: sendReport for \(dxCall)")
@@ -167,7 +187,6 @@ extension FT8ViewModel {
             if let last = receivedMessages.last(where: { !$0.isTX && $0.msgType != .internalTimestamp }) {
                 txSlotPreference = (last.cycle == .even) ? .forceOdd : .forceEven
                 evenCycle = (last.cycle == .odd)
-                lastSentSNR = last.measuredSNR
             }
             
             if !transmitLoopActive {
@@ -175,6 +194,9 @@ extension FT8ViewModel {
                 toggleTransmit()
             }
             isReadyForTX = true
+            Task { @MainActor in
+                await tryImmediateTXIfPossible()
+            }
             
         case .sendRReport(let dxCall, let report):
             appLogger.info("Applying action: sendRReport for \(dxCall)")
@@ -184,7 +206,6 @@ extension FT8ViewModel {
             if let last = receivedMessages.last(where: { !$0.isTX && $0.msgType != .internalTimestamp }) {
                 txSlotPreference = (last.cycle == .even) ? .forceOdd : .forceEven
                 evenCycle = (last.cycle == .odd)
-                lastSentSNR = last.measuredSNR
             }
             
             if !transmitLoopActive {
@@ -192,6 +213,9 @@ extension FT8ViewModel {
                 toggleTransmit()
             }
             isReadyForTX = true
+            Task { @MainActor in
+                await tryImmediateTXIfPossible()
+            }
             
         case .sendRRR:
             appLogger.info("Applying action: sendRRR for \(dxCallsign)")
@@ -202,26 +226,39 @@ extension FT8ViewModel {
                 toggleTransmit()
             }
             isReadyForTX = true
+            Task { @MainActor in
+                await tryImmediateTXIfPossible()
+            }
             
-        case .sendRR73:
-            appLogger.info("Applying action: sendRR73 for \(dxCallsign)")
-            invalidatePendingTX(reason: "RX action: sendRR73")
+        case .sendRR73(let dxCall):
+            appLogger.info("Applying action: sendRR73 for \(dxCall)")
+            dxCallsign = dxCall
+            allMessages = generateMessages()
             selectedMessageIndex = 6
+            invalidatePendingTX(reason: "RX action: sendRR73")
             if !transmitLoopActive {
                 appLogger.info("Restarting TX loop...")
                 toggleTransmit()
             }
             isReadyForTX = true
+            Task { @MainActor in
+                await tryImmediateTXIfPossible()
+            }
             
-        case .send73:
-            appLogger.info("Applying action: send73 for \(dxCallsign)")
-            invalidatePendingTX(reason: "RX action: send73")
+        case .send73(let dxCall):
+            appLogger.info("Applying action: send73 for \(dxCall)")
+            dxCallsign = dxCall
+            allMessages = generateMessages()
             selectedMessageIndex = 5
+            invalidatePendingTX(reason: "RX action: send73")
             if !transmitLoopActive {
                 appLogger.info("Restarting TX loop...")
                 toggleTransmit()
             }
             isReadyForTX = true
+            Task { @MainActor in
+                await tryImmediateTXIfPossible()
+            }
             
         case .completeQSO:
             appLogger.info("Applying action: completeQSO for \(dxCallsign)")
@@ -241,7 +278,16 @@ extension FT8ViewModel {
 
             qsoManager.resetRadioStateAfterCompletion()
 
+            // Clear DX info and return to CQ
+            dxCallsign = ""
+            dxLocator = ""
             selectedMessageIndex = 0
+            
+            // Resume calling CQ if TX loop is active
+            if transmitLoopActive {
+                qsoManager.startCallingCQ()
+                isReadyForTX = true
+            }
 
             handleQSOLogging(qso: logEntry)
 
@@ -252,12 +298,13 @@ extension FT8ViewModel {
             dxCallsign = ""
             dxLocator = ""
             selectedMessageIndex = 0
-            if !transmitLoopActive {
-                appLogger.info("Restarting TX loop...")
-                toggleTransmit()
-            }
-            isReadyForTX = false
             resetQSOState()
+            
+            // Resume calling CQ if TX loop is active
+            if transmitLoopActive {
+                qsoManager.startCallingCQ()
+                isReadyForTX = true
+            }
             
         case .sendCQ:
             appLogger.info("Applying action: sendCQ")
@@ -298,7 +345,9 @@ extension FT8ViewModel {
         
         for dict in decodedDicts {
             guard let text = dict["text"] as? String else { continue }
-            let snr = dict["snr"] as? Double ?? .nan
+            // -99 is a decoder sentinel meaning "could not compute SNR", treat as NaN
+            let rawSnr = (dict["snr"] as? Double) ?? (dict["snr_db"] as? Double) ?? .nan
+            let snr = (rawSnr <= -99) ? .nan : rawSnr
             let freq = dict["frequency"] as? Double ?? .nan
             let timeOffset = (dict["timeDelta"] as? Double) ?? (dict["time"] as? Double) ?? .nan
             let ldpc = (dict["ldpcErrors"] as? Int) ?? (dict["ldpc_errors"] as? Int) ?? 0

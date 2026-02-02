@@ -19,22 +19,19 @@ struct CondensedMsgListView: View {
     @State private var didTriggerHaptic: [UUID: Bool] = [:]
     @State private var userDragging: Bool = false
 
+    @Binding var showOnlyInvolved: Bool
+
+    private var filteredMessages: [FT8Message] {
+        guard showOnlyInvolved else { return messages }
+        return messages.filter { $0.forMe || $0.isTX }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // MARK: - Header
-            HStack(spacing: 25) {
-                Text("Time")
-                Text("dB")
-                    .opacity(allowReply ? 1.0 : 0.0)
-                Text("Freq.")
-                Text("Δt")
-                    .opacity(allowReply ? 1.0 : 0.0)
-            }
-            .font(.caption)
-            .dynamicTypeSize(.medium ... .accessibility5)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 4)
+            MessageListHeaderView(
+                allowReply: allowReply,
+                showOnlyInvolved: $showOnlyInvolved
+            )
 
             Divider()
                 .padding(.vertical, 2)
@@ -43,14 +40,14 @@ struct CondensedMsgListView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        if messages.isEmpty {
+                        if filteredMessages.isEmpty {
                             Text("No messages")
                                 .foregroundStyle(.gray)
                                 .frame(maxWidth: .infinity, alignment: .center)
                                 .padding(.vertical, 10)
                                 .id("empty")
                         } else {
-                            ForEach(messages) { msg in
+                            ForEach(filteredMessages) { msg in
                                 if msg.msgType == .internalTimestamp {
                                     CondensedMsgView(msg: msg)
                                         .font(.caption2)
@@ -88,7 +85,7 @@ struct CondensedMsgListView: View {
                     .padding(.vertical, 2)
                 }
                 // Scroll to last message when a new one is appended
-                .onChange(of: messages.last?.id) { _, lastID in
+                .onChange(of: filteredMessages.last?.id) { lastID in
                     guard let lastID else { return }
                     guard !userDragging else { return }
 
@@ -100,7 +97,7 @@ struct CondensedMsgListView: View {
                 }
                 // Scroll to last message on appear
                 .onAppear {
-                    if let lastID = messages.last?.id {
+                    if let lastID = filteredMessages.last?.id {
                         DispatchQueue.main.async {
                             withAnimation(.easeOut(duration: 0.25)) {
                                 proxy.scrollTo(lastID, anchor: .bottom)

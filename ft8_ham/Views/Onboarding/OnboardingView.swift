@@ -152,7 +152,6 @@ struct OnboardingView: View {
             Image(systemName: image)
                 .font(.system(size: 100))
                 .foregroundStyle(color)
-                .symbolEffect(.bounce, options: .speed(0.05))
 
             Text(title)
                 .font(.largeTitle)
@@ -178,7 +177,6 @@ struct OnboardingView: View {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 100))
                 .foregroundStyle(.green)
-                .symbolEffect(.bounce)
 
             Text("onb_finish_title")
                 .font(.largeTitle)

@@ -30,7 +30,7 @@ struct GenMessagesView: View {
                         .frame(width: 120)
                         .keyboardType(.asciiCapable)
                         .focused($focusedField)
-                        .onChange(of: viewModel.dxCallsign) { _, newValue in
+                        .onChange(of: viewModel.dxCallsign) { newValue in
                             cleanAndValidateCallsign(newValue)
                         }
                 }
@@ -46,7 +46,7 @@ struct GenMessagesView: View {
                         .frame(width: 80)
                         .keyboardType(.asciiCapable)
                         .focused($focusedField)
-                        .onChange(of: viewModel.dxLocator) { _, newValue in
+                        .onChange(of: viewModel.dxLocator) { newValue in
                             cleanAndValidateLocator(newValue)
                         }
                 }

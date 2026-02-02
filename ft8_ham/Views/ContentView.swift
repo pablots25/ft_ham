@@ -53,7 +53,7 @@ struct ContentView: View {
                 // Once UI is ready, evaluate RX start
                 evaluateAutoRX()
             }
-            .onChange(of: hasCompletedOnboarding) { _, completed in
+            .onChange(of: hasCompletedOnboarding) { completed in
                 if completed {
                     isPresentingOnboarding = false
                     if !hasAcceptedTerms {
@@ -66,13 +66,13 @@ struct ContentView: View {
                     isPresentingOnboarding = true
                 }
             }
-            .onChange(of: hasAcceptedTerms) { _, accepted in
+            .onChange(of: hasAcceptedTerms) { accepted in
                 if accepted {
                     // After license is accepted, check settings
                     scheduleSettingsCheckIfNeeded()
                 }
             }
-            .onChange(of: autoRXAtStart) { _, enabled in
+            .onChange(of: autoRXAtStart) { enabled in
                 if enabled {
                     evaluateAutoRX()
                 } else {
@@ -80,7 +80,7 @@ struct ContentView: View {
                     viewModel.stopSequencer()
                 }
             }
-            .onChange(of: viewModel.settingsLoaded) { _, loaded in
+            .onChange(of: viewModel.settingsLoaded) { loaded in
                 if loaded && selectedTab == 4 {
                     selectedTab = 0
                 }
@@ -286,9 +286,9 @@ struct ContentView: View {
                 }
 
                 if selectedPane == .received {
-                    SeparatedTransmissionView(title: "Received", allowReply: true)
+                    SeparatedTransmissionView(section: .received, allowReply: true)
                 } else {
-                    SeparatedTransmissionView(title: "Transmitted", allowReply: false)
+                    SeparatedTransmissionView(section: .transmitted, allowReply: false)
                 }
 
                 if horizontalSizeClass != .regular {
@@ -417,18 +417,6 @@ struct TermsSheet: View {
             .navigationBarTitle("Terms & Privacy", displayMode: .inline)
         }
     }
-}
-
-// MARK: - ActivityView Wrapper
-
-struct ActivityView: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 

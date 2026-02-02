@@ -38,7 +38,7 @@ struct WaterfallView: View {
                     }
                 } else {
                     Text("Waiting for audio data...")
-                        .foregroundStyle(.gray)
+                        .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -54,7 +54,7 @@ struct WaterfallView: View {
                 viewModel.visibleRows = rows
                 viewModel.ensureBufferCanHold(visibleRows: rows)
             }
-            .onChange(of: geo.size.height) { _, newHeight in
+            .onChange(of: geo.size.height) { newHeight in
                 let rows = max(Int(newHeight), 1) + 1
                 viewModel.visibleRows = rows
                 viewModel.ensureBufferCanHold(visibleRows: rows)
@@ -114,7 +114,7 @@ struct WaterfallOverlayView: View {
                     ctx.draw(
                         Text(String(format: "%.1f kHz", f / 1000))
                             .font(.system(size: 10, weight: .regular))
-                            .foregroundStyle(.white),
+                            .foregroundColor(.white),
                         at: CGPoint(x: x + 2, y: 0),
                         anchor: .topLeading
                     )
@@ -137,7 +137,7 @@ struct WaterfallOverlayView: View {
                 ctx.draw(
                     Text(overlay.text)
                         .font(.system(size: 10, weight: .regular))
-                        .foregroundStyle(.white),
+                        .foregroundColor(.white),
                     at: CGPoint(x: w - 4, y: CGFloat(overlay.row)),
                     anchor: .topTrailing
                 )
@@ -149,21 +149,25 @@ struct WaterfallOverlayView: View {
                 let txX = CGFloat(txFreq / maxFreq) * w
                 guard txX.isFinite else { return }
                 
-                let label = Text(String(format: "%.0f Hz", txFreq))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.red)
-                
-                let resolved = ctx.resolve(label)
-                let labelSize = resolved.measure(in: CGSize(width: CGFloat.infinity, height: CGFloat.infinity))
-                
+                let labelText = String(format: "%.0f Hz", txFreq)
+                let approxCharWidth: CGFloat = 6.0
+                let approxHeight: CGFloat = 12.0
+                let labelWidth = CGFloat(labelText.count) * approxCharWidth + 8.0
+                let labelHeight = approxHeight + 6.0
                 let rect = CGRect(
-                    x: txX - labelSize.width / 2 - 2,
+                    x: txX - labelWidth / 2,
                     y: headerHeight / 2 + 5,
-                    width: labelSize.width + 4,
-                    height: labelSize.height + 4
+                    width: labelWidth,
+                    height: labelHeight
                 )
                 ctx.fill(Path(roundedRect: rect, cornerRadius: 4), with: .color(.white.opacity(0.8)))
-                ctx.draw(label, at: CGPoint(x: txX, y: rect.midY), anchor: .center)
+                ctx.draw(
+                    Text(labelText)
+                        .font(.system(size: 10))
+                        .foregroundColor(.red),
+                    at: CGPoint(x: rect.midX, y: rect.midY),
+                    anchor: .center
+                )
                 
                 let bandwidthHz = (ft8ViewModel.isFT4 ? 90.0 : 50.0) * 2
                 for freq in [txFreq, txFreq + bandwidthHz] {
@@ -181,25 +185,29 @@ struct WaterfallOverlayView: View {
             for overlay in vLabels {
                 let x = CGFloat(overlay.frequency / maxFreq) * w
                 var tctx = ctx
-
-                let resolvedText = tctx.resolve(
-                    Text(overlay.text)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                )
-                let textSize = resolvedText.measure(in: CGSize(width: CGFloat.infinity, height: .infinity))
-                let y = CGFloat(overlay.row) + bodyOffset + textSize.width
+                let text = overlay.text
+                let approxCharWidth: CGFloat = 6.0
+                let approxCharHeight: CGFloat = 12.0
+                let textWidth = CGFloat(text.count) * approxCharWidth
+                let textHeight = approxCharHeight
+                let y = CGFloat(overlay.row) + bodyOffset + textWidth
 
                 tctx.translateBy(x: x, y: y)
                 tctx.rotate(by: .radians(-.pi / 2))
 
                 let backgroundRect = CGRect(
                     x: -2, y: -2,
-                    width: textSize.width + 4,
-                    height: textSize.height + 4
+                    width: textWidth + 4,
+                    height: textHeight + 4
                 )
                 tctx.fill(Path(roundedRect: backgroundRect, cornerRadius: 4), with: .color(.black.opacity(0.3)))
-                tctx.draw(resolvedText, at: .zero, anchor: .topLeading)
+                tctx.draw(
+                    Text(text)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white),
+                    at: .zero,
+                    anchor: .topLeading
+                )
             }
 
         }
@@ -229,10 +237,11 @@ struct FrequencyCursorView: View {
                     .font(.system(size: 10, weight: .semibold))
                     .padding(labelPadding)
                     .background(Color.black.opacity(0.7))
-                    .foregroundStyle(.yellow)
+                    .foregroundColor(.yellow)
                     .cornerRadius(4)
                     .position(x: adjustedX, y: labelOffset)
             }
         }
     }
 }
+

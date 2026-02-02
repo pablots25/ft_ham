@@ -6,14 +6,10 @@
 //
 
 import SwiftUI
-import TipKit
 
-// MARK: - Native Tip (Tutorial) definition
-struct FrequencyTip: Tip {
-    var title: Text { Text("Adjust Frequency") }
-    var message: Text? { Text("Tap here to enable or disable frequency adjustments directly on the waterfall.") }
-    var image: Image? { Image(systemName: "arrow.left.arrow.right") }
-}
+#if os(iOS) && !os(tvOS)
+import TipKit
+#endif
 
 // Simple Tutorial Item
 struct ButtonTutorialItem: Identifiable {
@@ -28,8 +24,6 @@ struct FullScreenWaterfallView: View {
     @State private var isSettingsExpanded: Bool = false
     @AppStorage("hasSeenFloatingButtonTutorial") private var hasSeenTutorial: Bool = false
     @State private var showTutorial: Bool = true
-
-    private let frequencyTip = FrequencyTip()
     
     // Tutorial items for all toolbar buttons
     let tutorialItems: [ButtonTutorialItem] = [
@@ -156,7 +150,9 @@ struct FullScreenWaterfallView: View {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0.3)) {
                     isSettingFrequency.toggle()
                     isSettingsExpanded = false
-                    frequencyTip.invalidate(reason: .actionPerformed)
+                    if #available(iOS 17.0, *) {
+                        invalidateFrequencyTipIfNeeded()
+                    }
                     hasSeenTutorial = true
                 }
             } label: {
@@ -257,11 +253,18 @@ private extension FullScreenWaterfallView {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
             
             LazyVGrid(columns: columns, spacing: 12) {
-                StatusView()
-                    .gridCellColumns(2)
-                    .frame(maxWidth: .infinity)
-                ClockView()
-                    .gridCellColumns(2)
+                if #available(iOS 16.0, *) {
+                    StatusView()
+                        .gridCellColumns(2)
+                        .frame(maxWidth: .infinity)
+                    ClockView()
+                        .gridCellColumns(2)
+                } else {
+                    StatusView()
+                        .frame(maxWidth: .infinity)
+                    ClockView()
+                        .frame(maxWidth: .infinity)
+                }
             }
             .padding(.horizontal)
             
@@ -318,4 +321,23 @@ private extension FullScreenWaterfallView {
 #Preview("FullScreenWaterfallView") {
     FullScreenWaterfallView()
         .environmentObject(FT8ViewModel(txMessages: PreviewMocks.txMessages, rxMessages: PreviewMocks.rxMessages))
+}
+
+// MARK: - TipKit Support (iOS 17+ isolated)
+@available(iOS 17.0, *)
+private extension FullScreenWaterfallView {
+    
+    struct FrequencyTip: Tip {
+        var title: Text { Text("Adjust Frequency") }
+        var message: Text? {
+            Text("Tap here to enable or disable frequency adjustments directly on the waterfall.")
+        }
+        var image: Image? {
+            Image(systemName: "arrow.left.arrow.right")
+        }
+    }
+    
+    func invalidateFrequencyTipIfNeeded() {
+        FrequencyTip().invalidate(reason: .actionPerformed)
+    }
 }

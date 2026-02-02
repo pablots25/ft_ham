@@ -49,7 +49,8 @@ extension FT8ViewModel{
             locator: locator,
             dxCallsign: dxCallsign,
             dxLocator: dxLocator,
-            snrToSend: lastSentSNR
+            snrToSend: lastSentSNR,
+            cqModifier: UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE"
         )
         
         appLogger.log(

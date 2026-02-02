@@ -36,4 +36,3 @@ func backgroundColor(for msg: FT8Message) -> Color {
         Color.gray.opacity(0.2) // soft gray
     }
 }
-

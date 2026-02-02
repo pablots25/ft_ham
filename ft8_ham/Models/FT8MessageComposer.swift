@@ -28,9 +28,20 @@ struct FT8MessageComposer {
             report = String(format: "%+03d", clampedSnr)
         }
 
+        // Get CQ modifier from UserDefaults
+        let cqModifier = UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE"
+        
+        // Build CQ message with optional modifier
+        let cqMessage: String
+        if cqModifier != "NONE", FT8Message.validCQTokens.contains(cqModifier) {
+            cqMessage = "CQ \(cqModifier) \(de)"
+        } else {
+            cqMessage = "CQ \(de) \(grid)"
+        }
+
         // 2. Standard WSJT-X sequence definition
         let messages = [
-            "CQ \(de) \(grid)",            // [0] Tx6 General broadcast
+            cqMessage,                     // [0] Tx6 General broadcast (with optional modifier)
             "\(dx) \(de) \(grid)",         // [1] Tx1 Reply to CQ (sending my Grid)
             "\(dx) \(de) \(report)",       // [2] Tx2 Sending Report (after receiving DX Grid)
             "\(dx) \(de) R\(report)",      // [3] Tx3 Sending Report with ACK (after receiving DX Report)

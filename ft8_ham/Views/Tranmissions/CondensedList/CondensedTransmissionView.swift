@@ -14,6 +14,9 @@ struct CondensedTransmissionView: View {
     @State private var showTutorial: Bool = false
     @State private var columnFrame: CGRect = .zero
 
+    @AppStorage("showOnlyInvolved")
+    private var showOnlyInvolved: Bool = false
+
     var body: some View {
         GeometryReader { geo in
             // Detect landscape normally, force portrait on iPad
@@ -121,7 +124,7 @@ struct CondensedTransmissionView: View {
         GeometryReader { geo in
             VStack(spacing: 12) {
                 messagesColumn(
-                    title: "Received",
+                    section: .received,
                     messages: viewModel.receivedMessages,
                     clearAction: viewModel.clearReceived,
                     allowReply: true
@@ -131,7 +134,7 @@ struct CondensedTransmissionView: View {
                 Divider()
 
                 messagesColumn(
-                    title: "Transmitted",
+                    section: .transmitted,
                     messages: viewModel.transmittedMessages,
                     clearAction: viewModel.clearTransmitted,
                     allowReply: false
@@ -143,9 +146,17 @@ struct CondensedTransmissionView: View {
     private var messagesSectionLandscape: some View {
         GeometryReader { geo in
             HStack(spacing: 12) {
+                let receivedFiltered = showOnlyInvolved
+                    ? viewModel.receivedMessages.filter { $0.forMe || $0.isTX }
+                    : viewModel.receivedMessages
+                
+                let txFiltered = showOnlyInvolved
+                    ? viewModel.transmittedMessages.filter { $0.forMe || $0.isTX }
+                    : viewModel.transmittedMessages
+                
                 messagesColumn(
-                    title: "Received",
-                    messages: viewModel.receivedMessages,
+                    section: .received,
+                    messages: receivedFiltered,
                     clearAction: viewModel.clearReceived,
                     allowReply: true
                 )
@@ -153,8 +164,8 @@ struct CondensedTransmissionView: View {
                 Divider()
 
                 messagesColumn(
-                    title: "Transmitted",
-                    messages: viewModel.transmittedMessages,
+                    section: .transmitted,
+                    messages: txFiltered,
                     clearAction: viewModel.clearTransmitted,
                     allowReply: false
                 )
@@ -163,7 +174,7 @@ struct CondensedTransmissionView: View {
     }
 
     private func messagesColumn(
-        title: LocalizedStringKey,
+        section: TransmissionSection,
         messages: [FT8Message],
         clearAction: @escaping () -> Void,
         allowReply: Bool = false
@@ -171,16 +182,39 @@ struct CondensedTransmissionView: View {
         ZStack {
             VStack(alignment: .center) {
                 HStack {
-                    Text(title)
+                    Text(section.localizedName)
                         .font(.headline)
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
                     Button(String(localized: "Clear"), action: clearAction)
-                        .disabled(messages.isEmpty)
+                                .disabled(messages.isEmpty)
+
+                    Spacer()
+                    
+                    if(allowReply){
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                showOnlyInvolved.toggle()
+                            }
+                        } label: {
+                            Image(systemName: showOnlyInvolved
+                                  ? "line.3.horizontal.decrease.circle.fill"
+                                  : "line.3.horizontal.decrease.circle")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
+                            .accessibilityLabel("Filter messages")
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .padding(.bottom, 2)
+                .padding(.horizontal)
+                .padding(.vertical, 6)
                 if !hasSeenTutorial, allowReply {
+                    
                     CondensedMsgListView(
                         messages: [PreviewMocks.rxMessages.first!],
-                        allowReply: allowReply
+                        allowReply: allowReply,
+                        showOnlyInvolved: $showOnlyInvolved
                     )
                     .background(
                         GeometryReader { proxy in
@@ -188,13 +222,17 @@ struct CondensedTransmissionView: View {
                                 .onAppear {
                                     columnFrame = proxy.frame(in: .named("CondensedTransmissionSpace"))
                                 }
-                                .onChange(of: proxy.size) {
+                                .onChange(of: proxy.size) { _ in
                                     columnFrame = proxy.frame(in: .named("CondensedTransmissionSpace"))
                                 }
                         }
                     )
                 } else {
-                    CondensedMsgListView(messages: messages, allowReply: allowReply)
+                    CondensedMsgListView(
+                        messages: messages,
+                        allowReply: allowReply,
+                        showOnlyInvolved: $showOnlyInvolved
+                    )
                 }
             }
         }

@@ -80,12 +80,90 @@ enum PreviewMocks {
     ]
     
     static let qsoList = [
-        LogEntry(callsign: "EA1ABC", grid: "JN02", date: Date().addingTimeInterval(-600), mode: "FT8", band: "20m", rstSent: "599", rstRcvd: "599"),
-        LogEntry(callsign: "K1XYZ", grid: "FN31", date: Date().addingTimeInterval(-10800), mode: "FT8", band: "40m", rstSent: "579", rstRcvd: "589"),
-        LogEntry(callsign: "DL5ME", grid: "JO62", date: Date().addingTimeInterval(-90000), mode: "FT8", band: "15m", rstSent: "599", rstRcvd: "599"),
-        LogEntry(callsign: "JA1NXS", grid: "PM95", date: Date().addingTimeInterval(-54000), mode: "FT8", band: "20m", rstSent: "579", rstRcvd: "579"),
-        LogEntry(callsign: "LU4AA", grid: "GF05", date: Date().addingTimeInterval(-72000), mode: "FT8", band: "30m", rstSent: "599", rstRcvd: "599"),
-        LogEntry(callsign: "VK3XYZ", grid: "QF22", date: Date().addingTimeInterval(-36000), mode: "FT8", band: "17m", rstSent: "579", rstRcvd: "589")
+        // Normal QSO (no modifier)
+        LogEntry(
+            callsign: "EA1ABC",
+            grid: "JN02",
+            date: Date().addingTimeInterval(-600),
+            mode: "FT8",
+            band: "20m",
+            rstSent: "599",
+            rstRcvd: "599",
+            stationCallsign: "EA4IQL",
+            cqModifier: nil,
+            mySigInfo: nil
+        ),
+
+        // POTA activation
+        LogEntry(
+            callsign: "K1XYZ",
+            grid: "FN31",
+            date: Date().addingTimeInterval(-10800),
+            mode: "FT8",
+            band: "40m",
+            rstSent: "-08",
+            rstRcvd: "-12",
+            stationCallsign: "EA4IQL",
+            cqModifier: "POTA",
+            mySigInfo: "EA-1234"
+        ),
+
+        // SOTA activation
+        LogEntry(
+            callsign: "DL5ME",
+            grid: "JO62",
+            date: Date().addingTimeInterval(-90000),
+            mode: "FT8",
+            band: "15m",
+            rstSent: "-03",
+            rstRcvd: "-07",
+            stationCallsign: "EA4IQL",
+            cqModifier: "SOTA",
+            mySigInfo: "EA/MD-001"
+        ),
+
+        // WWFF activation
+        LogEntry(
+            callsign: "JA1NXS",
+            grid: "PM95",
+            date: Date().addingTimeInterval(-54000),
+            mode: "FT8",
+            band: "20m",
+            rstSent: "-10",
+            rstRcvd: "-15",
+            stationCallsign: "EA4IQL",
+            cqModifier: "WWFF",
+            mySigInfo: "EAFF-0456"
+        ),
+
+        // Another normal QSO after activation (must NOT contain MY_SIG)
+        LogEntry(
+            callsign: "LU4AA",
+            grid: "GF05",
+            date: Date().addingTimeInterval(-72000),
+            mode: "FT8",
+            band: "30m",
+            rstSent: "-05",
+            rstRcvd: "-06",
+            stationCallsign: "EA4IQL",
+            cqModifier: nil,
+            mySigInfo: nil
+        ),
+
+        // POTA again (to test multiple activations in same log)
+        LogEntry(
+            callsign: "VK3XYZ",
+            grid: "QF22",
+            date: Date().addingTimeInterval(-36000),
+            mode: "FT8",
+            band: "17m",
+            rstSent: "-02",
+            rstRcvd: "-04",
+            stationCallsign: "EA4IQL",
+            cqModifier: "POTA",
+            mySigInfo: "EA-1234"
+        )
     ]
+
 
 }
