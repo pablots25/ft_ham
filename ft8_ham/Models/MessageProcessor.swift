@@ -1,6 +1,6 @@
 //
 //  MessageProcessor.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 1/1/26.
 //
@@ -131,16 +131,6 @@ actor MessageProcessor {
                 
                 if !newCountryPairs.contains(pair) {
                     newCountryPairs.append(pair)
-//                    appLogger.log(
-//                        .debug,
-//                        """
-//                        New country pair detected in the batch:
-//                        Sender: \(pair.sender.country ?? "N/A")
-//                        Coordinates: (\(pair.sender.coordinates?.lat, default: "N/A"), \(pair.sender.coordinates?.lon, default: "N/A"))
-//                        Receiver: \(pair.receiver?.country ?? "N/A")
-//                        Coordinates: (\(pair.receiver?.coordinates?.lat, default: "N/A"), \(pair.receiver?.coordinates?.lon, default: "N/A"))
-//                        """
-//                    )
                 }
                 
                 continue
@@ -158,16 +148,6 @@ actor MessageProcessor {
             let pair = CountryPair(sender: message.senderCountry, receiver: message.dxCountry.country != nil ? message.dxCountry : nil)
             if !newCountryPairs.contains(pair) {
                 newCountryPairs.append(pair)
-//                appLogger.log(
-//                    .debug,
-//                    """
-//                    New country pair detected in the batch:
-//                    Sender: \(pair.sender.country ?? "N/A")
-//                      Coordinates: (\(pair.sender.coordinates?.lat, default: "N/A"), \(pair.sender.coordinates?.lon, default: "N/A"))
-//                    Receiver: \(pair.receiver?.country ?? "N/A")
-//                      Coordinates: (\(pair.receiver?.coordinates?.lat, default: "N/A"), \(pair.receiver?.coordinates?.lon, default: "N/A"))
-//                    """
-//                )
             }
 
         }

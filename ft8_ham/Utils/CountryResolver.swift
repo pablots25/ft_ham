@@ -1,6 +1,6 @@
 //
 //  CountryResolver.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 8/1/26.
 //
@@ -68,26 +68,23 @@ static func countryAndCoordinates(for callsign: String) -> CountryInfo {
         return CountryInfo(country: nil, coordinates: nil)
     }
 
-    // --- ALGORITMO DE BÚSQUEDA POR PREFIJO MÁS LARGO ---
-    
-    // 1. Intentamos con el indicativo completo primero (por si es un ExactCallsign)
+    // Longest prefix matching algorithm
+    // 1. Start with the full callsign (in case it's an ExactCallsign)
     var searchString = upperCall
     
-    // 2. Vamos recortando el indicativo letra a letra desde el final
-    // Ejemplo: "EA1ABC" -> "EA1AB" -> "EA1A" -> "EA1" -> "EA" -> "E"
+    // 2. Trim the callsign character by character from the end
+    // Example: "EA1ABC" -> "EA1AB" -> "EA1A" -> "EA1" -> "EA" -> "E"
     while !searchString.isEmpty {
         if let entry = table[searchString] {
-            
-            // Si la entrada marcada como 'ExactCallsign' es verdadera, 
-            // solo la aceptamos si el indicativo coincide al 100%
+            // If the entry is marked as 'ExactCallsign', only accept it if the full callsign matches
             if entry.exactCallsign == true {
                 if searchString == upperCall {
                     return mapToCountryInfo(entry)
                 }
-                // Si no es coincidencia exacta total, ignoramos esta entrada y seguimos buscando
+                // Not a complete match, skip and keep searching
             } else {
-                // Es un prefijo normal (como EA, EA6, W6), devolvemos este
-                // Al ir de más largo a más corto, garantizamos que EA6 gane a EA.
+                // Standard prefix (like EA, EA6, W6), return this match
+                // By searching longest-to-shortest, we ensure EA6 matches before EA
                 return mapToCountryInfo(entry)
             }
         }

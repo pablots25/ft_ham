@@ -1,6 +1,6 @@
 //
 //  FT8ViewModel+Sequencer.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 12/1/26.
 //
@@ -388,27 +388,6 @@ extension FT8ViewModel {
             appLogger.info(
                 "Final QSO message transmitted — waiting for RX or courtesy timeout"
             )
-            
-            //            if !qsoManager.qsoAlreadyLogged {
-            //                let log = qsoManager.createLogEntry(
-            //                    frequency: frequency,
-            //                    band: selectedBand,
-            //                    isFT4: isFT4
-            //                )
-            //
-            //                if autoQSOLogging {
-            //                    handleQSOLogging(qso: log)
-            //                    appLogger.info("QSO completed and logged automatically for \(dxCallsign)")
-            //                } else {
-            //                    pendingQSOToLog = log
-            //                    showConfirmQSOAlert = true
-            //                    appLogger.info("QSO completed, awaiting manual log confirmation for \(dxCallsign)")
-            //                }
-            //            } else {
-            //                appLogger.debug("QSO already logged via RX path, skipping TX-side log")
-            //            }
-            //
-            //            resetQSOState()
         }
     }
 }

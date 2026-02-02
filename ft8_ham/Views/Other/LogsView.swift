@@ -1,6 +1,6 @@
 //
 //  LogsView.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 30/12/25.
 //

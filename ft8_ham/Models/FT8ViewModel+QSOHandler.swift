@@ -1,6 +1,6 @@
 //
 //  FT8ViewModel+QSO.swift
-//  ft8_ham
+//  ft_ham
 //
 //  Created by Pablo Turrion on 12/1/26.
 //
