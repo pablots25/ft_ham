@@ -42,13 +42,15 @@ final class AnalyticsManager {
         UserDefaults.standard.register(defaults: ["analyticsEnabled": true])
 
         #if DEBUG
-        self.isAnalyticsEnabled = false
+        let initialValue = false
         #else
-        let saved = UserDefaults.standard.bool(forKey: "analyticsEnabled")
-        self.isAnalyticsEnabled = saved
-        Analytics.setAnalyticsCollectionEnabled(saved)
+        let initialValue = UserDefaults.standard.bool(forKey: "analyticsEnabled")
         #endif
+
+        self.isAnalyticsEnabled = initialValue
+        Analytics.setAnalyticsCollectionEnabled(initialValue)
     }
+
 
     // MARK: - Properties
     private var sessionDecodedMessages: Int = 0
@@ -57,20 +59,11 @@ final class AnalyticsManager {
     /// Internal toggle to enable/disable data collection
     var isAnalyticsEnabled: Bool {
         didSet {
-            #if !DEBUG
             UserDefaults.standard.set(isAnalyticsEnabled, forKey: "analyticsEnabled")
             Analytics.setAnalyticsCollectionEnabled(isAnalyticsEnabled)
-            #endif
         }
     }
 
-    // MARK: - Firebase Lifecycle
-    func configureFirebase() {
-        #if !DEBUG
-        FirebaseApp.configure()
-        Analytics.setAnalyticsCollectionEnabled(isAnalyticsEnabled)
-        #endif
-    }
 
     // MARK: - App Lifecycle
     func logAppOpened() {
@@ -105,6 +98,11 @@ final class AnalyticsManager {
     func logShareCompleted() {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent("share_completed", parameters: nil)
+    }
+
+    func logSharePromptShown() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("share_prompt_shown", parameters: nil)
     }
 
     // MARK: - Configuration

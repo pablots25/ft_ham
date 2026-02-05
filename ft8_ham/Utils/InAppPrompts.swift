@@ -35,6 +35,7 @@ final class InAppPrompts: ObservableObject {
 
     // MARK: - Published state for SwiftUI
     @Published var showRateAlert = false
+    @Published var showPreShareAlert = false
     @Published var shareItem: ShareItem?
 
     struct ShareItem: Identifiable {
@@ -105,9 +106,7 @@ final class InAppPrompts: ObservableObject {
 
             Task {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
-                if let url = URL(string: "https://apps.apple.com/app/id6755367558") {
-                    shareItem = ShareItem(url: url)
-                }
+                showPreShareAlert = true
             }
         }
     }
@@ -141,6 +140,13 @@ final class InAppPrompts: ObservableObject {
     }
 
     // MARK: - Share actions
+    func confirmLikesApp() {
+        AnalyticsManager.shared.logSharePromptShown()
+        if let url = URL(string: "https://apps.apple.com/app/id6755367558") {
+            shareItem = ShareItem(url: url)
+        }
+    }
+    
     func markShareCompleted() {
         AnalyticsManager.shared.logShareCompleted()
         UserDefaults.standard.set(true, forKey: Keys.hasShownSharePrompt)
@@ -160,7 +166,7 @@ struct InAppPromptsViewModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .alert("Enjoying FT-Ham?", isPresented: $prompts.showRateAlert) {
+            .alert("Enjoying FT-Ham? ⭐️", isPresented: $prompts.showRateAlert) {
                 Button("Rate") {
                     prompts.requestRate()
                 }
@@ -168,7 +174,17 @@ struct InAppPromptsViewModifier: ViewModifier {
                     prompts.postponeRate()
                 }
             } message: {
-                Text("Give us 5 stars if you like it!")
+                Text("Give us 5 stars if you like it! We'd love to hear your feedback!")
+            }
+            .alert("Do you like FT-Ham? ❤️", isPresented: $prompts.showPreShareAlert) {
+                Button("Yes!") {
+                    prompts.confirmLikesApp()
+                }
+                Button("Not really", role: .cancel) {
+                    prompts.postponeShare()
+                }
+            } message: {
+                Text("Share it with your fellow hams and friends if you do!" 📣)
             }
             .sheet(item: $prompts.shareItem) { item in
                 ShareSheet(url: item.url) {
