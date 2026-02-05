@@ -40,6 +40,8 @@ enum ViewMode: String, Codable, CaseIterable, Identifiable {
 }
 
 struct ConfigurationView: View {
+    @EnvironmentObject private var flags: FeatureFlagManager
+
     @EnvironmentObject private var viewModel: FT8ViewModel
     
     @State private var showHelp = false
