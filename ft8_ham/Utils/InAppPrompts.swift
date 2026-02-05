@@ -174,7 +174,7 @@ struct InAppPromptsViewModifier: ViewModifier {
                     prompts.postponeRate()
                 }
             } message: {
-                Text("Give us 5 stars if you like it! We'd love to hear your feedback!")
+                Text("Please give us 5 stars if you like it. Your feedback helps us improve!")
             }
             .alert("Do you like FT-Ham? ❤️", isPresented: $prompts.showPreShareAlert) {
                 Button("Yes!") {
@@ -184,7 +184,7 @@ struct InAppPromptsViewModifier: ViewModifier {
                     prompts.postponeShare()
                 }
             } message: {
-                Text("Share it with your fellow hams and friends if you do!" 📣)
+                Text("Share it with your fellow hams and friends! 📣")
             }
             .sheet(item: $prompts.shareItem) { item in
                 ShareSheet(url: item.url) {
