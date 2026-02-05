@@ -191,11 +191,25 @@ struct ConfigurationView: View {
                 Divider()
                 
                 analyticsSection
-                
+                            
                 #if DEBUG
-                NavigationLink(destination: LogsView()) {
-                    Text("View app logs")
-                        .foregroundStyle(.blue)
+                    NavigationLink(destination: LogsView()) {
+                        Text("View app logs")
+                            .foregroundStyle(.blue)
+                    }
+
+                Section {
+                    Button {
+                        triggerRatePrompt()
+                    } label: {
+                        Label("Test Rate Prompt", systemImage: "star.fill")
+                    }
+                    
+                    Button {
+                        triggerSharePrompt()
+                    } label: {
+                        Label("Test Share Prompt", systemImage: "square.and.arrow.up")
+                    }
                 }
                 #endif
                 
@@ -270,6 +284,25 @@ struct ConfigurationView: View {
             }
         }
     }
+    
+    // MARK: - Debug Helpers
+    #if DEBUG
+    private func triggerRatePrompt() {
+        let prompts = InAppPrompts.shared
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            prompts.showRateAlert = true
+        }
+    }
+    
+    private func triggerSharePrompt() {
+        let prompts = InAppPrompts.shared
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            prompts.showPreShareAlert = true
+        }
+    }
+    #endif
     
     enum AppStorageResetter {
         static let onboardingKey = "hasCompletedOnboarding"

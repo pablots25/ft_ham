@@ -257,6 +257,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         case band17m  = "17m"
         case band15m  = "15m"
         case band12m  = "12m"
+        case band11m  = "CB/11m"
         case band10m  = "10m"
         case band6m   = "6m"
         case unknown  = "Unknown"
@@ -276,6 +277,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
                 case .band17m:  return 18_074_000
                 case .band15m:  return 21_074_000
                 case .band12m:  return 24_915_000
+                case .band11m:  return 27_245_000
                 case .band10m:  return 28_074_000
                 case .band6m:   return 50_313_000
                 case .unknown:  return nil
@@ -292,6 +294,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
                 case .band17m:  return 18_104_000
                 case .band15m:  return 21_140_000
                 case .band12m:  return 24_919_000
+                case .band11m:  return 27_245_000
                 case .band10m:  return 28_080_000
                 case .band6m:   return 50_318_000
                 case .unknown:  return nil
