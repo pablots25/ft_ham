@@ -192,12 +192,15 @@ struct ConfigurationView: View {
                 
                 analyticsSection
                             
-                #if DEBUG
+                if flags.isEnabled(.showLogsView) {
                     NavigationLink(destination: LogsView()) {
                         Text("View app logs")
                             .foregroundStyle(.blue)
                     }
+                }
+                
 
+                #if DEBUG
                 Section {
                     Button {
                         triggerRatePrompt()
@@ -210,8 +213,15 @@ struct ConfigurationView: View {
                     } label: {
                         Label("Test Share Prompt", systemImage: "square.and.arrow.up")
                     }
+                    
+                    Button(role: .destructive) {
+                        fatalError("Intentional debug crash for testing crash reporting")
+                    } label: {
+                        Label("Crash reporter test", systemImage: "exclamationmark.triangle")
+                    }
                 }
                 #endif
+
                 
                 Divider()
                 
