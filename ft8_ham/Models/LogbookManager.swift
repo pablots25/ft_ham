@@ -173,45 +173,7 @@ final class LogbookManager {
     // MARK: - Save QSO list to ADIF (UTC)
     func saveToADIF(_ qsoList: [LogEntry]) -> URL? {
         guard let fileURL = getFileURL() else { return nil }
-
-        if qsoList.isEmpty {
-            try? adifHeader.write(to: fileURL, atomically: true, encoding: .utf8)
-            return fileURL
-        }
-
-        let dateFormatter = Self.dateFormatter
-        let timeFormatter = Self.timeFormatter
-
-        var adifContent = adifHeader
-        for entry in qsoList {
-            adifContent += "<CALL:\(entry.callsign.count)>\(entry.callsign) "
-            if let station = entry.stationCallsign, !station.isEmpty {
-                adifContent += "<STATION_CALLSIGN:\(station.count)>\(station) "
-            }
-            adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
-            adifContent += "<MODE:3>\(entry.mode) "
-            adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "
-            adifContent += "<RST_RCVD:\(entry.rstRcvd.count)>\(entry.rstRcvd) "
-            adifContent += "<QSO_DATE:8>\(dateFormatter.string(from: entry.date)) "
-            adifContent += "<TIME_ON:6>\(timeFormatter.string(from: entry.date)) "
-            let special = adifFields(for: entry)
-            for (key, value) in special {
-                adifContent += "<\(key):\(value.count)>\(value) "
-            }
-            if !entry.grid.isEmpty {
-                adifContent += "<GRID:\(entry.grid.count)>\(entry.grid) "
-            }
-            adifContent += "<EOR>\n"
-        }
-
-        do {
-            try adifContent.write(to: fileURL, atomically: true, encoding: .utf8)
-            appLogger.info("Successfully saved \(qsoList.count) entries to ADIF (UTC)")
-            return fileURL
-        } catch {
-            appLogger.error("Failed to save ADIF: \(error.localizedDescription)")
-            return nil
-        }
+        return writeADIF(qsoList, to: fileURL, operationName: "save")
     }
 
     // MARK: - Helpers
@@ -267,16 +229,38 @@ final class LogbookManager {
     // MARK: - Export QSO list to ADIF with dynamic filename (for user exports)
     func exportToADIF(_ qsoList: [LogEntry]) -> URL? {
         guard let fileURL = getExportFileURL() else { return nil }
-
+        return writeADIF(qsoList, to: fileURL, operationName: "export")
+    }
+    
+    // MARK: - Private helper to write ADIF content
+    private func writeADIF(_ qsoList: [LogEntry], to fileURL: URL, operationName: String) -> URL? {
         if qsoList.isEmpty {
             try? adifHeader.write(to: fileURL, atomically: true, encoding: .utf8)
             return fileURL
         }
 
+        let adifContent = buildADIFContent(qsoList)
+
+        do {
+            try adifContent.write(to: fileURL, atomically: true, encoding: .utf8)
+            if operationName == "export" {
+                appLogger.info("Successfully exported \(qsoList.count) entries to ADIF with dynamic filename: \(fileURL.lastPathComponent)")
+            } else {
+                appLogger.info("Successfully saved \(qsoList.count) entries to ADIF (UTC)")
+            }
+            return fileURL
+        } catch {
+            appLogger.error("Failed to \(operationName) ADIF: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    // MARK: - Build ADIF content from QSO list
+    private func buildADIFContent(_ qsoList: [LogEntry]) -> String {
+        var adifContent = adifHeader
         let dateFormatter = Self.dateFormatter
         let timeFormatter = Self.timeFormatter
-
-        var adifContent = adifHeader
+        
         for entry in qsoList {
             adifContent += "<CALL:\(entry.callsign.count)>\(entry.callsign) "
             if let station = entry.stationCallsign, !station.isEmpty {
@@ -297,15 +281,8 @@ final class LogbookManager {
             }
             adifContent += "<EOR>\n"
         }
-
-        do {
-            try adifContent.write(to: fileURL, atomically: true, encoding: .utf8)
-            appLogger.info("Successfully exported \(qsoList.count) entries to ADIF with dynamic filename: \(fileURL.lastPathComponent)")
-            return fileURL
-        } catch {
-            appLogger.error("Failed to export ADIF: \(error.localizedDescription)")
-            return nil
-        }
+        
+        return adifContent
     }
     
     func getEmptyADIFURL() -> URL {
