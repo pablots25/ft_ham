@@ -20,6 +20,8 @@ struct LogEntry: Identifiable {
     let stationCallsign: String?
     let cqModifier: String?
     let mySigInfo: String?
+    let country: String?        // Resolved country name from CountryResolver
+    let flag: String?           // Cached flag emoji for performance
 }
 
 final class LogbookManager {
@@ -134,7 +136,9 @@ final class LogbookManager {
             rstRcvd: rRcvd,
             stationCallsign: stationCall.isEmpty ? nil : stationCall,
             cqModifier: mySig.isEmpty ? nil : mySig,
-            mySigInfo: mySigInfo.isEmpty ? nil : mySigInfo
+            mySigInfo: mySigInfo.isEmpty ? nil : mySigInfo,
+            country: CountryResolver.countryAndCoordinates(for: call).country,
+            flag: FlagUtility.flag(for: CountryResolver.countryAndCoordinates(for: call).country)
         )
     }
 
