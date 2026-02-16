@@ -18,7 +18,7 @@ struct ContentView: View {
     @AppStorage("mapShowGrids") private var mapShowGrids: Bool = true
     @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = true
     @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = true
-    @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = true
+    @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = false
     @State private var shareURL: URL?
     
     @State private var selectedTab = 0 // Default to TX/RX tab
@@ -132,52 +132,16 @@ struct ContentView: View {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
 
-
-                    NavigationStack {
-                        GridMapViewWrapper(
-                            locators: $viewModel.workedLocators,
-                            countries: $viewModel.workedCountryPairs,
-                            showGrids: mapShowGrids,
-                            showCountryCircles: mapShowCountryCircles,
-                            showGeodesics: mapShowGeodesics,
-                            showAnnotations: mapShowAnnotations
-                        )
-                        .navigationTitle("Map")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                                Toggle(isOn: $mapShowGrids) {
-                                    Label("Grids", systemImage: "square.grid.3x3")
-                                }
-                                .toggleStyle(.button)
-                                .labelStyle(.iconOnly)
-                                .accessibilityLabel("Grids")
-
-                                Toggle(isOn: $mapShowCountryCircles) {
-                                    Label("Countries", systemImage: "circle.dotted")
-                                }
-                                .toggleStyle(.button)
-                                .labelStyle(.iconOnly)
-                                .accessibilityLabel("Country circles")
-
-                                Toggle(isOn: $mapShowGeodesics) {
-                                    Label("Geodesics", systemImage: "line.diagonal")
-                                }
-                                .toggleStyle(.button)
-                                .labelStyle(.iconOnly)
-                                .accessibilityLabel("Geodesic paths")
-
-                                Toggle(isOn: $mapShowAnnotations) {
-                                    Label("Annotations", systemImage: "tag")
-                                }
-                                .toggleStyle(.button)
-                                .labelStyle(.iconOnly)
-                                .accessibilityLabel("Annotations")
-                            }
-                        }
-                        .onAppear {
-                            AnalyticsManager.shared.trackScreen(.map)
-                        }
+                    GridMapViewWrapper(
+                        locators: $viewModel.workedLocators,
+                        countries: $viewModel.workedCountryPairs,
+                        showGrids: $mapShowGrids,
+                        showCountryCircles: $mapShowCountryCircles,
+                        showGeodesics: $mapShowGeodesics,
+                        showAnnotations: $mapShowAnnotations
+                    )
+                    .onAppear {
+                        AnalyticsManager.shared.trackScreen(.map)
                     }
                     .tabItem { Label("Map", systemImage: "map.fill") }
                     .tag(2)
