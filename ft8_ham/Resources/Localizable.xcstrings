@@ -3628,6 +3628,312 @@
           }
         }
       }
+    },
+    "what_new_title" : {
+      "comment" : "The title of the What's New view.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's New"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novedades"
+          }
+        }
+      }
+    },
+    "what_new_nav_title" : {
+      "comment" : "The navigation title for the What's New view.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's New in FT Ham"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novedades de FT Ham"
+          }
+        }
+      }
+    },
+    "what_new_continue" : {
+      "comment" : "Button to dismiss the What's New view.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let's Go"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vamos"
+          }
+        }
+      }
+    },
+    "what_new_feature1_title" : {
+      "comment" : "Title for the first What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Improved Waterfall Display"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejora en la visualización del Waterfall"
+          }
+        }
+      }
+    },
+    "what_new_feature1_desc" : {
+      "comment" : "Description for the first What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Better clarity and faster rendering on large scrolls"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mayor claridad y renderizado más rápido en desplazamientos largos"
+          }
+        }
+      }
+    },
+    "what_new_feature2_title" : {
+      "comment" : "Title for the second What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Performance Enhancements"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejoras de rendimiento"
+          }
+        }
+      }
+    },
+    "what_new_feature2_desc" : {
+      "comment" : "Description for the second What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optimized battery usage and faster app responsiveness"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso optimizado de batería y respuesta más rápida de la app"
+          }
+        }
+      }
+    },
+    "what_new_feature3_title" : {
+      "comment" : "Title for the third What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dark Mode Support"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soporte para modo oscuro"
+          }
+        }
+      }
+    },
+    "what_new_feature3_desc" : {
+      "comment" : "Description for the third What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enjoy a comfortable viewing experience in low light conditions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disfruta de una experiencia de visualización cómoda en condiciones de poca luz"
+          }
+        }
+      }
+    },
+    "what_new_feature4_title" : {
+      "comment" : "Title for the fourth What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Antenna Tuner Integration"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva integración del sintonizador de antena"
+          }
+        }
+      }
+    },
+    "what_new_feature4_desc" : {
+      "comment" : "Description for the fourth What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Better coordination with your antenna equipment"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejor coordinación con tu equipo de antena"
+          }
+        }
+      }
+    },
+    "what_new_feature5_title" : {
+      "comment" : "Title for the fifth What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Improved User Experience"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experiencia de usuario mejorada"
+          }
+        }
+      }
+    },
+    "what_new_feature5_desc" : {
+      "comment" : "Description for the fifth What's New feature.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refined UI controls and smoother animations throughout the app"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controles de interfaz refinados y animaciones más suaves en toda la app"
+          }
+        }
+      }
+    },
+    "what_new_bugfixes" : {
+      "comment" : "Section header for bug fixes in the What's New view.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bug Fixes & Improvements"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correcciones de errores y mejoras"
+          }
+        }
+      }
+    },
+    "what_new_bugfix1" : {
+      "comment" : "First bug fix item in What's New.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed crash when exporting large logbooks"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se corrigió el fallo al exportar logbooks grandes"
+          }
+        }
+      }
+    },
+    "what_new_bugfix2" : {
+      "comment" : "Second bug fix item in What's New.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolved frequency sync issues with bluetooth devices"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se resolvieron problemas de sincronización de frecuencia con dispositivos bluetooth"
+          }
+        }
+      }
+    },
+    "what_new_bugfix3" : {
+      "comment" : "Third bug fix item in What's New.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Improved stability when handling real-time decoding"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estabilidad mejorada al procesar decodificación en tiempo real"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
