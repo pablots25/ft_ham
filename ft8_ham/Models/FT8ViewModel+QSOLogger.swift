@@ -43,6 +43,9 @@ extension FT8ViewModel  {
         appLogger.log(.info, "QSO with \(qso.callsign) successfully completed.")
         qsoList.append(qso)
         AnalyticsManager.shared.addQSOs()
+        Task { @MainActor in
+            InAppPrompts.shared.recordQSOLogged()
+        }
 
         // Show persistent local notification
         let content = UNMutableNotificationContent()

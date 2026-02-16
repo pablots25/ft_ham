@@ -9,6 +9,15 @@ import MapKit
 import SwiftUI
 import CoreLocation
 
+// MARK: - Map Visibility Settings
+
+struct MapVisibility: Hashable {
+    let grids: Bool
+    let countryCircles: Bool
+    let geodesics: Bool
+    let annotations: Bool
+}
+
 // MARK: - Map View with grids, countries, routes, and user location
 
 struct GridMapView: UIViewRepresentable {
@@ -21,6 +30,11 @@ struct GridMapView: UIViewRepresentable {
 
     /// Optional route points
     var routePoints: [CLLocationCoordinate2D] = []
+
+    var showGrids: Bool = true
+    var showCountryCircles: Bool = true
+    var showGeodesics: Bool = true
+    var showAnnotations: Bool = true
 
     func makeCoordinator() -> Coordinator {
         Coordinator(locators: $locators)
@@ -46,11 +60,13 @@ struct GridMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: MKMapView, context: Context) {
-        context.coordinator.updateMap(
-            uiView,
-            locators: locators,
-            countries: countries
+        let visibility = MapVisibility(
+            grids: showGrids,
+            countryCircles: showCountryCircles,
+            geodesics: showGeodesics,
+            annotations: showAnnotations
         )
+        context.coordinator.updateMap(uiView, locators: locators, countries: countries, visibility: visibility)
     }
 
     // MARK: - Coordinator
@@ -109,23 +125,43 @@ struct GridMapView: UIViewRepresentable {
         // MARK: - Map update
 
         @MainActor
-        func updateMap(_ mapView: MKMapView,
-                       locators: [String],
-                       countries: [CountryPair]) {
-
-            let currentHash = locators.hashValue ^ countries.count.hashValue
+        func updateMap(_ mapView: MKMapView, locators: [String], countries: [CountryPair], visibility: MapVisibility) {
+            let currentHash = makeHash(locators: locators, countries: countries, visibility: visibility)
             guard currentHash != lastHash else { return }
             lastHash = currentHash
 
             var overlaysToAdd: [MKOverlay] = []
             var annotationsToAdd: [MKPointAnnotation] = []
 
-            // Grids
+            if visibility.grids {
+                addGridOverlays(locators: locators, visibility: visibility, overlays: &overlaysToAdd, annotations: &annotationsToAdd)
+            }
+
+            if visibility.countryCircles || visibility.geodesics {
+                addCountryOverlays(countries: countries, visibility: visibility, overlays: &overlaysToAdd)
+            }
+
+            updateMapOverlays(mapView, overlays: overlaysToAdd, annotations: annotationsToAdd, showAnnotations: visibility.annotations)
+
+            if !hasEverFitRegion && !overlaysToAdd.isEmpty {
+                fitAll(mapView, overlays: overlaysToAdd)
+            }
+        }
+
+        // MARK: - Helper Methods
+
+        private func makeHash(locators: [String], countries: [CountryPair], visibility: MapVisibility) -> Int {
+            locators.hashValue ^ countries.count.hashValue ^ visibility.hashValue
+        }
+
+        private func addGridOverlays(locators: [String], visibility: MapVisibility,
+                                     overlays: inout [MKOverlay], annotations: inout [MKPointAnnotation]) {
             for locator in locators {
-                if let polygon = polygonCache[locator],
-                   let annotation = annotationCache[locator] {
-                    overlaysToAdd.append(polygon)
-                    annotationsToAdd.append(annotation)
+                if let polygon = polygonCache[locator], let annotation = annotationCache[locator] {
+                    overlays.append(polygon)
+                    if visibility.annotations {
+                        annotations.append(annotation)
+                    }
                 } else if let coords = MaidenheadGrid.gridPolygon(for: locator) {
                     let polygon = MKPolygon(coordinates: coords, count: coords.count)
                     let annotation = MKPointAnnotation()
@@ -135,37 +171,43 @@ struct GridMapView: UIViewRepresentable {
                     polygonCache[locator] = polygon
                     annotationCache[locator] = annotation
 
-                    overlaysToAdd.append(polygon)
-                    annotationsToAdd.append(annotation)
-                }
-            }
-
-            // Country circles and geodesics
-            for pair in countries {
-                let sender = pair.sender.coordinates.map {
-                    CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon)
-                }
-                let receiver = pair.receiver?.coordinates.map {
-                    CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon)
-                }
-
-                if let s = sender {
-                    overlaysToAdd.append(MKCircle(center: s, radius: 150_000))
-                    if let r = receiver {
-                        overlaysToAdd.append(MKCircle(center: r, radius: 150_000))
-                        overlaysToAdd.append(MKGeodesicPolyline(coordinates: [s, r], count: 2))
+                    overlays.append(polygon)
+                    if visibility.annotations {
+                        annotations.append(annotation)
                     }
                 }
             }
+        }
 
+        private func addCountryOverlays(countries: [CountryPair], visibility: MapVisibility, overlays: inout [MKOverlay]) {
+            for pair in countries {
+                guard let sender = pair.sender.coordinates.map({ CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }) else { continue }
+
+                if visibility.countryCircles {
+                    overlays.append(MKCircle(center: sender, radius: 150_000))
+                }
+
+                if let receiver = pair.receiver?.coordinates.map({ CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }) {
+                    if visibility.countryCircles {
+                        overlays.append(MKCircle(center: receiver, radius: 150_000))
+                    }
+                    if visibility.geodesics {
+                        overlays.append(MKGeodesicPolyline(coordinates: [sender, receiver], count: 2))
+                    }
+                }
+            }
+        }
+
+        private func updateMapOverlays(_ mapView: MKMapView,
+                                      overlays: [MKOverlay],
+                                      annotations: [MKPointAnnotation],
+                                      showAnnotations: Bool) {
             mapView.removeOverlays(mapView.overlays)
-            mapView.addOverlays(overlaysToAdd)
+            mapView.addOverlays(overlays)
 
             mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
-            mapView.addAnnotations(annotationsToAdd)
-
-            if !hasEverFitRegion && !overlaysToAdd.isEmpty {
-                fitAll(mapView, overlays: overlaysToAdd)
+            if showAnnotations {
+                mapView.addAnnotations(annotations)
             }
         }
 
@@ -329,16 +371,113 @@ struct GridMapViewWrapper: View {
     @Binding var locators: [String]
     @Binding var countries: [CountryPair]
     var routePoints: [CLLocationCoordinate2D] = []
+    @Binding var showGrids: Bool
+    @Binding var showCountryCircles: Bool
+    @Binding var showGeodesics: Bool
+    @Binding var showAnnotations: Bool
+    @State private var isControlsExpanded: Bool = false
 
     var body: some View {
-        GeometryReader { geo in
+        ZStack(alignment: .topTrailing) {
             GridMapView(
                 locators: $locators,
                 countries: countries,
-                routePoints: routePoints
+                routePoints: routePoints,
+                showGrids: showGrids,
+                showCountryCircles: showCountryCircles,
+                showGeodesics: showGeodesics,
+                showAnnotations: showAnnotations
             )
-            .frame(width: geo.size.width, height: geo.size.height)
+            .ignoresSafeArea()
+            
+            mapControlBar
+                .padding(10)
         }
     }
+
+    // MARK: - Floating Map Controls
+    private var mapControlBar: some View {
+        HStack(spacing: 12) {
+            // Settings Button
+            Button {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0.3)) {
+                    isControlsExpanded.toggle()
+                }
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundStyle(isControlsExpanded ? .green : .primary)
+            }
+            .frame(height: 30)
+
+            if isControlsExpanded {
+                Divider()
+    
+                
+                // Grids Toggle
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showGrids.toggle()
+                    }
+                } label: {
+                    Image(systemName: showGrids ? "square.grid.3x3.fill" : "square.grid.3x3")
+                        .foregroundStyle(showGrids ? .blue : .primary)
+                }
+                
+                Divider()
+
+                // Countries Toggle
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showCountryCircles.toggle()
+                    }
+                } label: {
+                    Image(systemName: showCountryCircles ? "circle.dotted" : "circle")
+                        .foregroundStyle(showCountryCircles ? .blue : .primary)
+                }
+                
+                Divider()
+
+                // Geodesics Toggle
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showGeodesics.toggle()
+                    }
+                } label: {
+                    Image(systemName: showGeodesics ? "point.bottomleft.forward.to.point.topright.scurvepath.fill": "point.bottomleft.forward.to.point.topright.scurvepath")
+                        .foregroundStyle(showGeodesics ? .blue : .primary)
+                }
+                
+                Divider()
+
+                // Labels Toggle
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showAnnotations.toggle()
+                    }
+                } label: {
+                    Image(systemName: showAnnotations ? "tag.fill" : "tag")
+                        .foregroundStyle(showAnnotations ? .blue : .primary)
+                }
+            }
+        }
+
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 25, style: .continuous)
+                .fill(.thickMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 5, y: 2)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 25, style: .continuous)
+                .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+        )
+        .frame(height: 40)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0.3), value: isControlsExpanded)
+    }
 }
+
+
+
+
 

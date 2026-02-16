@@ -19,9 +19,16 @@ struct LogbookView: View {
             ForEach($viewModel.qsoList) { $entry in
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(entry.callsign)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
+                        HStack(spacing: 6) {
+                            Text(entry.callsign)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+
+                            if let flag = entry.flag {
+                                Text(flag)
+                                    .font(.headline)
+                            }
+                        }
 
                         Text(entry.grid)
                             .foregroundStyle(.secondary)

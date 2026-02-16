@@ -13,6 +13,16 @@ class ProductManager: ObservableObject {
     
     @Published var products: [Product] = []
     
+    /// Check if the user has made any purchases
+    static func hasMadeAnyPurchase() async -> Bool {
+        for await result in Transaction.all {
+            if case .verified(_) = result {
+                return true
+            }
+        }
+        return false
+    }
+    
     func fetchProducts() async {
         do {
             let fetched = try await Product.products(for: [
