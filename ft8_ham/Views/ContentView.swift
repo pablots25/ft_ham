@@ -15,9 +15,15 @@ struct ContentView: View {
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
+    @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
+    @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
+    @AppStorage("mapShowGrids") private var mapShowGrids: Bool = true
+    @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = true
+    @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = true
+    @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = false
     @State private var shareURL: URL?
     
-    @State private var selectedTab = 0 // Default to TX/RX tab
+    @State private var selectedTab: Int = 0
     @State private var showConfigAlert = false
     @State private var showClearLogbookAlert = false
     @State private var showExportOptions = false
@@ -41,6 +47,13 @@ struct ContentView: View {
             }
             .task {
                 viewModel.startProgressBarUTC()
+                // Set initial tab: 4 if first launch, otherwise last used tab
+                if !hasLaunchedBefore {
+                    selectedTab = 4
+                    hasLaunchedBefore = true
+                } else {
+                    selectedTab = lastSelectedTab
+                }
                 // Decide which prompt to show at launch
                 if !hasCompletedOnboarding {
                     isPresentingOnboarding = true
@@ -80,10 +93,10 @@ struct ContentView: View {
                     viewModel.stopSequencer()
                 }
             }
+            .onChange(of: selectedTab) { newTab in
+                lastSelectedTab = newTab
+            }
             .onChange(of: viewModel.settingsLoaded) { loaded in
-                if loaded && selectedTab == 4 {
-                    selectedTab = 0
-                }
                 if loaded && autoRXAtStart {
                     evaluateAutoRX()
                 }
@@ -129,16 +142,19 @@ struct ContentView: View {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
 
-
                     GridMapViewWrapper(
                         locators: $viewModel.workedLocators,
-                        countries: $viewModel.workedCountryPairs
+                        countries: $viewModel.workedCountryPairs,
+                        showGrids: $mapShowGrids,
+                        showCountryCircles: $mapShowCountryCircles,
+                        showGeodesics: $mapShowGeodesics,
+                        showAnnotations: $mapShowAnnotations
                     )
-                    .tabItem { Label("Map", systemImage: "map.fill") }
-                    .tag(2)
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
                     }
+                    .tabItem { Label("Map", systemImage: "map.fill") }
+                    .tag(2)
 
                     NavigationStack {
                         LogbookView()

@@ -241,7 +241,8 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
   AVAudioSession *session = [AVAudioSession sharedInstance];
   [session setCategory:AVAudioSessionCategoryPlayAndRecord
            withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker |
-                       AVAudioSessionCategoryOptionAllowBluetoothHFP
+                       AVAudioSessionCategoryOptionAllowBluetooth |
+                       AVAudioSessionCategoryOptionAllowBluetoothA2DP
                  error:&sessionError];
   [session setMode:AVAudioSessionModeMeasurement error:&sessionError];
   [session setPreferredSampleRate:12000 error:&sessionError];

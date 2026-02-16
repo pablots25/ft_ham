@@ -105,7 +105,7 @@ final class AudioManager: NSObject {
         do {
             try session.setCategory(
                 .playAndRecord,
-                options: [.defaultToSpeaker, .allowBluetoothHFP]
+                options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
             )
             try session.setMode(.measurement)
 

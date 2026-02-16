@@ -373,6 +373,7 @@ extension FT8ViewModel {
         
         AnalyticsManager.shared.startRadioActivity(.tx)
         audioManager.playAudio(audioData)
+        InAppPrompts.shared.recordTXStarted()
         txLogger.info("TX Started: \(message)")
         txLogger.info(
             "TX starting \(String(format: "%.2f", offsetFromSlotStart))s into slot \(slot.slotIndex)"
