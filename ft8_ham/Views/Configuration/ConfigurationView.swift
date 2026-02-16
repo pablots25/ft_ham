@@ -190,6 +190,10 @@ struct ConfigurationView: View {
                 
                 Divider()
                 
+                ContactView()
+                
+                Divider()
+                
                 analyticsSection
                             
                 #if DEBUG
