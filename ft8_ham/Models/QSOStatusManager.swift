@@ -676,6 +676,7 @@ final class QSOStatusManager: ObservableObject {
 
         guard rstSent != invalidSNR, rstRcvd != invalidSNR else {
             appLogger.error("Attempting to log QSO without valid SNRs")
+            let countryInfo = CountryResolver.countryAndCoordinates(for: dxCallsign)
             return LogEntry(
                 callsign: dxCallsign,
                 grid: dxLocator,
@@ -686,10 +687,13 @@ final class QSOStatusManager: ObservableObject {
                 rstRcvd: "Invalid",
                 stationCallsign: stationCallsign,
                 cqModifier: currentCQModifier,
-                mySigInfo: mySigInfo
+                mySigInfo: mySigInfo,
+                country: countryInfo.country,
+                flag: FlagUtility.flag(for: countryInfo.country)
             )
         }
         
+        let countryInfo = CountryResolver.countryAndCoordinates(for: dxCallsign)
         return LogEntry(
             callsign: dxCallsign,
             grid: dxLocator,
@@ -700,7 +704,9 @@ final class QSOStatusManager: ObservableObject {
             rstRcvd: String(rstRcvd),
             stationCallsign: stationCallsign,
             cqModifier: currentCQModifier,
-            mySigInfo: mySigInfo
+            mySigInfo: mySigInfo,
+            country: countryInfo.country,
+            flag: FlagUtility.flag(for: countryInfo.country)
         )
     }
 

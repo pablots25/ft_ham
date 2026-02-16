@@ -14,11 +14,6 @@ struct LogbookView: View {
 
     @AppStorage("logbookTimeDisplayLocal") private var displayLocalTime: Bool = false
 
-    private func dxFlag(for callsign: String) -> String? {
-        let country = CountryResolver.countryAndCoordinates(for: callsign).country
-        return FlagUtility.flag(for: country)
-    }
-
     var body: some View {
         List {
             ForEach($viewModel.qsoList) { $entry in
@@ -29,7 +24,7 @@ struct LogbookView: View {
                                 .font(.headline)
                                 .foregroundStyle(.primary)
 
-                            if let flag = dxFlag(for: entry.callsign) {
+                            if let flag = entry.flag {
                                 Text(flag)
                                     .font(.headline)
                             }

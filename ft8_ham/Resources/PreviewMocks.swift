@@ -91,7 +91,9 @@ enum PreviewMocks {
             rstRcvd: "599",
             stationCallsign: "EA4IQL",
             cqModifier: nil,
-            mySigInfo: nil
+            mySigInfo: nil,
+            country: "Spain",
+            flag: "🇪🇸"
         ),
 
         // POTA activation
@@ -105,7 +107,9 @@ enum PreviewMocks {
             rstRcvd: "-12",
             stationCallsign: "EA4IQL",
             cqModifier: "POTA",
-            mySigInfo: "EA-1234"
+            mySigInfo: "EA-1234",
+            country: "United States",
+            flag: "🇺🇸"
         ),
 
         // SOTA activation
@@ -119,7 +123,9 @@ enum PreviewMocks {
             rstRcvd: "-07",
             stationCallsign: "EA4IQL",
             cqModifier: "SOTA",
-            mySigInfo: "EA/MD-001"
+            mySigInfo: "EA/MD-001",
+            country: "Germany",
+            flag: "🇩🇪"
         ),
 
         // WWFF activation
@@ -133,7 +139,9 @@ enum PreviewMocks {
             rstRcvd: "-15",
             stationCallsign: "EA4IQL",
             cqModifier: "WWFF",
-            mySigInfo: "EAFF-0456"
+            mySigInfo: "EAFF-0456",
+            country: "Japan",
+            flag: "🇯🇵"
         ),
 
         // Another normal QSO after activation (must NOT contain MY_SIG)
@@ -147,7 +155,9 @@ enum PreviewMocks {
             rstRcvd: "-06",
             stationCallsign: "EA4IQL",
             cqModifier: nil,
-            mySigInfo: nil
+            mySigInfo: nil,
+            country: "Argentina",
+            flag: "🇦🇷"
         ),
 
         // POTA again (to test multiple activations in same log)
@@ -161,7 +171,9 @@ enum PreviewMocks {
             rstRcvd: "-04",
             stationCallsign: "EA4IQL",
             cqModifier: "POTA",
-            mySigInfo: "EA-1234"
+            mySigInfo: "EA-1234",
+            country: "Australia",
+            flag: "🇦🇺"
         )
     ]
 

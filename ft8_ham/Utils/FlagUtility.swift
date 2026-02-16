@@ -299,10 +299,34 @@ final class FlagUtility {
         "Aland Islands": "🇦🇽",
     ]
     
+    // MARK: - CTY Country Name Aliases
+    /// Maps CTY country names to the canonical names in countryToFlag.
+    /// This handles cases where CTY and the flag map use different official names.
+    private static let ctyAliases: [String: String] = [
+        "Republic of Korea": "South Korea",
+        "DPR of Korea": "North Korea",
+        "Cote d'Ivoire": "Ivory Coast",
+        "Czech": "Czech Republic",
+        "Russian Federation": "Russia",
+    ]
+    
     /// Get flag emoji for a country name
+    /// Handles CTY country name aliases to ensure proper flag resolution
     static func flag(for country: String?) -> String? {
         guard let country = country else { return nil }
-        return countryToFlag[country]
+        
+        // Try exact match first
+        if let flag = countryToFlag[country] {
+            return flag
+        }
+        
+        // Try alias mapping for known CTY variants
+        if let canonicalName = ctyAliases[country],
+           let flag = countryToFlag[canonicalName] {
+            return flag
+        }
+        
+        return nil
     }
     
     /// Add flag emojis to message text based on callsigns in the message
