@@ -214,6 +214,12 @@ struct ConfigurationView: View {
                     } label: {
                         Label("Test Share Prompt", systemImage: "square.and.arrow.up")
                     }
+                    
+                    Button {
+                        triggerDonationPrompt()
+                    } label: {
+                        Label("Test Donation Prompt", systemImage: "heart.fill")
+                    }
                 }
                 #endif
                 
@@ -304,6 +310,14 @@ struct ConfigurationView: View {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 500_000_000)
             prompts.showPreShareAlert = true
+        }
+    }
+    
+    private func triggerDonationPrompt() {
+        let prompts = InAppPrompts.shared
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            prompts.showDonationAlert = true
         }
     }
     #endif
