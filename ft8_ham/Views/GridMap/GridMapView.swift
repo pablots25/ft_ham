@@ -22,6 +22,11 @@ struct GridMapView: UIViewRepresentable {
     /// Optional route points
     var routePoints: [CLLocationCoordinate2D] = []
 
+    var showGrids: Bool = true
+    var showCountryCircles: Bool = true
+    var showGeodesics: Bool = true
+    var showAnnotations: Bool = true
+
     func makeCoordinator() -> Coordinator {
         Coordinator(locators: $locators)
     }
@@ -49,7 +54,11 @@ struct GridMapView: UIViewRepresentable {
         context.coordinator.updateMap(
             uiView,
             locators: locators,
-            countries: countries
+            countries: countries,
+            showGrids: showGrids,
+            showCountryCircles: showCountryCircles,
+            showGeodesics: showGeodesics,
+            showAnnotations: showAnnotations
         )
     }
 
@@ -111,9 +120,18 @@ struct GridMapView: UIViewRepresentable {
         @MainActor
         func updateMap(_ mapView: MKMapView,
                        locators: [String],
-                       countries: [CountryPair]) {
+                       countries: [CountryPair],
+                       showGrids: Bool,
+                       showCountryCircles: Bool,
+                       showGeodesics: Bool,
+                       showAnnotations: Bool) {
 
-            let currentHash = locators.hashValue ^ countries.count.hashValue
+            let currentHash = locators.hashValue
+                ^ countries.count.hashValue
+                ^ showGrids.hashValue
+                ^ showCountryCircles.hashValue
+                ^ showGeodesics.hashValue
+                ^ showAnnotations.hashValue
             guard currentHash != lastHash else { return }
             lastHash = currentHash
 
@@ -121,39 +139,53 @@ struct GridMapView: UIViewRepresentable {
             var annotationsToAdd: [MKPointAnnotation] = []
 
             // Grids
-            for locator in locators {
-                if let polygon = polygonCache[locator],
-                   let annotation = annotationCache[locator] {
-                    overlaysToAdd.append(polygon)
-                    annotationsToAdd.append(annotation)
-                } else if let coords = MaidenheadGrid.gridPolygon(for: locator) {
-                    let polygon = MKPolygon(coordinates: coords, count: coords.count)
-                    let annotation = MKPointAnnotation()
-                    annotation.coordinate = polygonCenter(polygon)
-                    annotation.title = locator.uppercased()
+            if showGrids {
+                for locator in locators {
+                    if let polygon = polygonCache[locator],
+                       let annotation = annotationCache[locator] {
+                        overlaysToAdd.append(polygon)
+                        if showAnnotations {
+                            annotationsToAdd.append(annotation)
+                        }
+                    } else if let coords = MaidenheadGrid.gridPolygon(for: locator) {
+                        let polygon = MKPolygon(coordinates: coords, count: coords.count)
+                        let annotation = MKPointAnnotation()
+                        annotation.coordinate = polygonCenter(polygon)
+                        annotation.title = locator.uppercased()
 
-                    polygonCache[locator] = polygon
-                    annotationCache[locator] = annotation
+                        polygonCache[locator] = polygon
+                        annotationCache[locator] = annotation
 
-                    overlaysToAdd.append(polygon)
-                    annotationsToAdd.append(annotation)
+                        overlaysToAdd.append(polygon)
+                        if showAnnotations {
+                            annotationsToAdd.append(annotation)
+                        }
+                    }
                 }
             }
 
             // Country circles and geodesics
-            for pair in countries {
-                let sender = pair.sender.coordinates.map {
-                    CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon)
-                }
-                let receiver = pair.receiver?.coordinates.map {
-                    CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon)
-                }
+            if showCountryCircles || showGeodesics {
+                for pair in countries {
+                    let sender = pair.sender.coordinates.map {
+                        CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon)
+                    }
+                    let receiver = pair.receiver?.coordinates.map {
+                        CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon)
+                    }
 
-                if let s = sender {
-                    overlaysToAdd.append(MKCircle(center: s, radius: 150_000))
-                    if let r = receiver {
-                        overlaysToAdd.append(MKCircle(center: r, radius: 150_000))
-                        overlaysToAdd.append(MKGeodesicPolyline(coordinates: [s, r], count: 2))
+                    if let s = sender {
+                        if showCountryCircles {
+                            overlaysToAdd.append(MKCircle(center: s, radius: 150_000))
+                        }
+                        if let r = receiver {
+                            if showCountryCircles {
+                                overlaysToAdd.append(MKCircle(center: r, radius: 150_000))
+                            }
+                            if showGeodesics {
+                                overlaysToAdd.append(MKGeodesicPolyline(coordinates: [s, r], count: 2))
+                            }
+                        }
                     }
                 }
             }
@@ -162,7 +194,9 @@ struct GridMapView: UIViewRepresentable {
             mapView.addOverlays(overlaysToAdd)
 
             mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
-            mapView.addAnnotations(annotationsToAdd)
+            if showAnnotations {
+                mapView.addAnnotations(annotationsToAdd)
+            }
 
             if !hasEverFitRegion && !overlaysToAdd.isEmpty {
                 fitAll(mapView, overlays: overlaysToAdd)
@@ -329,13 +363,21 @@ struct GridMapViewWrapper: View {
     @Binding var locators: [String]
     @Binding var countries: [CountryPair]
     var routePoints: [CLLocationCoordinate2D] = []
+    var showGrids: Bool = true
+    var showCountryCircles: Bool = true
+    var showGeodesics: Bool = true
+    var showAnnotations: Bool = true
 
     var body: some View {
         GeometryReader { geo in
             GridMapView(
                 locators: $locators,
                 countries: countries,
-                routePoints: routePoints
+                routePoints: routePoints,
+                showGrids: showGrids,
+                showCountryCircles: showCountryCircles,
+                showGeodesics: showGeodesics,
+                showAnnotations: showAnnotations
             )
             .frame(width: geo.size.width, height: geo.size.height)
         }
