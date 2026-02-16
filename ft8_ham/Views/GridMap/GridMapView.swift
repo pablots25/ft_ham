@@ -443,7 +443,7 @@ struct GridMapViewWrapper: View {
                         showGeodesics.toggle()
                     }
                 } label: {
-                    Image(systemName: showGeodesics ? "line.diagonal" : "line.diagonal")
+                    Image(systemName: showGeodesics ? "point.bottomleft.forward.to.point.topright.scurvepath.fill": "point.bottomleft.forward.to.point.topright.scurvepath")
                         .foregroundStyle(showGeodesics ? .blue : .primary)
                 }
                 
