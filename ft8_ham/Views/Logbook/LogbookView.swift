@@ -14,14 +14,26 @@ struct LogbookView: View {
 
     @AppStorage("logbookTimeDisplayLocal") private var displayLocalTime: Bool = false
 
+    private func dxFlag(for callsign: String) -> String? {
+        let country = CountryResolver.countryAndCoordinates(for: callsign).country
+        return FlagUtility.flag(for: country)
+    }
+
     var body: some View {
         List {
             ForEach($viewModel.qsoList) { $entry in
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(entry.callsign)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
+                        HStack(spacing: 6) {
+                            Text(entry.callsign)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+
+                            if let flag = dxFlag(for: entry.callsign) {
+                                Text(flag)
+                                    .font(.headline)
+                            }
+                        }
 
                         Text(entry.grid)
                             .foregroundStyle(.secondary)
