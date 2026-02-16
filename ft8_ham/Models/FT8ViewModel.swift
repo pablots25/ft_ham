@@ -161,6 +161,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
+    @AppStorage("showCountryFlags") var showCountryFlags: Bool = false
+    @AppStorage("showCountryNames") var showCountryNames: Bool = false
     
     @AppStorage("callsign") var callsign = ""
     @AppStorage("locator") var locator = ""

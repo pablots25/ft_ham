@@ -643,6 +643,18 @@ struct ConfigurationView: View {
                     .labelsHidden()
                 Text("Hold TX frequecy")
             }
+            
+//            HStack {
+//                Toggle("", isOn: $viewModel.showCountryFlags)
+//                    .labelsHidden()
+//                Text("Show country flags")
+//            }
+//
+//            HStack {
+//                Toggle("", isOn: $viewModel.showCountryNames)
+//                    .labelsHidden()
+//                Text("Show callsign countries")
+//            }
         }
         .padding(.horizontal)
     }

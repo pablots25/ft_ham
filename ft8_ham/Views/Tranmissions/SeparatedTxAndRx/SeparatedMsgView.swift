@@ -10,6 +10,29 @@ import SwiftUI
 
 struct SeparatedMsgView: View {
     let msg: FT8Message
+    @AppStorage("showCountryFlags") private var showCountryFlags: Bool = true
+    @AppStorage("showCountryNames") private var showCountryNames: Bool = false
+
+    private var callsignCountryLine: String? {
+        var parts: [String] = []
+
+        if let call = msg.callsign,
+           !call.isEmpty,
+           let country = msg.senderCountry.country,
+           !country.isEmpty {
+            parts.append("\(call): \(country)")
+        }
+
+        if let dx = msg.dxCallsign,
+           !dx.isEmpty,
+           dx != msg.callsign,
+           let country = msg.dxCountry.country,
+           !country.isEmpty {
+            parts.append("\(dx): \(country)")
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: " | ")
+    }
 
     var body: some View {
         if msg.msgType == .internalTimestamp {
@@ -41,22 +64,32 @@ struct SeparatedMsgView: View {
                 }
                 .font(.caption)
 
-                HStack(alignment: .top, spacing: 5) {
-                    if msg.isTX {
-                        Text("TX")
-                            .font(.caption)
-                            .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .top, spacing: 5) {
+                        if msg.isTX {
+                            Text("TX")
+                                .font(.caption)
+                                .foregroundStyle(.blue)
+                        }
+
+                        Text(showCountryFlags ? FlagUtility.addFlags(to: msg) : msg.text)
+                            .font(.subheadline)
+                            .foregroundStyle((msg.forMe && !msg.isTX) ? Color.blue : Color.primary)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text("(\(msg.mode.rawValue.uppercased()))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
 
-                    Text(msg.text)
-                        .font(.subheadline)
-                        .foregroundStyle((msg.forMe && !msg.isTX) ? Color.blue : Color.primary)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text("(\(msg.mode.rawValue.uppercased()))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    if showCountryNames, let line = callsignCountryLine {
+                        Text(line)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
