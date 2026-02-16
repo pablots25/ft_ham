@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var selectedTab = 0 // Default to TX/RX tab
     @State private var showConfigAlert = false
     @State private var showClearLogbookAlert = false
+    @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
@@ -152,17 +153,17 @@ struct ContentView: View {
                                 }
 
                                 ToolbarItem(placement: .automatic) {
-                                    ShareLink(
-                                        item: viewModel.adifURL!,
-                                        preview: SharePreview(
-                                            "FTHam Logbook ADIF",
-                                            icon: Image(systemName: "book")
-                                        )
-                                    ) {
+                                    Button {
+                                        showExportOptions = true
+                                    } label: {
                                         Image(systemName: "square.and.arrow.up")
                                     }
                                     .disabled(viewModel.qsoList.isEmpty)
                                 }
+                            }
+                            .sheet(isPresented: $showExportOptions) {
+                                ExportOptionsView()
+                                    .environmentObject(viewModel)
                             }
                             .alert("Clear logbook?", isPresented: $showClearLogbookAlert) {
                                 Button("Cancel", role: .cancel) {}
