@@ -15,6 +15,10 @@ struct ContentView: View {
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
+    @AppStorage("mapShowGrids") private var mapShowGrids: Bool = true
+    @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = true
+    @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = true
+    @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = false
     @State private var shareURL: URL?
     
     @State private var selectedTab = 0 // Default to TX/RX tab
@@ -128,16 +132,19 @@ struct ContentView: View {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
 
-
                     GridMapViewWrapper(
                         locators: $viewModel.workedLocators,
-                        countries: $viewModel.workedCountryPairs
+                        countries: $viewModel.workedCountryPairs,
+                        showGrids: $mapShowGrids,
+                        showCountryCircles: $mapShowCountryCircles,
+                        showGeodesics: $mapShowGeodesics,
+                        showAnnotations: $mapShowAnnotations
                     )
-                    .tabItem { Label("Map", systemImage: "map.fill") }
-                    .tag(2)
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
                     }
+                    .tabItem { Label("Map", systemImage: "map.fill") }
+                    .tag(2)
 
                     NavigationStack {
                         LogbookView()
