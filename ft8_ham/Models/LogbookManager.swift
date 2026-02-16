@@ -22,7 +22,7 @@ struct LogEntry: Identifiable {
     let mySigInfo: String?
 }
 
-final class LogbookManager {
+final class LogbookManager: LogbookManaging {
     private let appLogger = AppLogger(category: "LOGBK")
     
     private let persistentFileName = "ft8_log.adi"

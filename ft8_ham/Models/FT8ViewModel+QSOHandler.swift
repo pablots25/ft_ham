@@ -16,10 +16,8 @@ extension FT8ViewModel {
         
         alignTXFrequencyForQSOStart(from: message)
         
-        let action = qsoManager.startReply(to: message, myCallsign: callsign, myLocator: locator)
-        
-        dxCallsign = qsoManager.lockedDXCallsign
-        dxLocator = qsoManager.lockedDXLocator
+        // Start the reply in QSOManager - state is synced via computed properties
+        _ = qsoManager.startReply(to: message, myCallsign: callsign, myLocator: locator)
         
         self.autoSequencingEnabled = true
         if autoSequencingEnabled {
@@ -57,42 +55,46 @@ extension FT8ViewModel {
     }
     
     // MARK: - QSO Subscriptions
+    // State is now delegated to QSOStatusManager via computed properties.
+    // We only need to observe changes for UI refresh and message regeneration.
     internal func setupQSOSubscriptions() {
+        // Observe QSO state changes for message regeneration
         qsoManager.$lockedDXCallsign
+            .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] newCall in
+            .sink { [weak self] _ in
                 guard let self else { return }
-                guard self.dxCallsign != newCall else { return }
-                self.dxCallsign = newCall
                 self.isReadyForTX = false
                 self.allMessages = self.generateMessages()
+                self.objectWillChange.send()
             }
             .store(in: &cancellables)
 
         qsoManager.$lockedDXLocator
+            .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] newLoc in
+            .sink { [weak self] _ in
                 guard let self else { return }
-                guard self.dxLocator != newLoc else { return }
-                self.dxLocator = newLoc
                 self.isReadyForTX = false
                 self.allMessages = self.generateMessages()
+                self.objectWillChange.send()
             }
             .store(in: &cancellables)
 
+        // Observe SNR changes for UI updates
         qsoManager.$lastReceivedSNR
+            .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] newSNR in
-                guard let self else { return }
-                self.lastReceivedSNR = Double(newSNR)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
             }
             .store(in: &cancellables)
         
         qsoManager.$lastSentSNR
+            .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] newSNR in
-                guard let self else { return }
-                self.lastSentSNR = Double(newSNR)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
             }
             .store(in: &cancellables)
     }
@@ -103,10 +105,7 @@ extension FT8ViewModel {
         appLogger.info("Resetting QSO state")
         qsoManager.resetQSO()
         selectedMessageIndex = 0
-        dxCallsign = ""
-        dxLocator = ""
-        lastSentSNR = Double(Int.min)
-        lastReceivedSNR = Double(Int.min)
+        // State is now managed by QSOStatusManager - no need to set here
         
         // Resume calling CQ if TX loop is active, otherwise stay idle
         if transmitLoopActive {
