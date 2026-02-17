@@ -20,6 +20,8 @@ struct LogEntry: Identifiable {
     let stationCallsign: String?
     let cqModifier: String?
     let mySigInfo: String?
+    let country: String?        // Resolved country name from CountryResolver
+    let flag: String?           // Cached flag emoji for performance
 }
 
 final class LogbookManager: LogbookManaging {
@@ -34,10 +36,41 @@ final class LogbookManager: LogbookManaging {
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        formatter.dateFormat = "yyyyMMdd_HHmm"
 
         let timestamp = formatter.string(from: Date())
-        return "ft8_log_\(timestamp).adi"
+        return "FT_HAM_Log_\(timestamp).adif"
+    }
+    
+    // MARK: - Filtering
+    func filterEntries(_ entries: [LogEntry], from startDate: Date?, to endDate: Date?) -> [LogEntry] {
+        var filtered = entries
+        
+        if let start = startDate {
+            // Start of the start date (00:00:00 UTC)
+            let calendar = Calendar(identifier: .gregorian)
+            var components = calendar.dateComponents(in: TimeZone(secondsFromGMT: 0)!, from: start)
+            components.hour = 0
+            components.minute = 0
+            components.second = 0
+            if let startOfDay = calendar.date(from: components) {
+                filtered = filtered.filter { $0.date >= startOfDay }
+            }
+        }
+        
+        if let end = endDate {
+            // End of the end date (23:59:59 UTC)
+            let calendar = Calendar(identifier: .gregorian)
+            var components = calendar.dateComponents(in: TimeZone(secondsFromGMT: 0)!, from: end)
+            components.hour = 23
+            components.minute = 59
+            components.second = 59
+            if let endOfDay = calendar.date(from: components) {
+                filtered = filtered.filter { $0.date <= endOfDay }
+            }
+        }
+        
+        return filtered
     }
 
     // MARK: - Load entries from disk
@@ -134,7 +167,9 @@ final class LogbookManager: LogbookManaging {
             rstRcvd: rRcvd,
             stationCallsign: stationCall.isEmpty ? nil : stationCall,
             cqModifier: mySig.isEmpty ? nil : mySig,
-            mySigInfo: mySigInfo.isEmpty ? nil : mySigInfo
+            mySigInfo: mySigInfo.isEmpty ? nil : mySigInfo,
+            country: CountryResolver.countryAndCoordinates(for: call).country,
+            flag: FlagUtility.flag(for: CountryResolver.countryAndCoordinates(for: call).country)
         )
     }
 
@@ -142,45 +177,7 @@ final class LogbookManager: LogbookManaging {
     // MARK: - Save QSO list to ADIF (UTC)
     func saveToADIF(_ qsoList: [LogEntry]) -> URL? {
         guard let fileURL = getFileURL() else { return nil }
-
-        if qsoList.isEmpty {
-            try? adifHeader.write(to: fileURL, atomically: true, encoding: .utf8)
-            return fileURL
-        }
-
-        let dateFormatter = Self.dateFormatter
-        let timeFormatter = Self.timeFormatter
-
-        var adifContent = adifHeader
-        for entry in qsoList {
-            adifContent += "<CALL:\(entry.callsign.count)>\(entry.callsign) "
-            if let station = entry.stationCallsign, !station.isEmpty {
-                adifContent += "<STATION_CALLSIGN:\(station.count)>\(station) "
-            }
-            adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
-            adifContent += "<MODE:3>\(entry.mode) "
-            adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "
-            adifContent += "<RST_RCVD:\(entry.rstRcvd.count)>\(entry.rstRcvd) "
-            adifContent += "<QSO_DATE:8>\(dateFormatter.string(from: entry.date)) "
-            adifContent += "<TIME_ON:6>\(timeFormatter.string(from: entry.date)) "
-            let special = adifFields(for: entry)
-            for (key, value) in special {
-                adifContent += "<\(key):\(value.count)>\(value) "
-            }
-            if !entry.grid.isEmpty {
-                adifContent += "<GRID:\(entry.grid.count)>\(entry.grid) "
-            }
-            adifContent += "<EOR>\n"
-        }
-
-        do {
-            try adifContent.write(to: fileURL, atomically: true, encoding: .utf8)
-            appLogger.info("Successfully saved \(qsoList.count) entries to ADIF (UTC)")
-            return fileURL
-        } catch {
-            appLogger.error("Failed to save ADIF: \(error.localizedDescription)")
-            return nil
-        }
+        return writeADIF(qsoList, to: fileURL, operationName: "save")
     }
 
     // MARK: - Helpers
@@ -231,6 +228,65 @@ final class LogbookManager: LogbookManaging {
             .urls(for: .documentDirectory, in: .userDomainMask)
             .first?
             .appendingPathComponent(exportFileName)
+    }
+    
+    // MARK: - Export QSO list to ADIF with dynamic filename (for user exports)
+    func exportToADIF(_ qsoList: [LogEntry]) -> URL? {
+        guard let fileURL = getExportFileURL() else { return nil }
+        return writeADIF(qsoList, to: fileURL, operationName: "export")
+    }
+    
+    // MARK: - Private helper to write ADIF content
+    private func writeADIF(_ qsoList: [LogEntry], to fileURL: URL, operationName: String) -> URL? {
+        if qsoList.isEmpty {
+            try? adifHeader.write(to: fileURL, atomically: true, encoding: .utf8)
+            return fileURL
+        }
+
+        let adifContent = buildADIFContent(qsoList)
+
+        do {
+            try adifContent.write(to: fileURL, atomically: true, encoding: .utf8)
+            if operationName == "export" {
+                appLogger.info("Successfully exported \(qsoList.count) entries to ADIF with dynamic filename: \(fileURL.lastPathComponent)")
+            } else {
+                appLogger.info("Successfully saved \(qsoList.count) entries to ADIF (UTC)")
+            }
+            return fileURL
+        } catch {
+            appLogger.error("Failed to \(operationName) ADIF: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    // MARK: - Build ADIF content from QSO list
+    private func buildADIFContent(_ qsoList: [LogEntry]) -> String {
+        var adifContent = adifHeader
+        let dateFormatter = Self.dateFormatter
+        let timeFormatter = Self.timeFormatter
+        
+        for entry in qsoList {
+            adifContent += "<CALL:\(entry.callsign.count)>\(entry.callsign) "
+            if let station = entry.stationCallsign, !station.isEmpty {
+                adifContent += "<STATION_CALLSIGN:\(station.count)>\(station) "
+            }
+            adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
+            adifContent += "<MODE:3>\(entry.mode) "
+            adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "
+            adifContent += "<RST_RCVD:\(entry.rstRcvd.count)>\(entry.rstRcvd) "
+            adifContent += "<QSO_DATE:8>\(dateFormatter.string(from: entry.date)) "
+            adifContent += "<TIME_ON:6>\(timeFormatter.string(from: entry.date)) "
+            let special = adifFields(for: entry)
+            for (key, value) in special {
+                adifContent += "<\(key):\(value.count)>\(value) "
+            }
+            if !entry.grid.isEmpty {
+                adifContent += "<GRID:\(entry.grid.count)>\(entry.grid) "
+            }
+            adifContent += "<EOR>\n"
+        }
+        
+        return adifContent
     }
     
     func getEmptyADIFURL() -> URL {

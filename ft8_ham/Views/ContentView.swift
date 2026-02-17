@@ -17,11 +17,16 @@ struct ContentView: View {
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
+    @AppStorage("mapShowGrids") private var mapShowGrids: Bool = true
+    @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = true
+    @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = true
+    @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = false
     @State private var shareURL: URL?
     
     @State private var selectedTab: Int = 0
     @State private var showConfigAlert = false
     @State private var showClearLogbookAlert = false
+    @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
@@ -137,16 +142,19 @@ struct ContentView: View {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
 
-
                     GridMapViewWrapper(
                         locators: $viewModel.workedLocators,
-                        countries: $viewModel.workedCountryPairs
+                        countries: $viewModel.workedCountryPairs,
+                        showGrids: $mapShowGrids,
+                        showCountryCircles: $mapShowCountryCircles,
+                        showGeodesics: $mapShowGeodesics,
+                        showAnnotations: $mapShowAnnotations
                     )
-                    .tabItem { Label("Map", systemImage: "map.fill") }
-                    .tag(2)
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
                     }
+                    .tabItem { Label("Map", systemImage: "map.fill") }
+                    .tag(2)
 
                     NavigationStack {
                         LogbookView()
@@ -161,17 +169,17 @@ struct ContentView: View {
                                 }
 
                                 ToolbarItem(placement: .automatic) {
-                                    ShareLink(
-                                        item: viewModel.adifURL!,
-                                        preview: SharePreview(
-                                            "FTHam Logbook ADIF",
-                                            icon: Image(systemName: "book")
-                                        )
-                                    ) {
+                                    Button {
+                                        showExportOptions = true
+                                    } label: {
                                         Image(systemName: "square.and.arrow.up")
                                     }
                                     .disabled(viewModel.qsoList.isEmpty)
                                 }
+                            }
+                            .sheet(isPresented: $showExportOptions) {
+                                ExportOptionsView()
+                                    .environmentObject(viewModel)
                             }
                             .alert("Clear logbook?", isPresented: $showClearLogbookAlert) {
                                 Button("Cancel", role: .cancel) {}
