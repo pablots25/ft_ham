@@ -24,7 +24,7 @@ struct LogEntry: Identifiable {
     let flag: String?           // Cached flag emoji for performance
 }
 
-final class LogbookManager {
+final class LogbookManager: LogbookManaging {
     private let appLogger = AppLogger(category: "LOGBK")
     
     private let persistentFileName = "ft8_log.adi"

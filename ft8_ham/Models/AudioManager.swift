@@ -11,7 +11,41 @@ import Foundation
 import Accelerate
 import os.lock
 
-final class AudioManager: NSObject {
+// MARK: - Audio Manager Errors
+
+enum AudioManagerError: LocalizedError {
+    case sessionCategoryConfiguration(underlying: Error)
+    case sessionModeConfiguration(underlying: Error)
+    case sessionSampleRateConfiguration(underlying: Error)
+    case sessionActivationFailed(underlying: Error)
+    case engineStartFailed(underlying: Error)
+    case invalidInputFormat(sampleRate: Double, channels: UInt32)
+    case audioGenerationFailed(message: String)
+    case invalidAudioData
+    
+    var errorDescription: String? {
+        switch self {
+        case .sessionCategoryConfiguration(let error):
+            return "Failed to configure audio session category: \(error.localizedDescription)"
+        case .sessionModeConfiguration(let error):
+            return "Failed to configure audio session mode: \(error.localizedDescription)"
+        case .sessionSampleRateConfiguration(let error):
+            return "Failed to set preferred sample rate: \(error.localizedDescription)"
+        case .sessionActivationFailed(let error):
+            return "Failed to activate audio session: \(error.localizedDescription)"
+        case .engineStartFailed(let error):
+            return "Failed to start audio engine: \(error.localizedDescription)"
+        case .invalidInputFormat(let sr, let ch):
+            return "Invalid input format (SR: \(sr), channels: \(ch))"
+        case .audioGenerationFailed(let message):
+            return "Failed to generate audio for: \(message)"
+        case .invalidAudioData:
+            return "Invalid audio data size or format"
+        }
+    }
+}
+
+final class AudioManager: NSObject, AudioManaging {
 
     // MARK: - Loggers
 
@@ -29,7 +63,7 @@ final class AudioManager: NSObject {
 
     // MARK: - States
 
-    private let isPreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    private var environment: AppEnvironment { AppEnvironment.current }
 
     private(set) var isPlaying = false {
         didSet { txStatusPublisher.send(isPlaying) }
@@ -54,6 +88,11 @@ final class AudioManager: NSObject {
     let audioErrorPublisher = PassthroughSubject<String, Never>()
     let clippingPublisher = PassthroughSubject<Bool, Never>()
 
+    // MARK: - Pre-allocated buffers for audio processing (avoids allocations in hot path)
+    
+    private let micBufferState: OSAllocatedUnfairLock<[Float]>
+    private let clippingThreshold: Float = 0.99
+
     // MARK: - Preview Task
 
     private var fakeSamplesTask: Task<Void, Never>?
@@ -62,19 +101,37 @@ final class AudioManager: NSObject {
 
     init(waterfallFFTSize: Int = 1024,
          sampleRate: Double = 12000,
-         initialGain: Double = 0.3) {
+         initialGain: Double = 0.3,
+         isTestMode: Bool = false) {
 
         self.sampleRate = sampleRate
         self.waterfallFFTSize = waterfallFFTSize
         self.gainState = OSAllocatedUnfairLock(
             initialState: min(max(initialGain, minGain), maxGain)
         )
+        
+        // Pre-allocate mic buffer (always, to satisfy Swift init requirements)
+        self.micBufferState = OSAllocatedUnfairLock(
+            initialState: [Float](repeating: 0, count: waterfallFFTSize)
+        )
 
-        if isPreview {
+        // Test mode skips all audio initialization
+        if isTestMode {
             self.inputNode = nil
             self.micSampleRate = 44100
             super.init()
-            audioLogger.log(.info, "Preview mode - AudioEngine disabled")
+            audioLogger.log(.info, "Test mode - AudioEngine disabled")
+            return
+        }
+        
+        // Use static environment check before super.init()
+        let currentEnv = AppEnvironment.current
+        
+        if currentEnv.shouldDisableAudio {
+            self.inputNode = nil
+            self.micSampleRate = 44100
+            super.init()
+            audioLogger.log(.info, "\(currentEnv) mode - AudioEngine disabled")
             return
         }
 
@@ -83,8 +140,11 @@ final class AudioManager: NSObject {
 
         super.init()
 
-        guard configureAudioSession() else {
-            audioLogger.log(.error, "AudioSession configuration failed — audio disabled")
+        do {
+            try configureAudioSession()
+        } catch {
+            audioLogger.log(.error, "AudioSession configuration failed: \(error.localizedDescription)")
+            audioErrorPublisher.send(error.localizedDescription)
             return
         }
 
@@ -99,7 +159,7 @@ final class AudioManager: NSObject {
 
     // MARK: - Audio Session
 
-    private func configureAudioSession() -> Bool {
+    private func configureAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
 
         do {
@@ -107,24 +167,32 @@ final class AudioManager: NSObject {
                 .playAndRecord,
                 options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
             )
-            try session.setMode(.measurement)
-
-            // Use a realistic hardware rate; conversion happens later
-            try session.setPreferredSampleRate(44100)
-            try session.setActive(true)
-
-            audioLogger.log(
-                .info,
-                "AVAudioSession active. HW SR: \(session.sampleRate)"
-            )
-
-            return true
         } catch {
-            let msg = "Failed to configure AVAudioSession: \(error.localizedDescription)"
-            audioLogger.log(.error, msg)
-            audioErrorPublisher.send(msg)
-            return false
+            throw AudioManagerError.sessionCategoryConfiguration(underlying: error)
         }
+        
+        do {
+            try session.setMode(.measurement)
+        } catch {
+            throw AudioManagerError.sessionModeConfiguration(underlying: error)
+        }
+
+        do {
+            try session.setPreferredSampleRate(44100)
+        } catch {
+            throw AudioManagerError.sessionSampleRateConfiguration(underlying: error)
+        }
+        
+        do {
+            try session.setActive(true)
+        } catch {
+            throw AudioManagerError.sessionActivationFailed(underlying: error)
+        }
+
+        audioLogger.log(
+            .info,
+            "AVAudioSession active. HW SR: \(session.sampleRate)"
+        )
     }
 
     // MARK: - Playback Chain
@@ -148,9 +216,9 @@ final class AudioManager: NSObject {
             try audioEngine.start()
             audioLogger.log(.info, "AudioEngine started")
         } catch {
-            let msg = "Failed to start AudioEngine: \(error.localizedDescription)"
-            audioLogger.log(.error, msg)
-            audioErrorPublisher.send(msg)
+            let error = AudioManagerError.engineStartFailed(underlying: error)
+            audioLogger.log(.error, error.localizedDescription)
+            audioErrorPublisher.send(error.localizedDescription)
         }
     }
 
@@ -160,7 +228,7 @@ final class AudioManager: NSObject {
     func startMicInput() {
         audioLogger.log(.info, "startMicInput called")
 
-        guard !isPreview, let inputNode else {
+        guard !environment.shouldDisableAudio, let inputNode else {
             generateFakeSamples()
             isListening = true
             return
@@ -171,9 +239,12 @@ final class AudioManager: NSObject {
         let hwFormat = inputNode.inputFormat(forBus: 0)
 
         guard hwFormat.sampleRate > 0, hwFormat.channelCount > 0 else {
-            let msg = "Invalid input format (SR: \(hwFormat.sampleRate), ch: \(hwFormat.channelCount))"
-            audioLogger.log(.error, msg)
-            audioErrorPublisher.send(msg)
+            let error = AudioManagerError.invalidInputFormat(
+                sampleRate: hwFormat.sampleRate,
+                channels: hwFormat.channelCount
+            )
+            audioLogger.log(.error, error.localizedDescription)
+            audioErrorPublisher.send(error.localizedDescription)
             return
         }
 
@@ -192,20 +263,34 @@ final class AudioManager: NSObject {
 
             let frameLength = Int(buffer.frameLength)
             let inputPtr = ptr[0]
+            let gain = Float(self.gainState.withLock { $0 })
+            
+            // Use pre-allocated buffer, resizing only if needed
+            let output: [Float] = self.micBufferState.withLock { buffer in
+                // Resize buffer if frame size changed (rare)
+                if buffer.count < frameLength {
+                    buffer = [Float](repeating: 0, count: frameLength)
+                }
+                
+                // Apply gain using vDSP (in-place style with pre-allocated buffer)
+                var mutableGain = gain
+                vDSP_vsmul(
+                    inputPtr,
+                    1,
+                    &mutableGain,
+                    &buffer,
+                    1,
+                    vDSP_Length(frameLength)
+                )
+                
+                // Return slice of buffer matching actual frame length
+                return Array(buffer.prefix(frameLength))
+            }
 
-            var output = Array(repeating: Float(0), count: frameLength)
-            var gain = Float(self.gainState.withLock { $0 })
-
-            vDSP_vsmul(
-                inputPtr,
-                1,
-                &gain,
-                &output,
-                1,
-                vDSP_Length(frameLength)
-            )
-
-            if output.contains(where: { abs($0) >= 0.99 }) {
+            // Optimized clipping detection using vDSP
+            var maxVal: Float = 0
+            vDSP_maxmgv(output, 1, &maxVal, vDSP_Length(frameLength))
+            if maxVal >= self.clippingThreshold {
                 self.clippingPublisher.send(true)
             }
 
@@ -220,7 +305,7 @@ final class AudioManager: NSObject {
     func stopMicInput() {
         audioLogger.log(.info, "stopMicInput called")
 
-        if !isPreview {
+        if !environment.shouldDisableAudio {
             inputNode?.removeTap(onBus: 0)
         } else {
             fakeSamplesTask?.cancel()
@@ -247,11 +332,13 @@ final class AudioManager: NSObject {
     /// Play raw Float audioData. Audio data must be floats in native-endian IEEE754 order
     /// at the sample rate matching `self.sampleRate` (the generator/sampleRate used to configure this manager).
     func playAudio(_ audioData: Data) {
-        guard !isPreview, !isPlaying else { return }
+        guard !environment.shouldDisableAudio, !isPlaying else { return }
 
         let nSamples = audioData.count / MemoryLayout<Float>.size
         guard nSamples > 0, audioData.count % MemoryLayout<Float>.size == 0 else {
-            audioLogger.log(.error, "playAudio: Invalid audio data size")
+            let error = AudioManagerError.invalidAudioData
+            audioLogger.log(.error, error.localizedDescription)
+            audioErrorPublisher.send(error.localizedDescription)
             return
         }
 

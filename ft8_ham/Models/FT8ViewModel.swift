@@ -48,17 +48,22 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         static let txSafetyOffset: Double = 0.05
     }
     
-    private let isPreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-    internal let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    // MARK: - Environment (centralized)
+    private let environment: AppEnvironment
+    
+    // Convenience accessors for backward compatibility
+    private var isPreview: Bool { environment.isPreview }
+    internal var isRunningTests: Bool { environment.isUnitTest }
 
     
-    // MARK: - Dependencies
-    internal let messageComposer = FT8MessageComposer()
-    let audioManager: AudioManager
-    internal let slotManager = SlotManager()
-    internal let engine = ft8_Engine()
-    internal let messageProcessor = MessageProcessor()
-    internal let logbookManager = LogbookManager()
+    // MARK: - Dependencies (injectable for testing)
+    internal let messageComposer: FT8MessageComposer
+    let audioManager: AudioManaging
+    internal let slotManager: SlotManager
+    internal let engine: MessageDecoding
+    internal let messageProcessor: MessageProcessor
+    internal let logbookManager: LogbookManaging
+    internal let timeProvider: TimeProviding
     
     let waterfallVM: WaterfallViewModel
     
@@ -125,10 +130,26 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     }
     
     
-    @Published var dxCallsign = ""
-    @Published var dxLocator = ""
-    @Published var lastReceivedSNR: Double = .nan
-    @Published var lastSentSNR: Double = .nan
+    // MARK: - QSO State (delegated to QSOStatusManager - single source of truth)
+    var dxCallsign: String {
+        get { qsoManager.lockedDXCallsign }
+        set { qsoManager.lockedDXCallsign = newValue }
+    }
+    
+    var dxLocator: String {
+        get { qsoManager.lockedDXLocator }
+        set { qsoManager.lockedDXLocator = newValue }
+    }
+    
+    var lastReceivedSNR: Double {
+        get { Double(qsoManager.lastReceivedSNR) }
+        set { qsoManager.lastReceivedSNR = Int(newValue.rounded()) }
+    }
+    
+    var lastSentSNR: Double {
+        get { Double(qsoManager.lastSentSNR) }
+        set { qsoManager.lastSentSNR = Int(newValue.rounded()) }
+    }
     
     
     @Published var allMessages: [String] = [""]
@@ -219,15 +240,44 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     }
     
     // MARK: - Initialization
-    init(txMessages: [FT8Message] = [], rxMessages: [FT8Message] = []) {
+    
+    /// Full initializer with dependency injection support for testing.
+    /// - Parameters:
+    ///   - txMessages: Pre-populated TX messages (for testing/preview)
+    ///   - rxMessages: Pre-populated RX messages (for testing/preview)
+    ///   - audioManager: Custom audio manager (defaults to real AudioManager)
+    ///   - engine: Custom message decoder (defaults to ft8_Engine)
+    ///   - logbookManager: Custom logbook manager (defaults to LogbookManager)
+    ///   - timeProvider: Custom time provider for deterministic tests
+    ///   - environment: App environment (defaults to current)
+    init(
+        txMessages: [FT8Message] = [],
+        rxMessages: [FT8Message] = [],
+        audioManager: AudioManaging? = nil,
+        engine: MessageDecoding? = nil,
+        logbookManager: LogbookManaging? = nil,
+        timeProvider: TimeProviding? = nil,
+        environment: AppEnvironment = .current
+    ) {
+        self.environment = environment
+        self.timeProvider = timeProvider ?? DependencyContainer.shared.timeProvider
+        self.messageComposer = FT8MessageComposer()
+        self.slotManager = SlotManager()
+        self.messageProcessor = MessageProcessor()
         
         let savedGain = UserDefaults.standard.value(forKey: "inputGain") as? Double ?? 0.3
         
-        audioManager = AudioManager(
+        // Inject or create default dependencies
+        // For AudioManager, if not injected, create one with test mode enabled for unit tests
+        self.audioManager = audioManager ?? AudioManager(
             waterfallFFTSize: Constants.waterfallFFTSize,
             sampleRate: Constants.sampleRate,
-            initialGain: savedGain
+            initialGain: savedGain,
+            isTestMode: environment.isUnitTest
         )
+        
+        self.engine = engine ?? ft8_Engine()
+        self.logbookManager = logbookManager ?? LogbookManager()
         
         let savedBandRaw = UserDefaults.standard.string(forKey: "band") ?? FT8Message.Band.band10m.rawValue
         let storedIsFT4 = UserDefaults.standard.bool(forKey: "isFT4")
@@ -244,7 +294,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         self.selectedBandRaw = selectedBand.rawValue
         self.selectedBand = FT8Message.Band(rawValue: savedBandRaw) ?? .band10m
         self.isFT4 = storedIsFT4
-        self.lastReceivedSNR = 0
+        // Note: lastReceivedSNR is now a computed property delegating to qsoManager
         
         setupLogbook()
         setupAudioSubscriptions()
@@ -296,15 +346,17 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
             .map { _ in () }
             .eraseToAnyPublisher()
 
-        let dxCallsignChanges = $dxCallsign
+        // Use qsoManager's published properties since dxCallsign/dxLocator/lastSentSNR
+        // are now computed properties delegating to qsoManager
+        let dxCallsignChanges = qsoManager.$lockedDXCallsign
             .map { _ in () }
             .eraseToAnyPublisher()
 
-        let dxLocatorChanges = $dxLocator
+        let dxLocatorChanges = qsoManager.$lockedDXLocator
             .map { _ in () }
             .eraseToAnyPublisher()
 
-        let lastSentSNRChanges = $lastSentSNR
+        let lastSentSNRChanges = qsoManager.$lastSentSNR
             .map { _ in () }
             .eraseToAnyPublisher()
 

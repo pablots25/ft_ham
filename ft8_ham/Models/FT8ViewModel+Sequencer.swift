@@ -91,8 +91,8 @@ extension FT8ViewModel {
                         
                         self.isHarvestingRX = true
                         Task {
-                            let msgs = self.engine.decodeBuffer(
-                                usingMonitor: audioToDecode,
+                            let msgs = self.engine.decodeAudioBuffer(
+                                audioToDecode,
                                 sampleRate: self.audioManager.micSampleRate,
                                 isFT4: self.isFT4
                             )
