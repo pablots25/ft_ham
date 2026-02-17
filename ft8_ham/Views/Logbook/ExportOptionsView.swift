@@ -167,7 +167,7 @@ struct ExportOptionsView: View {
                 return viewModel.logbookManager.filterEntries(
                     viewModel.qsoList,
                     from: lastExport,
-                    to: nil
+                    to: Date()
                 )
             } else {
                 // No previous export, return all
