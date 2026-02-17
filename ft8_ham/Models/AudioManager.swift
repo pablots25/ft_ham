@@ -109,6 +109,11 @@ final class AudioManager: NSObject, AudioManaging {
         self.gainState = OSAllocatedUnfairLock(
             initialState: min(max(initialGain, minGain), maxGain)
         )
+        
+        // Pre-allocate mic buffer (always, to satisfy Swift init requirements)
+        self.micBufferState = OSAllocatedUnfairLock(
+            initialState: [Float](repeating: 0, count: waterfallFFTSize)
+        )
 
         // Test mode skips all audio initialization
         if isTestMode {
@@ -118,12 +123,6 @@ final class AudioManager: NSObject, AudioManaging {
             audioLogger.log(.info, "Test mode - AudioEngine disabled")
             return
         }
-        
-        // Pre-allocate mic buffer to avoid allocations in audio callback
-        // Size matches waterfallFFTSize which is the typical buffer size
-        self.micBufferState = OSAllocatedUnfairLock(
-            initialState: [Float](repeating: 0, count: waterfallFFTSize)
-        )
         
         // Use static environment check before super.init()
         let currentEnv = AppEnvironment.current

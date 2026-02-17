@@ -251,12 +251,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     ///   - timeProvider: Custom time provider for deterministic tests
     ///   - environment: App environment (defaults to current)
     init(
-        
         txMessages: [FT8Message] = [],
-       
         rxMessages: [FT8Message] = [],
-        audioManager: AudioManager? = nil
-    ,
         audioManager: AudioManaging? = nil,
         engine: MessageDecoding? = nil,
         logbookManager: LogbookManaging? = nil,
@@ -271,20 +267,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         
         let savedGain = UserDefaults.standard.value(forKey: "inputGain") as? Double ?? 0.3
         
-        // Use injected audio manager for tests, or create real one for production
-        if let injectedAudioManager = audioManager {
-            self.audioManager = injectedAudioManager
-        } else {
-            // Auto-detect test mode to prevent audio initialization crashes
-            let isTestMode = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-            self.// Inject or create default dependencies
+        // Inject or create default dependencies
+        // For AudioManager, if not injected, create one with test mode enabled for unit tests
         self.audioManager = audioManager ?? AudioManager(
-                waterfallFFTSize: Constants.waterfallFFTSize,
-                sampleRate: Constants.sampleRate,
-                initialGain: savedGain,
-                isTestMode: isTestMode
-            )
-        }
+            waterfallFFTSize: Constants.waterfallFFTSize,
+            sampleRate: Constants.sampleRate,
+            initialGain: savedGain,
+            isTestMode: environment.isUnitTest
+        )
         
         self.engine = engine ?? ft8_Engine()
         self.logbookManager = logbookManager ?? LogbookManager()
