@@ -101,13 +101,23 @@ final class AudioManager: NSObject, AudioManaging {
 
     init(waterfallFFTSize: Int = 1024,
          sampleRate: Double = 12000,
-         initialGain: Double = 0.3) {
+         initialGain: Double = 0.3,
+         isTestMode: Bool = false) {
 
         self.sampleRate = sampleRate
         self.waterfallFFTSize = waterfallFFTSize
         self.gainState = OSAllocatedUnfairLock(
             initialState: min(max(initialGain, minGain), maxGain)
         )
+
+        // Test mode skips all audio initialization
+        if isTestMode {
+            self.inputNode = nil
+            self.micSampleRate = 44100
+            super.init()
+            audioLogger.log(.info, "Test mode - AudioEngine disabled")
+            return
+        }
         
         // Pre-allocate mic buffer to avoid allocations in audio callback
         // Size matches waterfallFFTSize which is the typical buffer size
