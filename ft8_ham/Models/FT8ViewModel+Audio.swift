@@ -96,11 +96,22 @@ extension FT8ViewModel {
             if message.isTX {
                 continue
             } else if message.msgType != .internalTimestamp && message.msgType != .unknown {
+                let currentMode = isFT4 ? "FT4" : "FT8"
+                let shouldAutoReplyToCQ = autoCQReplyEnabled && !hasConfirmedQSO(
+                    with: message.callsign,
+                    band: selectedBand.rawValue,
+                    mode: currentMode,
+                    matchBandModeOnly: autoCQReplyOnlyNewBandMode
+                )
+                let effectiveAutoCQReplyEnabled = (message.msgType == .cq)
+                ? shouldAutoReplyToCQ
+                : autoCQReplyEnabled
+
                 let action = qsoManager.handleIncomingMessage(
                     message,
                     myCallsign: callsign,
                     autoSequencingEnabled: autoSequencingEnabled,
-                    autoCQReplyEnabled: autoCQReplyEnabled
+                    autoCQReplyEnabled: effectiveAutoCQReplyEnabled
                 )
                 
                 handleRXAction(action)
@@ -264,10 +275,17 @@ extension FT8ViewModel {
             appLogger.info("Applying action: completeQSO for \(dxCallsign)")
 
             invalidatePendingTX(reason: "QSO completed")
+
+            let completedCallsign = dxCallsign.isEmpty
+            ? (qsoManager.lastCompletedDXCallsign ?? "")
+            : dxCallsign
+            let completedLocator = dxLocator.isEmpty
+            ? (qsoManager.lastCompletedDXLocator ?? "")
+            : dxLocator
             
             let logEntry = qsoManager.createLogEntry(
-                dxCallsign: dxCallsign,
-                dxLocator: dxLocator,
+                dxCallsign: completedCallsign,
+                dxLocator: completedLocator,
                 qsoDate: .now,
                 frequency: frequency,
                 band: selectedBand,
