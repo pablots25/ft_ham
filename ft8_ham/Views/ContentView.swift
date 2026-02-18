@@ -30,6 +30,7 @@ struct ContentView: View {
     @State private var shouldNavigateToConfiguration = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
+    @State private var isPresentingWhatsNew = false
 
     var body: some View {
         mainLayout
@@ -45,6 +46,11 @@ struct ContentView: View {
                     .interactiveDismissDisabled(true)
                     .onAppear { AnalyticsManager.shared.trackScreen(.terms) }
             }
+            // 3) What's New third
+            .fullScreenCover(isPresented: $isPresentingWhatsNew) {
+                WhatsNewView()
+                    .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
+            }
             .task {
                 viewModel.startProgressBarUTC()
                 // Set initial tab: 4 if first launch, otherwise last used tab
@@ -59,6 +65,8 @@ struct ContentView: View {
                     isPresentingOnboarding = true
                 } else if !hasAcceptedTerms {
                     isPresentingLicense = true
+                } else if AppVersionManager.shared.shouldShowWhatsNew {
+                    isPresentingWhatsNew = true
                 } else if !viewModel.settingsLoaded {
                     showConfigAlert = true
                     shouldNavigateToConfiguration = true
@@ -81,8 +89,12 @@ struct ContentView: View {
             }
             .onChange(of: hasAcceptedTerms) { accepted in
                 if accepted {
-                    // After license is accepted, check settings
-                    scheduleSettingsCheckIfNeeded()
+                    // After license is accepted, check if we should show What's New
+                    if AppVersionManager.shared.shouldShowWhatsNew {
+                        isPresentingWhatsNew = true
+                    } else {
+                        scheduleSettingsCheckIfNeeded()
+                    }
                 }
             }
             .onChange(of: autoRXAtStart) { enabled in
