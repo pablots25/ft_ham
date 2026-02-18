@@ -23,8 +23,8 @@ class AppVersionManager {
         let currentVer = currentVersion
         let lastVer = lastSeenAppVersion
         
-        // Show What's New if version has changed or user hasn't seen it yet
-        return currentVer != lastVer || !hasSeenWhatsNew
+        // Only show if version changed AND user had a previous version
+        return !lastVer.isEmpty && currentVer != lastVer
     }
     
     func markWhatsNewAsViewed() {
