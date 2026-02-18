@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 class AppVersionManager {
     static let shared = AppVersionManager()
@@ -20,11 +21,13 @@ class AppVersionManager {
     }
     
     var shouldShowWhatsNew: Bool {
-        let currentVer = currentVersion
-        let lastVer = lastSeenAppVersion
-        
+        // Disabled: keep logic for easy re-enable.
+        // let currentVer = currentVersion
+        // let lastVer = lastSeenAppVersion
+        //
         // Only show if version changed AND user had a previous version
-        return !lastVer.isEmpty && currentVer != lastVer
+        // return !lastVer.isEmpty && currentVer != lastVer
+        false
     }
     
     func markWhatsNewAsViewed() {

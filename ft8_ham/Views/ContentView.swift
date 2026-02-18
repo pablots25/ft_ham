@@ -65,8 +65,9 @@ struct ContentView: View {
                     isPresentingOnboarding = true
                 } else if !hasAcceptedTerms {
                     isPresentingLicense = true
-                } else if AppVersionManager.shared.shouldShowWhatsNew {
-                    isPresentingWhatsNew = true
+                // Disabled: keep What's New trigger for easy re-enable.
+                // } else if AppVersionManager.shared.shouldShowWhatsNew {
+                //     isPresentingWhatsNew = true
                 } else if !viewModel.settingsLoaded {
                     showConfigAlert = true
                     shouldNavigateToConfiguration = true
@@ -89,12 +90,13 @@ struct ContentView: View {
             }
             .onChange(of: hasAcceptedTerms) { accepted in
                 if accepted {
-                    // After license is accepted, check if we should show What's New
-                    if AppVersionManager.shared.shouldShowWhatsNew {
-                        isPresentingWhatsNew = true
-                    } else {
-                        scheduleSettingsCheckIfNeeded()
-                    }
+                    // Disabled: keep What's New trigger for easy re-enable.
+                    // if AppVersionManager.shared.shouldShowWhatsNew {
+                    //     isPresentingWhatsNew = true
+                    // } else {
+                    //     scheduleSettingsCheckIfNeeded()
+                    // }
+                    scheduleSettingsCheckIfNeeded()
                 }
             }
             .onChange(of: autoRXAtStart) { enabled in
