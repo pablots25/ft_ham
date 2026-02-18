@@ -94,7 +94,9 @@ struct AppleCompliantToggleRow: View {
                 
                 // Info button: toggle inline expandable help
                 Button {
-                    activeHelp = (activeHelp == helpTip) ? nil : helpTip
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
+                        activeHelp = (activeHelp == helpTip) ? nil : helpTip
+                    }
                 } label: {
                     Image(systemName: "info.circle")
                         .foregroundStyle(.secondary)
@@ -106,20 +108,27 @@ struct AppleCompliantToggleRow: View {
             
             // Inline expandable help with smooth spring animation
             if activeHelp == helpTip {
-                Text(helpTip.text)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                HelpBubble(text: helpTip.text)
                     .transition(.asymmetric(
-                        insertion: .scale(scale: 0.95).combined(with: .opacity),
-                        removal: .opacity
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
                     ))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.75), value: activeHelp)
             }
         }
+    }
+}
+
+private struct HelpBubble: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
     }
 }
 
@@ -343,6 +352,9 @@ struct ConfigurationView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onAppear {
+            activeHelp = nil
+        }
         
         // Commit on focus change
         .onChange(of: focusedInput) { newValue in
@@ -404,7 +416,7 @@ struct ConfigurationView: View {
         let prompts = InAppPrompts.shared
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 500_000_000)
-            prompts.showRateAlert = true
+            prompts.requestRate()
         }
     }
     
@@ -914,7 +926,9 @@ struct ConfigurationView: View {
                         
                         // Info button: toggle inline expandable help
                         Button {
-                            activeHelp = (activeHelp == .analytics) ? nil : .analytics
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
+                                activeHelp = (activeHelp == .analytics) ? nil : .analytics
+                            }
                         } label: {
                             Image(systemName: "info.circle")
                                 .foregroundStyle(.secondary)
@@ -926,18 +940,11 @@ struct ConfigurationView: View {
                     
                     // Inline expandable help with smooth spring animation
                     if activeHelp == .analytics {
-                        Text(HelpTip.analytics.text)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .padding(10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
+                        HelpBubble(text: HelpTip.analytics.text)
                             .transition(.asymmetric(
-                                insertion: .scale(scale: 0.95).combined(with: .opacity),
-                                removal: .opacity
+                                insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                                removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
                             ))
-                            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: activeHelp)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .center)

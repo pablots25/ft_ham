@@ -43,7 +43,6 @@ final class InAppPrompts: ObservableObject {
     private var hasPresentedPromptThisSession = false
 
     // MARK: - Published state for SwiftUI
-    @Published var showRateAlert = false
     @Published var showPreShareAlert = false
     @Published var shareItem: ShareItem?
     @Published var showDonationAlert = false
@@ -145,7 +144,7 @@ final class InAppPrompts: ObservableObject {
 
     private func recordDonationTrigger(_ trigger: DonationTrigger) {
         guard !hasPresentedPromptThisSession else { return }
-        guard !showRateAlert, shareItem == nil else { return }
+        guard shareItem == nil else { return }
         
         // Skip if user has already donated
         Task {
@@ -272,16 +271,6 @@ struct InAppPromptsViewModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .alert("Enjoying FT-Ham? ⭐️", isPresented: $prompts.showRateAlert) {
-                Button("Rate") {
-                    prompts.requestRate()
-                }
-                Button("Not now", role: .cancel) {
-                    prompts.postponeRate()
-                }
-            } message: {
-                Text("Please give us 5 stars if you like it. Your feedback helps us improve!")
-            }
             .alert("Do you like FT-Ham? ❤️", isPresented: $prompts.showPreShareAlert) {
                 Button("Yes!") {
                     prompts.confirmLikesApp()
