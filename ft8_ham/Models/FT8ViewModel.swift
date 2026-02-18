@@ -179,6 +179,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("autoSequencingEnabled") var autoSequencingEnabled: Bool = true
     @AppStorage("decodeSelfTXMessages") var decodeSelfTXMessages: Bool = false
     @AppStorage("autoCQReplyEnabled") var autoCQReplyEnabled: Bool = false
+    @AppStorage("autoCQReplyOnlyNewBandMode") var autoCQReplyOnlyNewBandMode: Bool = false
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false

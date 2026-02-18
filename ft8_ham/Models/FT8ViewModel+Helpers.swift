@@ -43,6 +43,30 @@ extension FT8ViewModel{
         }
     }
 
+    internal func hasConfirmedQSO(
+        with callsign: String?,
+        band: String,
+        mode: String,
+        matchBandModeOnly: Bool
+    ) -> Bool {
+        guard let callsign = callsign?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !callsign.isEmpty else {
+            return false
+        }
+
+        return qsoList.contains { entry in
+            guard entry.callsign.caseInsensitiveCompare(callsign) == .orderedSame else {
+                return false
+            }
+
+            if matchBandModeOnly {
+                return entry.band == band && entry.mode == mode
+            }
+
+            return true
+        }
+    }
+
     func generateMessages() -> [String] {
         let currentParams = MessageParams(
             callsign: callsign,

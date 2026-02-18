@@ -79,6 +79,9 @@ final class QSOStatusManager: ObservableObject {
     @Published var lastSentSNR: Int = Int.min  // Measured by us -> RST_SENT (FT8Message.measuredSNR)
     @Published var lastReceivedSNR: Int = Int.min // From DX text  -> RST_RCVD (FT8Message.messageTxtSNR)
 
+    var lastCompletedDXCallsign: String?
+    var lastCompletedDXLocator: String?
+
     var currentCQModifier: String?
 
     @Published var retryCounter = 0
@@ -499,6 +502,8 @@ final class QSOStatusManager: ObservableObject {
         qsoState = .idle
         lockedDXCallsign = ""
         lockedDXLocator = ""
+        lastCompletedDXCallsign = nil
+        lastCompletedDXLocator = nil
         lastCourtesyDXCallsign = nil
         retryCounter = 0
         responseReceivedThisSlot = false
@@ -523,6 +528,8 @@ final class QSOStatusManager: ObservableObject {
         lastReceivedSNR = invalidSNR
         qsoAlreadyLogged = false
         currentCQModifier = nil
+        lastCompletedDXCallsign = nil
+        lastCompletedDXLocator = nil
     }
 
     /// Returns true if the QSO state is awaiting a response from DX
@@ -573,6 +580,9 @@ final class QSOStatusManager: ObservableObject {
         let oldState = qsoState
         qsoState = .completed(dxCallsign: dxCallsign)
         logTransition(oldState: oldState, newState: qsoState, dx: dxCallsign)
+
+        lastCompletedDXCallsign = dxCallsign
+        lastCompletedDXLocator = lockedDXLocator
 
         if openCourtesyWindow && courtesyListeningEnabled {
             lastCourtesyDXCallsign = dxCallsign
