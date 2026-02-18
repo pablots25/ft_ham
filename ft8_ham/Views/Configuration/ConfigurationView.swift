@@ -27,6 +27,111 @@ struct SafariView: UIViewControllerRepresentable {
     }
 }
 
+// MARK: - HelpTip Enum (Fallback for iOS 16)
+
+enum HelpTip: Identifiable {
+    case autoRXAtStart
+    case autoCQReply
+    case autoCQNewBandMode
+    case decodeSelfTX
+    case holdTXFrequency
+    case autoSequencing
+    case autoQSOLogging
+    case analytics
+
+    var id: Self { self }
+
+    var text: String {
+        switch self {
+        case .autoRXAtStart:
+            return "Automatically starts RX when the app launches if settings are valid."
+        case .autoCQReply:
+            return "Automatically responds to CQs when auto-sequencing is enabled."
+        case .autoCQNewBandMode:
+            return "Only auto-reply to a CQ if that callsign is not yet confirmed on the current band and mode."
+        case .decodeSelfTX:
+            return "Includes your transmitted messages in the RX list for review."
+        case .holdTXFrequency:
+            return "Keeps TX frequency fixed; it will not auto-align to incoming DX frequency."
+        case .autoSequencing:
+            return "Automatically advances the QSO sequence based on received messages."
+        case .autoQSOLogging:
+            return "Logs completed QSOs automatically without confirmation."
+        case .analytics:
+            return "Enables anonymous usage analytics to improve the app. No personal data is collected."
+        }
+    }
+    
+    var accessibilityHint: String {
+        text
+    }
+}
+
+// MARK: - Apple-compliant Toggle Row Component
+/// Following Apple HIG 2025 recommendations:
+/// - Inline expandable help on all iOS versions
+/// - accessibilityHint on all controls (VoiceOver support)
+/// - Clean, unobtrusive UI that doesn't interrupt workflow
+
+struct AppleCompliantToggleRow: View {
+    let label: String
+    let helpTip: HelpTip
+    @Binding var isOn: Bool
+    @Binding var activeHelp: HelpTip?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Toggle("", isOn: $isOn)
+                    .labelsHidden()
+                    .accessibilityLabel(label)
+                    .accessibilityHint(helpTip.accessibilityHint)
+                
+                Text(label)
+                    .lineLimit(1)
+                
+                Spacer()
+                
+                // Info button: toggle inline expandable help
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
+                        activeHelp = (activeHelp == helpTip) ? nil : helpTip
+                    }
+                } label: {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Help")
+                .accessibilityHint("Show help for \(label)")
+            }
+            
+            // Inline expandable help with smooth spring animation
+            if activeHelp == helpTip {
+                HelpBubble(text: helpTip.text)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
+            }
+        }
+    }
+}
+
+private struct HelpBubble: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+    }
+}
+
 // MARK: - Configuration View
 
 enum ViewMode: String, Codable, CaseIterable, Identifiable {
@@ -60,6 +165,7 @@ struct ConfigurationView: View {
     
     @State private var validCallsign = false
     @State private var validLocator = false
+    @State private var activeHelp: HelpTip?
     
     private let minGain: Float = 0.1
     private let maxGain: Float = 2.0
@@ -78,6 +184,10 @@ struct ConfigurationView: View {
     let configColumns = [GridItem(.flexible()), GridItem(.flexible())]
     
     // MARK: - Number formatter for frequency input
+    // ⚠️ Unit consistency: All frequency values are stored in Hz internally.
+    // TextField displays/accepts kHz (user-facing).
+    // Slider range: 0.1 ... 3000 Hz (= 3 kHz max)
+    // Conversion: kHz input × 1000 = Hz stored
     
     private static let frequencyFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
@@ -94,6 +204,7 @@ struct ConfigurationView: View {
         let formatter = Self.frequencyFormatter
         
         if let number = formatter.number(from: frequencyText) {
+            // Convert kHz (user input) to Hz (internal storage), clamped to 3000 Hz (3 kHz max)
             let valueHz = min(max(0, number.doubleValue * 1000), 3000)
             viewModel.frequency = valueHz
             frequencyText = formatter.string(from: NSNumber(value: valueHz / 1000)) ?? frequencyText
@@ -190,6 +301,10 @@ struct ConfigurationView: View {
                 
                 Divider()
                 
+                ContactView()
+                
+                Divider()
+                
                 analyticsSection
                             
                 #if DEBUG
@@ -209,6 +324,12 @@ struct ConfigurationView: View {
                         triggerSharePrompt()
                     } label: {
                         Label("Test Share Prompt", systemImage: "square.and.arrow.up")
+                    }
+                    
+                    Button {
+                        triggerDonationPrompt()
+                    } label: {
+                        Label("Test Donation Prompt", systemImage: "heart.fill")
                     }
                 }
                 #endif
@@ -231,6 +352,9 @@ struct ConfigurationView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onAppear {
+            activeHelp = nil
+        }
         
         // Commit on focus change
         .onChange(of: focusedInput) { newValue in
@@ -242,8 +366,9 @@ struct ConfigurationView: View {
             }
             if lastFocusedInput == .frequency && newValue != .frequency {
                 commitFrequencyText()
-                        lastFocusedInput = newValue
             }
+            // Always update lastFocusedInput for all focus changes
+            lastFocusedInput = newValue
         }
         .onTapGesture {
             focusedInput = nil
@@ -291,7 +416,7 @@ struct ConfigurationView: View {
         let prompts = InAppPrompts.shared
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 500_000_000)
-            prompts.showRateAlert = true
+            prompts.requestRate()
         }
     }
     
@@ -300,6 +425,14 @@ struct ConfigurationView: View {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 500_000_000)
             prompts.showPreShareAlert = true
+        }
+    }
+    
+    private func triggerDonationPrompt() {
+        let prompts = InAppPrompts.shared
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            prompts.showDonationAlert = true
         }
     }
     #endif
@@ -335,9 +468,10 @@ struct ConfigurationView: View {
                 .frame(width: 120)
                 .focused($focusedInput, equals: .callsign)
                 .lineLimit(1)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
                 .onChange(of: callsignText) { newValue in
-                    callsignText = newValue.uppercased()
-                    validCallsign = isValidCallsign(callsignText)
+                    validCallsign = isValidCallsign(newValue.uppercased())
                 }
                 .onSubmit {
                     commitCallsign()
@@ -619,30 +753,40 @@ struct ConfigurationView: View {
             alignment: .leading,
             spacing: 12
         ) {
-            HStack {
-                Toggle("", isOn: $viewModel.autoRXAtStart)
-                    .labelsHidden()
-                Text("Auto RX at start")
-            }
+            AppleCompliantToggleRow(
+                label: "Auto RX at start",
+                helpTip: .autoRXAtStart,
+                isOn: $viewModel.autoRXAtStart,
+                activeHelp: $activeHelp
+            )
             
-            HStack {
-                Toggle("", isOn: $viewModel.autoCQReplyEnabled)
-                    .labelsHidden()
-                Text("Reply to CQ received")
-            }
+            AppleCompliantToggleRow(
+                label: "Reply to CQ received",
+                helpTip: .autoCQReply,
+                isOn: $viewModel.autoCQReplyEnabled,
+                activeHelp: $activeHelp
+            )
+
+            AppleCompliantToggleRow(
+                label: "Only if new band/mode",
+                helpTip: .autoCQNewBandMode,
+                isOn: $viewModel.autoCQReplyOnlyNewBandMode,
+                activeHelp: $activeHelp
+            )
             
-            HStack {
-                Toggle("", isOn: $viewModel.decodeSelfTXMessages)
-                    .labelsHidden()
-                Text("Show TX messages in RX list")
-                    .multilineTextAlignment(.leading)
-            }
+            AppleCompliantToggleRow(
+                label: "Show TX messages in RX list",
+                helpTip: .decodeSelfTX,
+                isOn: $viewModel.decodeSelfTXMessages,
+                activeHelp: $activeHelp
+            )
             
-            HStack {
-                Toggle("", isOn: $viewModel.holdTXFrequency)
-                    .labelsHidden()
-                Text("Hold TX frequecy")
-            }
+            AppleCompliantToggleRow(
+                label: "Hold TX frequency",
+                helpTip: .holdTXFrequency,
+                isOn: $viewModel.holdTXFrequency,
+                activeHelp: $activeHelp
+            )
         }
         .padding(.horizontal)
     }
@@ -730,11 +874,12 @@ struct ConfigurationView: View {
             alignment: .leading,
             spacing: 12
         ) {
-            HStack {
-                Toggle("", isOn: $viewModel.autoSequencingEnabled)
-                    .labelsHidden()
-                Text("Auto-sequence")
-            }
+            AppleCompliantToggleRow(
+                label: "Auto-sequence",
+                helpTip: .autoSequencing,
+                isOn: $viewModel.autoSequencingEnabled,
+                activeHelp: $activeHelp
+            )
             
             HStack{
                 HStack(spacing: 0) {
@@ -747,13 +892,16 @@ struct ConfigurationView: View {
                         .frame(width: 60)
                 }
                 Text("Retransmission retries")
+                    .accessibilityLabel("Retransmission retries")
+                    .accessibilityHint("Number of times to resend messages if not acknowledged")
             }
             
-            HStack {
-                Toggle("", isOn: $viewModel.autoQSOLogging)
-                    .labelsHidden()
-                Text("Auto QSO logging")
-            }
+            AppleCompliantToggleRow(
+                label: "Auto QSO logging",
+                helpTip: .autoQSOLogging,
+                isOn: $viewModel.autoQSOLogging,
+                activeHelp: $activeHelp
+            )
         }
         .padding(.horizontal)
     }
@@ -762,19 +910,41 @@ struct ConfigurationView: View {
         VStack(alignment: .center, spacing: 12) {
             Text("Privacy & Anonymous Statistics")
             
-            VStack(spacing: 8) {
-                HStack(spacing: 10) {
-                    Toggle("", isOn: Binding(
-                        get: { AnalyticsManager.shared.isAnalyticsEnabled },
-                        set: { AnalyticsManager.shared.isAnalyticsEnabled = $0 }
-                    ))
-                    .labelsHidden()
-                    
-                    VStack(alignment: .center, spacing: 2) {
+            VStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 12) {
+                        Toggle("", isOn: Binding(
+                            get: { AnalyticsManager.shared.isAnalyticsEnabled },
+                            set: { AnalyticsManager.shared.isAnalyticsEnabled = $0 }
+                        ))
+                        .labelsHidden()
+                        .accessibilityLabel("Share usage statistics")
+                        .accessibilityHint(HelpTip.analytics.accessibilityHint)
+                        
                         Text("Share usage statistics")
-                        Text("Helps improve the app using anonymous, non-tracking statistics.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        Spacer()
+                        
+                        // Info button: toggle inline expandable help
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
+                                activeHelp = (activeHelp == .analytics) ? nil : .analytics
+                            }
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Help")
+                        .accessibilityHint("Show help for share usage statistics")
+                    }
+                    
+                    // Inline expandable help with smooth spring animation
+                    if activeHelp == .analytics {
+                        HelpBubble(text: HelpTip.analytics.text)
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                                removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                            ))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .center)

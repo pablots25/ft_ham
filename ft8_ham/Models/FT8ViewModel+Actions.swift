@@ -63,10 +63,17 @@ extension FT8ViewModel {
         }
     }
         
-    func generateADIFExport() -> URL? {
+   func generateADIFExport() -> URL? {
         appLogger.info("User requested ADIF export")
         AnalyticsManager.shared.logADIFExport(qsoCount: qsoList.count)
-        return logbookManager.saveToADIF(qsoList)
+        let url = logbookManager.exportToADIF(qsoList)
+        if url != nil {
+            Task { @MainActor in
+                InAppPrompts.shared.recordADIFExport()
+            }
+        }
+        return url
     }
+
 
 }

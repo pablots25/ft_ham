@@ -79,6 +79,9 @@ final class QSOStatusManager: ObservableObject {
     @Published var lastSentSNR: Int = Int.min  // Measured by us -> RST_SENT (FT8Message.measuredSNR)
     @Published var lastReceivedSNR: Int = Int.min // From DX text  -> RST_RCVD (FT8Message.messageTxtSNR)
 
+    var lastCompletedDXCallsign: String?
+    var lastCompletedDXLocator: String?
+
     var currentCQModifier: String?
 
     @Published var retryCounter = 0
@@ -269,10 +272,11 @@ final class QSOStatusManager: ObservableObject {
 
         case .sendingGrid(let dx):
             if (message.msgType == .standardSignalReport || message.msgType == .rSignalReport),
-               message.dxCallsign?.uppercased() == myCallUpper {
+               isReportFromLockedDX(message, myCallsign: myCallUpper) {
                 
                 if message.msgType == .standardSignalReport {
                     lastReceivedSNR = Int(message.messageTxtSNR.rounded())
+                    appLogger.debug("RST_RCVD updated from standard report: \(lastReceivedSNR)")
                 } else if message.msgType == .rSignalReport,
                           lastReceivedSNR == invalidSNR {
                     lastReceivedSNR = Int(message.messageTxtSNR.rounded())
@@ -288,15 +292,21 @@ final class QSOStatusManager: ObservableObject {
                 }
                 return .sendRReport(dxCallsign: dx, report: lastSentSNR)
             }
-            // Don't call handleRetry here - let slot timeout handle it
+            // Reject reports from non-locked callsigns
+            if (message.msgType == .standardSignalReport || message.msgType == .rSignalReport),
+               message.dxCallsign?.uppercased() == myCallUpper {
+                appLogger.debug("Rejected report from \(message.callsign ?? "unknown"): not from locked DX")
+                return .ignore
+            }
             return .ignore
 
         case .sendingReport(let dx), .listeningReport(let dx):
             if (message.msgType == .rSignalReport || message.msgType == .standardSignalReport),
-               message.dxCallsign?.uppercased() == myCallUpper {
+               isReportFromLockedDX(message, myCallsign: myCallUpper) {
 
                 if message.msgType == .standardSignalReport {
                     lastReceivedSNR = Int(message.messageTxtSNR.rounded())
+                    appLogger.debug("RST_RCVD updated from standard report: \(lastReceivedSNR)")
                 } else if message.msgType == .rSignalReport,
                           lastReceivedSNR == invalidSNR {
                     lastReceivedSNR = Int(message.messageTxtSNR.rounded())
@@ -325,6 +335,13 @@ final class QSOStatusManager: ObservableObject {
                 appLogger.debug("RUN Mode: Received R-report from DX, sending RR73")
                 return .sendRR73(dxCallsign: dx)
             }
+            
+            // Reject reports from non-locked callsigns
+            if (message.msgType == .rSignalReport || message.msgType == .standardSignalReport),
+               message.dxCallsign?.uppercased() == myCallUpper {
+                appLogger.debug("Rejected report from \(message.callsign ?? "unknown"): not from locked DX")
+                return .ignore
+            }
 
             // Don't call handleRetry here - let slot timeout handle it
             return .ignore
@@ -332,14 +349,22 @@ final class QSOStatusManager: ObservableObject {
         case .sendingRReport(let dx), .listeningRReport(let dx):
             // S&P Mode: We sent R-report, waiting for RRR from DX
             if message.msgType == .rrr,
-               message.dxCallsign?.uppercased() == myCallUpper {
+               message.dxCallsign?.uppercased() == myCallUpper,
+               message.callsign?.uppercased() == dx.uppercased() {
 
                 retryCounter = 0
                 responseReceivedThisSlot = true
                 qsoState = .sending73(dxCallsign: dx)
                 courtesy73SentDuringQSO = true  // Mark that we're sending 73 (via RR73)
-                appLogger.debug("S&P Mode: Received RRR, sending RR73")
+                appLogger.debug("S&P Mode: Received RRR from \(dx), sending RR73")
                 return .sendRR73(dxCallsign: dx)
+            }
+            
+            // Reject RRR from non-locked callsigns
+            if message.msgType == .rrr,
+               message.dxCallsign?.uppercased() == myCallUpper {
+                appLogger.debug("Rejected RRR from \(message.callsign ?? "unknown"): expecting from \(dx)")
+                return .ignore
             }
 
             // Don't call handleRetry here - let slot timeout handle it
@@ -369,6 +394,25 @@ final class QSOStatusManager: ObservableObject {
     }
 
 
+    // MARK: - Message Validation Helpers
+    
+    /// Validates that a report message is from the currently locked DX callsign
+    /// This prevents signal reports from interfering stations from contaminating the QSO
+    internal func isReportFromLockedDX(_ message: FT8Message, myCallsign: String) -> Bool {
+        guard !lockedDXCallsign.isEmpty else { return false }
+        guard let senderCallsign = message.callsign else { return false }
+        guard message.dxCallsign?.uppercased() == myCallsign.uppercased() else { return false }
+        
+        let senderUpper = senderCallsign.uppercased()
+        let isFromLocked = senderUpper == lockedDXCallsign
+        
+        if !isFromLocked {
+            appLogger.debug("Report ignored: from \(senderUpper), expecting \(lockedDXCallsign)")
+        }
+        
+        return isFromLocked
+    }
+    
     internal func setupNewQSO(dx: String, locator: String, initialSNR: Double?, cqModifier: String? = nil) {
         lockedDXCallsign = dx
         lockedDXLocator = locator
@@ -458,6 +502,8 @@ final class QSOStatusManager: ObservableObject {
         qsoState = .idle
         lockedDXCallsign = ""
         lockedDXLocator = ""
+        lastCompletedDXCallsign = nil
+        lastCompletedDXLocator = nil
         lastCourtesyDXCallsign = nil
         retryCounter = 0
         responseReceivedThisSlot = false
@@ -476,10 +522,14 @@ final class QSOStatusManager: ObservableObject {
         lockedDXCallsign = ""
         lockedDXLocator = ""
         retryCounter = 0
-//        lastSentSNR = invalidSNR
-//        lastReceivedSNR = invalidSNR
+        // IMPORTANT: Reset SNR values immediately after QSO completes
+        // to prevent stale values from contaminating future QSOs or interleaved exchanges
+        lastSentSNR = invalidSNR
+        lastReceivedSNR = invalidSNR
         qsoAlreadyLogged = false
         currentCQModifier = nil
+        lastCompletedDXCallsign = nil
+        lastCompletedDXLocator = nil
     }
 
     /// Returns true if the QSO state is awaiting a response from DX
@@ -530,6 +580,9 @@ final class QSOStatusManager: ObservableObject {
         let oldState = qsoState
         qsoState = .completed(dxCallsign: dxCallsign)
         logTransition(oldState: oldState, newState: qsoState, dx: dxCallsign)
+
+        lastCompletedDXCallsign = dxCallsign
+        lastCompletedDXLocator = lockedDXLocator
 
         if openCourtesyWindow && courtesyListeningEnabled {
             lastCourtesyDXCallsign = dxCallsign
@@ -675,7 +728,15 @@ final class QSOStatusManager: ObservableObject {
         }()
 
         guard rstSent != invalidSNR, rstRcvd != invalidSNR else {
-            appLogger.error("Attempting to log QSO without valid SNRs")
+            appLogger.error("""
+                Attempting to log QSO without valid SNRs for \(dxCallsign)
+                - RST_SENT: \(rstSent == invalidSNR ? "INVALID" : String(rstSent))
+                - RST_RCVD: \(rstRcvd == invalidSNR ? "INVALID" : String(rstRcvd))
+                - Current locked: \(lockedDXCallsign)
+                - CQ Modifier: \(currentCQModifier ?? "none")
+                This usually indicates a problem with signal report tracking in interleaved QSOs
+                """)
+            let countryInfo = CountryResolver.countryAndCoordinates(for: dxCallsign)
             return LogEntry(
                 callsign: dxCallsign,
                 grid: dxLocator,
@@ -686,10 +747,13 @@ final class QSOStatusManager: ObservableObject {
                 rstRcvd: "Invalid",
                 stationCallsign: stationCallsign,
                 cqModifier: currentCQModifier,
-                mySigInfo: mySigInfo
+                mySigInfo: mySigInfo,
+                country: countryInfo.country,
+                flag: FlagUtility.flag(for: countryInfo.country)
             )
         }
         
+        let countryInfo = CountryResolver.countryAndCoordinates(for: dxCallsign)
         return LogEntry(
             callsign: dxCallsign,
             grid: dxLocator,
@@ -700,7 +764,9 @@ final class QSOStatusManager: ObservableObject {
             rstRcvd: String(rstRcvd),
             stationCallsign: stationCallsign,
             cqModifier: currentCQModifier,
-            mySigInfo: mySigInfo
+            mySigInfo: mySigInfo,
+            country: countryInfo.country,
+            flag: FlagUtility.flag(for: countryInfo.country)
         )
     }
 

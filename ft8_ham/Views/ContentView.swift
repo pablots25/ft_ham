@@ -15,14 +15,22 @@ struct ContentView: View {
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
+    @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
+    @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
+    @AppStorage("mapShowGrids") private var mapShowGrids: Bool = true
+    @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = true
+    @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = true
+    @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = false
     @State private var shareURL: URL?
     
-    @State private var selectedTab = 0 // Default to TX/RX tab
+    @State private var selectedTab: Int = 0
     @State private var showConfigAlert = false
     @State private var showClearLogbookAlert = false
+    @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
+    @State private var isPresentingWhatsNew = false
 
     var body: some View {
         mainLayout
@@ -38,13 +46,28 @@ struct ContentView: View {
                     .interactiveDismissDisabled(true)
                     .onAppear { AnalyticsManager.shared.trackScreen(.terms) }
             }
+            // 3) What's New third
+            .fullScreenCover(isPresented: $isPresentingWhatsNew) {
+                WhatsNewView()
+                    .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
+            }
             .task {
                 viewModel.startProgressBarUTC()
+                // Set initial tab: 4 if first launch, otherwise last used tab
+                if !hasLaunchedBefore {
+                    selectedTab = 4
+                    hasLaunchedBefore = true
+                } else {
+                    selectedTab = lastSelectedTab
+                }
                 // Decide which prompt to show at launch
                 if !hasCompletedOnboarding {
                     isPresentingOnboarding = true
                 } else if !hasAcceptedTerms {
                     isPresentingLicense = true
+                // Disabled: keep What's New trigger for easy re-enable.
+                // } else if AppVersionManager.shared.shouldShowWhatsNew {
+                //     isPresentingWhatsNew = true
                 } else if !viewModel.settingsLoaded {
                     showConfigAlert = true
                     shouldNavigateToConfiguration = true
@@ -67,7 +90,12 @@ struct ContentView: View {
             }
             .onChange(of: hasAcceptedTerms) { accepted in
                 if accepted {
-                    // After license is accepted, check settings
+                    // Disabled: keep What's New trigger for easy re-enable.
+                    // if AppVersionManager.shared.shouldShowWhatsNew {
+                    //     isPresentingWhatsNew = true
+                    // } else {
+                    //     scheduleSettingsCheckIfNeeded()
+                    // }
                     scheduleSettingsCheckIfNeeded()
                 }
             }
@@ -79,10 +107,10 @@ struct ContentView: View {
                     viewModel.stopSequencer()
                 }
             }
+            .onChange(of: selectedTab) { newTab in
+                lastSelectedTab = newTab
+            }
             .onChange(of: viewModel.settingsLoaded) { loaded in
-                if loaded && selectedTab == 4 {
-                    selectedTab = 0
-                }
                 if loaded && autoRXAtStart {
                     evaluateAutoRX()
                 }
@@ -128,16 +156,19 @@ struct ContentView: View {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
 
-
                     GridMapViewWrapper(
                         locators: $viewModel.workedLocators,
-                        countries: $viewModel.workedCountryPairs
+                        countries: $viewModel.workedCountryPairs,
+                        showGrids: $mapShowGrids,
+                        showCountryCircles: $mapShowCountryCircles,
+                        showGeodesics: $mapShowGeodesics,
+                        showAnnotations: $mapShowAnnotations
                     )
-                    .tabItem { Label("Map", systemImage: "map.fill") }
-                    .tag(2)
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
                     }
+                    .tabItem { Label("Map", systemImage: "map.fill") }
+                    .tag(2)
 
                     NavigationStack {
                         LogbookView()
@@ -152,17 +183,17 @@ struct ContentView: View {
                                 }
 
                                 ToolbarItem(placement: .automatic) {
-                                    ShareLink(
-                                        item: viewModel.adifURL!,
-                                        preview: SharePreview(
-                                            "FTHam Logbook ADIF",
-                                            icon: Image(systemName: "book")
-                                        )
-                                    ) {
+                                    Button {
+                                        showExportOptions = true
+                                    } label: {
                                         Image(systemName: "square.and.arrow.up")
                                     }
                                     .disabled(viewModel.qsoList.isEmpty)
                                 }
+                            }
+                            .sheet(isPresented: $showExportOptions) {
+                                ExportOptionsView()
+                                    .environmentObject(viewModel)
                             }
                             .alert("Clear logbook?", isPresented: $showClearLogbookAlert) {
                                 Button("Cancel", role: .cancel) {}

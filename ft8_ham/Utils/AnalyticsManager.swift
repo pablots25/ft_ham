@@ -19,6 +19,7 @@ enum AnalyticsScreen: String {
     case configuration
     case onboarding
     case terms
+    case whatsNew = "whats_new"
 }
 
 enum RadioActivityType: String {

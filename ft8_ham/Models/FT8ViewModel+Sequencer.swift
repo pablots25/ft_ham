@@ -91,8 +91,8 @@ extension FT8ViewModel {
                         
                         self.isHarvestingRX = true
                         Task {
-                            let msgs = self.engine.decodeBuffer(
-                                usingMonitor: audioToDecode,
+                            let msgs = self.engine.decodeAudioBuffer(
+                                audioToDecode,
                                 sampleRate: self.audioManager.micSampleRate,
                                 isFT4: self.isFT4
                             )
@@ -373,6 +373,7 @@ extension FT8ViewModel {
         
         AnalyticsManager.shared.startRadioActivity(.tx)
         audioManager.playAudio(audioData)
+        InAppPrompts.shared.recordTXStarted()
         txLogger.info("TX Started: \(message)")
         txLogger.info(
             "TX starting \(String(format: "%.2f", offsetFromSlotStart))s into slot \(slot.slotIndex)"

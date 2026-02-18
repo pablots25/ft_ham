@@ -106,3 +106,4 @@ venv/
 ENV/
 .swiftformat
 .swiftlint.yml
+*.md
