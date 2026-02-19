@@ -44,21 +44,21 @@ enum HelpTip: Identifiable {
     var text: String {
         switch self {
         case .autoRXAtStart:
-            return "Automatically starts RX when the app launches if settings are valid."
+            return String(localized: "Auto RX help")
         case .autoCQReply:
-            return "Automatically responds to CQs when auto-sequencing is enabled."
+            return String(localized: "Auto CQ Reply help")
         case .autoCQNewBandMode:
-            return "Only auto-reply to a CQ if that callsign is not yet confirmed on the current band and mode."
+            return String(localized: "Auto CQ New Band Mode help")
         case .decodeSelfTX:
-            return "Includes your transmitted messages in the RX list for review."
+            return String(localized: "Decode Self TX help")
         case .holdTXFrequency:
-            return "Keeps TX frequency fixed; it will not auto-align to incoming DX frequency."
+            return String(localized: "Hold TX Frequency help")
         case .autoSequencing:
-            return "Automatically advances the QSO sequence based on received messages."
+            return String(localized: "Auto Sequencing help")
         case .autoQSOLogging:
-            return "Logs completed QSOs automatically without confirmation."
+            return String(localized: "Auto QSO Logging help")
         case .analytics:
-            return "Enables anonymous usage analytics to improve the app. No personal data is collected."
+            return String(localized: "Analytics help")
         }
     }
     
@@ -67,28 +67,25 @@ enum HelpTip: Identifiable {
     }
 }
 
-// MARK: - Apple-compliant Toggle Row Component
-/// Following Apple HIG 2025 recommendations:
-/// - Inline expandable help on all iOS versions
-/// - accessibilityHint on all controls (VoiceOver support)
-/// - Clean, unobtrusive UI that doesn't interrupt workflow
+// MARK: - Toggle Row Component
 
-struct AppleCompliantToggleRow: View {
-    let label: String
+struct ToggleRow: View {
+    let labelKey: LocalizedStringKey
     let helpTip: HelpTip
     @Binding var isOn: Bool
     @Binding var activeHelp: HelpTip?
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .center, spacing: 8) {
                 Toggle("", isOn: $isOn)
                     .labelsHidden()
-                    .accessibilityLabel(label)
-                    .accessibilityHint(helpTip.accessibilityHint)
+                    .accessibilityLabel(Text(labelKey))
+                    .accessibilityHint(Text(helpTip.accessibilityHint))
                 
-                Text(label)
-                    .lineLimit(1)
+                Text(labelKey)
+                    .font(.body)
+                    .lineLimit(2)
                 
                 Spacer()
                 
@@ -102,8 +99,9 @@ struct AppleCompliantToggleRow: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Help")
-                .accessibilityHint("Show help for \(label)")
+                .frame(width: 20, height: 20)
+                .accessibilityLabel(Text("Help"))
+                .accessibilityHint(Text(helpTip.accessibilityHint))
             }
             
             // Inline expandable help with smooth spring animation
@@ -146,8 +144,10 @@ enum ViewMode: String, Codable, CaseIterable, Identifiable {
 
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     @State private var showHelp = false
+    @State private var showWhatsNew = false
     @State private var sliderTempValue: Float = 1.0
     
     private let appLogger = AppLogger(category: "APP")
@@ -331,6 +331,12 @@ struct ConfigurationView: View {
                     } label: {
                         Label("Test Donation Prompt", systemImage: "heart.fill")
                     }
+                    
+                    Button {
+                        showWhatsNew = true
+                    } label: {
+                        Label("Show What's New", systemImage: "sparkles")
+                    }
                 }
                 #endif
                 
@@ -349,6 +355,9 @@ struct ConfigurationView: View {
                 url: URL(string: "https://ftham.turrion.dev/#getting-started")!
             )
             .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showWhatsNew) {
+            WhatsNewView()
         }
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -612,9 +621,9 @@ struct ConfigurationView: View {
 
         let frequencyText: String = {
             guard let hz = frequencyHz else {
-                return "— MHz"
+                return "— " + String(localized: "MHz")
             }
-            return String(format: "%.3f MHz", hz / 1_000_000)
+            return String(format: "%.3f ", hz / 1_000_000) + String(localized: "MHz")
         }()
 
         let selectedIndex: Int? = bands.firstIndex(of: viewModel.selectedBand)
@@ -753,36 +762,36 @@ struct ConfigurationView: View {
             alignment: .leading,
             spacing: 12
         ) {
-            AppleCompliantToggleRow(
-                label: "Auto RX at start",
+            ToggleRow(
+                labelKey: "Auto RX at start",
                 helpTip: .autoRXAtStart,
                 isOn: $viewModel.autoRXAtStart,
                 activeHelp: $activeHelp
             )
             
-            AppleCompliantToggleRow(
-                label: "Reply to CQ received",
+            ToggleRow(
+                labelKey: "Reply to CQ received",
                 helpTip: .autoCQReply,
                 isOn: $viewModel.autoCQReplyEnabled,
                 activeHelp: $activeHelp
             )
 
-            AppleCompliantToggleRow(
-                label: "Only if new band/mode",
+            ToggleRow(
+                labelKey: "Only if new band/mode",
                 helpTip: .autoCQNewBandMode,
                 isOn: $viewModel.autoCQReplyOnlyNewBandMode,
                 activeHelp: $activeHelp
             )
             
-            AppleCompliantToggleRow(
-                label: "Show TX messages in RX list",
+            ToggleRow(
+                labelKey: "Show TX messages in RX list",
                 helpTip: .decodeSelfTX,
                 isOn: $viewModel.decodeSelfTXMessages,
                 activeHelp: $activeHelp
             )
             
-            AppleCompliantToggleRow(
-                label: "Hold TX frequency",
+            ToggleRow(
+                labelKey: "Hold TX frequency",
                 helpTip: .holdTXFrequency,
                 isOn: $viewModel.holdTXFrequency,
                 activeHelp: $activeHelp
@@ -874,30 +883,29 @@ struct ConfigurationView: View {
             alignment: .leading,
             spacing: 12
         ) {
-            AppleCompliantToggleRow(
-                label: "Auto-sequence",
+            ToggleRow(
+                labelKey: "Auto-sequence",
                 helpTip: .autoSequencing,
                 isOn: $viewModel.autoSequencingEnabled,
                 activeHelp: $activeHelp
             )
             
-            HStack{
-                HStack(spacing: 0) {
-                    TextField("Retries", value: $viewModel.maxRetrySlots, format: .number)
-                        .keyboardType(.numberPad)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
-                        .focused($focusedInput, equals: .retries)
-                        .lineLimit(1)
-                        .frame(width: 60)
-                }
-                Text("Retransmission retries")
-                    .accessibilityLabel("Retransmission retries")
-                    .accessibilityHint("Number of times to resend messages if not acknowledged")
+            HStack(spacing: 6){
+                TextField("Retries", value: $viewModel.maxRetrySlots, format: .number)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.center)
+                    .focused($focusedInput, equals: .retries)
+                    .lineLimit(1)
+                    .frame(width: 50)
+                Text("retries")
+                    .font(.body)
+                    .accessibilityLabel(Text("Retransmission retries"))
+                    .accessibilityHint(Text("Number of times to resend messages if not acknowledged"))
             }
             
-            AppleCompliantToggleRow(
-                label: "Auto QSO logging",
+            ToggleRow(
+                labelKey: "Auto QSO logging",
                 helpTip: .autoQSOLogging,
                 isOn: $viewModel.autoQSOLogging,
                 activeHelp: $activeHelp
@@ -907,21 +915,22 @@ struct ConfigurationView: View {
     }
     
     private var analyticsSection: some View {
-        VStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .center, spacing: 8) {
             Text("Privacy & Anonymous Statistics")
             
-            VStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 12) {
+            VStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
                         Toggle("", isOn: Binding(
                             get: { AnalyticsManager.shared.isAnalyticsEnabled },
                             set: { AnalyticsManager.shared.isAnalyticsEnabled = $0 }
                         ))
                         .labelsHidden()
-                        .accessibilityLabel("Share usage statistics")
-                        .accessibilityHint(HelpTip.analytics.accessibilityHint)
+                        .accessibilityLabel(Text("Share usage statistics"))
+                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
                         
                         Text("Share usage statistics")
+                            .font(.body)
                         Spacer()
                         
                         // Info button: toggle inline expandable help
@@ -934,8 +943,9 @@ struct ConfigurationView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Help")
-                        .accessibilityHint("Show help for share usage statistics")
+                        .frame(width: 20, height: 20)
+                        .accessibilityLabel(Text("Help"))
+                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
                     }
                     
                     // Inline expandable help with smooth spring animation
@@ -949,7 +959,7 @@ struct ConfigurationView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 8)
         }
     }
     
@@ -958,7 +968,7 @@ struct ConfigurationView: View {
             Text("Version")
             if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
-                Text("Version \(version) (Build \(build))")
+                Text(String(format: String(localized: "Version %@ (Build %@)"), version, build))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {

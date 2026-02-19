@@ -30,8 +30,8 @@ final class InAppPrompts: ObservableObject {
     }
 
     // MARK: - Thresholds
-    private let shareThreshold = 6
     private let rateThreshold = 4
+    private let shareThreshold = 6
     private let reminderDelay = 10
     private let donationQSOThreshold = 10
     private let donationADIFThreshold = 2
@@ -271,7 +271,11 @@ struct InAppPromptsViewModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .alert("Do you like FT-Ham? ❤️", isPresented: $prompts.showPreShareAlert) {
+            // MARK: - Rate Prompt (goes directly to App Store, no UI alert)
+            // Triggered in checkPrompts() via requestRate()
+            
+            // MARK: - Share Prompt (second priority)
+            .alert("Do you like FT Ham? ❤️", isPresented: $prompts.showPreShareAlert) {
                 Button("Yes!") {
                     prompts.confirmLikesApp()
                 }
@@ -281,31 +285,13 @@ struct InAppPromptsViewModifier: ViewModifier {
             } message: {
                 Text("Share it with your fellow hams and friends! 📣")
             }
-            .alert("Do you like FT-Ham?", isPresented: $prompts.showPreShareAlert) {
-                Button("Yes!") {
-                    prompts.confirmLikesApp()
-                }
-                Button("Not really", role: .cancel) {
-                    prompts.postponeShare()
-                }
-            } message: {
-                Text("We'd love to hear your feedback!")
-            }
-            .alert("Do you like FT-Ham?", isPresented: $prompts.showPreShareAlert) {
-                Button("Yes!") {
-                    prompts.confirmLikesApp()
-                }
-                Button("Not really", role: .cancel) {
-                    prompts.postponeShare()
-                }
-            } message: {
-                Text("We'd love to hear your feedback!")
-            }
             .sheet(item: $prompts.shareItem) { item in
                 ShareSheet(url: item.url) {
                     prompts.markShareCompleted()
                 }
             }
+            
+            // MARK: - Donation Prompt (third priority)
             .alert("Support FT HAM?", isPresented: $prompts.showDonationAlert) {
                 Button("Support") {
                     prompts.openDonation()

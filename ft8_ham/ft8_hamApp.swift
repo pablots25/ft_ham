@@ -8,6 +8,9 @@
 import SwiftUI
 import FirebaseCore
 import UserNotifications
+#if canImport(TipKit)
+import TipKit
+#endif
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication,
@@ -55,6 +58,13 @@ struct ft8_hamApp: App {
                 .inAppPrompts()
                 .onAppear {
                     AnalyticsManager.shared.logAppOpened()
+                }
+                .task {
+#if canImport(TipKit)
+                    if #available(iOS 17.0, *) {
+                        try? await Tips.configure()
+                    }
+#endif
                 }
         }
         .onChange(of: scenePhase) { newPhase in

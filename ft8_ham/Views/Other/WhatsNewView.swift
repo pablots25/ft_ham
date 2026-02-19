@@ -15,7 +15,6 @@ struct WhatsNewView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color.blue.opacity(0.1),
@@ -27,14 +26,14 @@ struct WhatsNewView: View {
                 .ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 20) {
                         // Header
                         VStack(spacing: 12) {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 48))
                                 .foregroundColor(.blue)
                             
-                            Text("what_new_title")
+                            Text("What's New")
                                 .font(.title.bold())
                             
                             Text("Version \(currentVersion)")
@@ -44,70 +43,89 @@ struct WhatsNewView: View {
                         .padding(.top, 24)
                         .padding(.bottom, 12)
                         
-                        // Features list
-                        VStack(spacing: 16) {
-                            whatsNewItem(
-                                icon: "waveform",
-                                color: .orange,
-                                title: "what_new_feature1_title",
-                                description: "what_new_feature1_desc"
+                        // Content
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("✨ New Features")
+                                .font(.headline)
+                                .padding(.top, 8)
+                            
+                            whatsNewSection(
+                                title: "🔗 Contacts Management",
+                                description: "Improved contact handling and integration throughout the app."
                             )
                             
-                            whatsNewItem(
-                                icon: "speedometer",
-                                color: .green,
-                                title: "what_new_feature2_title",
-                                description: "what_new_feature2_desc"
+                            whatsNewSection(
+                                title: "🌍 Country Display in Grid",
+                                description: "See the country associated with each callsign directly in the grid view."
                             )
                             
-                            whatsNewItem(
-                                icon: "moon.stars.fill",
-                                color: .blue,
-                                title: "what_new_feature3_title",
-                                description: "what_new_feature3_desc"
+                            whatsNewSection(
+                                title: "📍 Callsign Location Detection",
+                                description: "Automatic location inference based on callsign prefix."
                             )
                             
-                            whatsNewItem(
-                                icon: "ant.fill",
-                                color: .red,
-                                title: "what_new_feature4_title",
-                                description: "what_new_feature4_desc"
+                            whatsNewSection(
+                                title: "🗺️ Map Controls",
+                                description: "Customize which map elements are visible."
                             )
                             
-                            whatsNewItem(
-                                icon: "hand.thumbsup.fill",
-                                color: .purple,
-                                title: "what_new_feature5_title",
-                                description: "what_new_feature5_desc"
+                            Divider()
+                                .padding(.vertical, 8)
+                            
+                            Text("🚀 Improvements")
+                                .font(.headline)
+                                .padding(.top, 8)
+                            
+                            whatsNewSection(
+                                title: "🔊 AutoCQ Smart Behavior",
+                                description: "AutoCQ won't call CQ if the DX is already in your QSO list."
+                            )
+                            
+                            whatsNewSection(
+                                title: "📅 Dynamic Log Files",
+                                description: "Timestamped log files (FT_HAM_Log_YYYYMMDD_HHMMSS) prevent overwriting and organize logs automatically."
+                            )
+                            
+                            whatsNewSection(
+                                title: "📤 Better Log Export",
+                                description: "• Export only recent logs\n• Select specific date ranges\n• Incremental export support"
+                            )
+                            
+                            whatsNewSection(
+                                title: "💬 App Prompts",
+                                description: "Improved consistency and usability of in-app notifications."
+                            )
+                            
+                            Divider()
+                                .padding(.vertical, 8)
+                            
+                            Text("🐛 Bug Fixes")
+                                .font(.headline)
+                                .padding(.top, 8)
+                            
+                            whatsNewSection(
+                                title: "⚡ Auto TX & Logging",
+                                description: "Fixed interleaved QSO entries that were incorrectly marked as invalid when report exchanges weren't sequential."
+                            )
+                            
+                            whatsNewSection(
+                                title: "📻 Callsign Switching",
+                                description: "Fixed issue where the app could continue transmitting to the previous station instead of switching to the new target callsign."
+                            )
+                            
+                            whatsNewSection(
+                                title: "🔧 General Improvements",
+                                description: "Various stability and performance enhancements."
                             )
                         }
                         .padding(.horizontal, 20)
-                        
-                        // Bug fixes section
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                Text("what_new_bugfixes")
-                                    .font(.headline)
-                            }
-                            .padding(.horizontal, 20)
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                bugFixItem("what_new_bugfix1")
-                                bugFixItem("what_new_bugfix2")
-                                bugFixItem("what_new_bugfix3")
-                            }
-                            .padding(.horizontal, 20)
-                        }
-                        .padding(.top, 8)
                         
                         // Close button
                         Button {
                             AppVersionManager.shared.markWhatsNewAsViewed()
                             dismiss()
                         } label: {
-                            Text("what_new_continue")
+                            Text("Let's Go")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
                                 .padding(12)
@@ -120,7 +138,7 @@ struct WhatsNewView: View {
                     }
                 }
             }
-            .navigationTitle("what_new_nav_title")
+            .navigationTitle("What's New in FT Ham")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -137,52 +155,25 @@ struct WhatsNewView: View {
     }
     
     @ViewBuilder
-    private func whatsNewItem(
-        icon: String,
-        color: Color,
-        title: String,
-        description: String
-    ) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(color)
-                .frame(width: 40, alignment: .center)
-                .padding(.top, 4)
+    private func whatsNewSection(title: String, description: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.headline)
+                .lineLimit(1)
             
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
-            }
-            
-            Spacer()
+            Text(description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(nil)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(Color(.systemBackground))
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(color.opacity(0.3), lineWidth: 1)
+                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
         )
-    }
-    
-    @ViewBuilder
-    private func bugFixItem(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "checkmark")
-                .font(.caption.bold())
-                .foregroundColor(.green)
-                .padding(.top, 2)
-            
-            Text(text)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
     }
 }
 
