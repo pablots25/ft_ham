@@ -165,7 +165,11 @@ final class AudioManager: NSObject, AudioManaging {
         do {
             try session.setCategory(
                 .playAndRecord,
-                options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
+                options: [
+                    .defaultToSpeaker,
+                    .allowBluetoothHFP,
+                    .allowBluetoothA2DP
+                ]
             )
         } catch {
             throw AudioManagerError.sessionCategoryConfiguration(underlying: error)

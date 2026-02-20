@@ -69,11 +69,18 @@ enum HelpTip: Identifiable {
 
 // MARK: - Toggle Row Component
 
-struct ToggleRow: View {
+struct ToggleRow: View, Equatable {
     let labelKey: LocalizedStringKey
     let helpTip: HelpTip
     @Binding var isOn: Bool
     @Binding var activeHelp: HelpTip?
+    
+    static func == (lhs: ToggleRow, rhs: ToggleRow) -> Bool {
+        lhs.labelKey == rhs.labelKey &&
+        lhs.helpTip == rhs.helpTip &&
+        lhs.isOn == rhs.isOn &&
+        lhs.activeHelp == rhs.activeHelp
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -174,14 +181,13 @@ struct ConfigurationView: View {
     @State private var callsignText: String = ""
     @State private var frequencyText: String = ""
     
-    // CQ modifier state
-    @AppStorage("cqModifier") private var cqModifier: String = "NONE"
-    @AppStorage("myPotaRef") private var myPotaRef: String = ""
-    @AppStorage("mySotaRef") private var mySotaRef: String = ""
-    @AppStorage("myWwffRef") private var myWwffRef: String = ""
-    @AppStorage("myIotaRef") private var myIotaRef: String = ""
+    // CQ modifier state - stored in AppStorage, managed by CQModifierView
     
-    let configColumns = [GridItem(.flexible()), GridItem(.flexible())]
+    // Type-safe computed property for reading CQ modifier from AppStorage
+    private var cqModifier: CQModifier {
+        let raw = UserDefaults.standard.string(forKey: "cqModifier") ?? CQModifier.none.rawValue
+        return CQModifier(rawValue: raw) ?? .none
+    }
     
     // MARK: - Number formatter for frequency input
     // ⚠️ Unit consistency: All frequency values are stored in Hz internally.
@@ -236,8 +242,8 @@ struct ConfigurationView: View {
             VStack(spacing: 20) {
                 // MARK: Configuration fields
                 
-                VStack(spacing: 0){
-                    LazyVGrid(columns: configColumns, spacing: 10) {
+                VStack(spacing: 0) {
+                    HStack(spacing: 50) {
                         callsignView
                         locatorView
                     }
@@ -250,11 +256,11 @@ struct ConfigurationView: View {
                         .foregroundStyle(.secondary)
                 }
                 
-                cqModifierSection
+                CQModifierView()
                 
                 Divider()
                 
-                LazyVGrid(columns: configColumns, spacing: 10) {
+                HStack(spacing: 20) {
                     modeView
                     cycleView
                 }
@@ -367,21 +373,20 @@ struct ConfigurationView: View {
         
         // Commit on focus change
         .onChange(of: focusedInput) { newValue in
-            if lastFocusedInput == .callsign && newValue != .callsign {
-                commitCallsign()
+            // Only commit if we're leaving a field (not entering one)
+            if let lastField = lastFocusedInput, lastField != newValue {
+                switch lastField {
+                case .callsign:
+                    commitCallsign()
+                case .locator:
+                    commitLocator()
+                case .frequency:
+                    commitFrequencyText()
+                case .retries:
+                    break
+                }
             }
-            if lastFocusedInput == .locator && newValue != .locator {
-                commitLocator()
-            }
-            if lastFocusedInput == .frequency && newValue != .frequency {
-                commitFrequencyText()
-            }
-            // Always update lastFocusedInput for all focus changes
             lastFocusedInput = newValue
-        }
-        .onTapGesture {
-            focusedInput = nil
-            hideKeyboard()
         }
         .safeAreaInset(edge: .bottom) {
             Color.clear.frame(height: 50)
@@ -396,22 +401,31 @@ struct ConfigurationView: View {
             ) ?? ""
         }
         .onChange(of: viewModel.callsign) { newValue in
-            validCallsign = isValidCallsign(newValue)
-            if validCallsign && !newValue.isEmpty {
+            let isValid = isValidCallsign(newValue)
+            if validCallsign != isValid {
+                validCallsign = isValid
+            }
+            if isValid && !newValue.isEmpty {
                 AnalyticsManager.shared.logConfigurationSaved()
             }
         }
         .onChange(of: viewModel.locator) { newValue in
-            validLocator = isValidLocator(newValue)
-            if validLocator && !newValue.isEmpty {
+            let isValid = isValidLocator(newValue)
+            if validLocator != isValid {
+                validLocator = isValid
+            }
+            if isValid && !newValue.isEmpty {
                 AnalyticsManager.shared.logConfigurationSaved()
             }
         }
         .onChange(of: viewModel.frequency) { newValue in
             if focusedInput != .frequency {
-                frequencyText = Self.frequencyFormatter.string(
+                let newText = Self.frequencyFormatter.string(
                     from: NSNumber(value: newValue / 1000)
                 ) ?? frequencyText
+                if frequencyText != newText {
+                    frequencyText = newText
+                }
             }
             if newValue > 0 {
                 AnalyticsManager.shared.logConfigurationSaved()
@@ -753,15 +767,7 @@ struct ConfigurationView: View {
     }
 
     private var togglesView: some View {
-        let togglesColumns = [
-            GridItem(.flexible())
-        ]
-        
-        return LazyVGrid(
-            columns: togglesColumns,
-            alignment: .leading,
-            spacing: 12
-        ) {
+        VStack(alignment: .leading, spacing: 12) {
             ToggleRow(
                 labelKey: "Auto RX at start",
                 helpTip: .autoRXAtStart,
@@ -800,89 +806,8 @@ struct ConfigurationView: View {
         .padding(.horizontal)
     }
 
-    private var cqModifierSection: some View {
-        VStack(alignment: .center, spacing: 5) {
-            HStack{
-                Text("CQ Modifier")
-                    .font(.headline)
-                    .padding(.horizontal)
-                
-                
-                Picker("CQ Type", selection: $cqModifier) {
-                    Text("None").tag("NONE")
-                    
-                    // Geographic filters (never in ADIF)
-                    Text("DX (Long distance)").tag("DX")
-                    Text("EU (Europe)").tag("EU")
-                    Text("NA (North America)").tag("NA")
-                    Text("SA (South America)").tag("SA")
-                    Text("AF (Africa)").tag("AF")
-                    Text("AS (Asia)").tag("AS")
-                    Text("OC (Oceania)").tag("OC")
-                    Text("ANT (Antarctica)").tag("ANT")
-                    
-                    // Activation modifiers (go to ADIF)
-                    Text("POTA (Parks)").tag("POTA")
-                    Text("SOTA (Summits)").tag("SOTA")
-                    Text("WWFF (Flora & Fauna)").tag("WWFF")
-                    Text("IOTA (Islands)").tag("IOTA")
-                }
-                .pickerStyle(.automatic)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 0)
-            }
-            
-            if cqModifier == "POTA" {
-                HStack {
-                    Text("POTA Reference:")
-                    TextField("e.g. EA-1234", text: $myPotaRef)
-                        .textFieldStyle(.roundedBorder)
-                        .textCase(.uppercase)
-                        .autocapitalization(.allCharacters)
-                }
-                .padding(.horizontal)
-            } else if cqModifier == "SOTA" {
-                HStack {
-                    Text("SOTA Reference:")
-                    TextField("e.g. EA/MD-001", text: $mySotaRef)
-                        .textFieldStyle(.roundedBorder)
-                        .textCase(.uppercase)
-                        .autocapitalization(.allCharacters)
-                }
-                .padding(.horizontal)
-            } else if cqModifier == "WWFF" {
-                HStack {
-                    Text("WWFF Reference:")
-                    TextField("e.g. EAFF-0456", text: $myWwffRef)
-                        .textFieldStyle(.roundedBorder)
-                        .textCase(.uppercase)
-                        .autocapitalization(.allCharacters)
-                }
-                .padding(.horizontal)
-            } else if cqModifier == "IOTA" {
-                HStack {
-                    Text("IOTA Reference:")
-                    TextField("e.g. EU-005", text: $myIotaRef)
-                        .textFieldStyle(.roundedBorder)
-                        .textCase(.uppercase)
-                        .autocapitalization(.allCharacters)
-                }
-                .padding(.horizontal)
-            }
-        }
-        
-    }
-    
     private var qsoConfigSection: some View {
-        let togglesColumns = [
-            GridItem(.flexible())
-        ]
-        
-        return LazyVGrid(
-            columns: togglesColumns,
-            alignment: .leading,
-            spacing: 12
-        ) {
+        VStack(alignment: .leading, spacing: 12) {
             ToggleRow(
                 labelKey: "Auto-sequence",
                 helpTip: .autoSequencing,
@@ -890,7 +815,7 @@ struct ConfigurationView: View {
                 activeHelp: $activeHelp
             )
             
-            HStack(spacing: 6){
+            HStack(spacing: 6) {
                 TextField("Retries", value: $viewModel.maxRetrySlots, format: .number)
                     .keyboardType(.numberPad)
                     .textFieldStyle(.roundedBorder)
@@ -898,7 +823,7 @@ struct ConfigurationView: View {
                     .focused($focusedInput, equals: .retries)
                     .lineLimit(1)
                     .frame(width: 50)
-                Text("retries")
+                Text("Retries")
                     .font(.body)
                     .accessibilityLabel(Text("Retransmission retries"))
                     .accessibilityHint(Text("Number of times to resend messages if not acknowledged"))
