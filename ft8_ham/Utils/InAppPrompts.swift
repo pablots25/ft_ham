@@ -267,7 +267,7 @@ final class InAppPrompts: ObservableObject {
 // MARK: - SwiftUI Modifier
 struct InAppPromptsViewModifier: ViewModifier {
 
-    @ObservedObject var prompts = InAppPrompts.shared
+    @StateObject var prompts = InAppPrompts.shared
 
     func body(content: Content) -> some View {
         content

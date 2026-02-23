@@ -111,12 +111,23 @@ struct MessageSelector: View {
                 }
                 
                 
-                TextField("",text: $viewModel.allMessages[viewModel.selectedMessageIndex ?? 0])
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.center)
-                    .textCase(.uppercase)
-                    .disabled(true)
-                    .foregroundStyle(.gray)
+                if let index = viewModel.selectedMessageIndex,
+                   index >= 0,
+                   index < viewModel.allMessages.count {
+                    TextField("",text: $viewModel.allMessages[index])
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.center)
+                        .textCase(.uppercase)
+                        .disabled(true)
+                        .foregroundStyle(.gray)
+                } else {
+                    TextField("", text: .constant(""))
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.center)
+                        .textCase(.uppercase)
+                        .disabled(true)
+                        .foregroundStyle(.gray)
+                }
                 
                 
                 if !viewModel.autoSequencingEnabled {

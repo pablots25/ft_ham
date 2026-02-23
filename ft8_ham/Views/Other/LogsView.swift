@@ -10,10 +10,11 @@ import UniformTypeIdentifiers
 import Foundation
 
 struct LogsView: View {
-    @ObservedObject private var store = LogStore.shared
+    @StateObject private var store = LogStore.shared
     @State private var showingShareSheet = false
     @State private var logFileURL: URL?
     @State private var selectedFilter: LogLevelFilter = .all
+    @State private var cachedFilteredLogs: [String] = []
     
     // States for loading and error management
     @State private var isExporting = false
@@ -51,10 +52,10 @@ struct LogsView: View {
 
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(filteredLogs.indices, id: \.self) { idx in
-                            Text(filteredLogs[idx])
+                        ForEach(cachedFilteredLogs.indices, id: \.self) { idx in
+                            Text(cachedFilteredLogs[idx])
                                 .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(color(for: filteredLogs[idx]))
+                                .foregroundStyle(color(for: cachedFilteredLogs[idx]))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.vertical, 4)
@@ -102,7 +103,7 @@ struct LogsView: View {
                 Button(action: exportLogs) {
                     Image(systemName: "square.and.arrow.up")
                 }
-                .disabled(isExporting || filteredLogs.isEmpty)
+                .disabled(isExporting || cachedFilteredLogs.isEmpty)
             }
         }
         .sheet(isPresented: $showingShareSheet) {
@@ -115,6 +116,15 @@ struct LogsView: View {
         } message: {
             Text(errorMessage)
         }
+        .onAppear {
+            cachedFilteredLogs = filteredLogs
+        }
+        .onChange(of: selectedFilter) { _ in
+            cachedFilteredLogs = filteredLogs
+        }
+        .onChange(of: store.logs) { _ in
+            cachedFilteredLogs = filteredLogs
+        }
     }
 
     private func exportLogs() {
@@ -126,7 +136,7 @@ struct LogsView: View {
             let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
 
             do {
-                let content = self.filteredLogs.joined(separator: "\n")
+                let content = self.cachedFilteredLogs.joined(separator: "\n")
                 try content.write(to: fileURL, atomically: true, encoding: .utf8)
                 
                 DispatchQueue.main.async {
