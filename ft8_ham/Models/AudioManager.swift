@@ -19,6 +19,7 @@ enum AudioManagerError: LocalizedError {
     case sessionSampleRateConfiguration(underlying: Error)
     case sessionActivationFailed(underlying: Error)
     case engineStartFailed(underlying: Error)
+    case tapInstallationFailed(underlying: Error)
     case invalidInputFormat(sampleRate: Double, channels: UInt32)
     case audioGenerationFailed(message: String)
     case invalidAudioData
@@ -35,6 +36,8 @@ enum AudioManagerError: LocalizedError {
             return "Failed to activate audio session: \(error.localizedDescription)"
         case .engineStartFailed(let error):
             return "Failed to start audio engine: \(error.localizedDescription)"
+        case .tapInstallationFailed(let error):
+            return "Failed to install microphone tap: \(error.localizedDescription)"
         case .invalidInputFormat(let sr, let ch):
             return "Invalid input format (SR: \(sr), channels: \(ch))"
         case .audioGenerationFailed(let message):
@@ -217,8 +220,12 @@ final class AudioManager: NSObject, AudioManaging {
         guard !audioEngine.isRunning else { return }
 
         do {
+            // Reset audio engine to ensure it's in a clean state
             try audioEngine.start()
             audioLogger.log(.info, "AudioEngine started")
+            
+            // Small delay to allow engine to stabilize
+            Thread.sleep(forTimeInterval: 0.05)
         } catch {
             let error = AudioManagerError.engineStartFailed(underlying: error)
             audioLogger.log(.error, error.localizedDescription)
@@ -238,6 +245,10 @@ final class AudioManager: NSObject, AudioManaging {
             return
         }
 
+        // Ensure engine is started BEFORE attempting to tap
+        startEngineIfNeeded()
+        
+        // Remove any existing tap
         inputNode.removeTap(onBus: 0)
 
         let hwFormat = inputNode.inputFormat(forBus: 0)
@@ -255,54 +266,67 @@ final class AudioManager: NSObject, AudioManaging {
         micSampleRate = hwFormat.sampleRate
         audioLogger.log(.info, "Mic format validated: \(micSampleRate) Hz")
 
-        inputNode.installTap(
-            onBus: 0,
-            bufferSize: AVAudioFrameCount(waterfallFFTSize),
-            format: hwFormat
-        ) { [weak self] buffer, _ in
-            guard
-                let self,
-                let ptr = buffer.floatChannelData
-            else { return }
-
-            let frameLength = Int(buffer.frameLength)
-            let inputPtr = ptr[0]
-            let gain = Float(self.gainState.withLock { $0 })
-            
-            // Use pre-allocated buffer, resizing only if needed
-            let output: [Float] = self.micBufferState.withLock { buffer in
-                // Resize buffer if frame size changed (rare)
-                if buffer.count < frameLength {
-                    buffer = [Float](repeating: 0, count: frameLength)
-                }
-                
-                // Apply gain using vDSP (in-place style with pre-allocated buffer)
-                var mutableGain = gain
-                vDSP_vsmul(
-                    inputPtr,
-                    1,
-                    &mutableGain,
-                    &buffer,
-                    1,
-                    vDSP_Length(frameLength)
-                )
-                
-                // Return slice of buffer matching actual frame length
-                return Array(buffer.prefix(frameLength))
-            }
-
-            // Optimized clipping detection using vDSP
-            var maxVal: Float = 0
-            vDSP_maxmgv(output, 1, &maxVal, vDSP_Length(frameLength))
-            if maxVal >= self.clippingThreshold {
-                self.clippingPublisher.send(true)
-            }
-
-            self.audioSamplesPublisher.send(output)
+        do {
+            try installInputTap(on: inputNode, format: hwFormat)
+            isListening = true
+            audioLogger.log(.info, "Mic input tap installed successfully")
+        } catch {
+            audioLogger.log(.error, "Failed to install input tap: \(error.localizedDescription)")
+            audioErrorPublisher.send("Failed to start microphone: \(error.localizedDescription)")
+            isListening = false
         }
+    }
 
-        startEngineIfNeeded()
-        isListening = true
+    private func installInputTap(on inputNode: AVAudioInputNode, format: AVAudioFormat) throws {
+        do {
+            try inputNode.installTap(
+                onBus: 0,
+                bufferSize: AVAudioFrameCount(waterfallFFTSize),
+                format: format
+            ) { [weak self] buffer, _ in
+                guard
+                    let self,
+                    let ptr = buffer.floatChannelData
+                else { return }
+
+                let frameLength = Int(buffer.frameLength)
+                let inputPtr = ptr[0]
+                let gain = Float(self.gainState.withLock { $0 })
+                
+                // Use pre-allocated buffer, resizing only if needed
+                let output: [Float] = self.micBufferState.withLock { buffer in
+                    // Resize buffer if frame size changed (rare)
+                    if buffer.count < frameLength {
+                        buffer = [Float](repeating: 0, count: frameLength)
+                    }
+                    
+                    // Apply gain using vDSP (in-place style with pre-allocated buffer)
+                    var mutableGain = gain
+                    vDSP_vsmul(
+                        inputPtr,
+                        1,
+                        &mutableGain,
+                        &buffer,
+                        1,
+                        vDSP_Length(frameLength)
+                    )
+                    
+                    // Return slice of buffer matching actual frame length
+                    return Array(buffer.prefix(frameLength))
+                }
+
+                // Optimized clipping detection using vDSP
+                var maxVal: Float = 0
+                vDSP_maxmgv(output, 1, &maxVal, vDSP_Length(frameLength))
+                if maxVal >= self.clippingThreshold {
+                    self.clippingPublisher.send(true)
+                }
+
+                self.audioSamplesPublisher.send(output)
+            }
+        } catch {
+            throw AudioManagerError.tapInstallationFailed(underlying: error)
+        }
     }
 
     @MainActor

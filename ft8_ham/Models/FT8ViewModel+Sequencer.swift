@@ -79,8 +79,15 @@ extension FT8ViewModel {
                     
                     // Disrcard extra long buffers
                     let maxExpectedSamples = Int(
-                        (signalDuration + decodeMargin + 0.05) * self.audioManager.micSampleRate
+                        (signalDuration + decodeMargin + 1.0) * self.audioManager.micSampleRate
                     )
+                    
+                    // Trim buffer if it exceeds max size to prevent memory issues
+                    if audioToDecode.count > maxExpectedSamples * 4 {
+                        audioToDecode = Data(audioToDecode.prefix(maxExpectedSamples * 4))
+                        sampleCount = maxExpectedSamples
+                        self.rxLogger.warning("Audio buffer trimmed from \(audioToDecode.count / 4) to \(maxExpectedSamples) samples")
+                    }
 
                     
                     if sampleCount >= minSamples && !self.isHarvestingRX {
@@ -90,17 +97,22 @@ extension FT8ViewModel {
                         )
                         
                         self.isHarvestingRX = true
-                        Task {
-                            let msgs = self.engine.decodeAudioBuffer(
-                                audioToDecode,
-                                sampleRate: self.audioManager.micSampleRate,
-                                isFT4: self.isFT4
-                            )
+                        Task { [weak self] in
+                            defer { Task { await MainActor.run { self?.isHarvestingRX = false } } }
+                            guard let self else { return }
                             
-                            self.rxLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
-                            await self.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
-                            
-                            await MainActor.run { self.isHarvestingRX = false }
+                            do {
+                                let msgs = self.engine.decodeAudioBuffer(
+                                    audioToDecode,
+                                    sampleRate: self.audioManager.micSampleRate,
+                                    isFT4: self.isFT4
+                                )
+                                
+                                self.rxLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
+                                await self.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
+                            } catch {
+                                self.rxLogger.error("Decode error: \(error.localizedDescription)")
+                            }
                         }
                     } else {
                         if sampleCount < minSamples {
