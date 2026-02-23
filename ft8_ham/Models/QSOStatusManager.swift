@@ -103,6 +103,7 @@ final class QSOStatusManager: ObservableObject {
     var responseReceivedThisSlot = false
     
     /// Call this at the start of each RX slot to reset the response tracking
+    @MainActor
     func prepareForRXSlot() {
         responseReceivedThisSlot = false
     }
@@ -112,6 +113,7 @@ final class QSOStatusManager: ObservableObject {
     init() {}
 
     // MARK: - Start a QSO (Run mode)
+    @MainActor
     func startReply(to message: FT8Message, myCallsign: String, myLocator: String) -> QSOAction {
         let reportToSend: Int
         
@@ -150,6 +152,7 @@ final class QSOStatusManager: ObservableObject {
     }
 
     // MARK: - Handle incoming messages (RX)
+    @MainActor
     func handleIncomingMessage(
         _ message: FT8Message,
         myCallsign: String,
@@ -413,6 +416,7 @@ final class QSOStatusManager: ObservableObject {
         return isFromLocked
     }
     
+    @MainActor
     internal func setupNewQSO(dx: String, locator: String, initialSNR: Double?, cqModifier: String? = nil) {
         lockedDXCallsign = dx
         lockedDXLocator = locator
@@ -440,6 +444,7 @@ final class QSOStatusManager: ObservableObject {
     /// Called at the end of each RX slot when no matching response was received.
     /// Increments retry counter and returns the appropriate resend action.
     /// After maxRetrySlots attempts, returns abortQSO.
+    @MainActor
     func handleQSOTimeout() -> QSOAction {
         // Only trigger timeout if we're actually awaiting a response
         guard isAwaitingResponse() else { return .ignore }
@@ -497,6 +502,7 @@ final class QSOStatusManager: ObservableObject {
 
 
     // MARK: - Manual Reset QSO
+    @MainActor
     func resetQSO() {
         appLogger.debug("Resetting QSO, clearing state and DX lock")
         qsoState = .idle
@@ -516,6 +522,7 @@ final class QSOStatusManager: ObservableObject {
         currentCQModifier = nil
     }
     
+    @MainActor
     func resetRadioStateAfterCompletion() {
         appLogger.debug("Reset radio state after QSO completion")
         qsoState = .idle
@@ -567,6 +574,7 @@ final class QSOStatusManager: ObservableObject {
         }
     }
 
+    @MainActor
     func closeQSO(dxCallsign: String, openCourtesyWindow: Bool) -> QSOAction {
 
         if qsoAlreadyLogged {
@@ -607,11 +615,13 @@ final class QSOStatusManager: ObservableObject {
     }
 
 
+    @MainActor
     func logTransition(oldState: QSOState, newState: QSOState, dx: String) {
         appLogger.debug("\(oldState) -> \(newState) for \(dx)")
     }
 
     // MARK: - TX State Advancement (Centralized Logic)
+    @MainActor
     func advanceStateOnTX(
         message: FT8Message,
         frequency: Double,
@@ -771,6 +781,7 @@ final class QSOStatusManager: ObservableObject {
     }
 
     
+    @MainActor
     func startCallingCQ() {
         qsoState = .callingCQ
         // Set current CQ modifier from UserDefaults when starting CQ

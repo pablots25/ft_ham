@@ -98,21 +98,26 @@ final class LogStore: ObservableObject {
     
     @Published private(set) var logs: [String] = []
     private let maxEntries = 1000
+    private let queue = DispatchQueue(label: "com.ft8-ham.logstore", attributes: .concurrent)
     
     private init() {}
     
     func append(_ message: String) {
-        DispatchQueue.main.async {
-            self.logs.append(message)
-            if self.logs.count > self.maxEntries {
-                self.logs.removeFirst()
+        queue.async(flags: .barrier) {
+            DispatchQueue.main.async {
+                self.logs.append(message)
+                if self.logs.count > self.maxEntries {
+                    self.logs.removeFirst()
+                }
             }
         }
     }
     
     func clear() {
-        DispatchQueue.main.async {
-            self.logs.removeAll()
+        queue.async(flags: .barrier) {
+            DispatchQueue.main.async {
+                self.logs.removeAll()
+            }
         }
     }
 }
