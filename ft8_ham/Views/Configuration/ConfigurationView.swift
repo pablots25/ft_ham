@@ -313,12 +313,15 @@ struct ConfigurationView: View {
                 
                 analyticsSection
                             
-                #if DEBUG
+                if flags.isEnabled(.showLogsView) {
                     NavigationLink(destination: LogsView()) {
                         Text("View app logs")
                             .foregroundStyle(.blue)
                     }
+                }
+                
 
+                #if DEBUG
                 Section {
                     Button {
                         triggerRatePrompt()
@@ -345,6 +348,7 @@ struct ConfigurationView: View {
                     }
                 }
                 #endif
+
                 
                 Divider()
                 
