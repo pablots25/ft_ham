@@ -54,6 +54,7 @@ struct ft8_hamApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(viewModel)
+                .environmentObject(FeatureFlagManager.shared)
                 .modifier(QSOLogConfirmationModifier(manager: viewModel))
                 .inAppPrompts()
                 .onAppear {

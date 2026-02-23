@@ -151,6 +151,7 @@ enum ViewMode: String, Codable, CaseIterable, Identifiable {
 
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     @State private var showHelp = false
@@ -931,4 +932,5 @@ struct ConfigurationView: View {
                 rxMessages: PreviewMocks.rxMessages
             )
         )
+        .environmentObject(FeatureFlagManager.shared)
 }
