@@ -8,6 +8,7 @@
 import Foundation
 import OSLog
 import Combine
+import FirebaseCrashlytics
 
 enum LogLevel: String, CaseIterable {
     case info = "INFO"
@@ -66,8 +67,21 @@ struct AppLogger {
             logger.info("\(msg)")
         case .warning:
             logger.warning("\(msg)")
+            // Log warnings to Crashlytics for better visibility
+            Crashlytics.crashlytics().log(msg)
         case .error:
             logger.error("\(msg)")
+            // Record errors as non-fatal in Crashlytics
+            let error = NSError(
+                domain: "ft8_ham.\(category)",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey: message,
+                    "category": category,
+                    "timestamp": timestamp()
+                ]
+            )
+            Crashlytics.crashlytics().record(error: error)
         case .debug:
             logger.debug("\(msg)")
         }
@@ -79,6 +93,31 @@ struct AppLogger {
     func warning(_ message: String) { log(.warning, message) }
     func error(_ message: String) { log(.error, message) }
     func debug(_ message: String) { log(.debug, message) }
+    
+    /// Record a Swift Error to Crashlytics with additional context
+    func recordError(_ error: Error, context: String? = nil) {
+        let errorMessage = context.map { "\($0): \(error.localizedDescription)" } 
+            ?? error.localizedDescription
+        
+        let msg = "[\(timestamp())] [\(category)] [ERROR]: \(errorMessage)"
+        logger.error("\(msg)")
+        
+        // Record to Crashlytics with context
+        let nsError = error as NSError
+        let wrappedError = NSError(
+            domain: nsError.domain.isEmpty ? "ft8_ham.\(category)" : nsError.domain,
+            code: nsError.code,
+            userInfo: [
+                NSLocalizedDescriptionKey: errorMessage,
+                NSUnderlyingErrorKey: error,
+                "category": category,
+                "context": context ?? "N/A",
+                "timestamp": timestamp()
+            ]
+        )
+        Crashlytics.crashlytics().record(error: wrappedError)
+        LogStore.shared.append(msg)
+    }
 
     func event(
         _ level: LogLevel,

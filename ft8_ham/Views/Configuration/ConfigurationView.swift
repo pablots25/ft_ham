@@ -347,6 +347,12 @@ struct ConfigurationView: View {
                     } label: {
                         Label("Show What's New", systemImage: "sparkles")
                     }
+                    
+                    Button(role: .destructive) {
+                        fatalError("Intentional debug crash for testing crash reporting")
+                    } label: {
+                        Label("Crash reporter test", systemImage: "exclamationmark.triangle")
+                    }
                 }
                 #endif
 
