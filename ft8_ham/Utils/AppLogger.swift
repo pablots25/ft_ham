@@ -54,6 +54,32 @@ struct AppLogger {
     private func timestamp() -> String {
         DateFormatter.utcISOFormatter.string(from: Date())
     }
+    
+    /// Sanitize message by removing callsigns and grid locators before sending to Crashlytics
+    /// Keeps original message for local logging
+    private func sanitize(_ message: String) -> String {
+        var sanitized = message
+        
+        // Remove amateur radio callsigns (e.g., EA4IQL, K1ABC, G0XYZ, etc.)
+        // Pattern: 1-2 alphanumeric prefix + digit + 1-4 alphanumeric suffix
+        let callsignPattern = "\\b[A-Z0-9]{1,2}[0-9][A-Z0-9]{1,4}\\b"
+        sanitized = sanitized.replacingOccurrences(
+            of: callsignPattern,
+            with: "[CALLSIGN]",
+            options: .regularExpression
+        )
+        
+        // Remove grid locators (e.g., FN42, JO62ab)
+        // Pattern: 2 letters + 2 digits + optional 2 letters
+        let gridPattern = "\\b[A-R]{2}[0-9]{2}([a-x]{2})?\\b"
+        sanitized = sanitized.replacingOccurrences(
+            of: gridPattern,
+            with: "[GRID]",
+            options: [.regularExpression, .caseInsensitive]
+        )
+        
+        return sanitized
+    }
 
     func log(_ level: LogLevel, _ message: String) {
         guard LogConfiguration.shared.isEnabled(level) else {
@@ -67,16 +93,18 @@ struct AppLogger {
             logger.info("\(msg)")
         case .warning:
             logger.warning("\(msg)")
-            // Log warnings to Crashlytics for better visibility
-            Crashlytics.crashlytics().log(msg)
+            // Log warnings to Crashlytics with sanitized message
+            let sanitizedMsg = "[\(timestamp())] [\(category)] [\(level.rawValue)]: \(sanitize(message))"
+            Crashlytics.crashlytics().log(sanitizedMsg)
         case .error:
             logger.error("\(msg)")
-            // Record errors as non-fatal in Crashlytics
+            // Record errors as non-fatal in Crashlytics with sanitized message
+            let sanitizedMessage = sanitize(message)
             let error = NSError(
                 domain: "ft8_ham.\(category)",
                 code: -1,
                 userInfo: [
-                    NSLocalizedDescriptionKey: message,
+                    NSLocalizedDescriptionKey: sanitizedMessage,
                     "category": category,
                     "timestamp": timestamp()
                 ]
@@ -102,16 +130,20 @@ struct AppLogger {
         let msg = "[\(timestamp())] [\(category)] [ERROR]: \(errorMessage)"
         logger.error("\(msg)")
         
-        // Record to Crashlytics with context
+        // Sanitize error message and context before sending to Crashlytics
+        let sanitizedMessage = sanitize(errorMessage)
+        let sanitizedContext = context.map { sanitize($0) }
+        
+        // Record to Crashlytics with sanitized context
         let nsError = error as NSError
         let wrappedError = NSError(
             domain: nsError.domain.isEmpty ? "ft8_ham.\(category)" : nsError.domain,
             code: nsError.code,
             userInfo: [
-                NSLocalizedDescriptionKey: errorMessage,
+                NSLocalizedDescriptionKey: sanitizedMessage,
                 NSUnderlyingErrorKey: error,
                 "category": category,
-                "context": context ?? "N/A",
+                "context": sanitizedContext ?? "N/A",
                 "timestamp": timestamp()
             ]
         )
