@@ -18,9 +18,10 @@ struct ContentView: View {
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
     @AppStorage("mapShowGrids") private var mapShowGrids: Bool = true
-    @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = true
-    @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = true
+    @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = false
+    @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = false
     @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = false
+
     @State private var shareURL: URL?
     
     @State private var selectedTab: Int = 0
@@ -126,7 +127,7 @@ struct ContentView: View {
         GeometryReader { geo in
             // Detect landscape normally, force portrait on iPad
             let isLandscape = (UIDevice.current.userInterfaceIdiom == .pad) ? false : (geo.size.width > geo.size.height)
-
+            
             VStack(spacing: 0) {
                 // MARK: - Header
 
@@ -137,39 +138,91 @@ struct ContentView: View {
                 }
 
                 // MARK: - TabView
-
+                // Note: Not all tabs need NavigationStack. Only tabs with navigation bars,
+                // toolbar items, or deep navigation (Logbook, Configuration) are wrapped.
+                // Tabs 0-2 use direct views without navigation chrome.
+                
                 TabView(selection: $selectedTab) {
-
+                    
                     TransmissionRootView()
                         .tabItem {
                             Label("TX/RX", systemImage: "antenna.radiowaves.left.and.right")
                         }
                         .tag(0)
                         .onAppear {
-                                    AnalyticsManager.shared.trackScreen(.txRx)
-                                }
-
+                            AnalyticsManager.shared.trackScreen(.txRx)
+                        }
+                    
                     FullScreenWaterfallView()
                         .tabItem { Label("Waterfall", systemImage: "waveform") }
                         .tag(1)
                         .onAppear {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
-
-                    GridMapViewWrapper(
-                        locators: $viewModel.workedLocators,
-                        countries: $viewModel.workedCountryPairs,
-                        showGrids: $mapShowGrids,
-                        showCountryCircles: $mapShowCountryCircles,
-                        showGeodesics: $mapShowGeodesics,
-                        showAnnotations: $mapShowAnnotations
-                    )
+                    
+                    NavigationStack {
+                        GridMapView(
+                            locators: $viewModel.workedLocators,
+                            countries: viewModel.workedCountryPairs,
+                            routePoints: [],
+                            showGrids: mapShowGrids,
+                            showCountryCircles: mapShowCountryCircles,
+                            showGeodesics: mapShowGeodesics,
+                            showAnnotations: mapShowAnnotations
+                        )
+                        .ignoresSafeArea()
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Menu {
+                                    // Grids Toggle
+                                    Button {
+                                        mapShowGrids.toggle()
+                                    } label: {
+                                        Image(systemName: mapShowGrids ? "square.grid.3x3.fill" : "square.grid.3x3")
+                                        Text("Grids")
+                                    }
+                                    .tint(mapShowGrids ? .blue : .primary)
+                                    
+                                    // Countries Toggle
+                                    Button {
+                                        mapShowCountryCircles.toggle()
+                                    } label: {
+                                        Image(systemName: mapShowCountryCircles ? "circle" : "circle.dotted")
+                                        Text("Countries")
+                                    }
+                                    .tint(mapShowCountryCircles ? .blue : .primary)
+                                    
+                                    // Geodesics Toggle
+                                    Button {
+                                        mapShowGeodesics.toggle()
+                                    } label: {
+                                        Image(systemName: mapShowGeodesics ? "point.bottomleft.forward.to.point.topright.scurvepath.fill": "point.bottomleft.forward.to.point.topright.scurvepath")
+                                        Text("Routes")
+                                    }
+                                    .tint(mapShowGeodesics ? .blue : .primary)
+                                    
+                                    // Labels Toggle
+                                    Button {
+                                        mapShowAnnotations.toggle()
+                                    } label: {
+                                        Image(systemName: mapShowAnnotations ? "tag.fill" : "tag")
+                                        Text("Grid labels")
+                                    }
+                                    .tint(mapShowAnnotations ? .blue : .primary)
+                                } label: {
+                                    Image(systemName: "slider.horizontal.3")
+                                }
+                            }
+                        }
+                        .toolbarBackground(.ultraThickMaterial, for: .navigationBar)
+                        .navigationBarTitleDisplayMode(.inline)
+                    }
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
                     }
                     .tabItem { Label("Map", systemImage: "map.fill") }
                     .tag(2)
-
+                    
                     NavigationStack {
                         LogbookView()
                             .navigationTitle("Logbook")
@@ -181,7 +234,7 @@ struct ContentView: View {
                                     }
                                     .disabled(viewModel.qsoList.isEmpty)
                                 }
-
+                                
                                 ToolbarItem(placement: .automatic) {
                                     Button {
                                         showExportOptions = true
@@ -209,7 +262,7 @@ struct ContentView: View {
                     }
                     .tabItem { Label("Logbook", systemImage: "book") }
                     .tag(3)
-
+                    
                     NavigationStack {
                         ConfigurationView()
                             .navigationTitle("Configuration")
