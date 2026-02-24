@@ -86,6 +86,11 @@ final class AnalyticsManager {
 
     // MARK: - Rate & Share Events
 
+    func logRatePromptShown() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("rate_prompt_shown", parameters: nil)
+    }
+
     func logRateConfirmed() {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent("rate_confirmed", parameters: nil)
@@ -104,6 +109,28 @@ final class AnalyticsManager {
     func logSharePromptShown() {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent("share_prompt_shown", parameters: nil)
+    }
+
+    func logSharePromptPostponed() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("share_prompt_postponed", parameters: nil)
+    }
+
+    // MARK: - Donation Events
+
+    func logDonationPromptShown() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("donation_prompt_shown", parameters: nil)
+    }
+
+    func logDonationPromptConfirmed() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("donation_prompt_confirmed", parameters: nil)
+    }
+
+    func logDonationPromptPostponed() {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("donation_prompt_postponed", parameters: nil)
     }
 
     // MARK: - Configuration
