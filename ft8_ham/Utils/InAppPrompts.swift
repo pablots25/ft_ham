@@ -15,6 +15,10 @@ final class InAppPrompts: ObservableObject {
 
     static let shared = InAppPrompts()
     private let appLogger = AppLogger(category: "PROMPTS")
+    private let remoteConfig = RemoteConfigProvider()
+    
+    // MARK: - Cached Prompt Config
+    private var promptConfig: PromptConfig { remoteConfig.getPromptConfig() }
 
     // MARK: - UserDefaults keys
     fileprivate enum Keys {
@@ -29,15 +33,25 @@ final class InAppPrompts: ObservableObject {
         static let donationLastPromptLaunch = "donationLastPromptLaunch"
     }
 
-    // MARK: - Thresholds
-    private let rateThreshold = 4
-    private let shareThreshold = 6
-    private let reminderDelay = 10
-    private let donationQSOThreshold = 10
-    private let donationADIFThreshold = 2
-    private let donationTXThreshold = 20
-    private let donationProbabilityPercent = 25
-    private let donationCooldownLaunches = 20
+    // MARK: - Rate Threshold (from Firebase JSON config)
+    private var rateThreshold: Int { promptConfig.prompts.rate.threshold }
+    private var isRatePromptEnabled: Bool { promptConfig.prompts.rate.enabled }
+
+    // MARK: - Share Threshold (from Firebase JSON config)
+    private var shareThreshold: Int { promptConfig.prompts.share.threshold }
+    private var isSharePromptEnabled: Bool { promptConfig.prompts.share.enabled }
+
+    // MARK: - Common Settings (from Firebase JSON config)
+    private var promptProbabilityPercent: Int { promptConfig.prompts.common.probability }
+    private var reminderDelay: Int { promptConfig.prompts.common.reminderDelay }
+
+    // MARK: - Donation Settings (from Firebase JSON config)
+    private var donationQSOThreshold: Int { promptConfig.prompts.donation.qsoThreshold }
+    private var donationADIFThreshold: Int { promptConfig.prompts.donation.adifThreshold }
+    private var donationTXThreshold: Int { promptConfig.prompts.donation.txThreshold }
+    private var isDonationPromptEnabled: Bool { promptConfig.prompts.donation.enabled }
+    private var donationProbabilityPercent: Int { promptConfig.prompts.common.donationProbability }
+    private var donationCooldownLaunches: Int { promptConfig.prompts.common.donationCooldown }
 
     // MARK: - Session state
     private var hasPresentedPromptThisSession = false
@@ -88,11 +102,18 @@ final class InAppPrompts: ObservableObject {
         let ratePostponed = defaults.integer(forKey: Keys.postponedRatePrompt)
 
         let shouldShowRate =
+            isRatePromptEnabled &&
             !rateShown &&
             ((ratePostponed == 0 && launches == rateThreshold) ||
              (ratePostponed > 0 && launches - ratePostponed >= reminderDelay))
 
         if shouldShowRate {
+            let roll = Int.random(in: 1...100)
+            guard roll <= promptProbabilityPercent else {
+                appLogger.debug("Rate prompt skipped (roll=\(roll))")
+                return
+            }
+
             hasPresentedPromptThisSession = true
 
             Task {
@@ -109,11 +130,18 @@ final class InAppPrompts: ObservableObject {
         let sharePostponed = defaults.integer(forKey: Keys.postponedSharePrompt)
 
         let shouldShowShare =
+            isSharePromptEnabled &&
             !shareShown &&
             ((sharePostponed == 0 && launches == shareThreshold) ||
              (sharePostponed > 0 && launches - sharePostponed >= reminderDelay))
 
         if shouldShowShare {
+            let roll = Int.random(in: 1...100)
+            guard roll <= promptProbabilityPercent else {
+                appLogger.debug("Share prompt skipped (roll=\(roll))")
+                return
+            }
+
             hasPresentedPromptThisSession = true
 
             Task {
@@ -143,6 +171,7 @@ final class InAppPrompts: ObservableObject {
     }
 
     private func recordDonationTrigger(_ trigger: DonationTrigger) {
+        guard isDonationPromptEnabled else { return }
         guard !hasPresentedPromptThisSession else { return }
         guard shareItem == nil else { return }
         
@@ -194,6 +223,8 @@ final class InAppPrompts: ObservableObject {
         hasPresentedPromptThisSession = true
         defaults.set(launches, forKey: Keys.donationLastPromptLaunch)
 
+        AnalyticsManager.shared.logDonationPromptShown()
+
         try? await Task.sleep(nanoseconds: 1_000_000_000)
         await MainActor.run {
             showDonationAlert = true
@@ -203,6 +234,7 @@ final class InAppPrompts: ObservableObject {
     // MARK: - Rate actions
     func requestRate() {
         let defaults = UserDefaults.standard
+        AnalyticsManager.shared.logRatePromptShown()
         AnalyticsManager.shared.logRateConfirmed()
 
         if #available(iOS 16.0, *) {
@@ -243,6 +275,7 @@ final class InAppPrompts: ObservableObject {
 
     func postponeShare() {
         let defaults = UserDefaults.standard
+        AnalyticsManager.shared.logSharePromptPostponed()
         defaults.set(defaults.integer(forKey: Keys.appLaunches),
                      forKey: Keys.postponedSharePrompt)
     }
@@ -252,12 +285,14 @@ final class InAppPrompts: ObservableObject {
         let defaults = UserDefaults.standard
         let launches = defaults.integer(forKey: Keys.appLaunches)
         defaults.set(launches, forKey: Keys.donationLastPromptLaunch)
+        AnalyticsManager.shared.logDonationPromptConfirmed()
         showDonationAlert = false
         showDonationSheet = true
     }
 
     func postponeDonation() {
         let defaults = UserDefaults.standard
+        AnalyticsManager.shared.logDonationPromptPostponed()
         let launches = defaults.integer(forKey: Keys.appLaunches)
         defaults.set(launches, forKey: Keys.donationLastPromptLaunch)
         showDonationAlert = false
