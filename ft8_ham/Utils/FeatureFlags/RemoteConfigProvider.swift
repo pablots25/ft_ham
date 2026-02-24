@@ -83,7 +83,11 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         // This ensures the app works even if Firebase Remote Config hasn't been fetched
         // See: firebase-prompt-config-default.json in project root
         let defaultJSON = defaultPromptConfigJSON()
-        remoteConfig.setDefaults(["prompt_config": defaultJSON])
+        do {
+            try remoteConfig.setDefaults(from: ["prompt_config": defaultJSON])
+        } catch {
+            print("Error setting Remote Config defaults: \(error)")
+        }
     }
     
     private func defaultPromptConfigJSON() -> String {
@@ -140,7 +144,7 @@ final class RemoteConfigProvider: FeatureFlagProvider {
     // MARK: - Prompt Configuration Methods
 
     func intValue(for key: String, defaultValue: Int) -> Int {
-        let value = remoteConfig[key].numberValue?.intValue ?? defaultValue
+        let value = remoteConfig[key].numberValue.intValue ?? defaultValue
         return value > 0 ? value : defaultValue
     }
 
