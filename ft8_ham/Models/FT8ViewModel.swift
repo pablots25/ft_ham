@@ -143,12 +143,24 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     
     var lastReceivedSNR: Double {
         get { Double(qsoManager.lastReceivedSNR) }
-        set { qsoManager.lastReceivedSNR = Int(newValue.rounded()) }
+        set { 
+            guard newValue.isFinite else {
+                appLogger.warning("Attempting to set lastReceivedSNR to non-finite value: \(newValue)")
+                return
+            }
+            qsoManager.lastReceivedSNR = Int(newValue.rounded())
+        }
     }
     
     var lastSentSNR: Double {
         get { Double(qsoManager.lastSentSNR) }
-        set { qsoManager.lastSentSNR = Int(newValue.rounded()) }
+        set {
+            guard newValue.isFinite else {
+                appLogger.warning("Attempting to set lastSentSNR to non-finite value: \(newValue)")
+                return
+            }
+            qsoManager.lastSentSNR = Int(newValue.rounded())
+        }
     }
     
     

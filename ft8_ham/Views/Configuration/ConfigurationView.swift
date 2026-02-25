@@ -151,6 +151,7 @@ enum ViewMode: String, Codable, CaseIterable, Identifiable {
 
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     @State private var showHelp = false
@@ -313,12 +314,15 @@ struct ConfigurationView: View {
                 
                 analyticsSection
                             
-                #if DEBUG
+                if flags.isEnabled(.showLogsView) {
                     NavigationLink(destination: LogsView()) {
                         Text("View app logs")
                             .foregroundStyle(.blue)
                     }
+                }
+                
 
+                #if DEBUG
                 Section {
                     Button {
                         triggerRatePrompt()
@@ -343,8 +347,15 @@ struct ConfigurationView: View {
                     } label: {
                         Label("Show What's New", systemImage: "sparkles")
                     }
+                    
+                    Button(role: .destructive) {
+                        fatalError("Intentional debug crash for testing crash reporting")
+                    } label: {
+                        Label("Crash reporter test", systemImage: "exclamationmark.triangle")
+                    }
                 }
                 #endif
+
                 
                 Divider()
                 
@@ -927,4 +938,5 @@ struct ConfigurationView: View {
                 rxMessages: PreviewMocks.rxMessages
             )
         )
+        .environmentObject(FeatureFlagManager.shared)
 }

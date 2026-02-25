@@ -20,7 +20,7 @@ struct FT8MessageComposer {
         let dx = dxCallsign.isEmpty ? "XXXXXX" : dxCallsign.uppercased().trimmingCharacters(in: .whitespaces)
         
         let report: String
-        if snrToSend.isNaN {
+        if !snrToSend.isFinite {
             report = "-15"
         } else {
             let snr = Int(snrToSend.rounded())
