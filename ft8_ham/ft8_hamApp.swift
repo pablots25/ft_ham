@@ -51,7 +51,12 @@ private extension AppDelegate {
     }
 
     func configureCrashlytics() {
+        #if DEBUG
+        Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(false)
+        return
+        #else
         Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(true)
+        #endif
 
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"

@@ -74,6 +74,15 @@ final class QSOStatusManager: ObservableObject {
     
     private let invalidSNR = Int.min
     
+    /// Safely converts a Double to Int, returning invalidSNR if the value is NaN or infinite
+    private func safeDoubleToInt(_ value: Double) -> Int {
+        guard value.isFinite else {
+            appLogger.warning("Attempting to convert non-finite Double (\(value)) to Int, using invalidSNR")
+            return invalidSNR
+        }
+        return Int(value.rounded())
+    }
+    
     @Published var lockedDXCallsign: String = ""
     @Published var lockedDXLocator: String = ""
     @Published var lastSentSNR: Int = Int.min  // Measured by us -> RST_SENT (FT8Message.measuredSNR)
@@ -278,11 +287,11 @@ final class QSOStatusManager: ObservableObject {
                isReportFromLockedDX(message, myCallsign: myCallUpper) {
                 
                 if message.msgType == .standardSignalReport {
-                    lastReceivedSNR = Int(message.messageTxtSNR.rounded())
+                    lastReceivedSNR = safeDoubleToInt(message.messageTxtSNR)
                     appLogger.debug("RST_RCVD updated from standard report: \(lastReceivedSNR)")
                 } else if message.msgType == .rSignalReport,
                           lastReceivedSNR == invalidSNR {
-                    lastReceivedSNR = Int(message.messageTxtSNR.rounded())
+                    lastReceivedSNR = safeDoubleToInt(message.messageTxtSNR)
                     appLogger.debug("RST_RCVD fixed from R-REPORT RX: \(lastReceivedSNR)")
                 }
 
@@ -308,11 +317,11 @@ final class QSOStatusManager: ObservableObject {
                isReportFromLockedDX(message, myCallsign: myCallUpper) {
 
                 if message.msgType == .standardSignalReport {
-                    lastReceivedSNR = Int(message.messageTxtSNR.rounded())
+                    lastReceivedSNR = safeDoubleToInt(message.messageTxtSNR)
                     appLogger.debug("RST_RCVD updated from standard report: \(lastReceivedSNR)")
                 } else if message.msgType == .rSignalReport,
                           lastReceivedSNR == invalidSNR {
-                    lastReceivedSNR = Int(message.messageTxtSNR.rounded())
+                    lastReceivedSNR = safeDoubleToInt(message.messageTxtSNR)
                     appLogger.debug("RST_RCVD fixed from R-REPORT RX: \(lastReceivedSNR)")
                 }
 
@@ -423,7 +432,7 @@ final class QSOStatusManager: ObservableObject {
         
         // Freeze RST_SENT at the instant the QSO begins - the one and only place
         // Valid FT8 SNR range is roughly -24 to +50 dB
-        if let snr = initialSNR, !snr.isNaN, snr >= -50, snr <= 50 {
+        if let snr = initialSNR, snr.isFinite, snr >= -50, snr <= 50 {
             lastSentSNR = Int(snr.rounded())
             appLogger.debug("RST_SENT frozen at QSO start: \(lastSentSNR)")
         } else {

@@ -93,11 +93,14 @@ struct AppLogger {
             logger.info("\(msg)")
         case .warning:
             logger.warning("\(msg)")
+            #if !DEBUG
             // Log warnings to Crashlytics with sanitized message
             let sanitizedMsg = "[\(timestamp())] [\(category)] [\(level.rawValue)]: \(sanitize(message))"
             Crashlytics.crashlytics().log(sanitizedMsg)
+            #endif
         case .error:
             logger.error("\(msg)")
+            #if !DEBUG
             // Record errors as non-fatal in Crashlytics with sanitized message
             let sanitizedMessage = sanitize(message)
             let error = NSError(
@@ -110,6 +113,7 @@ struct AppLogger {
                 ]
             )
             Crashlytics.crashlytics().record(error: error)
+            #endif
         case .debug:
             logger.debug("\(msg)")
         }
@@ -130,6 +134,7 @@ struct AppLogger {
         let msg = "[\(timestamp())] [\(category)] [ERROR]: \(errorMessage)"
         logger.error("\(msg)")
         
+        #if !DEBUG
         // Sanitize error message and context before sending to Crashlytics
         let sanitizedMessage = sanitize(errorMessage)
         let sanitizedContext = context.map { sanitize($0) }
@@ -148,6 +153,7 @@ struct AppLogger {
             ]
         )
         Crashlytics.crashlytics().record(error: wrappedError)
+        #endif
         LogStore.shared.append(msg)
     }
 
