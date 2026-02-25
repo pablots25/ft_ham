@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     func application(
         _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+        didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
 
         FirebaseApp.configure()
@@ -72,6 +72,7 @@ private extension AppDelegate {
     func configureNotifications() {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
+        // Authorization request with empty handler - notification handling is done in userNotificationCenter(_:willPresent:withCompletionHandler:)
         center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 }
@@ -80,7 +81,7 @@ private extension AppDelegate {
 
 extension AppDelegate {
     func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
+        _: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
