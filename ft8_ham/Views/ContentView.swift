@@ -65,9 +65,8 @@ struct ContentView: View {
                     isPresentingOnboarding = true
                 } else if !hasAcceptedTerms {
                     isPresentingLicense = true
-                // Disabled: keep What's New trigger for easy re-enable.
-                // } else if AppVersionManager.shared.shouldShowWhatsNew {
-                //     isPresentingWhatsNew = true
+                } else if AppVersionManager.shared.shouldShowWhatsNew {
+                    isPresentingWhatsNew = true
                 } else if !viewModel.settingsLoaded {
                     showConfigAlert = true
                     shouldNavigateToConfiguration = true

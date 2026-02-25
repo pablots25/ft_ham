@@ -11,6 +11,12 @@ struct WhatsNewView: View {
     @Environment(\.dismiss) var dismiss
     
     private let currentVersion = AppVersionManager.shared.currentVersion
+    private let remoteConfig = RemoteConfigProvider()
+    
+    private var whatsNewConfig: WhatsNewConfig.WhatsNewSettings? {
+        let config = remoteConfig.getWhatsNewConfig()
+        return config.whatsNew.enabled ? config.whatsNew : nil
+    }
     
     var body: some View {
         NavigationStack {
@@ -43,82 +49,16 @@ struct WhatsNewView: View {
                         .padding(.top, 24)
                         .padding(.bottom, 12)
                         
-                        // Content
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("✨ New Features")
-                                .font(.headline)
-                                .padding(.top, 8)
-                            
-                            whatsNewSection(
-                                title: "🔗 Contacts Management",
-                                description: "Improved contact handling and integration throughout the app."
-                            )
-                            
-                            whatsNewSection(
-                                title: "🌍 Country Display in Grid",
-                                description: "See the country associated with each callsign directly in the grid view."
-                            )
-                            
-                            whatsNewSection(
-                                title: "📍 Callsign Location Detection",
-                                description: "Automatic location inference based on callsign prefix."
-                            )
-                            
-                            whatsNewSection(
-                                title: "🗺️ Map Controls",
-                                description: "Customize which map elements are visible."
-                            )
-                            
-                            Divider()
-                                .padding(.vertical, 8)
-                            
-                            Text("🚀 Improvements")
-                                .font(.headline)
-                                .padding(.top, 8)
-                            
-                            whatsNewSection(
-                                title: "🔊 AutoCQ Smart Behavior",
-                                description: "AutoCQ won't call CQ if the DX is already in your QSO list."
-                            )
-                            
-                            whatsNewSection(
-                                title: "📅 Dynamic Log Files",
-                                description: "Timestamped log files (FT_HAM_Log_YYYYMMDD_HHMMSS) prevent overwriting and organize logs automatically."
-                            )
-                            
-                            whatsNewSection(
-                                title: "📤 Better Log Export",
-                                description: "• Export only recent logs\n• Select specific date ranges\n• Incremental export support"
-                            )
-                            
-                            whatsNewSection(
-                                title: "💬 App Prompts",
-                                description: "Improved consistency and usability of in-app notifications."
-                            )
-                            
-                            Divider()
-                                .padding(.vertical, 8)
-                            
-                            Text("🐛 Bug Fixes")
-                                .font(.headline)
-                                .padding(.top, 8)
-                            
-                            whatsNewSection(
-                                title: "⚡ Auto TX & Logging",
-                                description: "Fixed interleaved QSO entries that were incorrectly marked as invalid when report exchanges weren't sequential."
-                            )
-                            
-                            whatsNewSection(
-                                title: "📻 Callsign Switching",
-                                description: "Fixed issue where the app could continue transmitting to the previous station instead of switching to the new target callsign."
-                            )
-                            
-                            whatsNewSection(
-                                title: "🔧 General Improvements",
-                                description: "Various stability and performance enhancements."
-                            )
+                        // Content - only show if config is available
+                        if let config = whatsNewConfig {
+                            contentView(config: config)
+                        } else {
+                            // No content available - this shouldn't normally be shown
+                            Text("No updates available")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 20)
                         }
-                        .padding(.horizontal, 20)
                         
                         // Close button
                         Button {
@@ -152,6 +92,51 @@ struct WhatsNewView: View {
                 }
             }
         }
+    }
+    
+    @ViewBuilder
+    private func contentView(config: WhatsNewConfig.WhatsNewSettings) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Features Section
+            if !config.features.isEmpty {
+                Text("✨ New Features")
+                    .font(.headline)
+                    .padding(.top, 8)
+                
+                ForEach(config.features) { item in
+                    whatsNewSection(title: item.title, description: item.description)
+                }
+            }
+            
+            // Improvements Section
+            if !config.improvements.isEmpty {
+                Divider()
+                    .padding(.vertical, 8)
+                
+                Text("🚀 Improvements")
+                    .font(.headline)
+                    .padding(.top, 8)
+                
+                ForEach(config.improvements) { item in
+                    whatsNewSection(title: item.title, description: item.description)
+                }
+            }
+            
+            // Bug Fixes Section
+            if !config.bugFixes.isEmpty {
+                Divider()
+                    .padding(.vertical, 8)
+                
+                Text("🐛 Bug Fixes")
+                    .font(.headline)
+                    .padding(.top, 8)
+                
+                ForEach(config.bugFixes) { item in
+                    whatsNewSection(title: item.title, description: item.description)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
     }
     
     @ViewBuilder

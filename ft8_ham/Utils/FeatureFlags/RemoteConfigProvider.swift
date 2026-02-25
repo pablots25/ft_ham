@@ -56,6 +56,36 @@ struct PromptConfig: Decodable {
     }
 }
 
+// MARK: - What's New Configuration Models
+
+struct WhatsNewConfig: Decodable {
+    let whatsNew: WhatsNewSettings
+    
+    struct WhatsNewSettings: Decodable {
+        let enabled: Bool
+        let features: [WhatsNewItem]
+        let improvements: [WhatsNewItem]
+        let bugFixes: [WhatsNewItem]
+        
+        struct WhatsNewItem: Decodable, Identifiable {
+            let id: String
+            let title: String
+            let description: String
+        }
+    }
+    
+    static func defaults() -> WhatsNewConfig {
+        WhatsNewConfig(
+            whatsNew: WhatsNewSettings(
+                enabled: false,
+                features: [],
+                improvements: [],
+                bugFixes: []
+            )
+        )
+    }
+}
+
 // MARK: - RemoteConfigProvider
 
 final class RemoteConfigProvider: FeatureFlagProvider {
@@ -63,6 +93,7 @@ final class RemoteConfigProvider: FeatureFlagProvider {
     private let remoteConfig: RemoteConfig
     private var lastFetchDate: Date?
     private var cachedPromptConfig: PromptConfig?
+    private var cachedWhatsNewConfig: WhatsNewConfig?
     
     init() {
         remoteConfig = RemoteConfig.remoteConfig()
@@ -80,11 +111,13 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         )
         
         // Set default prompt config JSON
-        // This ensures the app works even if Firebase Remote Config hasn't been fetched
-        // See: firebase-prompt-config-default.json in project root
-        let defaultJSON = defaultPromptConfigJSON()
+        let defaultPromptJSON = defaultPromptConfigJSON()
+        let defaultWhatsNewJSON = defaultWhatsNewConfigJSON()
         do {
-            try remoteConfig.setDefaults(from: ["prompt_config": defaultJSON])
+            try remoteConfig.setDefaults(from: [
+                "prompt_config": defaultPromptJSON,
+                "whats_new_config": defaultWhatsNewJSON
+            ])
         } catch {
             print("Error setting Remote Config defaults: \(error)")
         }
@@ -119,6 +152,77 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         """
     }
     
+    private func defaultWhatsNewConfigJSON() -> String {
+        """
+        {
+          "whatsNew": {
+            "enabled": false,
+            "features": [
+              {
+                "id": "contacts_management",
+                "title": "🔗 Contacts Management",
+                "description": "Improved contact handling and integration throughout the app."
+              },
+              {
+                "id": "country_display",
+                "title": "🌍 Country Display in Grid",
+                "description": "See the country associated with each callsign directly in the grid view."
+              },
+              {
+                "id": "callsign_location",
+                "title": "📍 Callsign Location Detection",
+                "description": "Automatic location inference based on callsign prefix."
+              },
+              {
+                "id": "map_controls",
+                "title": "🗺️ Map Controls",
+                "description": "Customize which map elements are visible."
+              }
+            ],
+            "improvements": [
+              {
+                "id": "autocq_behavior",
+                "title": "🔊 AutoCQ Smart Behavior",
+                "description": "AutoCQ won't call CQ if the DX is already in your QSO list."
+              },
+              {
+                "id": "dynamic_logs",
+                "title": "📅 Dynamic Log Files",
+                "description": "Timestamped log files (FT_HAM_Log_YYYYMMDD_HHMMSS) prevent overwriting and organize logs automatically."
+              },
+              {
+                "id": "better_export",
+                "title": "📤 Better Log Export",
+                "description": "• Export only recent logs\\n• Select specific date ranges\\n• Incremental export support"
+              },
+              {
+                "id": "app_prompts",
+                "title": "💬 App Prompts",
+                "description": "Improved consistency and usability of in-app notifications."
+              }
+            ],
+            "bugFixes": [
+              {
+                "id": "auto_tx_logging",
+                "title": "⚡ Auto TX & Logging",
+                "description": "Fixed interleaved QSO entries that were incorrectly marked as invalid when report exchanges weren't sequential."
+              },
+              {
+                "id": "callsign_switching",
+                "title": "📻 Callsign Switching",
+                "description": "Fixed issue where the app could continue transmitting to the previous station instead of switching to the new target callsign."
+              },
+              {
+                "id": "general_improvements",
+                "title": "🔧 General Improvements",
+                "description": "Various stability and performance enhancements."
+              }
+            ]
+          }
+        }
+        """
+    }
+    
     private func shouldRefresh() -> Bool {
         guard let lastFetchDate else { return true }
         return Date().timeIntervalSince(lastFetchDate) > 30
@@ -130,9 +234,28 @@ final class RemoteConfigProvider: FeatureFlagProvider {
             return
         }
         
-        remoteConfig.fetchAndActivate { [weak self] _, _ in
-            self?.lastFetchDate = Date()
-            self?.cachedPromptConfig = nil  // Clear cache to fetch fresh config
+        let logger = AppLogger(category: "REMOTECONFIG")
+        logger.debug("Starting Firebase Remote Config fetch - will update: prompt_config, whats_new_config, and feature flags")
+        
+        remoteConfig.fetchAndActivate { [weak self] status, error in
+            guard let self else { return }
+            
+            self.lastFetchDate = Date()
+            self.cachedPromptConfig = nil  // Clear cache to fetch fresh config
+            self.cachedWhatsNewConfig = nil  // Clear cache to fetch fresh config
+            
+            if let error = error {
+                logger.error("Firebase Remote Config fetch failed: \(error.localizedDescription)")
+            } else {
+                logger.debug("Firebase Remote Config fetch completed successfully")
+                logger.debug("Status: \(status == .successFetchedFromRemote ? "Fetched from Remote" : "Fetched from Cache")")
+                
+                // Eagerly load both configs to ensure they're parsed correctly
+                _ = self.getPromptConfig()
+                _ = self.getWhatsNewConfig()
+                logger.debug("Both prompt_config and whats_new_config loaded and validated")
+            }
+            
             completion()
         }
     }
@@ -171,5 +294,48 @@ final class RemoteConfigProvider: FeatureFlagProvider {
             print("Error decoding prompt config: \(error)")
             return PromptConfig.defaults()
         }
+    }
+    
+    // MARK: - What's New Config JSON
+    
+    func getWhatsNewConfig() -> WhatsNewConfig {
+        if let cached = cachedWhatsNewConfig {
+            return cached
+        }
+        
+        let jsonString = remoteConfig["whats_new_config"].stringValue ?? defaultWhatsNewConfigJSON()
+        let decoder = JSONDecoder()
+        
+        do {
+            let config = try decoder.decode(WhatsNewConfig.self, from: jsonString.data(using: .utf8) ?? Data())
+            self.cachedWhatsNewConfig = config
+            return config
+        } catch {
+            print("Error decoding whats new config: \(error)")
+            return WhatsNewConfig.defaults()
+        }
+    }
+    
+    // MARK: - Config Summary (for debugging)
+    
+    func getConfigurationSummary() -> String {
+        let promptConfig = getPromptConfig()
+        let whatsNewConfig = getWhatsNewConfig()
+        
+        let promptsEnabled = [
+            "rate: \(promptConfig.prompts.rate.enabled)",
+            "share: \(promptConfig.prompts.share.enabled)",
+            "donation: \(promptConfig.prompts.donation.enabled)"
+        ].joined(separator: ", ")
+        
+        let whatsNewItems = whatsNewConfig.whatsNew.features.count + 
+                           whatsNewConfig.whatsNew.improvements.count + 
+                           whatsNewConfig.whatsNew.bugFixes.count
+        
+        return """
+        📱 Firebase Remote Config Status:
+        ✅ prompt_config: Loaded [\(promptsEnabled)]
+        ✅ whats_new_config: Loaded [enabled: \(whatsNewConfig.whatsNew.enabled), items: \(whatsNewItems)]
+        """
     }
 }

@@ -66,7 +66,18 @@ private extension AppDelegate {
     }
 
     func configureRemoteConfig() {
-        FeatureFlagManager.shared.refresh()
+        // Explicitly refresh all Firebase Remote Config variables at app launch
+        let provider = RemoteConfigProvider()
+        let logger = AppLogger(category: "APPINIT")
+        
+        logger.debug("🔄 Starting Firebase Remote Config synchronization...")
+        provider.refreshAllFlags { [weak provider] in
+            if let provider = provider {
+                logger.debug(provider.getConfigurationSummary())
+            }
+            // After initial fetch, start the periodic refresh in FeatureFlagManager
+            FeatureFlagManager.shared.refresh()
+        }
     }
 
     func configureNotifications() {
