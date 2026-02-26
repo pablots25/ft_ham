@@ -207,8 +207,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("catSyncFrequency") var catSyncFrequency = true
     @AppStorage("catApplyAudioOffset") var catApplyAudioOffset = false
 
-
-
+    @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
+    
     @AppStorage("callsign") var callsign = ""
     @AppStorage("locator") var locator = ""
 
