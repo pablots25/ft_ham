@@ -73,7 +73,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     // MARK: - Sequencer Task (Single Heartbeat)
     var sequencerTask: Task<Void, Never>?
     var isSequencerRunning = false
-    internal var progressTimerCancellable: AnyCancellable?
+    // progressTimerCancellable moved to ProgressViewModel
     internal var isHarvestingRX = false
 
     internal var rxSampleBuffer = Data()
@@ -172,7 +172,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
             }
         }
     }
-    @Published var cycleProgress: Double = 0
+    // cycleProgress moved to ProgressViewModel for CPU optimization
 
     // MARK: - Message Caching
     internal var cachedMessages: [String]?
