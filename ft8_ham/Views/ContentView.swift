@@ -53,8 +53,6 @@ struct ContentView: View {
                     .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
             }
             .task {
-                // Start isolated progress timer (CPU optimization)
-                progressVM.start()
                 progressVM.updateMode(isFT4: viewModel.isFT4)
                 // Set initial tab: 4 if first launch, otherwise last used tab
                 if !hasLaunchedBefore {
@@ -350,18 +348,21 @@ struct ContentView: View {
     // MARK: - Progress bar subview
 
     private var progressBar: some View {
-        let cycleLength = viewModel.isFT4 ? 7.5 : 15.0
-        let seconds = min(Int(progressVM.cycleProgress * cycleLength), Int(cycleLength))
+        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+            let cycleLength = viewModel.isFT4 ? 7.5 : 15.0
+            let progress = progressVM.cycleProgress()
+            let seconds = min(Int(progress * cycleLength), Int(cycleLength))
 
-        return HStack {
-            Text("\(seconds)/\(Int(cycleLength))")
-                .font(.caption)
-                .foregroundStyle(.gray)
-            ProgressView(value: progressVM.cycleProgress)
-                .progressViewStyle(.linear)
-                .tint(.green)
+            HStack {
+                Text("\(seconds)/\(Int(cycleLength))")
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+                ProgressView(value: progress)
+                    .progressViewStyle(.linear)
+                    .tint(.green)
+            }
+            .animation(.linear(duration: 0.1), value: progress)
         }
-        .animation(.linear(duration: 0.2), value: progressVM.cycleProgress)
     }
 
     // MARK: - Header portrait
