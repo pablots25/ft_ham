@@ -277,6 +277,13 @@ struct ConfigurationView: View {
                 qsoConfigSection
                 
                 togglesView
+
+                Divider()
+                
+                NavigationLink(destination: CatSettingsView()) {
+                    Text("CAT Control")
+                        .foregroundStyle(.blue)
+                }
                 
                 Divider()
                 

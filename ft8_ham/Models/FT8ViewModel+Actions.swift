@@ -15,6 +15,8 @@ extension FT8ViewModel {
     func stopCurrentTX() {
         txLogger.log(.info, "Stopping current TX...")
         audioManager.stopPlayback()
+
+        setCatPTT(false, reason: "manual stop")
         
         isTransmitting = false
         invalidatePendingTX(reason: "Manual stopCurrentTX")

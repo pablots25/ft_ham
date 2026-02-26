@@ -384,6 +384,8 @@ extension FT8ViewModel {
         self.isReadyForTX = false
         
         AnalyticsManager.shared.startRadioActivity(.tx)
+        sendCatFrequency(reason: "tx start")
+        setCatPTT(true, reason: "tx start")
         audioManager.playAudio(audioData)
         InAppPrompts.shared.recordTXStarted()
         txLogger.info("TX Started: \(message)")
