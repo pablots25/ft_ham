@@ -29,7 +29,6 @@ extension FT8ViewModel {
                 self.rxBufferLock.lock()
                 self.rxSampleBuffer.append(data)
                 self.rxBufferLock.unlock()
-                self.trimRXSampleBuffer()
                 
                 // Waterfall is independent
                 Task { @MainActor in
@@ -184,12 +183,13 @@ extension FT8ViewModel {
             
             let band = selectedBand.rawValue
             let frequencyHz = selectedBand.frequency(for: isFT4 ? .ft4 : .ft8) ?? 0
-            let offsetHz = UInt32(message.frequency)
-            let totalFreq = UInt32(frequencyHz) + offsetHz
+            let offsetHz = UInt64(message.frequency)
+            let totalFreq = UInt64(frequencyHz) + offsetHz
             
             let report = PSKReporterReport(
                 receiverCallsign: callsign,
                 senderCallsign: senderCallsign,
+                receiverLocator: locator,
                 frequencyHz: totalFreq,
                 mode: isFT4 ? .ft4 : .ft8,
                 snr: Int(message.measuredSNR.rounded()),

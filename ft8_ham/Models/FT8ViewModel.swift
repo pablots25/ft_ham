@@ -46,11 +46,6 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         static let ft4DecodeMargin: Double = 0.1
         
         static let txSafetyOffset: Double = 0.05
-        
-        // Memory limits to prevent unbounded growth
-        static let maxReceivedMessages = 5000
-        static let maxTransmittedMessages = 1000
-        static let maxRXSampleBufferBytes = 256_000  // ~21 seconds at 12kHz
     }
     
     // MARK: - Environment (centralized)
@@ -81,20 +76,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     internal var progressTimerCancellable: AnyCancellable?
     internal var isHarvestingRX = false
 
-    /// RX sample buffer with max size to prevent unbounded memory growth
     internal var rxSampleBuffer = Data()
     internal let rxBufferLock = NSLock()
-    
-    /// Trim rxSampleBuffer if it exceeds max size
-    internal func trimRXSampleBuffer() {
-        rxBufferLock.lock()
-        defer { rxBufferLock.unlock() }
-        
-        if rxSampleBuffer.count > Constants.maxRXSampleBufferBytes {
-            let bytesToRemove = rxSampleBuffer.count - Constants.maxRXSampleBufferBytes
-            rxSampleBuffer.removeFirst(bytesToRemove)
-        }
-    }
     
     var lastTransmittedSlotIndex: Int?
     var pendingTXMessageVersion: Int = 0
@@ -118,24 +101,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     
     // MARK: - Published Properties
     @Published var decodedMessage: FT8Message?
-    @Published var receivedMessages: [FT8Message] = [] {
-        didSet {
-            // Trim to max size in FIFO order to preserve recent messages
-            if receivedMessages.count > Constants.maxReceivedMessages {
-                receivedMessages.removeFirst(receivedMessages.count - Constants.maxReceivedMessages)
-                appLogger.warning("Trimmed receivedMessages to \(Constants.maxReceivedMessages)")
-            }
-        }
-    }
-    @Published var transmittedMessages: [FT8Message] = [] {
-        didSet {
-            // Trim to max size in FIFO order to preserve recent messages
-            if transmittedMessages.count > Constants.maxTransmittedMessages {
-                transmittedMessages.removeFirst(transmittedMessages.count - Constants.maxTransmittedMessages)
-                appLogger.warning("Trimmed transmittedMessages to \(Constants.maxTransmittedMessages)")
-            }
-        }
-    }
+    @Published var receivedMessages: [FT8Message] = []
+    @Published var transmittedMessages: [FT8Message] = []
     @Published var qsoList: [LogEntry] = []
     @Published var audioError: String?
     @Published var adifURL: URL?
@@ -228,6 +195,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
+    
     @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
     
     @AppStorage("callsign") var callsign = ""

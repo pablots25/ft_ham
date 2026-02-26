@@ -26,11 +26,9 @@ extension FT8ViewModel {
         sequencerTask = Task { [weak self] in
             guard let self else { return }
             
-            await MainActor.run {
-                self.firstLoopRX = true
-                self.isListening = true
-            }
+            self.firstLoopRX = true
             self.audioManager.startMicInput()
+            self.isListening = true
 
             AnalyticsManager.shared.startRadioActivity(.rx)
             
@@ -40,9 +38,7 @@ extension FT8ViewModel {
             }
             
             // Ensure screen stays on
-            await MainActor.run {
-                self.updateScreenAlwaysOn()
-            }
+            self.updateScreenAlwaysOn()
             
             do {
                 while !Task.isCancelled {
@@ -88,20 +84,20 @@ extension FT8ViewModel {
                     
                     // Trim buffer if it exceeds max size to prevent memory issues
                     if audioToDecode.count > maxExpectedSamples * 4 {
+                        let originalCount = audioToDecode.count / 4
                         audioToDecode = Data(audioToDecode.prefix(maxExpectedSamples * 4))
                         sampleCount = maxExpectedSamples
-                        self.rxLogger.warning("Audio buffer trimmed from \(audioToDecode.count / 4) to \(maxExpectedSamples) samples")
+                        self.rxLogger.debug("Audio buffer trimmed from \(originalCount) to \(maxExpectedSamples) samples")
                     }
 
                     
-                    let isHarvesting = await MainActor.run { self.isHarvestingRX }
-                    if sampleCount >= minSamples && !isHarvesting {
+                    if sampleCount >= minSamples && !self.isHarvestingRX {
 
                         self.rxLogger.info(
                             "Harvested \(sampleCount) samples (~\(String(format: "%.1f", Double(sampleCount) / self.audioManager.micSampleRate))s) for slot \(completedSlotIndex)"
                         )
                         
-                        await MainActor.run { self.isHarvestingRX = true }
+                        self.isHarvestingRX = true
                         Task { [weak self] in
                             defer { Task { await MainActor.run { self?.isHarvestingRX = false } } }
                             guard let self else { return }
@@ -125,8 +121,7 @@ extension FT8ViewModel {
                             
                             // If it's the first loop, trigger a "Partial slot" message so the user sees
                             // the timestamp and the data loss warning immediately.
-                            let isFirstLoop = await MainActor.run { self.firstLoopRX }
-                            if isFirstLoop {
+                            if self.firstLoopRX {
                                 await self.handleDecodedMessages([["text": "Partial slot"]], slotIndex: completedSlotIndex)
                             }
                         } else {
@@ -135,7 +130,7 @@ extension FT8ViewModel {
                     }
                     
                     // 4. Determine Action
-                    let action = await self.determineAction(for: nextSlot)
+                    let action = self.determineAction(for: nextSlot)
                     
                     // 5. Execute Action
                     switch action {
@@ -154,12 +149,10 @@ extension FT8ViewModel {
             }
             
             // Cleanup on exit
-            await MainActor.run {
-                self.isSequencerRunning = false
-                self.isListening = false
-                self.isTransmitting = false
-                self.sequencerTask = nil
-            }
+            self.isSequencerRunning = false
+            self.isListening = false
+            self.isTransmitting = false
+            self.sequencerTask = nil
             self.audioManager.stopPlayback()
             self.audioManager.stopMicInput()
             self.appLogger.info("Sequencer stopped clean.")
