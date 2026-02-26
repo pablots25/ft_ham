@@ -103,22 +103,11 @@ extension FT8ViewModel{
     
     
     // MARK: - Progress Bar Management
+    // Note: Progress tracking is now handled by ProgressViewModel (CPU optimization)
+    // This method kept for backward compatibility but does nothing
     func startProgressBarUTC() {
-        progressTimerCancellable?.cancel()
-        
-        progressTimerCancellable = Timer.publish(every: 0.05, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] now in
-                guard let self else { return }
-                let calendar = Calendar.current
-                let seconds = calendar.component(.second, from: now)
-                let nanoseconds = calendar.component(.nanosecond, from: now)
-                
-                let cycleLength = isFT4 ? 7.5 : 15.0
-                let totalSeconds = Double(seconds) + Double(nanoseconds) / 1_000_000_000
-                let slotProgress = totalSeconds.truncatingRemainder(dividingBy: cycleLength) / cycleLength
-                cycleProgress = slotProgress
-            }
+        // Progress timer moved to ProgressViewModel to reduce AttributeGraph overhead
+        // Views should observe ProgressViewModel directly
     }
     
     // MARK: - Message Clearing

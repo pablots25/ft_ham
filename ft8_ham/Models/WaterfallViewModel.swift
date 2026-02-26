@@ -85,7 +85,7 @@ final class WaterfallViewModel: ObservableObject {
         var waterfallMinDB: Float = -25.0
         var waterfallMaxDB: Float = 0.0
         var timestampInterval: TimeInterval
-        var targetFPS: Double = 30.0
+        var targetFPS: Double = 15.0  // Reduced from 30 to 15 Hz for CPU optimization
         var maxDisplayFrequency: Float = 800.0
 
         static let absoluteMaxRows = 2000
