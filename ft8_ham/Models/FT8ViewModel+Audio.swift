@@ -197,7 +197,7 @@ extension FT8ViewModel {
                 band: band
             )
             
-            rxLogger.debug("PSK Reporter: Submitting \(senderCallsign) on \(band) @ \(totalFreq) Hz, SNR \(Int(message.measuredSNR.rounded()))")
+//            rxLogger.debug("PSK Reporter: Submitting \(senderCallsign) on \(band) @ \(totalFreq) Hz, SNR \(Int(message.measuredSNR.rounded()))")
             PSKReporterReporter.shared.report(report, testMode: false)
         }
         

@@ -72,27 +72,35 @@ final class PSKReporterReporter: ObservableObject {
         
         if let last = lastSent[key],
            now.timeIntervalSince(last) < holdbackInterval {
-            stats.heldBack += 1
-            pendingReports[key] = report
+            DispatchQueue.main.async { [weak self] in
+                self?.stats.heldBack += 1
+                self?.pendingReports[key] = report
+            }
             logger.debug("PSK Reporter: Held back \(report.senderCallsign) on \(report.band) (will flush on exit)")
             return
         }
         
         lastSent[key] = now
         pendingReports.removeValue(forKey: key)
-        stats.sent += 1
-        lastReport = report
-        isTestMode = testMode
         
         do {
             let packet = try buildPacket(report)
-            lastPacket = packet
+            DispatchQueue.main.async { [weak self] in
+                self?.stats.sent += 1
+                self?.lastReport = report
+                self?.isTestMode = testMode
+                self?.lastPacket = packet
+            }
             send(packet)
-            stats.successful += 1
-            logger.debug("PSK Reporter: Sent \(report.senderCallsign) on \(report.band)")
+            DispatchQueue.main.async { [weak self] in
+                self?.stats.successful += 1
+            }
+//            logger.debug("PSK Reporter: Sent \(report.senderCallsign) on \(report.band)")
         } catch {
-            lastError = error.localizedDescription
-            stats.errors += 1
+            DispatchQueue.main.async { [weak self] in
+                self?.lastError = error.localizedDescription
+                self?.stats.errors += 1
+            }
             logger.error("PSK Reporter: Failed to send: \(error.localizedDescription)")
         }
     }
@@ -107,18 +115,24 @@ final class PSKReporterReporter: ObservableObject {
         
         for (key, report) in pendingReports {
             lastSent[key] = Date()
-            stats.sent += 1
-            lastReport = report
             
             do {
                 let packet = try buildPacket(report)
-                lastPacket = packet
+                DispatchQueue.main.async { [weak self] in
+                    self?.stats.sent += 1
+                    self?.lastReport = report
+                    self?.lastPacket = packet
+                }
                 send(packet)
-                stats.successful += 1
+                DispatchQueue.main.async { [weak self] in
+                    self?.stats.successful += 1
+                }
                 logger.debug("PSK Reporter: Flushed \(report.senderCallsign) on \(report.band)")
             } catch {
-                lastError = error.localizedDescription
-                stats.errors += 1
+                DispatchQueue.main.async { [weak self] in
+                    self?.lastError = error.localizedDescription
+                    self?.stats.errors += 1
+                }
                 logger.error("PSK Reporter: Failed to flush: \(error.localizedDescription)")
             }
         }
@@ -224,8 +238,9 @@ final class PSKReporterReporter: ObservableObject {
         data.append(uint64BE(report.frequencyHz))
         data.append(int16BE(Int16(report.snr)))
         
-        data.append(variableString("FT Ham"))
-        data.append(variableString(Bundle.main.shortVersion))
+        let version = Bundle.main.shortVersion
+        data.append(variableString("FT Ham v\(version)"))
+        data.append(variableString(version))
         data.append(variableString(report.band))
         
         let totalLength = UInt16(data.count)

@@ -280,6 +280,14 @@ struct ConfigurationView: View {
                 qsoConfigSection
                 
                 togglesView
+
+                Divider()
+
+                pskReporterSection
+                
+                #if DEBUG
+                PSKReporterDebugView()
+                #endif
                 
                 Divider()
                 
@@ -318,12 +326,6 @@ struct ConfigurationView: View {
                 analyticsSection
                 
                 Divider()
-                
-                pskReporterSection
-                
-                #if DEBUG
-                PSKReporterDebugView()
-                #endif
                             
                 if flags.isEnabled(.showLogsView) {
                     NavigationLink(destination: LogsView()) {
