@@ -38,6 +38,7 @@ enum HelpTip: Identifiable {
     case autoSequencing
     case autoQSOLogging
     case analytics
+    case pskReporter
 
     var id: Self { self }
 
@@ -59,6 +60,8 @@ enum HelpTip: Identifiable {
             return String(localized: "Auto QSO Logging help")
         case .analytics:
             return String(localized: "Analytics help")
+        case .pskReporter:
+            return String(localized: "PSK Reporter help")
         }
     }
     
@@ -313,6 +316,14 @@ struct ConfigurationView: View {
                 Divider()
                 
                 analyticsSection
+                
+                Divider()
+                
+                pskReporterSection
+                
+                #if DEBUG
+                PSKReporterDebugView()
+                #endif
                             
                 if flags.isEnabled(.showLogsView) {
                     NavigationLink(destination: LogsView()) {
@@ -848,6 +859,29 @@ struct ConfigurationView: View {
             )
         }
         .padding(.horizontal)
+    }
+    
+    private var pskReporterSection: some View {
+        VStack(alignment: .center, spacing: 8) {
+            Text(String(localized: "PSK Reporter"))
+            
+            VStack(spacing: 6) {
+                ToggleRow(
+                    labelKey: "Share reception reports",
+                    helpTip: .pskReporter,
+                    isOn: Binding(
+                        get: { viewModel.pskReporterEnabled },
+                        set: { newValue in
+                            viewModel.pskReporterEnabled = newValue
+                            appLogger.info("PSK Reporter upload \(newValue ? "enabled" : "disabled")")
+                        }
+                    ),
+                    activeHelp: $activeHelp
+                )
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(.horizontal, 8)
+        }
     }
     
     private var analyticsSection: some View {

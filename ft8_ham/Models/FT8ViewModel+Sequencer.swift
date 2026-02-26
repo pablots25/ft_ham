@@ -26,9 +26,11 @@ extension FT8ViewModel {
         sequencerTask = Task { [weak self] in
             guard let self else { return }
             
-            self.firstLoopRX = true
+            await MainActor.run {
+                self.firstLoopRX = true
+                self.isListening = true
+            }
             self.audioManager.startMicInput()
-            self.isListening = true
 
             AnalyticsManager.shared.startRadioActivity(.rx)
             
@@ -38,7 +40,9 @@ extension FT8ViewModel {
             }
             
             // Ensure screen stays on
-            self.updateScreenAlwaysOn()
+            await MainActor.run {
+                self.updateScreenAlwaysOn()
+            }
             
             do {
                 while !Task.isCancelled {
@@ -90,13 +94,14 @@ extension FT8ViewModel {
                     }
 
                     
-                    if sampleCount >= minSamples && !self.isHarvestingRX {
+                    let isHarvesting = await MainActor.run { self.isHarvestingRX }
+                    if sampleCount >= minSamples && !isHarvesting {
 
                         self.rxLogger.info(
                             "Harvested \(sampleCount) samples (~\(String(format: "%.1f", Double(sampleCount) / self.audioManager.micSampleRate))s) for slot \(completedSlotIndex)"
                         )
                         
-                        self.isHarvestingRX = true
+                        await MainActor.run { self.isHarvestingRX = true }
                         Task { [weak self] in
                             defer { Task { await MainActor.run { self?.isHarvestingRX = false } } }
                             guard let self else { return }
@@ -120,7 +125,8 @@ extension FT8ViewModel {
                             
                             // If it's the first loop, trigger a "Partial slot" message so the user sees
                             // the timestamp and the data loss warning immediately.
-                            if self.firstLoopRX {
+                            let isFirstLoop = await MainActor.run { self.firstLoopRX }
+                            if isFirstLoop {
                                 await self.handleDecodedMessages([["text": "Partial slot"]], slotIndex: completedSlotIndex)
                             }
                         } else {
@@ -129,7 +135,7 @@ extension FT8ViewModel {
                     }
                     
                     // 4. Determine Action
-                    let action = self.determineAction(for: nextSlot)
+                    let action = await self.determineAction(for: nextSlot)
                     
                     // 5. Execute Action
                     switch action {
@@ -148,10 +154,12 @@ extension FT8ViewModel {
             }
             
             // Cleanup on exit
-            self.isSequencerRunning = false
-            self.isListening = false
-            self.isTransmitting = false
-            self.sequencerTask = nil
+            await MainActor.run {
+                self.isSequencerRunning = false
+                self.isListening = false
+                self.isTransmitting = false
+                self.sequencerTask = nil
+            }
             self.audioManager.stopPlayback()
             self.audioManager.stopMicInput()
             self.appLogger.info("Sequencer stopped clean.")

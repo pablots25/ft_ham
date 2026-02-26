@@ -29,6 +29,7 @@ extension FT8ViewModel {
                 self.rxBufferLock.lock()
                 self.rxSampleBuffer.append(data)
                 self.rxBufferLock.unlock()
+                self.trimRXSampleBuffer()
                 
                 // Waterfall is independent
                 Task { @MainActor in
@@ -156,6 +157,51 @@ extension FT8ViewModel {
         if result.shouldResetFirstLoop {
             firstLoopRX = false
         }
+        
+        // PSK Reporter integration: Report decoded RX messages
+        if pskReporterEnabled {
+            reportToPSKReporterIfNeeded(from: result.messages)
+        }
+    }
+    
+    // MARK: - PSK Reporter Integration
+    private func reportToPSKReporterIfNeeded(from messages: [FT8Message]) {
+        guard !callsign.isEmpty else {
+            rxLogger.debug("PSK Reporter: Skipping (no callsign configured)")
+            return
+        }
+        
+        let reportableMessages = messages.filter { !$0.isTX && $0.msgType != .internalTimestamp && $0.callsign != nil }
+        guard !reportableMessages.isEmpty else {
+            rxLogger.debug("PSK Reporter: No reportable messages in batch")
+            return
+        }
+        
+        rxLogger.info("PSK Reporter: Processing \(reportableMessages.count) messages for upload")
+        
+        for message in reportableMessages {
+            guard let senderCallsign = message.callsign, !senderCallsign.isEmpty else { continue }
+            
+            let band = selectedBand.rawValue
+            let frequencyHz = selectedBand.frequency(for: isFT4 ? .ft4 : .ft8) ?? 0
+            let offsetHz = UInt32(message.frequency)
+            let totalFreq = UInt32(frequencyHz) + offsetHz
+            
+            let report = PSKReporterReport(
+                receiverCallsign: callsign,
+                senderCallsign: senderCallsign,
+                frequencyHz: totalFreq,
+                mode: isFT4 ? .ft4 : .ft8,
+                snr: Int(message.measuredSNR.rounded()),
+                speed: isFT4 ? 1 : 0,
+                band: band
+            )
+            
+            rxLogger.debug("PSK Reporter: Submitting \(senderCallsign) on \(band) @ \(totalFreq) Hz, SNR \(Int(message.measuredSNR.rounded()))")
+            PSKReporterReporter.shared.report(report, testMode: false)
+        }
+        
+        rxLogger.info("PSK Reporter: Submitted \(reportableMessages.count) reports")
     }
     
     @MainActor

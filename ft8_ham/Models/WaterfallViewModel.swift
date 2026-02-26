@@ -356,7 +356,9 @@ final class WaterfallViewModel: ObservableObject {
         absoluteRowCounter += 1
 
         // Remove old timestamps and labels beyond visible rows
-        let cutoff = absoluteRowCounter - max(1, visibleRows)
+        // Also cap retention to a safe minimum to avoid unbounded growth when visibleRows is 0
+        let retentionRows = max(1, visibleRows)
+        let cutoff = absoluteRowCounter - retentionRows
         timestampRows = timestampRows.filter { $0.key >= cutoff }
         verticalLabelRows = verticalLabelRows.filter { $0.key >= cutoff }
 
