@@ -10,11 +10,13 @@ import Foundation
 enum FeatureFlag: String, CaseIterable {
     case showLogsView
     case newConfigView
+    case enableIpadDashboard
     
     var defaultValue: Bool {
         switch self {
         case .showLogsView: return false
         case .newConfigView: return false
+        case .enableIpadDashboard: return false
         }
     }
 }

@@ -107,7 +107,7 @@ struct ToggleRow: View, Equatable {
                 }
                 .buttonStyle(.plain)
                 .frame(width: 20, height: 20)
-                .accessibilityLabel(Text("Help"))
+                .accessibilityLabel(Text(String(localized: "Help")))
                 .accessibilityHint(Text(helpTip.accessibilityHint))
             }
             
@@ -143,10 +143,19 @@ enum ViewMode: String, Codable, CaseIterable, Identifiable {
     case vertical = "Vertical"
     case separated = "TX/RX Separated"
     case condensed = "Condensed"
+    case dashboard = "Dashboard"
 
     var id: String { rawValue }
 
     var textKey: LocalizedStringKey { LocalizedStringKey(rawValue) }
+    
+    var isIPadOnly: Bool {
+        #if DEBUG
+        return false
+        #else
+        return self == .dashboard
+        #endif
+    }
 }
 
 struct ConfigurationView: View {
@@ -250,7 +259,7 @@ struct ConfigurationView: View {
                     }
                     .padding(.bottom, 5)
                     
-                    Text("Callsign modifiers are allowed")
+                    Text(String(localized: "Callsign modifiers are allowed"))
                         .font(.footnote)
                         .multilineTextAlignment(.center)
                         .lineLimit(1)
@@ -290,15 +299,15 @@ struct ConfigurationView: View {
                 Button {
                     showHelp = true
                 } label: {
-                    Text("Help")
+                    Text(String(localized: "Help"))
                         .font(.headline)
                         .foregroundStyle(.blue)
                 }
                 
-                Button("Reset help messages") {
+                Button(String(localized: "Reset help messages")) {
                     AppStorageResetter.resetTutorials()
                 }
-                Button("Show initial tutorial") {
+                Button(String(localized: "Show initial tutorial")) {
                     AppStorageResetter.resetOnboarding()
                 }
                 
@@ -316,7 +325,7 @@ struct ConfigurationView: View {
                             
                 if flags.isEnabled(.showLogsView) {
                     NavigationLink(destination: LogsView()) {
-                        Text("View app logs")
+                        Text(String(localized: "View app logs"))
                             .foregroundStyle(.blue)
                     }
                 }
@@ -327,31 +336,31 @@ struct ConfigurationView: View {
                     Button {
                         triggerRatePrompt()
                     } label: {
-                        Label("Test Rate Prompt", systemImage: "star.fill")
+                        Label(String(localized: "Test Rate Prompt"), systemImage: "star.fill")
                     }
                     
                     Button {
                         triggerSharePrompt()
                     } label: {
-                        Label("Test Share Prompt", systemImage: "square.and.arrow.up")
+                        Label(String(localized: "Test Share Prompt"), systemImage: "square.and.arrow.up")
                     }
                     
                     Button {
                         triggerDonationPrompt()
                     } label: {
-                        Label("Test Donation Prompt", systemImage: "heart.fill")
+                        Label(String(localized: "Test Donation Prompt"), systemImage: "heart.fill")
                     }
                     
                     Button {
                         showWhatsNew = true
                     } label: {
-                        Label("Show What's New", systemImage: "sparkles")
+                        Label(String(localized: "Show What's New"), systemImage: "sparkles")
                     }
                     
                     Button(role: .destructive) {
-                        fatalError("Intentional debug crash for testing crash reporting")
+                        fatalError(String(localized: "Intentional debug crash for testing crash reporting"))
                     } label: {
-                        Label("Crash reporter test", systemImage: "exclamationmark.triangle")
+                        Label(String(localized: "Crash reporter test"), systemImage: "exclamationmark.triangle")
                     }
                 }
                 #endif
@@ -495,7 +504,7 @@ struct ConfigurationView: View {
     // MARK: - Subviews
     private var callsignView: some View {
         VStack {
-            Text("Callsign:")
+            Text(String(localized: "Callsign:"))
             TextField("", text: $callsignText)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.center)
@@ -516,7 +525,7 @@ struct ConfigurationView: View {
     
     private var locatorView: some View {
         VStack {
-            Text("Locator:")
+            Text(String(localized: "Locator:"))
             TextField("", text: $viewModel.locator)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.center)
@@ -541,7 +550,7 @@ struct ConfigurationView: View {
     
     private var modeView: some View {
         VStack {
-            Text("Mode:")
+            Text(String(localized: "Mode:"))
             Picker("", selection: Binding(
                 get: { viewModel.isFT4 },
                 set: { newValue in
@@ -569,7 +578,7 @@ struct ConfigurationView: View {
     
     private var cycleView: some View {
         VStack {
-            Text("Transmission cycle:")
+            Text(String(localized: "Transmission cycle:"))
             Picker("", selection: Binding(
                 get: { viewModel.evenCycle },
                 set: { newValue in
@@ -599,7 +608,7 @@ struct ConfigurationView: View {
     private var frequencyView: some View {
         VStack {
             HStack {
-                Text("Frequency offset:")
+                Text(String(localized: "Frequency offset:"))
                 Spacer()
                 HStack(spacing: 0) {
                     TextField("Frequency", text: $frequencyText)
@@ -655,7 +664,7 @@ struct ConfigurationView: View {
 
         return VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Text("Band:")
+                Text(String(localized: "Band:"))
                 Text(frequencyText)
                     .foregroundStyle(.secondary)
             }
@@ -732,16 +741,37 @@ struct ConfigurationView: View {
 
     
     private var viewModeView: some View {
-        VStack {
-            Text("View mode: ")
-            Picker("View mode", selection: Binding(
+        let isIPad = UIDevice.current.userInterfaceIdiom == .pad
+        
+        // Available view modes based on device and feature flags
+        let availableModes = ViewMode.allCases.filter { mode in
+            // Dashboard: in DEBUG always show (any device) if flag enabled, in RELEASE only on iPad if flag enabled
+            if mode == .dashboard {
+                #if DEBUG
+                return flags.isEnabled(.enableIpadDashboard)
+                #else
+                return isIPad && flags.isEnabled(.enableIpadDashboard)
+                #endif
+            }
+            
+            // Other iPad-only modes just require iPad device
+            if mode.isIPadOnly {
+                return isIPad
+            }
+            
+            return true
+        }
+        
+        return VStack {
+            Text(String(localized: "View mode:"))
+            Picker(String(localized: "View mode"), selection: Binding(
                 get: { viewModel.selectedViewMode },
                 set: { newMode in
                     viewModel.selectedViewMode = newMode
                     AnalyticsManager.shared.trackViewMode(newMode)
                 }
             )) {
-                ForEach(ViewMode.allCases) { mode in
+                ForEach(availableModes) { mode in
                     Text(mode.textKey)
                         .tag(mode)
                 }
@@ -754,7 +784,7 @@ struct ConfigurationView: View {
     private var inputGainView: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Input Gain:")
+                Text(String(localized: "Input Gain:"))
                 Spacer()
                 Text(String(format: "%.2f×", sliderTempValue))
                     .foregroundStyle(.secondary)
@@ -827,17 +857,17 @@ struct ConfigurationView: View {
             )
             
             HStack(spacing: 6) {
-                TextField("Retries", value: $viewModel.maxRetrySlots, format: .number)
+                TextField(String(localized: "Retries"), value: $viewModel.maxRetrySlots, format: .number)
                     .keyboardType(.numberPad)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.center)
                     .focused($focusedInput, equals: .retries)
                     .lineLimit(1)
                     .frame(width: 50)
-                Text("Retries")
+                Text(String(localized: "Retries"))
                     .font(.body)
-                    .accessibilityLabel(Text("Retransmission retries"))
-                    .accessibilityHint(Text("Number of times to resend messages if not acknowledged"))
+                    .accessibilityLabel(Text(String(localized: "Retransmission retries")))
+                    .accessibilityHint(Text(String(localized: "Number of times to resend messages if not acknowledged")))
             }
             
             ToggleRow(
@@ -852,7 +882,7 @@ struct ConfigurationView: View {
     
     private var analyticsSection: some View {
         VStack(alignment: .center, spacing: 8) {
-            Text("Privacy & Anonymous Statistics")
+            Text(String(localized: "Privacy & Anonymous Statistics"))
             
             VStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -865,7 +895,7 @@ struct ConfigurationView: View {
                         .accessibilityLabel(Text("Share usage statistics"))
                         .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
                         
-                        Text("Share usage statistics")
+                        Text(String(localized: "Share usage statistics"))
                             .font(.body)
                         Spacer()
                         
@@ -880,7 +910,7 @@ struct ConfigurationView: View {
                         }
                         .buttonStyle(.plain)
                         .frame(width: 20, height: 20)
-                        .accessibilityLabel(Text("Help"))
+                        .accessibilityLabel(Text(String(localized: "Help")))
                         .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
                     }
                     
@@ -901,14 +931,14 @@ struct ConfigurationView: View {
     
     private var versionSection: some View {
         VStack(spacing: 4) {
-            Text("Version")
+            Text(String(localized: "Version"))
             if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                 Text(String(format: String(localized: "Version %@ (Build %@)"), version, build))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Version unknown")
+                Text(String(localized: "Version unknown"))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -919,10 +949,10 @@ struct ConfigurationView: View {
     
     private var copyrightSection: some View {
         VStack(spacing: 4) {
-            Text(".copyright")
+            Text(String(localized: ".copyright"))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Text("Pablo Turrión San Pedro (EA4IQL)")
+            Text(String(localized: "Pablo Turrión San Pedro (EA4IQL)"))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
