@@ -12,6 +12,7 @@ import Combine
 
 struct ContentView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @StateObject private var progressVM = ProgressViewModel()
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
@@ -52,7 +53,7 @@ struct ContentView: View {
                     .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
             }
             .task {
-                viewModel.startProgressBarUTC()
+                progressVM.updateMode(isFT4: viewModel.isFT4)
                 // Set initial tab: 4 if first launch, otherwise last used tab
                 if !hasLaunchedBefore {
                     selectedTab = 4
@@ -113,6 +114,9 @@ struct ContentView: View {
                 if loaded && autoRXAtStart {
                     evaluateAutoRX()
                 }
+            }
+            .onChange(of: viewModel.isFT4) { isFT4 in
+                progressVM.updateMode(isFT4: isFT4)
             }
             .onAppear {
                 AnalyticsManager.shared.trackScreen(.home)
@@ -344,18 +348,21 @@ struct ContentView: View {
     // MARK: - Progress bar subview
 
     private var progressBar: some View {
-        let cycleLength = viewModel.isFT4 ? 7.5 : 15.0
-        let seconds = min(Int(viewModel.cycleProgress * cycleLength), Int(cycleLength))
+        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+            let cycleLength = viewModel.isFT4 ? 7.5 : 15.0
+            let progress = progressVM.cycleProgress()
+            let seconds = min(Int(progress * cycleLength), Int(cycleLength))
 
-        return HStack {
-            Text("\(seconds)/\(Int(cycleLength))")
-                .font(.caption)
-                .foregroundStyle(.gray)
-            ProgressView(value: viewModel.cycleProgress)
-                .progressViewStyle(.linear)
-                .tint(.green)
+            HStack {
+                Text("\(seconds)/\(Int(cycleLength))")
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+                ProgressView(value: progress)
+                    .progressViewStyle(.linear)
+                    .tint(.green)
+            }
+            .animation(.linear(duration: 0.1), value: progress)
         }
-        .animation(.linear(duration: 0.2), value: viewModel.cycleProgress)
     }
 
     // MARK: - Header portrait
