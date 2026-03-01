@@ -292,7 +292,7 @@ struct ConfigurationView: View {
                 Divider()
                 
                 NavigationLink(destination: CatSettingsView()) {
-                    Text("CAT Control")
+                    Text("📻 CAT Control")
                         .foregroundStyle(.blue)
                 }
                 

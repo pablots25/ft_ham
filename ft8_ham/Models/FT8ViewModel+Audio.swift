@@ -192,9 +192,7 @@ extension FT8ViewModel {
                 receiverLocator: locator,
                 frequencyHz: totalFreq,
                 mode: isFT4 ? .ft4 : .ft8,
-                snr: Int(message.measuredSNR.rounded()),
-                speed: isFT4 ? 1 : 0,
-                band: band
+                snr: Int(message.measuredSNR.rounded())
             )
             
 //            rxLogger.debug("PSK Reporter: Submitting \(senderCallsign) on \(band) @ \(totalFreq) Hz, SNR \(Int(message.measuredSNR.rounded()))")

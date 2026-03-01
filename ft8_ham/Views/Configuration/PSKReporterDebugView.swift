@@ -141,7 +141,7 @@ struct PSKReporterDebugView: View {
                     Text("\(report.senderCallsign) → \(report.receiverCallsign)")
                         .font(.caption.monospaced())
                     HStack {
-                        Text("Band: \(report.band)")
+                        Text("Frequency: \(report.frequencyHz)")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                         Text("•")

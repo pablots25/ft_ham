@@ -2,9 +2,26 @@
 //  PSKReporterReporter.swift
 //  ft8_ham
 //
-//  Correct IPFIX implementation compatible with PSK Reporter (WSJT-X model)
-//  Public interface unchanged
+//  Created by Pablo Turrion on 27/02/26.
+
+
+//  RFC 7011 compliant IPFIX implementation for PSK Reporter
+//  Based on official PSK Reporter specification: https://pskreporter.info/pskdev.html
+//  Enterprise Number: 30351 (PSK Reporter)
 //
+//  OFFICIAL Field IDs (30351.x):
+//  1: senderCallsign (transmitterCallsign)
+//  2: receiverCallsign
+//  4: receiverLocator (Maidenhead grid locator)
+//  5: frequency (Hz, UInt32 - 4 bytes)
+//  6: sNR (dB, Int8 - 1 byte, -128 to +127)
+//  8: decoderSoftware (program name and version)
+//  10: mode (string, e.g., "FT8", "FT4")
+//  11: informationSource (UInt8 - 1 byte, 1=automatic, 2=QSO, 0x80=test)
+//
+//  Template IDs:
+//  0x9992 (39314): Receiver information template
+//  0x9993 (39315): Sender information template
 
 import Foundation
 import Network
@@ -15,14 +32,14 @@ final class PSKReporterReporter: ObservableObject {
     
     static let shared = PSKReporterReporter()
     private init() {
-        logger.info("PSKReporterReporter initialized")
+        logger.info("PSKReporterReporter initialized (RFC 7011 + Official Spec)")
     }
     
     // MARK: - Logger
     
     private let logger = AppLogger(category: "PSKReporter")
     
-    // MARK: - Public API (UNCHANGED)
+    // MARK: - Public API
     
     @Published private(set) var stats = PSKReporterStats()
     @Published var debugLog: [String] = []
@@ -36,20 +53,29 @@ final class PSKReporterReporter: ObservableObject {
     private let host = "report.pskreporter.info"
     private let port: UInt16 = 4739
     
+    // IANA Enterprise Number for PSK Reporter
     private let enterpriseNumber: UInt32 = 30351
-    private let templateID: UInt16 = 256
-    private let holdbackInterval: TimeInterval = 300
-    private let templateResendInterval = 20
+    
+    // Template IDs (as per official spec)
+    private let receiverTemplateID: UInt16 = 0x9992  // 39314
+    private let senderTemplateID: UInt16 = 0x9993    // 39315
+    
+    // Reporting settings
+    private let holdbackInterval: TimeInterval = 300      // 5 minutes
+    private let templateResendInterval = 3                // First 3 packets, then hourly
+    
+    private let reporterProgramName = "FT Ham"
     
     // MARK: - State
     
     private var sequenceNumber: UInt32 = 0
-    private var templateCounter = 0
+    private var packetsSinceTemplate = 0
     private var lastSent: [String: Date] = [:]
     private var pendingReports: [String: PSKReporterReport] = [:]
     private let queue = DispatchQueue(label: "PSKReporterReporterQueue")
+    private var sessionIdentifier: UInt32 = 0
     
-    // MARK: - Entry Point (UNCHANGED)
+    // MARK: - Entry Point
     
     func report(_ report: PSKReporterReport, testMode: Bool = false) {
         queue.async { [weak self] in
@@ -67,7 +93,11 @@ final class PSKReporterReporter: ObservableObject {
     
     private func _report(_ report: PSKReporterReport, testMode: Bool) {
         
-        let key = "\(report.senderCallsign.uppercased())_\(report.band)"
+        if sessionIdentifier == 0 {
+            sessionIdentifier = UInt32.random(in: 1...0xFFFFFFFF)
+        }
+        
+        let key = "\(report.senderCallsign.uppercased())_\(report.frequencyHz)"
         let now = Date()
         
         if let last = lastSent[key],
@@ -76,7 +106,6 @@ final class PSKReporterReporter: ObservableObject {
                 self?.stats.heldBack += 1
                 self?.pendingReports[key] = report
             }
-            logger.debug("PSK Reporter: Held back \(report.senderCallsign) on \(report.band) (will flush on exit)")
             return
         }
         
@@ -84,7 +113,7 @@ final class PSKReporterReporter: ObservableObject {
         pendingReports.removeValue(forKey: key)
         
         do {
-            let packet = try buildPacket(report)
+            let packet = try buildPacket(report, testMode: testMode)
             DispatchQueue.main.async { [weak self] in
                 self?.stats.sent += 1
                 self?.lastReport = report
@@ -95,29 +124,24 @@ final class PSKReporterReporter: ObservableObject {
             DispatchQueue.main.async { [weak self] in
                 self?.stats.successful += 1
             }
-//            logger.debug("PSK Reporter: Sent \(report.senderCallsign) on \(report.band)")
+            packetsSinceTemplate += 1
         } catch {
             DispatchQueue.main.async { [weak self] in
                 self?.lastError = error.localizedDescription
                 self?.stats.errors += 1
             }
-            logger.error("PSK Reporter: Failed to send: \(error.localizedDescription)")
+            logger.error("PSK Reporter send failed: \(error.localizedDescription)")
         }
     }
     
     private func _flushPendingReports() {
-        guard !pendingReports.isEmpty else {
-            logger.info("PSK Reporter: No pending reports to flush")
-            return
-        }
-        
-        logger.info("PSK Reporter: Flushing \(pendingReports.count) pending reports")
+        guard !pendingReports.isEmpty else { return }
         
         for (key, report) in pendingReports {
             lastSent[key] = Date()
             
             do {
-                let packet = try buildPacket(report)
+                let packet = try buildPacket(report, testMode: false)
                 DispatchQueue.main.async { [weak self] in
                     self?.stats.sent += 1
                     self?.lastReport = report
@@ -127,44 +151,49 @@ final class PSKReporterReporter: ObservableObject {
                 DispatchQueue.main.async { [weak self] in
                     self?.stats.successful += 1
                 }
-                logger.debug("PSK Reporter: Flushed \(report.senderCallsign) on \(report.band)")
             } catch {
                 DispatchQueue.main.async { [weak self] in
                     self?.lastError = error.localizedDescription
                     self?.stats.errors += 1
                 }
-                logger.error("PSK Reporter: Failed to flush: \(error.localizedDescription)")
             }
         }
         
         pendingReports.removeAll()
-        logger.info("PSK Reporter: Flush complete")
     }
     
-    // MARK: - Packet Builder
+    // MARK: - Packet Builder (Official Spec)
     
-    private func buildPacket(_ report: PSKReporterReport) throws -> Data {
+    private func buildPacket(_ report: PSKReporterReport, testMode: Bool) throws -> Data {
         
         var packet = Data()
         
         sequenceNumber &+= 1
-        templateCounter &+= 1
         
-        // IPFIX Header
-        packet.append(uint16BE(10))
+        // IPFIX Message Header
+        packet.append(uint16BE(10))                                    // Version 10
         let lengthIndex = packet.count
-        packet.append(uint16BE(0))
-        packet.append(uint32BE(UInt32(Date().timeIntervalSince1970)))
-        packet.append(uint32BE(sequenceNumber))
-        packet.append(uint32BE(0))
+        packet.append(uint16BE(0))                                     // Length (calculated below)
+        packet.append(uint32BE(UInt32(Date().timeIntervalSince1970))) // Export Time
+        packet.append(uint32BE(sequenceNumber))                        // Sequence Number
+        packet.append(uint32BE(sessionIdentifier))                     // Observation Domain ID
         
-        if sequenceNumber == 1 || templateCounter >= templateResendInterval {
-            packet.append(buildTemplateSet())
-            templateCounter = 0
+        // Send templates in first 3 packets or every hour (3600 packets at 5 min intervals)
+        let needsTemplate = packetsSinceTemplate < templateResendInterval || packetsSinceTemplate >= 720
+        
+        if needsTemplate {
+            packet.append(buildReceiverTemplateSet())
+            packet.append(buildSenderTemplateSet())
+            packetsSinceTemplate = 0
         }
         
-        packet.append(buildDataSet(report))
+        // Receiver Information Record (ONE per packet)
+        packet.append(buildReceiverDataSet(report))
         
+        // Sender Information Records (can be multiple, we send one)
+        packet.append(buildSenderDataSet(report, testMode: testMode))
+        
+        // Update total length
         let totalLength = UInt16(packet.count)
         packet.replaceSubrange(lengthIndex..<lengthIndex+2,
                                with: uint16BE(totalLength))
@@ -172,45 +201,29 @@ final class PSKReporterReporter: ObservableObject {
         return packet
     }
     
-    // MARK: - Template
+    // MARK: - Template Sets (Official Spec)
     
-    private func buildTemplateSet() -> Data {
+    // Receiver Information Template (0x9992)
+    private func buildReceiverTemplateSet() -> Data {
         
         var data = Data()
         
-        data.append(uint16BE(2))
+        // Set Header
+        data.append(uint16BE(2))      // Set ID 2 = Template Set
         let lengthIndex = data.count
-        data.append(uint16BE(0))
+        data.append(uint16BE(0))      // Set Length (calculated below)
         
-        data.append(uint16BE(templateID))
-        data.append(uint16BE(9)) // field count
+        // Template Record Header
+        data.append(uint16BE(receiverTemplateID))  // 0x9992
+        data.append(uint16BE(3))                   // 3 fields
         
-        // flowStartSeconds
-        data.append(ipfixField(id: 150, length: 4))
+        // Field Specifiers (Enterprise Number 30351)
+        data.append(ipfixEnterpriseField(id: 2))   // receiverCallsign (variable)
+        data.append(ipfixEnterpriseField(id: 4))   // receiverLocator (variable)
+        data.append(ipfixEnterpriseField(id: 8))   // decoderSoftware (variable)
         
-        // transmitterCallsign
-        data.append(ipfixEnterpriseField(id: 1))
-        
-        // receiverCallsign
-        data.append(ipfixEnterpriseField(id: 2))
-        
-        // receiverLocator
-        data.append(ipfixEnterpriseField(id: 3))
-        
-        // frequency (UInt64)
-        data.append(ipfixEnterpriseField(id: 4, length: 8))
-        
-        // snr (Int16)
-        data.append(ipfixEnterpriseField(id: 5, length: 2))
-        
-        // programName (string)
-        data.append(ipfixEnterpriseField(id: 7))
-        
-        // programVersion (string)
-        data.append(ipfixEnterpriseField(id: 8))
-        
-        // band (string)
-        data.append(ipfixEnterpriseField(id: 10))
+        // RFC 7011 Compliance: Padding to 4-byte boundary
+        padToMultipleOf4(&data)
         
         let totalLength = UInt16(data.count)
         data.replaceSubrange(lengthIndex..<lengthIndex+2,
@@ -219,29 +232,106 @@ final class PSKReporterReporter: ObservableObject {
         return data
     }
     
-    // MARK: - Data Set
-    
-    private func buildDataSet(_ report: PSKReporterReport) -> Data {
+    // Sender Information Template (0x9993)
+    private func buildSenderTemplateSet() -> Data {
         
         var data = Data()
         
-        data.append(uint16BE(templateID))
+        // Set Header
+        data.append(uint16BE(2))      // Set ID 2 = Template Set
         let lengthIndex = data.count
-        data.append(uint16BE(0))
+        data.append(uint16BE(0))      // Set Length (calculated below)
         
-        data.append(uint32BE(UInt32(Date().timeIntervalSince1970)))
+        // Template Record Header
+        data.append(uint16BE(senderTemplateID))    // 0x9993
+        data.append(uint16BE(6))                   // 6 fields
         
-        data.append(variableString(report.senderCallsign))
+        // Field Specifiers (Enterprise Number 30351 + Standard Field 150)
+        data.append(ipfixEnterpriseField(id: 1))         // senderCallsign (variable)
+        data.append(ipfixEnterpriseField(id: 5, length: 4))  // frequency (UInt32, 4 bytes)
+        data.append(ipfixEnterpriseField(id: 6, length: 1))  // sNR (Int8, 1 byte)
+        data.append(ipfixEnterpriseField(id: 10))        // mode (variable)
+        data.append(ipfixEnterpriseField(id: 11, length: 1))  // informationSource (1 byte)
+        data.append(ipfixField(id: 150, length: 4))      // flowStartSeconds (UInt32, 4 bytes)
+        
+        // RFC 7011 Compliance: Padding to 4-byte boundary
+        padToMultipleOf4(&data)
+        
+        let totalLength = UInt16(data.count)
+        data.replaceSubrange(lengthIndex..<lengthIndex+2,
+                             with: uint16BE(totalLength))
+        
+        return data
+    }
+    
+    // MARK: - Data Sets (Official Spec)
+    
+    // Receiver Information Data Set (ONE per packet)
+    private func buildReceiverDataSet(_ report: PSKReporterReport) -> Data {
+        
+        var data = Data()
+        
+        // Data Set Header
+        data.append(uint16BE(receiverTemplateID))  // 0x9992
+        let lengthIndex = data.count
+        data.append(uint16BE(0))                   // Set Length (calculated below)
+        
+        // Field 2: receiverCallsign (variable length string)
         data.append(variableString(report.receiverCallsign))
+        
+        // Field 4: receiverLocator (variable length string)
         data.append(variableString(report.receiverLocator))
         
-        data.append(uint64BE(report.frequencyHz))
-        data.append(int16BE(Int16(report.snr)))
-        
+        // Field 8: decoderSoftware (combined program name and version)
         let version = Bundle.main.shortVersion
-        data.append(variableString("FT Ham v\(version)"))
-        data.append(variableString(version))
-        data.append(variableString(report.band))
+        let decoderSoftware = "\(reporterProgramName) - \(version)"
+        data.append(variableString(decoderSoftware))
+        
+        // RFC 7011 Compliance: Padding to 4-byte boundary
+        padToMultipleOf4(&data)
+        
+        let totalLength = UInt16(data.count)
+        data.replaceSubrange(lengthIndex..<lengthIndex+2,
+                             with: uint16BE(totalLength))
+        
+        return data
+    }
+    
+    // Sender Information Data Set (can be multiple, we send one)
+    private func buildSenderDataSet(_ report: PSKReporterReport, testMode: Bool) -> Data {
+        
+        var data = Data()
+        
+        // Data Set Header
+        data.append(uint16BE(senderTemplateID))    // 0x9993
+        let lengthIndex = data.count
+        data.append(uint16BE(0))                   // Set Length (calculated below)
+        
+        // Field 1: senderCallsign (variable length string)
+        data.append(variableString(report.senderCallsign))
+        
+        // Field 5: frequency (UInt32, 4 bytes, Hz)
+        // Convert UInt64 to UInt32 (truncate upper 32 bits)
+        let frequency32 = UInt32(truncatingIfNeeded: report.frequencyHz)
+        data.append(uint32BE(frequency32))
+        
+        // Field 6: sNR (Int8, 1 byte, dB)
+        // Clamp SNR to Int8 range (-128 to 127)
+        let snr8 = Int8(clamping: report.snr)
+        data.append(int8(snr8))
+        
+        // Field 10: mode (variable length string)
+        data.append(variableString(modeString(from: report.mode)))
+        
+        // Field 11: informationSource (1 byte)
+        // 0x01 = automatic, 0x81 = test mode
+        data.append(testMode ? 0x81 : 0x01)
+        
+        // Field 150: flowStartSeconds (UInt32, 4 bytes, seconds since 1970)
+        data.append(uint32BE(UInt32(Date().timeIntervalSince1970)))
+        
+        // RFC 7011 Compliance: Padding to 4-byte boundary
+        padToMultipleOf4(&data)
         
         let totalLength = UInt16(data.count)
         data.replaceSubrange(lengthIndex..<lengthIndex+2,
@@ -267,6 +357,14 @@ final class PSKReporterReporter: ObservableObject {
     }
     
     // MARK: - Helpers
+    
+    private func padToMultipleOf4(_ data: inout Data) {
+        let remainder = data.count % 4
+        if remainder != 0 {
+            let paddingNeeded = 4 - remainder
+            data.append(contentsOf: Array(repeating: UInt8(0), count: paddingNeeded))
+        }
+    }
     
     private func ipfixField(id: UInt16, length: UInt16) -> Data {
         var d = Data()
@@ -304,30 +402,15 @@ final class PSKReporterReporter: ObservableObject {
         ])
     }
     
-    private func uint64BE(_ value: UInt64) -> Data {
-        Data([
-            UInt8((value >> 56) & 0xff),
-            UInt8((value >> 48) & 0xff),
-            UInt8((value >> 40) & 0xff),
-            UInt8((value >> 32) & 0xff),
-            UInt8((value >> 24) & 0xff),
-            UInt8((value >> 16) & 0xff),
-            UInt8((value >> 8) & 0xff),
-            UInt8(value & 0xff)
-        ])
+    private func int8(_ value: Int8) -> Data {
+        Data([UInt8(bitPattern: value)])
     }
     
-    private func int16BE(_ value: Int16) -> Data {
-        let u = UInt16(bitPattern: value)
-        return uint16BE(u)
-    }
-    
-    private func band(from frequency: UInt64) -> String {
-        switch frequency {
-        case 14000000...14350000: return "20m"
-        case 7000000...7300000: return "40m"
-        case 21000000...21450000: return "15m"
-        default: return "other"
+    private func modeString(from mode: PSKReporterMode) -> String {
+        // Mode strings must match PSK Reporter conventions
+        switch mode {
+        case .ft8: return "FT8"
+        case .ft4: return "FT4"
         }
     }
 }
@@ -341,6 +424,13 @@ struct PSKReporterStats {
     var errors: Int = 0
 }
 
+/// PSK Reporter report structure.
+///
+/// Note: Application uses UInt64 for frequency and Int for SNR,
+/// but IPFIX protocol requires UInt32 (4 bytes) for frequency and Int8 (1 byte) for SNR.
+/// Conversions happen during packet encoding:
+/// - frequencyHz: UInt64 → UInt32 (truncating upper 32 bits, sufficient for amateur radio frequencies)
+/// - snr: Int → Int8 (clamped to -128...127 dB range)
 struct PSKReporterReport {
     let receiverCallsign: String
     let senderCallsign: String
@@ -348,12 +438,25 @@ struct PSKReporterReport {
     let frequencyHz: UInt64
     let mode: PSKReporterMode
     let snr: Int
-    let speed: Int
-    let band: String
 }
 
 enum PSKReporterMode: Int {
     case ft8 = 0
     case ft4 = 1
-    // Add more as needed
+}
+
+// MARK: - Extensions
+
+extension Int8 {
+    /// Initialize Int8 with clamping from any BinaryInteger type.
+    /// Values outside -128...127 are clamped to those bounds.
+    init<T: BinaryInteger>(clamping value: T) {
+        if value < Int8.min {
+            self = Int8.min
+        } else if value > Int8.max {
+            self = Int8.max
+        } else {
+            self = Int8(value)
+        }
+    }
 }
