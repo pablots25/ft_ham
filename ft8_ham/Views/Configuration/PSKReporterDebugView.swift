@@ -7,8 +7,11 @@
 
 import SwiftUI
 
+#if canImport(FTHamPremium)
+import FTHamPremium
+
 struct PSKReporterDebugView: View {
-    @ObservedObject private var reporter = PSKReporterReporter.shared
+    @StateObject private var reporter = PSKReporterReporter.shared
     @EnvironmentObject private var viewModel: FT8ViewModel
     @State private var showFullLog = false
     
@@ -230,7 +233,11 @@ private struct StatItem: View {
     }
 }
 
+#endif
+
+#if canImport(FTHamPremium) && DEBUG
 #Preview {
     PSKReporterDebugView()
         .padding()
 }
+#endif

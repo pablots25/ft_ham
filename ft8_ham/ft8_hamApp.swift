@@ -130,7 +130,7 @@ struct ft8_hamApp: App {
             AnalyticsManager.shared.flushAllOnBackground(scenePhase: newPhase)
             
             if newPhase == .background || newPhase == .inactive {
-                PSKReporterReporter.shared.flushPendingReports()
+                PremiumFeatures.pskReporter.flushPendingReports()
             }
         }
     }

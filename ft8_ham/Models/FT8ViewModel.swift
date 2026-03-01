@@ -99,8 +99,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     let txLogger = AppLogger(category: "TX")
     internal let appLogger = AppLogger(category: "APP")
 
-    // MARK: - CAT
-    internal let catController = CatRigController.shared
+    // MARK: - CAT (uses protocol-based dependency injection)
+    internal let catController = PremiumFeatures.catController
     internal var catFrequencyUpdateWorkItem: DispatchWorkItem?
     
     // MARK: - Published Properties

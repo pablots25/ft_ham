@@ -58,6 +58,42 @@ To build from source:
 3. Configure signing certificates for your Apple developer account
 4. Build and run on an iOS device
 
+### Public (MIT) vs Private (Premium)
+
+This GitHub repository contains the **free/public MIT codebase** only.
+
+- Public app includes paywall, feature gates, and app structure
+- Proprietary premium implementations are in a **separate private GitHub repository**
+- Local package referenced as sibling directory: `../ft_ham_premium`
+- Private repo: Not disclosed (proprietary)
+
+**ONE BUILD:** Premium package is always linked → All features compiled in → Paywall controls runtime access
+
+**No stubs:** Real premium implementations are always compiled into the binary
+
+📖 **[START HERE](START_HERE.md) - Read this first!**
+
+⚠️ **IMPORTANT**: The two repositories must remain separate. The pre-push hook will block any commits that reference the premium package path.
+
+**📖 Development Guides:**
+- **[START HERE](START_HERE.md) - Architecture overview** ⭐
+- [Simple Integration Guide](SIMPLE_INTEGRATION_GUIDE.md) - Code patterns
+- [Paywall Quick Start](PAYWALL_QUICK_START.md) - Integrate IAP paywall  
+- [Workflow Quick Reference](WORKFLOW_QUICK_REF.md) - Common scenarios
+- Helper script: `./scripts/workflow.sh status` - Check both repos
+
+### Git Safety Hook (recommended)
+
+Install the repo-managed pre-push hook once per clone:
+
+```bash
+./scripts/install-git-hooks.sh
+```
+
+It blocks push when staged changes include premium/private paths.
+
+Verify hook is working: `./scripts/workflow.sh test-hook`
+
 ### Code Structure
 
 ```

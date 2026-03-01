@@ -415,36 +415,6 @@ final class PSKReporterReporter: ObservableObject {
     }
 }
 
-// MARK: - Supporting Types
-
-struct PSKReporterStats {
-    var sent: Int = 0
-    var successful: Int = 0
-    var heldBack: Int = 0
-    var errors: Int = 0
-}
-
-/// PSK Reporter report structure.
-///
-/// Note: Application uses UInt64 for frequency and Int for SNR,
-/// but IPFIX protocol requires UInt32 (4 bytes) for frequency and Int8 (1 byte) for SNR.
-/// Conversions happen during packet encoding:
-/// - frequencyHz: UInt64 → UInt32 (truncating upper 32 bits, sufficient for amateur radio frequencies)
-/// - snr: Int → Int8 (clamped to -128...127 dB range)
-struct PSKReporterReport {
-    let receiverCallsign: String
-    let senderCallsign: String
-    let receiverLocator: String
-    let frequencyHz: UInt64
-    let mode: PSKReporterMode
-    let snr: Int
-}
-
-enum PSKReporterMode: Int {
-    case ft8 = 0
-    case ft4 = 1
-}
-
 // MARK: - Extensions
 
 extension Int8 {

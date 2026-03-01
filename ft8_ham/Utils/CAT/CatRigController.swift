@@ -8,39 +8,7 @@
 import Foundation
 import Network
 
-struct CatRigResponse {
-    let success: Bool
-    let response: String
-    let errorMessage: String?
-}
-
-enum CatRigError: LocalizedError {
-    case invalidPort
-    case timeout
-    case connectionFailed(String)
-    case sendFailed(String)
-    case receiveFailed(String)
-    case invalidResponse
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidPort:
-            return "Invalid TCP port"
-        case .timeout:
-            return "CAT request timed out"
-        case .connectionFailed(let message):
-            return "CAT connection failed: \(message)"
-        case .sendFailed(let message):
-            return "CAT send failed: \(message)"
-        case .receiveFailed(let message):
-            return "CAT receive failed: \(message)"
-        case .invalidResponse:
-            return "CAT response was empty"
-        }
-    }
-}
-
-final class CatRigController {
+final class CatRigController: CATControlProtocol {
 
     static let shared = CatRigController()
 
@@ -54,9 +22,13 @@ final class CatRigController {
         return await sendCommand(command, host: host, port: port)
     }
 
-    func setFrequency(hz: Int64, host: String, port: UInt16) async -> CatRigResponse {
-        let command = "F \(hz)"
+    func setFrequency(frequency: Int64, host: String, port: UInt16) async -> CatRigResponse {
+        let command = "F \(frequency)"
         return await sendCommand(command, host: host, port: port)
+    }
+
+    func setFrequency(hz: Int64, host: String, port: UInt16) async -> CatRigResponse {
+        await setFrequency(frequency: hz, host: host, port: port)
     }
 
     func getFrequency(host: String, port: UInt16) async -> CatRigResponse {
