@@ -102,25 +102,6 @@ extension FT8ViewModel{
     }
     
     
-    // MARK: - Progress Bar Management
-    func startProgressBarUTC() {
-        progressTimerCancellable?.cancel()
-        
-        progressTimerCancellable = Timer.publish(every: 0.05, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] now in
-                guard let self else { return }
-                let calendar = Calendar.current
-                let seconds = calendar.component(.second, from: now)
-                let nanoseconds = calendar.component(.nanosecond, from: now)
-                
-                let cycleLength = isFT4 ? 7.5 : 15.0
-                let totalSeconds = Double(seconds) + Double(nanoseconds) / 1_000_000_000
-                let slotProgress = totalSeconds.truncatingRemainder(dividingBy: cycleLength) / cycleLength
-                cycleProgress = slotProgress
-            }
-    }
-    
     // MARK: - Message Clearing
     @MainActor
     func clearReceived() {
