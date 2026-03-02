@@ -47,6 +47,8 @@ class ProductManager: ObservableObject {
             
             logger.info("Purchase successful: \(transaction.productID)")
             
+            AnalyticsManager.shared.logPurchaseCompleted(productID: transaction.productID)
+            
             ProductManager.showSuccessPrompt()
             
         case .userCancelled:

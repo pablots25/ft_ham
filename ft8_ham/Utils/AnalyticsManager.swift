@@ -133,6 +133,13 @@ final class AnalyticsManager {
         Analytics.logEvent("donation_prompt_postponed", parameters: nil)
     }
 
+    func logPurchaseCompleted(productID: String) {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("in_app_purchase", parameters: [
+            "product_id": productID
+        ])
+    }
+
     // MARK: - Configuration
 
     func logConfigurationSaved() {
