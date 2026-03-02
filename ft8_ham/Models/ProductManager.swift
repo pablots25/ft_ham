@@ -63,12 +63,12 @@ class ProductManager: ObservableObject {
     
     private static func showSuccessPrompt() {
         let alert = UIAlertController(
-            title: "Thank you!",
-            message: "Your donation helps us make the app even better. We really appreciate your support!",
+            title: NSLocalizedString("Thank you!", comment: "Purchase success title"),
+            message: NSLocalizedString("Your donation helps us make the app even better. We really appreciate your support!", comment: "Purchase success message"),
             preferredStyle: .alert
         )
         
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Dismiss button"), style: .default))
         
         if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let rootVC = scene.windows.first?.rootViewController {

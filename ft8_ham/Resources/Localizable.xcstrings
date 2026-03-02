@@ -4844,6 +4844,40 @@
           }
         }
       }
+    },
+    "Thank you!" : {
+      "comment" : "Purchase success title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thank you!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Gracias!"
+          }
+        }
+      }
+    },
+    "Your donation helps us make the app even better. We really appreciate your support!" : {
+      "comment" : "Purchase success message",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your donation helps make the app even better. Your support is really appreciated!"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu donación ayuda a mejorar la app. ¡Gracias por tu apoyo!"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
