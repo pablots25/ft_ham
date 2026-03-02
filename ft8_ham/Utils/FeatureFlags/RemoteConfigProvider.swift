@@ -225,7 +225,7 @@ final class RemoteConfigProvider: FeatureFlagProvider {
     
     private func shouldRefresh() -> Bool {
         guard let lastFetchDate else { return true }
-        return Date().timeIntervalSince(lastFetchDate) > 30
+        return Date().timeIntervalSince(lastFetchDate) > 3600
     }
     
     func refreshAllFlags(completion: @escaping () -> Void) {
