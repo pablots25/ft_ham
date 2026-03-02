@@ -102,14 +102,6 @@ extension FT8ViewModel{
     }
     
     
-    // MARK: - Progress Bar Management
-    // Note: Progress tracking is now handled by ProgressViewModel (CPU optimization)
-    // This method kept for backward compatibility but does nothing
-    func startProgressBarUTC() {
-        // Progress timer moved to ProgressViewModel to reduce AttributeGraph overhead
-        // Views should observe ProgressViewModel directly
-    }
-    
     // MARK: - Message Clearing
     @MainActor
     func clearReceived() {

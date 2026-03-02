@@ -53,7 +53,6 @@ struct ContentView: View {
                     .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
             }
             .task {
-                progressVM.updateMode(isFT4: viewModel.isFT4)
                 // Set initial tab: 4 if first launch, otherwise last used tab
                 if !hasLaunchedBefore {
                     selectedTab = 4
@@ -115,9 +114,7 @@ struct ContentView: View {
                     evaluateAutoRX()
                 }
             }
-            .onChange(of: viewModel.isFT4) { isFT4 in
-                progressVM.updateMode(isFT4: isFT4)
-            }
+
             .onAppear {
                 AnalyticsManager.shared.trackScreen(.home)
             }
@@ -349,8 +346,8 @@ struct ContentView: View {
 
     private var progressBar: some View {
         TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-            let cycleLength = viewModel.isFT4 ? 7.5 : 15.0
-            let progress = progressVM.cycleProgress()
+            let cycleLength = ProgressViewModel.cycleLengthForMode(isFT4: viewModel.isFT4)
+            let progress = progressVM.cycleProgress(isFT4: viewModel.isFT4)
             let seconds = min(Int(progress * cycleLength), Int(cycleLength))
 
             HStack {
