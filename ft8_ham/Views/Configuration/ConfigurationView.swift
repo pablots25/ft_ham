@@ -156,6 +156,7 @@ struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var flags: FeatureFlagManager
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Binding var shouldScrollToDonations: Bool
     
     @State private var showHelp = false
     @State private var showWhatsNew = false
@@ -242,44 +243,45 @@ struct ConfigurationView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // MARK: Configuration fields
-                
-                VStack(spacing: 0) {
-                    HStack(spacing: 50) {
-                        callsignView
-                        locatorView
-                    }
-                    .padding(.bottom, 5)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 20) {
+                    // MARK: Configuration fields
                     
-                    Text("Callsign modifiers are allowed")
-                        .font(.footnote)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-                
-                CQModifierView()
-                
-                Divider()
-                
-                HStack(spacing: 20) {
-                    modeView
-                    cycleView
-                }
-                
-                bandView
-                
-                frequencyView
-                
-                inputGainView
-    
-                Divider()
-                
-                qsoConfigSection
-                
-                togglesView
+                    VStack(spacing: 0) {
+                        HStack(spacing: 50) {
+                            callsignView
+                            locatorView
+                        }
+                        .padding(.bottom, 5)
+                        
+                        Text("Callsign modifiers are allowed")
+                            .font(.footnote)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(1)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    CQModifierView()
+                    
+                    Divider()
+                    
+                    HStack(spacing: 20) {
+                        modeView
+                        cycleView
+                    }
+                    
+                    bandView
+                    
+                    frequencyView
+                    
+                    inputGainView
+        
+                    Divider()
+                    
+                    qsoConfigSection
+                    
+                    togglesView
 
                 Divider()
 
@@ -302,42 +304,43 @@ struct ConfigurationView: View {
                         .foregroundStyle(.blue)
                 }
                 #endif
-                
-                Divider()
-                
-                viewModeView
-                
-                Divider()
-                GenMessagesView()
-                
-                Divider()
-                
-                Button {
-                    showHelp = true
-                } label: {
-                    Text("Help")
-                        .font(.headline)
-                        .foregroundStyle(.blue)
-                }
-                
-                Button("Reset help messages") {
-                    AppStorageResetter.resetTutorials()
-                }
-                Button("Show initial tutorial") {
-                    AppStorageResetter.resetOnboarding()
-                }
-                
-                Divider()
-                
-                SupportView()
-                
-                Divider()
-                
-                ContactView()
-                
-                Divider()
-                
-                analyticsSection
+                    
+                    Divider()
+                    
+                    viewModeView
+                    
+                    Divider()
+                    GenMessagesView()
+                    
+                    Divider()
+                    
+                    Button {
+                        showHelp = true
+                    } label: {
+                        Text("Help")
+                            .font(.headline)
+                            .foregroundStyle(.blue)
+                    }
+                    
+                    Button("Reset help messages") {
+                        AppStorageResetter.resetTutorials()
+                    }
+                    Button("Show initial tutorial") {
+                        AppStorageResetter.resetOnboarding()
+                    }
+                    
+                    Divider()
+                    
+                    SupportView()
+                        .id("donations") // Add ID for scrolling
+                    
+                    Divider()
+                    
+                    ContactView()
+                    
+                    Divider()
+                    
+                    analyticsSection
                 
                 Divider()
                             
@@ -408,6 +411,17 @@ struct ConfigurationView: View {
         .onAppear {
             activeHelp = nil
         }
+        .onChange(of: shouldScrollToDonations) { shouldScroll in
+            if shouldScroll {
+                withAnimation {
+                    proxy.scrollTo("donations", anchor: .top)
+                }
+                // Reset the flag after scrolling
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    shouldScrollToDonations = false
+                }
+            }
+        }
         
         // Commit on focus change
         .onChange(of: focusedInput) { newValue in
@@ -469,6 +483,7 @@ struct ConfigurationView: View {
                 AnalyticsManager.shared.logConfigurationSaved()
             }
         }
+        } // Close ScrollViewReader
     }
     
     // MARK: - Debug Helpers
@@ -981,7 +996,7 @@ struct ConfigurationView: View {
 }
 
 #Preview("ConfigurationView") {
-    ConfigurationView()
+    ConfigurationView(shouldScrollToDonations: .constant(false))
         .environmentObject(
             FT8ViewModel(
                 txMessages: PreviewMocks.txMessages,

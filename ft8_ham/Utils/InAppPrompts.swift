@@ -61,6 +61,7 @@ final class InAppPrompts: ObservableObject {
     @Published var shareItem: ShareItem?
     @Published var showDonationAlert = false
     @Published var showDonationSheet = false
+    @Published var shouldNavigateToDonations = false
 
     struct ShareItem: Identifiable {
         let id = UUID()
@@ -287,7 +288,7 @@ final class InAppPrompts: ObservableObject {
         defaults.set(launches, forKey: Keys.donationLastPromptLaunch)
         AnalyticsManager.shared.logDonationPromptConfirmed()
         showDonationAlert = false
-        showDonationSheet = true
+        shouldNavigateToDonations = true
     }
 
     func postponeDonation() {
@@ -337,12 +338,7 @@ struct InAppPromptsViewModifier: ViewModifier {
             } message: {
                 Text("Optional tips help maintain the app. The app works the same without donating.")
             }
-            .sheet(isPresented: $prompts.showDonationSheet) {
-                NavigationStack {
-                    SupportView()
-                        .navigationTitle("Support FT HAM")
-                }
-            }
+            // Note: Donation navigation is handled by ContentView switching to Configuration tab
     }
 }
 

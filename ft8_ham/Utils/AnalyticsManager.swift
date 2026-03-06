@@ -133,6 +133,13 @@ final class AnalyticsManager {
         Analytics.logEvent("donation_prompt_postponed", parameters: nil)
     }
 
+    func logPurchaseCompleted(productID: String) {
+        guard isAnalyticsEnabled else { return }
+        Analytics.logEvent("in_app_purchase", parameters: [
+            "product_id": productID
+        ])
+    }
+
     // MARK: - Configuration
 
     func logConfigurationSaved() {
@@ -185,7 +192,7 @@ final class AnalyticsManager {
 
         Analytics.logEvent("radio_activity_usage", parameters: [
             "activity": activity.rawValue,
-            "duration_sec": duration
+            "duration_sec": NSNumber(value: duration)
         ])
 
         activeRadioActivity = nil
@@ -201,7 +208,7 @@ final class AnalyticsManager {
     func flushDecodedMessages() {
         guard isAnalyticsEnabled, sessionDecodedMessages > 0 else { return }
         Analytics.logEvent("messages_decoded", parameters: [
-            "count": sessionDecodedMessages
+            "count": NSNumber(value: sessionDecodedMessages)
         ])
         sessionDecodedMessages = 0
     }
@@ -215,7 +222,7 @@ final class AnalyticsManager {
     func flushQSOs() {
         guard isAnalyticsEnabled, sessionQSOs > 0 else { return }
         Analytics.logEvent("qso_logged", parameters: [
-            "count": sessionQSOs
+            "count": NSNumber(value: sessionQSOs)
         ])
         sessionQSOs = 0
     }
@@ -225,7 +232,7 @@ final class AnalyticsManager {
     func logADIFExport(qsoCount: Int, exportType: String = "file") {
         guard isAnalyticsEnabled else { return }
         Analytics.logEvent("adif_export", parameters: [
-            "qso_count": qsoCount,
+            "qso_count": NSNumber(value: qsoCount),
             "export_type": exportType
         ])
     }

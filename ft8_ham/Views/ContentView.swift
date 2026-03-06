@@ -13,6 +13,7 @@ import Combine
 struct ContentView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @StateObject private var progressVM = ProgressViewModel()
+    @StateObject private var prompts = InAppPrompts.shared
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
@@ -29,6 +30,7 @@ struct ContentView: View {
     @State private var showClearLogbookAlert = false
     @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
+    @State private var shouldScrollToDonations = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
     @State private var isPresentingWhatsNew = false
@@ -53,7 +55,6 @@ struct ContentView: View {
                     .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
             }
             .task {
-                progressVM.updateMode(isFT4: viewModel.isFT4)
                 // Set initial tab: 4 if first launch, otherwise last used tab
                 if !hasLaunchedBefore {
                     selectedTab = 4
@@ -115,9 +116,14 @@ struct ContentView: View {
                     evaluateAutoRX()
                 }
             }
-            .onChange(of: viewModel.isFT4) { isFT4 in
-                progressVM.updateMode(isFT4: isFT4)
+            .onChange(of: prompts.shouldNavigateToDonations) { shouldNavigate in
+                if shouldNavigate {
+                    selectedTab = 4 // Navigate to Configuration tab
+                    shouldScrollToDonations = true
+                    prompts.shouldNavigateToDonations = false // Reset flag
+                }
             }
+
             .onAppear {
                 AnalyticsManager.shared.trackScreen(.home)
             }
@@ -214,7 +220,7 @@ struct ContentView: View {
                     .tag(3)
 
                     NavigationStack {
-                        ConfigurationView()
+                        ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
                             .navigationTitle("Configuration")
                             .navigationBarTitleDisplayMode(.inline)
                     }
@@ -349,8 +355,8 @@ struct ContentView: View {
 
     private var progressBar: some View {
         TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-            let cycleLength = viewModel.isFT4 ? 7.5 : 15.0
-            let progress = progressVM.cycleProgress()
+            let cycleLength = ProgressViewModel.cycleLengthForMode(isFT4: viewModel.isFT4)
+            let progress = progressVM.cycleProgress(isFT4: viewModel.isFT4)
             let seconds = min(Int(progress * cycleLength), Int(cycleLength))
 
             HStack {
