@@ -228,7 +228,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     
     internal func restartLoopsForModeChange() {
         guard isSequencerRunning else { return }
-        restartSequencer()
+        Task { @MainActor in
+            await restartSequencer()
+        }
     }
 
     @AppStorage("evenCycle") var evenCycle = true

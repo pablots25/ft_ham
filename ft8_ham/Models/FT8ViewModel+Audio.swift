@@ -287,7 +287,6 @@ extension FT8ViewModel {
                 dxCallsign: completedCallsign,
                 dxLocator: completedLocator,
                 qsoDate: .now,
-                frequency: frequency,
                 band: selectedBand,
                 isFT4: isFT4,
                 rstSent: qsoManager.lastSentSNR,

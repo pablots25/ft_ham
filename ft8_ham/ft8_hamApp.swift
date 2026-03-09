@@ -133,7 +133,7 @@ struct ft8_hamApp: App {
             case .background:
                 if viewModel.isSequencerRunning {
                     Task { @MainActor in
-                        viewModel.stopSequencer(rememberState: true)
+                        await viewModel.stopSequencer(rememberState: true)
                         NotificationHelper.sendSequencerPausedNotification()
                     }
                 }
@@ -144,6 +144,7 @@ struct ft8_hamApp: App {
                         if featureFlags.isEnabled(.backgroundToast) {
                             viewModel.toast = .warning(String(localized: "bg_toast_message"))
                         }
+                        await viewModel.stopSequencer()
                         viewModel.wasSequencerRunningBeforeBackground = false
                         viewModel.startSequencer()
                     }
