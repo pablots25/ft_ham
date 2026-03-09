@@ -160,19 +160,24 @@ extension FT8ViewModel {
     }
     
     @MainActor
-    func stopSequencer(rememberState: Bool = false) {
+    func stopSequencer(rememberState: Bool = false) async {
         appLogger.info("Stopping Sequencer")
+        let task = sequencerTask
+
         if rememberState {
-            wasSequencerRunningBeforeBackground = isSequencerRunning
+            wasSequencerRunningBeforeBackground = isSequencerRunning || task != nil
         }
-        sequencerTask?.cancel()
-        sequencerTask = nil
+
+        guard let task else { return }
+
+        task.cancel()
+        await task.value
     }
     
     @MainActor
-    func restartSequencer() {
+    func restartSequencer() async {
         appLogger.info("Restarting Sequencer")
-        stopSequencer()
+        await stopSequencer()
 
         // Do NOT auto-start unless explicitly allowed
         guard autoRXAtStart else {
@@ -185,10 +190,8 @@ extension FT8ViewModel {
             return
         }
 
-        Task {
-            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-            self.startSequencer()
-        }
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        self.startSequencer()
     }
     
     @MainActor

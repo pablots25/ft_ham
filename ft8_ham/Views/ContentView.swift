@@ -106,7 +106,9 @@ struct ContentView: View {
                     evaluateAutoRX()
                 } else {
                     // Stop RX immediately if user disables toggle
-                    viewModel.stopSequencer()
+                    Task { @MainActor in
+                        await viewModel.stopSequencer()
+                    }
                 }
             }
             .onChange(of: selectedTab) { newTab in

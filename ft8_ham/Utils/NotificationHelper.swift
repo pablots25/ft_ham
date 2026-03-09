@@ -16,7 +16,12 @@ enum NotificationHelper {
         let center = UNUserNotificationCenter.current()
 
         center.getNotificationSettings { settings in
-            guard settings.authorizationStatus == .authorized else { return }
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                break
+            default:
+                return
+            }
 
             let content = UNMutableNotificationContent()
             content.title = String(localized: "bg_notification_title")

@@ -35,7 +35,13 @@ struct TransmissionButtonsBar: View {
             .disabled(!viewModel.settingsLoaded || !viewModel.isTransmitting)
 
             Button(viewModel.isListening ? "Stop RX" : "Start RX") {
-                viewModel.isListening ? viewModel.stopSequencer() : viewModel.startSequencer()
+                if viewModel.isListening {
+                    Task { @MainActor in
+                        await viewModel.stopSequencer()
+                    }
+                } else {
+                    viewModel.startSequencer()
+                }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.7)

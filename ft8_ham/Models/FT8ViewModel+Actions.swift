@@ -49,10 +49,9 @@ extension FT8ViewModel {
     @MainActor
     func switchModeWhileRX(isFT4 newMode: Bool) {
         rxLogger.log(.info, "Switching mode from \(isFT4 ? "FT4" : "FT8") to \(newMode ? "FT4" : "FT8")...")
-        
-        stopSequencer()
-        
+
         Task { @MainActor in
+             await self.stopSequencer()
              try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
              
              self.isFT4 = newMode

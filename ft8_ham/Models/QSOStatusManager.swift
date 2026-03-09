@@ -722,7 +722,6 @@ final class QSOStatusManager: ObservableObject {
         dxCallsign: String,
         dxLocator: String,
         qsoDate: Date,
-        frequency: Double,
         band: FT8Message.Band,
         isFT4: Bool,
         rstSent: Int,

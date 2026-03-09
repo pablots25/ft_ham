@@ -60,7 +60,6 @@ final class InAppPrompts: ObservableObject {
     @Published var showPreShareAlert = false
     @Published var shareItem: ShareItem?
     @Published var showDonationAlert = false
-    @Published var showDonationSheet = false
     @Published var shouldNavigateToDonations = false
 
     struct ShareItem: Identifiable {
