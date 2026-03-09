@@ -13,6 +13,7 @@ struct LogEntry: Identifiable {
     let callsign: String
     let grid: String
     let date: Date              // Always UTC instant
+    let frequencyHz: Double?
     let mode: String
     let band: String
     let rstSent: String
@@ -22,6 +23,36 @@ struct LogEntry: Identifiable {
     let mySigInfo: String?
     let country: String?        // Resolved country name from CountryResolver
     let flag: String?           // Cached flag emoji for performance
+
+    init(
+        callsign: String,
+        grid: String,
+        date: Date,
+        frequencyHz: Double?,
+        mode: String,
+        band: String,
+        rstSent: String,
+        rstRcvd: String,
+        stationCallsign: String?,
+        cqModifier: String?,
+        mySigInfo: String?,
+        country: String?,
+        flag: String?
+    ) {
+        self.callsign = callsign
+        self.grid = grid
+        self.date = date
+        self.mode = mode
+        self.band = band
+        self.rstSent = rstSent
+        self.rstRcvd = rstRcvd
+        self.stationCallsign = stationCallsign
+        self.cqModifier = cqModifier
+        self.mySigInfo = mySigInfo
+        self.country = country
+        self.flag = flag
+        self.frequencyHz = frequencyHz
+    }
 }
 
 final class LogbookManager: LogbookManaging {
@@ -71,6 +102,10 @@ final class LogbookManager: LogbookManaging {
         }
         
         return filtered
+    }
+
+    func filterEntriesSince(_ entries: [LogEntry], since date: Date, upTo upperBound: Date = Date()) -> [LogEntry] {
+        entries.filter { $0.date > date && $0.date <= upperBound }
     }
 
     // MARK: - Load entries from disk
@@ -124,6 +159,7 @@ final class LogbookManager: LogbookManaging {
         let stationCall = extractField(record, field: "STATION_CALLSIGN")
         let qsoDateRaw = extractField(record, field: "QSO_DATE")
         let timeOnRaw = extractField(record, field: "TIME_ON")
+        let freqRaw = extractField(record, field: "FREQ")
 
         let qsoDate = qsoDateRaw.trimmingCharacters(in: .whitespacesAndNewlines)
         let timeOnClean = timeOnRaw
@@ -157,10 +193,17 @@ final class LogbookManager: LogbookManaging {
             )
         }
 
+        let parsedFrequencyHz: Double? = {
+            let clean = freqRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !clean.isEmpty, let mhz = Double(clean), mhz > 0 else { return nil }
+            return mhz * 1_000_000
+        }()
+
         return LogEntry(
             callsign: call,
             grid: grid,
             date: parsedDate ?? Date(timeIntervalSince1970: 0),
+            frequencyHz: parsedFrequencyHz,
             mode: "FT8",
             band: band,
             rstSent: rSent,
@@ -270,6 +313,9 @@ final class LogbookManager: LogbookManaging {
             if let station = entry.stationCallsign, !station.isEmpty {
                 adifContent += "<STATION_CALLSIGN:\(station.count)>\(station) "
             }
+            if let frequency = adifFrequencyString(fromHz: entry.frequencyHz) {
+                adifContent += "<FREQ:\(frequency.count)>\(frequency) "
+            }
             adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
             adifContent += "<MODE:3>\(entry.mode) "
             adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "
@@ -287,6 +333,12 @@ final class LogbookManager: LogbookManaging {
         }
         
         return adifContent
+    }
+
+    private func adifFrequencyString(fromHz frequencyHz: Double?) -> String? {
+        guard let frequencyHz, frequencyHz > 0 else { return nil }
+        let mhz = frequencyHz / 1_000_000
+        return Self.adifFrequencyFormatter.string(from: NSNumber(value: mhz))
     }
     
     func getEmptyADIFURL() -> URL {
@@ -356,6 +408,16 @@ final class LogbookManager: LogbookManaging {
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = utcTimeZone
         f.dateFormat = "yyyyMMddHHmmss"
+        return f
+    }()
+
+    private static let adifFrequencyFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = false
+        f.minimumFractionDigits = 6
+        f.maximumFractionDigits = 6
         return f
     }()
 }

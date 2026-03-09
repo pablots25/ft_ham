@@ -746,6 +746,9 @@ final class QSOStatusManager: ObservableObject {
             }
         }()
 
+        let mode: FT8Message.FT8MessageMode = isFT4 ? .ft4 : .ft8
+        let frequencyHz = band.frequency(for: mode)
+
         guard rstSent != invalidSNR, rstRcvd != invalidSNR else {
             appLogger.error("""
                 Attempting to log QSO without valid SNRs for \(dxCallsign)
@@ -760,6 +763,7 @@ final class QSOStatusManager: ObservableObject {
                 callsign: dxCallsign,
                 grid: dxLocator,
                 date: qsoDate,
+                frequencyHz: frequencyHz,
                 mode: isFT4 ? "FT4" : "FT8",
                 band: band.rawValue,
                 rstSent: "Invalid",
@@ -777,6 +781,7 @@ final class QSOStatusManager: ObservableObject {
             callsign: dxCallsign,
             grid: dxLocator,
             date: qsoDate,
+            frequencyHz: frequencyHz,
             mode: isFT4 ? "FT4" : "FT8",
             band: band.rawValue,
             rstSent: String(rstSent),

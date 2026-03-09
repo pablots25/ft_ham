@@ -13,6 +13,7 @@ import Combine
 struct ContentView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @StateObject private var progressVM = ProgressViewModel()
+    @StateObject private var prompts = InAppPrompts.shared
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
@@ -29,12 +30,14 @@ struct ContentView: View {
     @State private var showClearLogbookAlert = false
     @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
+    @State private var shouldScrollToDonations = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
     @State private var isPresentingWhatsNew = false
 
     var body: some View {
         mainLayout
+            .toast($viewModel.toast)
             // 1) Onboarding first
             .fullScreenCover(isPresented: $isPresentingOnboarding) {
                 OnboardingView()
@@ -112,6 +115,13 @@ struct ContentView: View {
             .onChange(of: viewModel.settingsLoaded) { loaded in
                 if loaded && autoRXAtStart {
                     evaluateAutoRX()
+                }
+            }
+            .onChange(of: prompts.shouldNavigateToDonations) { shouldNavigate in
+                if shouldNavigate {
+                    selectedTab = 4 // Navigate to Configuration tab
+                    shouldScrollToDonations = true
+                    prompts.shouldNavigateToDonations = false // Reset flag
                 }
             }
 
@@ -211,7 +221,7 @@ struct ContentView: View {
                     .tag(3)
 
                     NavigationStack {
-                        ConfigurationView()
+                        ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
                             .navigationTitle("Configuration")
                             .navigationBarTitleDisplayMode(.inline)
                     }

@@ -110,6 +110,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @Published var isListening = false
     @Published var isTransmitting = false
     @Published var transmitLoopActive = false
+    @Published var toast: ToastMessage?
+    var wasSequencerRunningBeforeBackground = false
     @Published var wavURL: URL?
     
     @Published var isReadyForTX = false

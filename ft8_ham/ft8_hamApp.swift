@@ -128,6 +128,29 @@ struct ft8_hamApp: App {
         }
         .onChange(of: scenePhase) { newPhase in
             AnalyticsManager.shared.flushAllOnBackground(scenePhase: newPhase)
+
+            switch newPhase {
+            case .background:
+                if viewModel.isSequencerRunning {
+                    Task { @MainActor in
+                        viewModel.stopSequencer(rememberState: true)
+                        NotificationHelper.sendSequencerPausedNotification()
+                    }
+                }
+            case .active:
+                NotificationHelper.cancelSequencerPausedNotification()
+                Task { @MainActor in
+                    if viewModel.wasSequencerRunningBeforeBackground {
+                        if featureFlags.isEnabled(.backgroundToast) {
+                            viewModel.toast = .warning(String(localized: "bg_toast_message"))
+                        }
+                        viewModel.wasSequencerRunningBeforeBackground = false
+                        viewModel.startSequencer()
+                    }
+                }
+            default:
+                break
+            }
         }
     }
 }

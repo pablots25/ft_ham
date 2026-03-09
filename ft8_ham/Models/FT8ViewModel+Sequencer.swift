@@ -160,8 +160,11 @@ extension FT8ViewModel {
     }
     
     @MainActor
-    func stopSequencer() {
+    func stopSequencer(rememberState: Bool = false) {
         appLogger.info("Stopping Sequencer")
+        if rememberState {
+            wasSequencerRunningBeforeBackground = isSequencerRunning
+        }
         sequencerTask?.cancel()
         sequencerTask = nil
     }
