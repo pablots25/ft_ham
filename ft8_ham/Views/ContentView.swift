@@ -37,6 +37,7 @@ struct ContentView: View {
 
     var body: some View {
         mainLayout
+            .toast($viewModel.toast)
             // 1) Onboarding first
             .fullScreenCover(isPresented: $isPresentingOnboarding) {
                 OnboardingView()

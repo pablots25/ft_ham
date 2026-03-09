@@ -13,7 +13,7 @@ struct LogEntry: Identifiable {
     let callsign: String
     let grid: String
     let date: Date              // Always UTC instant
-    let frequencyHz: Double? = nil
+    let frequencyHz: Double?
     let mode: String
     let band: String
     let rstSent: String
@@ -28,7 +28,7 @@ struct LogEntry: Identifiable {
         callsign: String,
         grid: String,
         date: Date,
-        frequencyHz: Double? = nil,
+        frequencyHz: Double?,
         mode: String,
         band: String,
         rstSent: String,
