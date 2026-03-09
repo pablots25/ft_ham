@@ -416,7 +416,7 @@ final class LogbookManager: LogbookManaging {
         f.locale = Locale(identifier: "en_US_POSIX")
         f.numberStyle = .decimal
         f.usesGroupingSeparator = false
-        f.minimumFractionDigits = 3
+        f.minimumFractionDigits = 6
         f.maximumFractionDigits = 6
         return f
     }()
