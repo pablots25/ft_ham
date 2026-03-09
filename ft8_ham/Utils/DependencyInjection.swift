@@ -142,6 +142,7 @@ protocol LogbookManaging {
     func clearLogbook()
     func getEmptyADIFURL() -> URL
     func filterEntries(_ entries: [LogEntry], from startDate: Date?, to endDate: Date?) -> [LogEntry]
+    func filterEntriesSince(_ entries: [LogEntry], since date: Date, upTo upperBound: Date) -> [LogEntry]
 }
 
 // MARK: - Dependency Container

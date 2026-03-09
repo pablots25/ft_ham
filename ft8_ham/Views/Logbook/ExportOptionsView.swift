@@ -164,11 +164,7 @@ struct ExportOptionsView: View {
             )
         case .new:
             if let lastExport = lastExportDate {
-                return viewModel.logbookManager.filterEntries(
-                    viewModel.qsoList,
-                    from: lastExport,
-                    to: Date()
-                )
+                return viewModel.logbookManager.filterEntriesSince(viewModel.qsoList, since: lastExport, upTo: Date())
             } else {
                 // No previous export, return all
                 return viewModel.qsoList
