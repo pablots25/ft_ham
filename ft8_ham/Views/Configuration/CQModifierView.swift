@@ -10,6 +10,7 @@ import SwiftUI
 // MARK: - Selection View for CQ Modifier
 struct CQModifierSelectionView: View {
     @AppStorage("cqModifier") var cqModifierRaw: String = CQModifier.none.rawValue
+    @AppStorage("cqModifierOther") var cqModifierOther: String = ""
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -28,6 +29,10 @@ struct CQModifierSelectionView: View {
                 ForEach(CQModifier.modifiers(for: .activations)) { modifier in
                     selectionRow(for: modifier)
                 }
+            }
+
+            Section(CQModifier.Group.custom.localizedName) {
+                selectionRow(for: .other)
             }
         }
         .scrollContentBackground(.hidden)
@@ -57,6 +62,7 @@ struct CQModifierSelectionView: View {
 // MARK: - Main CQ Modifier View
 struct CQModifierView: View {
     @AppStorage("cqModifier") var cqModifierRaw: String = CQModifier.none.rawValue
+    @AppStorage("cqModifierOther") var cqModifierOther: String = ""
     @AppStorage("myPotaRef") var myPotaRef: String = ""
     @AppStorage("mySotaRef") var mySotaRef: String = ""
     @AppStorage("myWwffRef") var myWwffRef: String = ""
@@ -73,22 +79,16 @@ struct CQModifierView: View {
             } label: {
                 HStack {
                     Text("CQ Modifier", comment: "Configuration section title")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
                     
                     Spacer()
-                        .frame(maxWidth: 50)
                     
-                    Text(cqModifier.displayName)
+                    Text(selectedModifierDisplay)
                         .foregroundStyle(.secondary)
                     
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(Color(.systemBackground))
                 .cornerRadius(8)
                 .contentShape(Rectangle())
             }
@@ -96,11 +96,27 @@ struct CQModifierView: View {
             
             referenceFieldView
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 20)
     }
     
     @ViewBuilder
     private var referenceFieldView: some View {
+        if cqModifier == .other {
+            HStack {
+                Text(String(localized: "Custom modifier:"))
+                TextField(
+                    String(localized: "e.g. WWA"),
+                    text: $cqModifierOther
+                )
+                .textFieldStyle(.roundedBorder)
+                .textCase(.uppercase)
+                .autocapitalization(.allCharacters)
+                .onChange(of: cqModifierOther) { value in
+                    cqModifierOther = sanitizeCustomModifier(value)
+                }
+            }
+        }
+
         if let label = cqModifier.referenceLabel,
            let placeholder = cqModifier.referencePlaceholder {
             HStack {
@@ -114,6 +130,20 @@ struct CQModifierView: View {
                 .autocapitalization(.allCharacters)
             }
         }
+    }
+
+    private var selectedModifierDisplay: String {
+        if cqModifier == .other {
+            let custom = sanitizeCustomModifier(cqModifierOther)
+            return custom.isEmpty ? String(localized: "Others") : "\(String(localized: "Others")): \(custom)"
+        }
+        return cqModifier.displayName
+    }
+
+    private func sanitizeCustomModifier(_ value: String) -> String {
+        let upper = value.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let filtered = upper.filter { $0.isLetter || $0.isNumber || $0 == "/" }
+        return String(filtered.prefix(4))
     }
     
     private func referenceBinding(for modifier: CQModifier) -> Binding<String> {

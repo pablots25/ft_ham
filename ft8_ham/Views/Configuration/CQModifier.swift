@@ -9,6 +9,7 @@ import Foundation
 
 enum CQModifier: String, CaseIterable, Identifiable {
     case none = "NONE"
+    case other = "OTHER"
     case dx = "DX"
     case eu = "EU"
     case na = "NA"
@@ -29,11 +30,13 @@ extension CQModifier {
     enum Group: String, CaseIterable {
         case geographic = "Geographic"
         case activations = "Activations"
+        case custom = "Custom"
         
         var localizedName: String {
             switch self {
             case .geographic: return String(localized: "Geographic")
             case .activations: return String(localized: "Activations")
+            case .custom: return String(localized: "Custom")
             }
         }
     }
@@ -44,6 +47,8 @@ extension CQModifier {
             return .geographic
         case .pota, .sota, .wwff, .iota:
             return .activations
+        case .other:
+            return .custom
         case .none:
             return nil
         }
@@ -56,6 +61,7 @@ extension CQModifier {
     var displayName: String {
         switch self {
         case .none: return String(localized: "None")
+        case .other: return String(localized: "Others")
         case .dx: return String(localized: "DX (Long distance)")
         case .eu: return String(localized: "EU (Europe)")
         case .na: return String(localized: "NA (North America)")

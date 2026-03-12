@@ -45,11 +45,7 @@ struct CountryPair: Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(sender)
-        if let receiver = receiver {
-            hasher.combine(receiver)
-        } else {
-            hasher.combine(0)
-        }
+        hasher.combine(receiver)
     }
 
     static func ==(lhs: CountryPair, rhs: CountryPair) -> Bool {
@@ -148,9 +144,9 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
 
         cqModifier = FT8Message.parseCQStructure(parts)?.modifier
         
-        let myCallsign = UserDefaults.standard.string(forKey: "callsign")
+        FT8Message.ensureCallsignCacheInitialized()
 
-        if let my = myCallsign, !my.isEmpty {
+        if let my = FT8Message.cachedCallsign, !my.isEmpty {
             forMe = FT8Message.isForMe(
                 participants: participants,
                 myCallsign: my,
@@ -308,11 +304,52 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
     }
 
     
-    // MARK: - FT8 CQ Token Whitelist (from WSJT-X grammar)
+    // MARK: - FT8 CQ Token Whitelist (TX presets)
     static let validCQTokens: Set<String> = [
         "DX","EU","NA","SA","AF","AS","OC","ANT",
         "POTA","SOTA","WWFF","IOTA"
     ]
+
+    private(set) static var cachedCallsign: String?
+    private static var callsignObserver: NSObjectProtocol?
+    private static var isCallsignCacheInitialized = false
+
+    private static func ensureCallsignCacheInitialized() {
+        guard !isCallsignCacheInitialized else { return }
+
+        isCallsignCacheInitialized = true
+        cachedCallsign = UserDefaults.standard.string(forKey: "callsign")?.uppercased()
+
+        callsignObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: UserDefaults.standard,
+            queue: nil
+        ) { _ in
+            cachedCallsign = UserDefaults.standard.string(forKey: "callsign")?.uppercased()
+        }
+    }
+
+    // MARK: - RX CQ modifier validation (permissive)
+    // For receive-side parsing we accept any plausible CQ modifier token,
+    // keeping it raw without canonical interpretation.
+    private static func isPlausibleCQModifier(_ token: Substring) -> Bool {
+        let upper = String(token).uppercased()
+
+        guard !upper.isEmpty else { return false }
+
+        // Protocol words and values that are not modifiers
+        let protocolTokens: Set<String> = ["CQ", "QRZ", "DE", "RR73", "73"]
+        if protocolTokens.contains(upper) {
+            return false
+        }
+
+        if isValidCallsign(upper) || isValidLocator(upper) || isSignalReport(Substring(upper)) {
+            return false
+        }
+
+        let pattern = #"^[A-Z0-9/]{1,4}$"#
+        return upper.range(of: pattern, options: .regularExpression) != nil
+    }
 
     // MARK: - Parsing helpers
     private static func splitParts(_ text: String) -> [Substring] {
@@ -338,9 +375,9 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
             return (nil, String(parts[1]), locator)
         }
 
-        // CQ TOKEN CALL [GRID]
+          // CQ TOKEN CALL [GRID]
         if parts.count >= 3,
-           validCQTokens.contains(String(parts[1])),
+              isPlausibleCQModifier(parts[1]),
            isValidCallsign(String(parts[2])) {
 
             let locator = (parts.count >= 4 && isValidLocator(String(parts[3])))
@@ -413,8 +450,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         
         let p = parseParticipants(parts: parts)
         
-        if let s = p.senderCallsign,
-           let r = p.receiverCallsign {
+        if p.senderCallsign != nil && p.receiverCallsign != nil {
             
             if parts.contains("RR73") { return .rr73 }
             if parts.contains("RRR") { return .rrr }

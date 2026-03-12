@@ -200,6 +200,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     
     @AppStorage("callsign") var callsign = ""
     @AppStorage("locator") var locator = ""
+    @AppStorage("autoLocatorFromGPS") var autoLocatorFromGPS: Bool = true
 
     @AppStorage("frequency") private var _frequency = 1500.0
     
@@ -457,6 +458,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     // MARK: - Location Manager Setup
     @MainActor
     func configureLocationManager() {
+        guard autoLocatorFromGPS else {
+            locationManager.stopUpdatingLocation()
+            appLogger.info("Auto locator from GPS disabled, stopping location updates")
+            return
+        }
+
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
         
@@ -475,6 +482,18 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
             appLogger.warning("Location services not authorized: \(status.rawValue)")
         @unknown default:
             appLogger.warning("Unknown location authorization status")
+        }
+    }
+
+    @MainActor
+    func setAutoLocatorFromGPS(_ enabled: Bool) {
+        autoLocatorFromGPS = enabled
+
+        if enabled {
+            configureLocationManager()
+        } else {
+            locationManager.stopUpdatingLocation()
+            appLogger.info("Switched locator source to manual")
         }
     }
 
@@ -500,6 +519,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @MainActor
     func locationManager(_ manager: CLLocationManager,
                          didUpdateLocations locations: [CLLocation]) {
+        guard autoLocatorFromGPS else { return }
         guard let location = locations.last else { return }
 
         let newLocator = MaidenheadGrid.locator(

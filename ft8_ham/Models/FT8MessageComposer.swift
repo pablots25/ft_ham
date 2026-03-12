@@ -8,6 +8,20 @@
 import Foundation
 
 struct FT8MessageComposer {
+    private func normalizedOutboundModifier(_ raw: String) -> String? {
+        var upper = raw.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if upper == "OTHER" {
+            upper = (UserDefaults.standard.string(forKey: "cqModifierOther") ?? "")
+                .uppercased()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard upper != "NONE" else { return nil }
+
+        let filtered = upper.filter { $0.isLetter || $0.isNumber || $0 == "/" }
+        guard filtered.count >= 1 && filtered.count <= 4 else { return nil }
+        return filtered
+    }
+
     func generateMessages(
         callsign: String,
         locator: String,
@@ -33,8 +47,8 @@ struct FT8MessageComposer {
         
         // Build CQ message with optional modifier
         let cqMessage: String
-        if cqModifier != "NONE", FT8Message.validCQTokens.contains(cqModifier) {
-            cqMessage = "CQ \(cqModifier) \(de)"
+        if let txModifier = normalizedOutboundModifier(cqModifier) {
+            cqMessage = "CQ \(txModifier) \(de)"
         } else {
             cqMessage = "CQ \(de) \(grid)"
         }

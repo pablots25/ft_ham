@@ -38,6 +38,7 @@ enum HelpTip: Identifiable {
     case autoSequencing
     case autoQSOLogging
     case analytics
+    case locatorGPS
 
     var id: Self { self }
 
@@ -59,6 +60,8 @@ enum HelpTip: Identifiable {
             return String(localized: "Auto QSO Logging help")
         case .analytics:
             return String(localized: "Analytics help")
+        case .locatorGPS:
+            return String(localized: "Auto Locator help")
         }
     }
     
@@ -245,21 +248,14 @@ struct ConfigurationView: View {
                 VStack(spacing: 20) {
                     // MARK: Configuration fields
                     
-                    VStack(spacing: 0) {
-                        HStack(spacing: 50) {
-                            callsignView
-                            locatorView
-                        }
-                        .padding(.bottom, 5)
-                        
-                        Text("Callsign modifiers are allowed")
-                            .font(.footnote)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(1)
-                            .foregroundStyle(.secondary)
-                    }
+                    callsignView
+                        .padding(.horizontal)
+
+                    locatorView
+                        .padding(.horizontal)
                     
                     CQModifierView()
+                        .padding(.horizontal)
                     
                     Divider()
                     
@@ -509,49 +505,74 @@ struct ConfigurationView: View {
     
     // MARK: - Subviews
     private var callsignView: some View {
-        VStack {
-            Text("Callsign:")
-            TextField("", text: $callsignText)
-                .textFieldStyle(.roundedBorder)
+        VStack(alignment: .leading){
+            HStack{
+                Text("Callsign:")
+                TextField("", text: $callsignText)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.center)
+                    .focused($focusedInput, equals: .callsign)
+                    .lineLimit(1)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .onChange(of: callsignText) { newValue in
+                        validCallsign = isValidCallsign(newValue.uppercased())
+                    }
+                    .onSubmit {
+                        commitCallsign()
+                    }
+                    .border(validCallsign ? Color.clear : Color.red)
+                
+            }
+
+            Text("Callsign modifiers are allowed")
+                .font(.footnote)
                 .multilineTextAlignment(.center)
-                .frame(width: 120)
-                .focused($focusedInput, equals: .callsign)
                 .lineLimit(1)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .onChange(of: callsignText) { newValue in
-                    validCallsign = isValidCallsign(newValue.uppercased())
-                }
-                .onSubmit {
-                    commitCallsign()
-                }
-                .border(validCallsign ? Color.clear : Color.red)
+                .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 20)
     }
     
     private var locatorView: some View {
-        VStack {
-            Text("Locator:")
-            TextField("", text: $viewModel.locator)
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.center)
-                .textCase(.uppercase)
-                .frame(width: 80)
-                .focused($focusedInput, equals: .locator)
-                .lineLimit(1)
-                .onChange(of: viewModel.locator) { newValue in
-                    var text = newValue.uppercased()
-                    text.removeAll(where: { $0.isWhitespace })
-                    if text.count > 4 {
-                        text = String(text.prefix(4))
+        VStack (alignment: .leading){
+            HStack{
+                Text("Locator:")
+                Spacer()
+                TextField("", text: $viewModel.locator)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.center)
+                    .textCase(.uppercase)
+                    .focused($focusedInput, equals: .locator)
+                    .lineLimit(1)
+                    .disabled(viewModel.autoLocatorFromGPS)
+                    .onChange(of: viewModel.locator) { newValue in
+                        var text = newValue.uppercased()
+                        text.removeAll(where: { $0.isWhitespace })
+                        if text.count > 4 {
+                            text = String(text.prefix(4))
+                        }
+                        if text != viewModel.locator {
+                            viewModel.locator = text
+                        }
+                        validLocator = isValidLocator(text)
                     }
-                    if text != viewModel.locator {
-                        viewModel.locator = text
-                    }
-                    validLocator = isValidLocator(text)
-                }
-                .border(validLocator ? Color.clear : Color.red)
+                    .border(validLocator ? Color.clear : Color.red)
+
+            }
+            
+            ToggleRow(
+                labelKey: "Auto (from GPS)",
+                helpTip: .locatorGPS,
+                isOn: Binding(
+                    get: { viewModel.autoLocatorFromGPS },
+                    set: { viewModel.setAutoLocatorFromGPS($0) }
+                ),
+                activeHelp: $activeHelp
+            )
+
         }
+        .padding(.horizontal, 20)
     }
     
     private var modeView: some View {
