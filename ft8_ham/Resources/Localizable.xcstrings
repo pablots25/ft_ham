@@ -586,6 +586,12 @@
             "state" : "translated",
             "value" : "Auto (from GPS)"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto (usa GPS)"
+          }
         }
       }
     },
@@ -633,6 +639,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Automatically updates your locator from GPS while enabled."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualiza automáticamente tu locator desde el GPS mientras esté habilitado."
           }
         }
       }
@@ -1062,6 +1074,12 @@
             "state" : "translated",
             "value" : "Custom"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personalizado"
+          }
         }
       }
     },
@@ -1073,6 +1091,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Custom modifier:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modificador personalizado:"
           }
         }
       }
@@ -1387,6 +1411,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "e.g. WWA"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "i.e WWA"
           }
         }
       }
@@ -3164,6 +3194,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Others"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros"
           }
         }
       }
