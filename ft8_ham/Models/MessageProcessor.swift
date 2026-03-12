@@ -25,6 +25,7 @@ struct MessageParams: Equatable {
     let dxLocator: String
     let snrToSend: Double
     let cqModifier: String
+    let cqIncludeGrid: Bool
 
     static func ==(lhs: MessageParams, rhs: MessageParams) -> Bool {
         return lhs.callsign == rhs.callsign &&
@@ -32,7 +33,8 @@ struct MessageParams: Equatable {
                lhs.dxCallsign == rhs.dxCallsign &&
                lhs.dxLocator == rhs.dxLocator &&
                (lhs.snrToSend.isNaN && rhs.snrToSend.isNaN || lhs.snrToSend == rhs.snrToSend) &&
-               lhs.cqModifier == rhs.cqModifier
+               lhs.cqModifier == rhs.cqModifier &&
+               lhs.cqIncludeGrid == rhs.cqIncludeGrid
     }
 }
 

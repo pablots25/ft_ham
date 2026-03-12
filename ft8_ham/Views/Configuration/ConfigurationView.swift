@@ -39,6 +39,7 @@ enum HelpTip: Identifiable {
     case autoQSOLogging
     case analytics
     case locatorGPS
+    case cqIncludeGrid
 
     var id: Self { self }
 
@@ -62,6 +63,8 @@ enum HelpTip: Identifiable {
             return String(localized: "Analytics help")
         case .locatorGPS:
             return String(localized: "Auto Locator help")
+        case .cqIncludeGrid:
+            return String(localized: "Include Grid in CQ help")
         }
     }
     
@@ -248,16 +251,24 @@ struct ConfigurationView: View {
                 VStack(spacing: 20) {
                     // MARK: Configuration fields
                     
+                    Text("Station details").font(.headline)
+                    
                     callsignView
                         .padding(.horizontal)
+                    
+                    Divider()
 
                     locatorView
                         .padding(.horizontal)
+                    
+                    Divider()
                     
                     CQModifierView()
                         .padding(.horizontal)
                     
                     Divider()
+                    
+                    Text("Mode and frequency").font(.headline)
                     
                     HStack(spacing: 20) {
                         modeView
@@ -272,25 +283,33 @@ struct ConfigurationView: View {
         
                     Divider()
                     
+                    Text("QSO settings").font(.headline)
+                    
                     qsoConfigSection
                     
                     togglesView
                     
                     Divider()
                     
+                    Text("Interface").font(.headline)
+                    
                     viewModeView
                     
                     Divider()
+                    
+                    Text("Messages").font(.headline)
+                    
                     GenMessagesView()
                     
                     Divider()
+                    
+                    Text("User support").font(.headline)
                     
                     Button {
                         showHelp = true
                     } label: {
                         Text("Help")
                             .font(.headline)
-                            .foregroundStyle(.blue)
                     }
                     
                     Button("Reset help messages") {
@@ -311,14 +330,16 @@ struct ConfigurationView: View {
                     
                     Divider()
                     
+                    Text("Privacy and analytics").font(.headline)
+                    
                     analyticsSection
                             
-                if flags.isEnabled(.showLogsView) {
-                    NavigationLink(destination: LogsView()) {
-                        Text("View app logs")
-                            .foregroundStyle(.blue)
+                    if flags.isEnabled(.showLogsView) {
+                        NavigationLink(destination: LogsView()) {
+                            Text("View app logs")
+                                .foregroundStyle(.blue)
+                        }
                     }
-                }
                 
 
                 #if DEBUG
@@ -357,6 +378,8 @@ struct ConfigurationView: View {
 
                 
                 Divider()
+                    
+                Text("Legal").font(.headline)
                 
                 LicenseView()
                 
@@ -568,6 +591,13 @@ struct ConfigurationView: View {
                     get: { viewModel.autoLocatorFromGPS },
                     set: { viewModel.setAutoLocatorFromGPS($0) }
                 ),
+                activeHelp: $activeHelp
+            )
+
+            ToggleRow(
+                labelKey: "Include Grid in CQ",
+                helpTip: .cqIncludeGrid,
+                isOn: $viewModel.cqIncludeGrid,
                 activeHelp: $activeHelp
             )
 

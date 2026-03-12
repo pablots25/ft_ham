@@ -197,6 +197,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
+    @AppStorage("cqIncludeGrid") var cqIncludeGrid: Bool = true
     
     @AppStorage("callsign") var callsign = ""
     @AppStorage("locator") var locator = ""
@@ -404,7 +405,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
             dxCallsign: dxCallsign,
             dxLocator: dxLocator,
             snrToSend: lastSentSNR,
-            cqModifier: UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE"
+            cqModifier: UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE",
+            cqIncludeGrid: UserDefaults.standard.object(forKey: "cqIncludeGrid") as? Bool ?? true
         )
 
         if let lastParams = lastGeneratedMessageParams, lastParams == currentParams {

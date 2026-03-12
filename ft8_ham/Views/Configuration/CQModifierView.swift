@@ -67,7 +67,6 @@ struct CQModifierView: View {
     @AppStorage("mySotaRef") var mySotaRef: String = ""
     @AppStorage("myWwffRef") var myWwffRef: String = ""
     @AppStorage("myIotaRef") var myIotaRef: String = ""
-    
     private var cqModifier: CQModifier {
         CQModifier(rawValue: cqModifierRaw) ?? .none
     }
@@ -93,7 +92,7 @@ struct CQModifierView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            
+
             referenceFieldView
         }
         .padding(.horizontal, 20)

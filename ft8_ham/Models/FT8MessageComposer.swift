@@ -27,7 +27,8 @@ struct FT8MessageComposer {
         locator: String,
         dxCallsign: String,
         dxLocator: String,
-        snrToSend: Double
+        snrToSend: Double,
+        includeGrid: Bool = true
     ) -> [String] {
         let de = callsign.uppercased().trimmingCharacters(in: .whitespaces)
         let grid = String(locator.uppercased().prefix(4))
@@ -44,13 +45,14 @@ struct FT8MessageComposer {
 
         // Get CQ modifier from UserDefaults
         let cqModifier = UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE"
-        
-        // Build CQ message with optional modifier
+
+        // Build CQ message with optional modifier and optional grid
+        let gridSuffix = (includeGrid && grid.count >= 4) ? " \(grid)" : ""
         let cqMessage: String
         if let txModifier = normalizedOutboundModifier(cqModifier) {
-            cqMessage = "CQ \(txModifier) \(de)"
+            cqMessage = "CQ \(txModifier) \(de)\(gridSuffix)"
         } else {
-            cqMessage = "CQ \(de) \(grid)"
+            cqMessage = "CQ \(de)\(gridSuffix)"
         }
 
         // 2. Standard WSJT-X sequence definition

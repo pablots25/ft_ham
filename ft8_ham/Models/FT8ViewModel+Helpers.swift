@@ -68,18 +68,20 @@ extension FT8ViewModel{
     }
 
     func generateMessages() -> [String] {
+        let includeGrid = UserDefaults.standard.object(forKey: "cqIncludeGrid") as? Bool ?? true
         let currentParams = MessageParams(
             callsign: callsign,
             locator: locator,
             dxCallsign: dxCallsign,
             dxLocator: dxLocator,
             snrToSend: lastSentSNR,
-            cqModifier: UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE"
+            cqModifier: UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE",
+            cqIncludeGrid: includeGrid
         )
         
         appLogger.log(
             .info,
-            "Generating messages for callsign: \(callsign), locator: \(locator), dxCallsign: \(dxCallsign), dxLocator: \(dxLocator), power: \(lastSentSNR)"
+            "Generating messages for callsign: \(callsign), locator: \(locator), dxCallsign: \(dxCallsign), dxLocator: \(dxLocator), power: \(lastSentSNR), includeGrid: \(includeGrid)"
         )
         
         // Cache hit - avoid regeneration
@@ -93,7 +95,8 @@ extension FT8ViewModel{
             locator: locator,
             dxCallsign: dxCallsign,
             dxLocator: dxLocator,
-            snrToSend: lastSentSNR
+            snrToSend: lastSentSNR,
+            includeGrid: includeGrid
         )
         
         cachedMessages = messages
