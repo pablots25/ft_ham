@@ -1,20 +1,21 @@
 //
-//  CQModifierView.swift
+//  NewCQModifierView.swift
 //  ft_ham
 //
-//  Created by Pablo Turrion on 02/19/26.
+//  CQ Modifier views adapted for the new Settings-style configuration.
 //
 
 import SwiftUI
 
-// MARK: - Selection View for CQ Modifier
-struct CQModifierSelectionView: View {
+// MARK: - Selection View for CQ Modifier (Settings-style)
+struct NewCQModifierSelectionView: View {
     @AppStorage("cqModifier") var cqModifierRaw: String = CQModifier.none.rawValue
     @AppStorage("cqModifierOther") var cqModifierOther: String = ""
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         List {
+            Group {
             Section {
                 selectionRow(for: .none)
             }
@@ -34,11 +35,10 @@ struct CQModifierSelectionView: View {
             Section(CQModifier.Group.custom.localizedName) {
                 selectionRow(for: .other)
             }
+            }
+            .padding(.horizontal)
         }
-        .scrollContentBackground(.hidden)
-        .background(Color(.systemBackground))
-        .navigationTitle(Text("CQ Modifier"))
-        .navigationBarTitleDisplayMode(.inline)
+        .settingsFormStyle(title: "CQ Modifier")
     }
     
     private func selectionRow(for modifier: CQModifier) -> some View {
@@ -52,22 +52,21 @@ struct CQModifierSelectionView: View {
                 Spacer()
                 if cqModifierRaw == modifier.rawValue {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
         }
     }
 }
 
-// MARK: - Main CQ Modifier View
-struct CQModifierView: View {
+// MARK: - Main CQ Modifier View (Settings-style)
+struct NewCQModifierView: View {
     @AppStorage("cqModifier") var cqModifierRaw: String = CQModifier.none.rawValue
     @AppStorage("cqModifierOther") var cqModifierOther: String = ""
     @AppStorage("myPotaRef") var myPotaRef: String = ""
     @AppStorage("mySotaRef") var mySotaRef: String = ""
     @AppStorage("myWwffRef") var myWwffRef: String = ""
     @AppStorage("myIotaRef") var myIotaRef: String = ""
-    
     private var cqModifier: CQModifier {
         CQModifier(rawValue: cqModifierRaw) ?? .none
     }
@@ -75,28 +74,26 @@ struct CQModifierView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             NavigationLink {
-                CQModifierSelectionView()
+                NewCQModifierSelectionView()
             } label: {
                 HStack {
                     Text("CQ Modifier", comment: "Configuration section title")
-                    
+
                     Spacer()
-                    
+
                     Text(selectedModifierDisplay)
                         .foregroundStyle(.secondary)
-                    
+
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
-                .cornerRadius(8)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            
+
             referenceFieldView
         }
-        .padding(.horizontal, 20)
     }
     
     @ViewBuilder
@@ -159,7 +156,6 @@ struct CQModifierView: View {
 
 #Preview {
     NavigationStack {
-        CQModifierView()
+        NewCQModifierView()
     }
 }
-

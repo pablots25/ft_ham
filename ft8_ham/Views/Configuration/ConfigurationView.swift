@@ -8,152 +8,168 @@
 import SwiftUI
 import SafariServices
 
-// MARK: - In-app Safari View
+// MARK: - New Configuration View (Settings-style)
 
-struct SafariView: UIViewControllerRepresentable {
-    let url: URL
+struct NewConfigurationView: View {
+    @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
+    @Binding var shouldScrollToDonations: Bool
 
-    func makeUIViewController(context: Context) -> SFSafariViewController {
-        let configuration = SFSafariViewController.Configuration()
-        configuration.entersReaderIfAvailable = false
+    @State private var showHelp = false
+    @State private var showSupport = false
 
-        let controller = SFSafariViewController(url: url, configuration: configuration)
-        controller.preferredControlTintColor = UIColor.systemBlue
-        return controller
-    }
-
-    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {
-        // No updates needed
-    }
-}
-
-// MARK: - HelpTip Enum (Fallback for iOS 16)
-
-enum HelpTip: Identifiable {
-    case autoRXAtStart
-    case autoCQReply
-    case autoCQNewBandMode
-    case decodeSelfTX
-    case holdTXFrequency
-    case autoSequencing
-    case autoQSOLogging
-    case analytics
-    case locatorGPS
-    case cqIncludeGrid
-
-    var id: Self { self }
-
-    var text: String {
-        switch self {
-        case .autoRXAtStart:
-            return String(localized: "Auto RX help")
-        case .autoCQReply:
-            return String(localized: "Auto CQ Reply help")
-        case .autoCQNewBandMode:
-            return String(localized: "Auto CQ New Band Mode help")
-        case .decodeSelfTX:
-            return String(localized: "Decode Self TX help")
-        case .holdTXFrequency:
-            return String(localized: "Hold TX Frequency help")
-        case .autoSequencing:
-            return String(localized: "Auto Sequencing help")
-        case .autoQSOLogging:
-            return String(localized: "Auto QSO Logging help")
-        case .analytics:
-            return String(localized: "Analytics help")
-        case .locatorGPS:
-            return String(localized: "Auto Locator help")
-        case .cqIncludeGrid:
-            return String(localized: "Include Grid in CQ help")
-        }
-    }
-    
-    var accessibilityHint: String {
-        text
-    }
-}
-
-// MARK: - Toggle Row Component
-
-struct ToggleRow: View, Equatable {
-    let labelKey: LocalizedStringKey
-    let helpTip: HelpTip
-    @Binding var isOn: Bool
-    @Binding var activeHelp: HelpTip?
-    
-    static func == (lhs: ToggleRow, rhs: ToggleRow) -> Bool {
-        lhs.labelKey == rhs.labelKey &&
-        lhs.helpTip == rhs.helpTip &&
-        lhs.isOn == rhs.isOn &&
-        lhs.activeHelp == rhs.activeHelp
-    }
-    
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .center, spacing: 8) {
-                Toggle("", isOn: $isOn)
-                    .labelsHidden()
-                    .accessibilityLabel(Text(labelKey))
-                    .accessibilityHint(Text(helpTip.accessibilityHint))
-                
-                Text(labelKey)
-                    .font(.body)
-                    .lineLimit(2)
-                
-                Spacer()
-                
-                // Info button: toggle inline expandable help
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
-                        activeHelp = (activeHelp == helpTip) ? nil : helpTip
+        List {
+            Group{
+                // MARK: - Settings
+                Section {
+                    NavigationLink {
+                        StationSettingsView()
+                    } label: {
+                        Label("Station", systemImage: "antenna.radiowaves.left.and.right")
                     }
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
+                    
+                    NavigationLink {
+                        RadioSettingsView()
+                    } label: {
+                        Label("Radio", systemImage: "dial.low")
+                    }
+                    
+                    NavigationLink {
+                        BehaviorSettingsView()
+                    } label: {
+                        Label("Behavior", systemImage: "gearshape.2")
+                    }
+                    
+                    NavigationLink {
+                        InterfaceSettingsView()
+                    } label: {
+                        Label("Interface", systemImage: "rectangle.3.group")
+                    }
                 }
-                .buttonStyle(.plain)
-                .frame(width: 20, height: 20)
-                .accessibilityLabel(Text("Help"))
-                .accessibilityHint(Text(helpTip.accessibilityHint))
+                
+                // MARK: - Debug
+#if DEBUG
+                Section {
+                    NavigationLink {
+                        DebugSettingsView()
+                    } label: {
+                        Label("Debug", systemImage: "ladybug")
+                    }
+                }
+#endif
+                
+                // MARK: - Help & Support
+                Section {
+                    Button {
+                        showHelp = true
+                    } label: {
+                        HStack {
+                            Label("Getting Started Guide", systemImage: "book")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    
+                    Button {
+                        showSupport = true
+                    } label: {
+                        HStack {
+                            Label("Support Development", systemImage: "heart")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    
+                    Button {
+                        if let url = URL(string: "mailto:ftham@turrion.dev?subject=FT8%20Ham%20App%20Feedback") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        HStack {
+                            Label("Send Feedback", systemImage: "envelope")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                } header: {
+                    Text("Help & Support")
+                }
+                
+                // MARK: - About
+                Section {
+                    NavigationLink {
+                        LegalAndPrivacyView()
+                    } label: {
+                        Label("Legal & Privacy", systemImage: "hand.raised")
+                    }
+                } footer: {
+                    versionFooter
+                }
+                
             }
-            
-            // Inline expandable help with smooth spring animation
-            if activeHelp == helpTip {
-                HelpBubble(text: helpTip.text)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
-                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
-                    ))
+            .padding(.horizontal)
+        }
+        .listStyle(.plain)
+        .sheet(isPresented: $showSupport) {
+            NavigationStack {
+                SupportView()
+                    .navigationTitle("Support Development")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showSupport = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showHelp) {
+            SafariView(url: URL(string: "https://ftham.turrion.dev/#getting-started")!)
+                .ignoresSafeArea()
+        }
+        .onChange(of: shouldScrollToDonations) { shouldScroll in
+            if shouldScroll {
+                showSupport = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    shouldScrollToDonations = false
+                }
             }
         }
     }
-}
 
-private struct HelpBubble: View {
-    let text: String
+    // MARK: - Version Footer
 
-    var body: some View {
-        Text(text)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.systemGray6))
-            .cornerRadius(8)
+    private var versionFooter: some View {
+        VStack(spacing: 2) {
+            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+               let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+                Text(String(format: String(localized: "Version %@ (Build %@)"), version, build))
+            } else {
+                Text("Version unknown")
+            }
+            Text(".copyright")
+            Text("Pablo Turrión San Pedro (EA4IQL)")
+        }
+        .frame(maxWidth: .infinity)
+        .multilineTextAlignment(.center)
+        .foregroundStyle(.secondary)
+        .font(.footnote)
+
     }
+
 }
 
-// MARK: - Configuration View
-
-enum ViewMode: String, Codable, CaseIterable, Identifiable {
-    case vertical = "Vertical"
-    case separated = "TX/RX Separated"
-    case condensed = "Condensed"
-
-    var id: String { rawValue }
-
-    var textKey: LocalizedStringKey { LocalizedStringKey(rawValue) }
-}
+// MARK: - Legacy Configuration View
 
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
@@ -251,24 +267,16 @@ struct ConfigurationView: View {
                 VStack(spacing: 20) {
                     // MARK: Configuration fields
                     
-                    Text("Station details").font(.headline)
-                    
                     callsignView
                         .padding(.horizontal)
-                    
-                    Divider()
 
                     locatorView
                         .padding(.horizontal)
-                    
-                    Divider()
                     
                     CQModifierView()
                         .padding(.horizontal)
                     
                     Divider()
-                    
-                    Text("Mode and frequency").font(.headline)
                     
                     HStack(spacing: 20) {
                         modeView
@@ -283,33 +291,25 @@ struct ConfigurationView: View {
         
                     Divider()
                     
-                    Text("QSO settings").font(.headline)
-                    
                     qsoConfigSection
                     
                     togglesView
                     
                     Divider()
                     
-                    Text("Interface").font(.headline)
-                    
                     viewModeView
                     
                     Divider()
-                    
-                    Text("Messages").font(.headline)
-                    
                     GenMessagesView()
                     
                     Divider()
-                    
-                    Text("User support").font(.headline)
                     
                     Button {
                         showHelp = true
                     } label: {
                         Text("Help")
                             .font(.headline)
+                            .foregroundStyle(.blue)
                     }
                     
                     Button("Reset help messages") {
@@ -330,16 +330,14 @@ struct ConfigurationView: View {
                     
                     Divider()
                     
-                    Text("Privacy and analytics").font(.headline)
-                    
                     analyticsSection
                             
-                    if flags.isEnabled(.showLogsView) {
-                        NavigationLink(destination: LogsView()) {
-                            Text("View app logs")
-                                .foregroundStyle(.blue)
-                        }
+                if flags.isEnabled(.showLogsView) {
+                    NavigationLink(destination: LogsView()) {
+                        Text("View app logs")
+                            .foregroundStyle(.blue)
                     }
+                }
                 
 
                 #if DEBUG
@@ -378,8 +376,6 @@ struct ConfigurationView: View {
 
                 
                 Divider()
-                    
-                Text("Legal").font(.headline)
                 
                 LicenseView()
                 
@@ -504,27 +500,6 @@ struct ConfigurationView: View {
         }
     }
     #endif
-    
-    enum AppStorageResetter {
-        static let onboardingKey = "hasCompletedOnboarding"
-        
-        static let tutorialKeys = [
-            "hasSeenFloatingButtonTutorial",
-            "hasSeenSlideToReplyTutorial"
-        ]
-        
-        static func resetTutorials() {
-            for key in tutorialKeys {
-                UserDefaults.standard.removeObject(forKey: key)
-            }
-            UserDefaults.standard.synchronize()
-        }
-        
-        static func resetOnboarding() {
-            UserDefaults.standard.removeObject(forKey: onboardingKey)
-            UserDefaults.standard.synchronize()
-        }
-    }
     
     // MARK: - Subviews
     private var callsignView: some View {
@@ -996,7 +971,22 @@ struct ConfigurationView: View {
     }
 }
 
-#Preview("ConfigurationView") {
+#Preview("New ConfigurationView") {
+    NavigationStack {
+        NewConfigurationView(shouldScrollToDonations: .constant(false))
+            .navigationTitle("Configuration")
+            .navigationBarTitleDisplayMode(.automatic)
+    }
+    .environmentObject(
+        FT8ViewModel(
+            txMessages: PreviewMocks.txMessages,
+            rxMessages: PreviewMocks.rxMessages
+        )
+    )
+    .environmentObject(FeatureFlagManager.shared)
+}
+
+#Preview("Legacy ConfigurationView") {
     ConfigurationView(shouldScrollToDonations: .constant(false))
         .environmentObject(
             FT8ViewModel(

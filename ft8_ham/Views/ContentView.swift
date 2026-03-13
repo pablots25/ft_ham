@@ -12,6 +12,7 @@ import Combine
 
 struct ContentView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @StateObject private var progressVM = ProgressViewModel()
     @StateObject private var prompts = InAppPrompts.shared
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
@@ -223,9 +224,15 @@ struct ContentView: View {
                     .tag(3)
 
                     NavigationStack {
-                        ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
-                            .navigationTitle("Configuration")
-                            .navigationBarTitleDisplayMode(.inline)
+                        if flags.isEnabled(.newConfigView) {
+                            NewConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
+                                .navigationTitle("Configuration")
+                                .navigationBarTitleDisplayMode(.inline)
+                        } else {
+                            ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
+                                .navigationTitle("Configuration")
+                                .navigationBarTitleDisplayMode(.inline)
+                        }
                     }
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.configuration)
@@ -476,6 +483,7 @@ struct TermsSheet: View {
     
     return ContentView()
             .environmentObject(viewModel)
+            .environmentObject(FeatureFlagManager.shared)
             .environment(\.locale, .init(identifier: "en"))
 }
 
@@ -490,6 +498,7 @@ struct TermsSheet: View {
     
     return ContentView()
         .environmentObject(viewModel)
+        .environmentObject(FeatureFlagManager.shared)
         .environment(\.locale, .init(identifier: "es"))
 }
 
