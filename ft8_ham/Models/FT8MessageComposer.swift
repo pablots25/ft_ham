@@ -8,12 +8,27 @@
 import Foundation
 
 struct FT8MessageComposer {
+    private func normalizedOutboundModifier(_ raw: String) -> String? {
+        var upper = raw.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if upper == "OTHER" {
+            upper = (UserDefaults.standard.string(forKey: "cqModifierOther") ?? "")
+                .uppercased()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard upper != "NONE" else { return nil }
+
+        let filtered = upper.filter { $0.isLetter || $0.isNumber || $0 == "/" }
+        guard filtered.count >= 1 && filtered.count <= 4 else { return nil }
+        return filtered
+    }
+
     func generateMessages(
         callsign: String,
         locator: String,
         dxCallsign: String,
         dxLocator: String,
-        snrToSend: Double
+        snrToSend: Double,
+        includeGrid: Bool = true
     ) -> [String] {
         let de = callsign.uppercased().trimmingCharacters(in: .whitespaces)
         let grid = String(locator.uppercased().prefix(4))
@@ -30,13 +45,14 @@ struct FT8MessageComposer {
 
         // Get CQ modifier from UserDefaults
         let cqModifier = UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE"
-        
-        // Build CQ message with optional modifier
+
+        // Build CQ message with optional modifier and optional grid
+        let gridSuffix = (includeGrid && grid.count >= 4) ? " \(grid)" : ""
         let cqMessage: String
-        if cqModifier != "NONE", FT8Message.validCQTokens.contains(cqModifier) {
-            cqMessage = "CQ \(cqModifier) \(de)"
+        if let txModifier = normalizedOutboundModifier(cqModifier) {
+            cqMessage = "CQ \(txModifier) \(de)\(gridSuffix)"
         } else {
-            cqMessage = "CQ \(de) \(grid)"
+            cqMessage = "CQ \(de)\(gridSuffix)"
         }
 
         // 2. Standard WSJT-X sequence definition

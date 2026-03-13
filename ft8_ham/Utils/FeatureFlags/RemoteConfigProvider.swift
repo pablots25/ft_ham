@@ -89,19 +89,25 @@ struct WhatsNewConfig: Decodable {
 // MARK: - RemoteConfigProvider
 
 final class RemoteConfigProvider: FeatureFlagProvider {
-    
-    private let remoteConfig: RemoteConfig
+
+    private let remoteConfig: RemoteConfig?
     private var lastFetchDate: Date?
     private var cachedPromptConfig: PromptConfig?
     private var cachedWhatsNewConfig: WhatsNewConfig?
-    
+
     init() {
-        remoteConfig = RemoteConfig.remoteConfig()
-        
+        guard AppEnvironment.current.isProduction else {
+            remoteConfig = nil
+            return
+        }
+
+        let remoteConfig = RemoteConfig.remoteConfig()
+        self.remoteConfig = remoteConfig
+
         let settings = RemoteConfigSettings()
         settings.minimumFetchInterval = 0
         remoteConfig.configSettings = settings
-        
+
         remoteConfig.setDefaults(
             Dictionary(
                 uniqueKeysWithValues: FeatureFlag.allCases.map {
@@ -109,7 +115,7 @@ final class RemoteConfigProvider: FeatureFlagProvider {
                 }
             )
         )
-        
+
         // Set default prompt config JSON
         let defaultPromptJSON = defaultPromptConfigJSON()
         let defaultWhatsNewJSON = defaultWhatsNewConfigJSON()
@@ -229,6 +235,11 @@ final class RemoteConfigProvider: FeatureFlagProvider {
     }
     
     func refreshAllFlags(completion: @escaping () -> Void) {
+      guard let remoteConfig else {
+        completion()
+        return
+      }
+
         guard shouldRefresh() else {
             completion()
             return
@@ -261,18 +272,18 @@ final class RemoteConfigProvider: FeatureFlagProvider {
     }
     
     func boolValue(for flag: FeatureFlag) -> Bool {
-        remoteConfig[flag.rawValue].boolValue
+      remoteConfig?[flag.rawValue].boolValue ?? flag.defaultValue
     }
 
     // MARK: - Prompt Configuration Methods
 
     func intValue(for key: String, defaultValue: Int) -> Int {
-        let value = remoteConfig[key].numberValue.intValue ?? defaultValue
+      let value = remoteConfig?[key].numberValue.intValue ?? defaultValue
         return value > 0 ? value : defaultValue
     }
 
     func boolValue(for key: String, defaultValue: Bool) -> Bool {
-        let stringValue = remoteConfig[key].stringValue ?? ""
+      let stringValue = remoteConfig?[key].stringValue ?? ""
         return stringValue.lowercased() == "true" ? true : defaultValue
     }
     
@@ -282,6 +293,12 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         if let cached = cachedPromptConfig {
             return cached
         }
+
+      guard let remoteConfig else {
+        let config = PromptConfig.defaults()
+        cachedPromptConfig = config
+        return config
+      }
         
         let jsonString = remoteConfig["prompt_config"].stringValue ?? defaultPromptConfigJSON()
         let decoder = JSONDecoder()
@@ -302,6 +319,12 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         if let cached = cachedWhatsNewConfig {
             return cached
         }
+
+      guard let remoteConfig else {
+        let config = WhatsNewConfig.defaults()
+        cachedWhatsNewConfig = config
+        return config
+      }
         
         let jsonString = remoteConfig["whats_new_config"].stringValue ?? defaultWhatsNewConfigJSON()
         let decoder = JSONDecoder()

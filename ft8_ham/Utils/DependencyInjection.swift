@@ -18,19 +18,24 @@ enum AppEnvironment {
     case production
     case preview
     case unitTest
-    
+    case uiTest
+
     static let current: AppEnvironment = {
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
             return .preview
+        }
+        if ProcessInfo.processInfo.arguments.contains("--uitesting") {
+            return .uiTest
         }
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             return .unitTest
         }
         return .production
     }()
-    
+
     var isPreview: Bool { self == .preview }
     var isUnitTest: Bool { self == .unitTest }
+    var isUITest: Bool { self == .uiTest }
     var isProduction: Bool { self == .production }
     var shouldDisableAudio: Bool { self != .production }
 }

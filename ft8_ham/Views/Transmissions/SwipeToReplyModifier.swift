@@ -18,72 +18,68 @@ struct SwipeToReplyModifier: ViewModifier {
     @Binding var didTriggerHaptic: [UUID: Bool]
     @Binding var userDragging: Bool
 
-    private let swipeZoneWidth: CGFloat = 36
     private let triggerThreshold: CGFloat = -60
+    private let maxDrag: CGFloat = -90         // clamp so the row doesn't slide too far
+    private let dampingFactor: CGFloat = 0.4   // resistance past trigger threshold
 
     func body(content: Content) -> some View {
-        ZStack {
-            // Reply indicator background
-            HStack {
-                Spacer()
-                if let offset = dragOffset[messageID], offset < -10 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrowshape.turn.up.left.fill")
-                            .foregroundStyle(.white)
-                            .frame(width: max(abs(offset) - 30, 20))
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+        ZStack(alignment: .trailing) {
+            // Reply indicator revealed behind the sliding row
+            let offset = dragOffset[messageID] ?? 0
+            if offset < -10 {
+                Image(systemName: "arrowshape.turn.up.left.fill")
+                    .foregroundStyle(.white)
+                    .frame(maxHeight: .infinity)
+                    .padding(.horizontal, 14)
                     .background(Color.green)
-                    .cornerRadius(20)
-                    .opacity(min((abs(offset) - 10) / CGFloat(50), 1))
-                    .animation(.easeOut(duration: 0.15), value: offset)
-                }
+                    .clipShape(Capsule())
+                    .scaleEffect(x: min((abs(offset) - 10) / 50.0, 1.0), anchor: .trailing)
+                    .opacity(min((abs(offset) - CGFloat(10)) / 40.0, 1.0))
+                    .padding(.vertical, 1)
             }
 
             content
                 .offset(x: dragOffset[messageID] ?? 0)
-                .overlay(
-                    // Invisible swipe area
-                    Group {
-                        if allowReply {
-                            Rectangle()
-                                .fill(Color.clear)
-                                .frame(width: swipeZoneWidth)
-                                .contentShape(Rectangle())
-                                .gesture(
-                                    DragGesture(minimumDistance: 10)
-                                        .onChanged { value in
-                                            guard value.translation.width < 0 else { return }
-                                            dragOffset[messageID] = value.translation.width
-                                            userDragging = true
+                // simultaneousGesture lets the parent ScrollView still scroll vertically
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 15)
+                        .onChanged { value in
+                            guard allowReply else { return }
+                            // Ignore if movement is more vertical than horizontal
+                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                            // Only left swipe
+                            guard value.translation.width < 0 else { return }
 
-                                            if value.translation.width < triggerThreshold &&
-                                                didTriggerHaptic[messageID] != true {
-                                                let generator = UIImpactFeedbackGenerator(style: .medium)
-                                                generator.impactOccurred()
-                                                didTriggerHaptic[messageID] = true
-                                            }
-                                        }
-                                        .onEnded { value in
-                                            if value.translation.width < triggerThreshold {
-                                                onReply()
-                                            }
-                                            withAnimation(.spring()) {
-                                                dragOffset[messageID] = 0
-                                                didTriggerHaptic[messageID] = false
-                                            }
-                                            // Reactivate autoscroll inmediatamente
-                                            if dragOffset.values.allSatisfy({ $0 == 0 }) {
-                                                userDragging = false
-                                            }
-                                        }
-                                )
+                            // Apply damping past the trigger threshold for a rubber-band feel
+                            let raw = value.translation.width
+                            let damped = raw > triggerThreshold
+                                ? raw
+                                : triggerThreshold + (raw - triggerThreshold) * dampingFactor
+                            dragOffset[messageID] = max(damped, maxDrag)
+                            userDragging = true
+
+                            if (dragOffset[messageID] ?? 0) <= triggerThreshold &&
+                               didTriggerHaptic[messageID] != true {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                didTriggerHaptic[messageID] = true
+                            }
                         }
-                    },
-                    alignment: .trailing
+                        .onEnded { _ in
+                            if (dragOffset[messageID] ?? 0) <= triggerThreshold {
+                                onReply()
+                            }
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                dragOffset[messageID] = 0
+                            }
+                            didTriggerHaptic[messageID] = false
+                            // Always reset — don't check animation state (values aren't 0 yet)
+                            userDragging = false
+                        }
                 )
         }
+        // Clip so the sliding row never bleeds outside its own bounds
+        .clipped()
+        .frame(maxWidth: .infinity)
     }
 }
 

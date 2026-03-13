@@ -795,10 +795,30 @@ final class QSOStatusManager: ObservableObject {
 
     
     @MainActor
+    private func resolvedSelectedCQModifier() -> String? {
+        let storedModifier = (UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE")
+            .uppercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard storedModifier != "NONE" else { return nil }
+
+        let rawValue: String
+        if storedModifier == "OTHER" {
+            rawValue = (UserDefaults.standard.string(forKey: "cqModifierOther") ?? "")
+                .uppercased()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            rawValue = storedModifier
+        }
+
+        let filtered = rawValue.filter { $0.isLetter || $0.isNumber || $0 == "/" }
+        guard (1...4).contains(filtered.count) else { return nil }
+        return filtered
+    }
+
+    @MainActor
     func startCallingCQ() {
         qsoState = .callingCQ
-        // Set current CQ modifier from UserDefaults when starting CQ
-        let storedModifier = UserDefaults.standard.string(forKey: "cqModifier") ?? "NONE"
-        currentCQModifier = (storedModifier != "NONE") ? storedModifier : nil
+        currentCQModifier = resolvedSelectedCQModifier()
     }
 }

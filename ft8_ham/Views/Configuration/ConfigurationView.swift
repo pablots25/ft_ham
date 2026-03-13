@@ -38,6 +38,8 @@ enum HelpTip: Identifiable {
     case autoSequencing
     case autoQSOLogging
     case analytics
+    case locatorGPS
+    case cqIncludeGrid
 
     var id: Self { self }
 
@@ -59,6 +61,10 @@ enum HelpTip: Identifiable {
             return String(localized: "Auto QSO Logging help")
         case .analytics:
             return String(localized: "Analytics help")
+        case .locatorGPS:
+            return String(localized: "Auto Locator help")
+        case .cqIncludeGrid:
+            return String(localized: "Include Grid in CQ help")
         }
     }
     
@@ -245,23 +251,24 @@ struct ConfigurationView: View {
                 VStack(spacing: 20) {
                     // MARK: Configuration fields
                     
-                    VStack(spacing: 0) {
-                        HStack(spacing: 50) {
-                            callsignView
-                            locatorView
-                        }
-                        .padding(.bottom, 5)
-                        
-                        Text("Callsign modifiers are allowed")
-                            .font(.footnote)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(1)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("Station details").font(.headline)
                     
-                    CQModifierView()
+                    callsignView
+                        .padding(.horizontal)
                     
                     Divider()
+
+                    locatorView
+                        .padding(.horizontal)
+                    
+                    Divider()
+                    
+                    CQModifierView()
+                        .padding(.horizontal)
+                    
+                    Divider()
+                    
+                    Text("Mode and frequency").font(.headline)
                     
                     HStack(spacing: 20) {
                         modeView
@@ -276,25 +283,33 @@ struct ConfigurationView: View {
         
                     Divider()
                     
+                    Text("QSO settings").font(.headline)
+                    
                     qsoConfigSection
                     
                     togglesView
                     
                     Divider()
                     
+                    Text("Interface").font(.headline)
+                    
                     viewModeView
                     
                     Divider()
+                    
+                    Text("Messages").font(.headline)
+                    
                     GenMessagesView()
                     
                     Divider()
+                    
+                    Text("User support").font(.headline)
                     
                     Button {
                         showHelp = true
                     } label: {
                         Text("Help")
                             .font(.headline)
-                            .foregroundStyle(.blue)
                     }
                     
                     Button("Reset help messages") {
@@ -315,14 +330,16 @@ struct ConfigurationView: View {
                     
                     Divider()
                     
+                    Text("Privacy and analytics").font(.headline)
+                    
                     analyticsSection
                             
-                if flags.isEnabled(.showLogsView) {
-                    NavigationLink(destination: LogsView()) {
-                        Text("View app logs")
-                            .foregroundStyle(.blue)
+                    if flags.isEnabled(.showLogsView) {
+                        NavigationLink(destination: LogsView()) {
+                            Text("View app logs")
+                                .foregroundStyle(.blue)
+                        }
                     }
-                }
                 
 
                 #if DEBUG
@@ -361,6 +378,8 @@ struct ConfigurationView: View {
 
                 
                 Divider()
+                    
+                Text("Legal").font(.headline)
                 
                 LicenseView()
                 
@@ -509,49 +528,81 @@ struct ConfigurationView: View {
     
     // MARK: - Subviews
     private var callsignView: some View {
-        VStack {
-            Text("Callsign:")
-            TextField("", text: $callsignText)
-                .textFieldStyle(.roundedBorder)
+        VStack(alignment: .leading){
+            HStack{
+                Text("Callsign:")
+                TextField("", text: $callsignText)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.center)
+                    .focused($focusedInput, equals: .callsign)
+                    .lineLimit(1)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .onChange(of: callsignText) { newValue in
+                        validCallsign = isValidCallsign(newValue.uppercased())
+                    }
+                    .onSubmit {
+                        commitCallsign()
+                    }
+                    .border(validCallsign ? Color.clear : Color.red)
+                
+            }
+
+            Text("Callsign modifiers are allowed")
+                .font(.footnote)
                 .multilineTextAlignment(.center)
-                .frame(width: 120)
-                .focused($focusedInput, equals: .callsign)
                 .lineLimit(1)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .onChange(of: callsignText) { newValue in
-                    validCallsign = isValidCallsign(newValue.uppercased())
-                }
-                .onSubmit {
-                    commitCallsign()
-                }
-                .border(validCallsign ? Color.clear : Color.red)
+                .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 20)
     }
     
     private var locatorView: some View {
-        VStack {
-            Text("Locator:")
-            TextField("", text: $viewModel.locator)
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.center)
-                .textCase(.uppercase)
-                .frame(width: 80)
-                .focused($focusedInput, equals: .locator)
-                .lineLimit(1)
-                .onChange(of: viewModel.locator) { newValue in
-                    var text = newValue.uppercased()
-                    text.removeAll(where: { $0.isWhitespace })
-                    if text.count > 4 {
-                        text = String(text.prefix(4))
+        VStack (alignment: .leading){
+            HStack{
+                Text("Locator:")
+                Spacer()
+                TextField("", text: $viewModel.locator)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.center)
+                    .textCase(.uppercase)
+                    .focused($focusedInput, equals: .locator)
+                    .lineLimit(1)
+                    .disabled(viewModel.autoLocatorFromGPS)
+                    .onChange(of: viewModel.locator) { newValue in
+                        var text = newValue.uppercased()
+                        text.removeAll(where: { $0.isWhitespace })
+                        if text.count > 4 {
+                            text = String(text.prefix(4))
+                        }
+                        if text != viewModel.locator {
+                            viewModel.locator = text
+                        }
+                        validLocator = isValidLocator(text)
                     }
-                    if text != viewModel.locator {
-                        viewModel.locator = text
-                    }
-                    validLocator = isValidLocator(text)
-                }
-                .border(validLocator ? Color.clear : Color.red)
+                    .border(validLocator ? Color.clear : Color.red)
+
+            }
+            
+            ToggleRow(
+                labelKey: "Auto (from GPS)",
+                helpTip: .locatorGPS,
+                isOn: Binding(
+                    get: { viewModel.autoLocatorFromGPS },
+                    set: { viewModel.setAutoLocatorFromGPS($0) }
+                ),
+                activeHelp: $activeHelp
+            )
+
+            ToggleRow(
+                labelKey: "Include Grid in CQ",
+                helpTip: .cqIncludeGrid,
+                isOn: $viewModel.cqIncludeGrid,
+                activeHelp: $activeHelp
+            )
+
         }
+        .padding(.horizontal, 20)
     }
     
     private var modeView: some View {

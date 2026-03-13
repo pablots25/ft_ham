@@ -225,38 +225,26 @@ final class LogbookManager: LogbookManaging {
 
     // MARK: - Helpers
     private func adifFields(for entry: LogEntry) -> [String: String] {
-        guard let mod = entry.cqModifier else { return [:] }
+        var fields: [String: String] = [:]
 
-        func field(_ key: String, _ value: String?) -> [String: String] {
-            guard let v = value, !v.isEmpty else { return [:] }
-            return [key: v]
+        if let mod = entry.cqModifier?.trimmingCharacters(in: .whitespacesAndNewlines), !mod.isEmpty {
+            // MY_SIG is for activation designators (POTA, SOTA, WWFF, IOTA) and custom modifiers.
+            // Geographic/directional modifiers (DX, EU, NA…) are not MY_SIG values.
+            let normalizedMod = mod.uppercased()
+            let isGeographic = CQModifier(rawValue: normalizedMod)?.group == .geographic
+            if !isGeographic {
+                fields["MY_SIG"] = normalizedMod
+            }
         }
 
-        switch mod {
-        case "POTA":
-            return field("MY_SIG", "POTA")
-                .merging(field("MY_SIG_INFO",
-                               entry.mySigInfo ?? UserDefaults.standard.string(forKey: "myPotaRef"))) { $1 }
-
-        case "SOTA":
-            return field("MY_SIG", "SOTA")
-                .merging(field("MY_SIG_INFO",
-                               entry.mySigInfo ?? UserDefaults.standard.string(forKey: "mySotaRef"))) { $1 }
-
-        case "WWFF":
-            return field("MY_SIG", "WWFF")
-                .merging(field("MY_SIG_INFO",
-                               entry.mySigInfo ?? UserDefaults.standard.string(forKey: "myWwffRef"))) { $1 }
-
-        case "IOTA":
-            return field("MY_SIG", "IOTA")
-                .merging(field("MY_SIG_INFO",
-                               entry.mySigInfo ?? UserDefaults.standard.string(forKey: "myIotaRef"))) { $1 }
-
-        // Geographic filters (DX, EU, NA, SA, AF, AS, OC, ANT) never go to ADIF
-        default:
-            return [:]
+        // Only emit MY_SIG_INFO when a corresponding MY_SIG is present.
+        if fields["MY_SIG"] != nil,
+           let sigInfo = entry.mySigInfo?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !sigInfo.isEmpty {
+            fields["MY_SIG_INFO"] = sigInfo
         }
+
+        return fields
     }
 
     private func getFileURL() -> URL? {
