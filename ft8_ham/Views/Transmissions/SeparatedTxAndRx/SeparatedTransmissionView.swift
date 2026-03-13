@@ -15,7 +15,9 @@ struct SeparatedTransmissionView: View {
 
     @State private var columnFrame: CGRect = .zero
     @AppStorage("hasSeenSlideToReplyTutorial") private var hasSeenTutorial: Bool = false
+    @AppStorage("hasSeenMessageColumnTutorial") private var hasSeenColumnTutorial: Bool = false
     @State private var showTutorial: Bool = false
+    @State private var columnTutorialStep: Int = 0
 
     @AppStorage("showOnlyInvolvedSeparatedTX")
     private var showOnlyInvolved: Bool = false
@@ -42,19 +44,31 @@ struct SeparatedTransmissionView: View {
                 .animation(.easeInOut(duration: 0.25), value: isLandscape)
 
                 if showTutorial {
+                    let isColumnStep = !hasSeenColumnTutorial && columnTutorialStep < 2
+                    let tutorialText: String = isColumnStep
+                        ? (columnTutorialStep == 0
+                            ? String(localized: "tutorial_columns_step1")
+                            : String(localized: "tutorial_columns_step2"))
+                        : String(localized: "Swipe any message to automatically reply in the frequency used.")
+
                     TutorialOverlay(
                         highlightedFrame: adjustedTutorialFrame,
-                        text: "Swipe any message to automatically reply in the frequency used."
+                        text: tutorialText
                     ) {
-                        hasSeenTutorial = true
-                        showTutorial = false
+                        if !hasSeenColumnTutorial && columnTutorialStep < 2 {
+                            columnTutorialStep += 1
+                        } else {
+                            if !hasSeenColumnTutorial { hasSeenColumnTutorial = true }
+                            hasSeenTutorial = true
+                            showTutorial = false
+                        }
                     }
                 }
             }
             .coordinateSpace(name: "SeparatedTransmissionSpace")
         }
         .onAppear {
-            if !hasSeenTutorial, allowReply {
+            if (!hasSeenTutorial || !hasSeenColumnTutorial), allowReply {
                 showTutorial = true
             }
         }

@@ -94,13 +94,11 @@ struct ContentView: View {
             }
             .onChange(of: hasAcceptedTerms) { accepted in
                 if accepted {
-                    // Disabled: keep What's New trigger for easy re-enable.
-                    // if AppVersionManager.shared.shouldShowWhatsNew {
-                    //     isPresentingWhatsNew = true
-                    // } else {
-                    //     scheduleSettingsCheckIfNeeded()
-                    // }
-                    scheduleSettingsCheckIfNeeded()
+                    if AppVersionManager.shared.shouldShowWhatsNew {
+                        isPresentingWhatsNew = true
+                    } else {
+                        scheduleSettingsCheckIfNeeded()
+                    }
                 }
             }
             .onChange(of: autoRXAtStart) { enabled in

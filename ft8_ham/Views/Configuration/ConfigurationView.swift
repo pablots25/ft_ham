@@ -478,6 +478,16 @@ struct ConfigurationView: View {
         VStack {
             HStack {
                 Text("Frequency offset:")
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
+                    }
+                } label: {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Help for frequency offset"))
                 Spacer()
                 HStack(spacing: 0) {
                     TextField("Frequency", text: $frequencyText)
@@ -492,6 +502,14 @@ struct ConfigurationView: View {
                     Text("kHz")
                         .padding(5)
                 }
+            }
+
+            if activeHelp == .audioFrequencyHz {
+                HelpBubble(text: HelpTip.audioFrequencyHz.text)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
             }
 
             HStack {
@@ -528,10 +546,29 @@ struct ConfigurationView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Input Gain:")
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
+                    }
+                } label: {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Help for input gain"))
                 Spacer()
                 Text(String(format: "%.2f×", sliderTempValue))
                     .foregroundStyle(.secondary)
             }
+
+            if activeHelp == .audioGain {
+                HelpBubble(text: HelpTip.audioGain.text)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
+            }
+
             Slider(
                 value: $sliderTempValue,
                 in: Float(minGain)...Float(maxGain),

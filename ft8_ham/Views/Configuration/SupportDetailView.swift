@@ -34,6 +34,14 @@ struct SupportDetailView: View {
             }
 
             Section {
+                FirstRunChecklistView(isEmbedded: false)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            } header: {
+                Text("First Steps")
+            }
+
+            Section {
                 SupportView()
             } header: {
                 Text("Donations")

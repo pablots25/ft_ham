@@ -20,6 +20,10 @@ enum HelpTip: Identifiable {
     case analytics
     case locatorGPS
     case cqIncludeGrid
+    case snrExplained
+    case dtExplained
+    case audioFrequencyHz
+    case audioGain
 
     var id: Self { self }
 
@@ -45,8 +49,15 @@ enum HelpTip: Identifiable {
             return String(localized: "Auto Locator help")
         case .cqIncludeGrid:
             return String(localized: "Include Grid in CQ help")
+        case .snrExplained:
+            return String(localized: "SNR dB help")
+        case .dtExplained:
+            return String(localized: "DT offset help")
+        case .audioFrequencyHz:
+            return String(localized: "Audio Frequency help")
+        case .audioGain:
+            return String(localized: "Audio Gain help")
         }
-    }
     
     var accessibilityHint: String {
         text

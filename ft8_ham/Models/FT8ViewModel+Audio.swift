@@ -383,6 +383,11 @@ extension FT8ViewModel {
             )
             
             receivedMessages.append(message)
+
+            // Track first-run milestone
+            if !UserDefaults.standard.bool(forKey: "hasSeenFirstDecode") {
+                UserDefaults.standard.set(true, forKey: "hasSeenFirstDecode")
+            }
             
             extractWorkedLocators(from: [message])
             
