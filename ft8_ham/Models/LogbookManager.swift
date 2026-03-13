@@ -230,13 +230,17 @@ final class LogbookManager: LogbookManaging {
         if let mod = entry.cqModifier?.trimmingCharacters(in: .whitespacesAndNewlines), !mod.isEmpty {
             // MY_SIG is for activation designators (POTA, SOTA, WWFF, IOTA) and custom modifiers.
             // Geographic/directional modifiers (DX, EU, NA…) are not MY_SIG values.
-            let isGeographic = CQModifier(rawValue: mod)?.group == .geographic
+            let normalizedMod = mod.uppercased()
+            let isGeographic = CQModifier(rawValue: normalizedMod)?.group == .geographic
             if !isGeographic {
-                fields["MY_SIG"] = mod
+                fields["MY_SIG"] = normalizedMod
             }
         }
 
-        if let sigInfo = entry.mySigInfo?.trimmingCharacters(in: .whitespacesAndNewlines), !sigInfo.isEmpty {
+        // Only emit MY_SIG_INFO when a corresponding MY_SIG is present.
+        if fields["MY_SIG"] != nil,
+           let sigInfo = entry.mySigInfo?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !sigInfo.isEmpty {
             fields["MY_SIG_INFO"] = sigInfo
         }
 
