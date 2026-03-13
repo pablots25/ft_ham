@@ -12,6 +12,7 @@ import Combine
 
 struct ContentView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @StateObject private var progressVM = ProgressViewModel()
     @StateObject private var prompts = InAppPrompts.shared
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
@@ -30,6 +31,7 @@ struct ContentView: View {
     @State private var showClearLogbookAlert = false
     @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
+    @State private var configNavigationPath = NavigationPath()
     @State private var shouldScrollToDonations = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
@@ -122,9 +124,19 @@ struct ContentView: View {
             .onChange(of: prompts.shouldNavigateToDonations) { shouldNavigate in
                 if shouldNavigate {
                     selectedTab = 4 // Navigate to Configuration tab
-                    shouldScrollToDonations = true
-                    prompts.shouldNavigateToDonations = false // Reset flag
+                    prompts.shouldNavigateToDonations = false
+                    if flags.isEnabled(.newConfigView) {
+                        // Delay push so NavigationStack renders after tab switch
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            configNavigationPath.append(ConfigDestination.support)
+                        }
+                    } else {
+                        shouldScrollToDonations = true
+                    }
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .navigateToConfiguration)) { _ in
+                selectedTab = 4
             }
 
             .onAppear {
@@ -222,15 +234,24 @@ struct ContentView: View {
                     .tabItem { Label("Logbook", systemImage: "book") }
                     .tag(3)
 
-                    NavigationStack {
-                        ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
-                            .navigationTitle("Configuration")
-                            .navigationBarTitleDisplayMode(.inline)
+                    Group {
+                        if flags.isEnabled(.newConfigView) {
+                            NavigationStack(path: $configNavigationPath) {
+                                ConfigurationView(navigationPath: $configNavigationPath)
+                                    .navigationTitle("Configuration")
+                                    .navigationBarTitleDisplayMode(.inline)
+                            }
+                        } else {
+                            NavigationStack {
+                                LegacyConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
+                                    .navigationTitle("Configuration")
+                                    .navigationBarTitleDisplayMode(.inline)
+                            }
+                        }
                     }
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.configuration)
                     }
-                    
                     .tabItem { Label("Configuration", systemImage: "gearshape") }
                     .tag(4)
                 }
@@ -476,6 +497,7 @@ struct TermsSheet: View {
     
     return ContentView()
             .environmentObject(viewModel)
+            .environmentObject(FeatureFlagManager.shared)
             .environment(\.locale, .init(identifier: "en"))
 }
 
@@ -490,6 +512,7 @@ struct TermsSheet: View {
     
     return ContentView()
         .environmentObject(viewModel)
+        .environmentObject(FeatureFlagManager.shared)
         .environment(\.locale, .init(identifier: "es"))
 }
 

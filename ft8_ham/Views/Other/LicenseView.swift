@@ -31,7 +31,6 @@ struct LicenseView: View {
                 }
             }
         }
-        .padding()
     }
 }
 

@@ -53,3 +53,10 @@ extension Array {
         append(contentsOf: slice)
     }
 }
+
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let navigateToConfiguration = Notification.Name("navigateToConfiguration")
+}

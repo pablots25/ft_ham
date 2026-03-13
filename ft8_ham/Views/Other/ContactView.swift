@@ -65,7 +65,6 @@ struct ContactView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
-        .padding(.horizontal)
         .sheet(isPresented: $showMailComposer) {
             MailComposer()
         }
