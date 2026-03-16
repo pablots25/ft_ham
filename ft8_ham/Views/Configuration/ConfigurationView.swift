@@ -179,7 +179,7 @@ struct ConfigurationView: View {
     }
     
     @FocusState private var focusedInput: FocusField?
-        @State private var lastFocusedInput: FocusField?
+    @State private var lastFocusedInput: FocusField?
     
     @State private var validCallsign = false
     @State private var validLocator = false
@@ -260,7 +260,7 @@ struct ConfigurationView: View {
                         .padding(.horizontal)
                     
                     Divider()
-
+                    
                     locatorView
                         .padding(.horizontal)
                     
@@ -283,7 +283,7 @@ struct ConfigurationView: View {
                     frequencyView
                     
                     inputGainView
-        
+                    
                     Divider()
                     
                     Text("QSO settings").font(.headline)
@@ -291,22 +291,23 @@ struct ConfigurationView: View {
                     qsoConfigSection
                     
                     togglesView
-
-                Divider()
-
-                pskReporterSection
-                
-                #if DEBUG && canImport(FTHamPremium)
-                PSKReporterDebugView()
-                #endif
-
-                Divider()
-                
-                #if canImport(FTHamPremium)
-                NavigationLink(destination: CatSettingsView()) {
-                    Text("📻 CAT Control")
-                        .foregroundStyle(.blue)
-                }
+                    
+                    Divider()
+                    
+                    pskReporterSection
+                    
+#if DEBUG && canImport(FTHamPremium)
+                    PSKReporterDebugView()
+#endif
+                    
+                    Divider()
+                    
+#if canImport(FTHamPremium)
+                    NavigationLink(destination: CatSettingsView()) {
+                        Text("📻 CAT Control")
+                            .foregroundStyle(.blue)
+                    }
+#endif
                     
                     Divider()
                     
@@ -352,155 +353,155 @@ struct ConfigurationView: View {
                     Text("Privacy and analytics").font(.headline)
                     
                     analyticsSection
-                
-                Divider()
-                            
+                    
+                    Divider()
+                    
                     if flags.isEnabled(.showLogsView) {
                         NavigationLink(destination: LogsView()) {
                             Text("View app logs")
                                 .foregroundStyle(.blue)
                         }
                     }
-                
-
-                #if DEBUG
-                Section {
-                    Button {
-                        triggerRatePrompt()
-                    } label: {
-                        Label("Test Rate Prompt", systemImage: "star.fill")
-                    }
                     
-                    Button {
-                        triggerSharePrompt()
-                    } label: {
-                        Label("Test Share Prompt", systemImage: "square.and.arrow.up")
-                    }
                     
-                    Button {
-                        triggerDonationPrompt()
-                    } label: {
-                        Label("Test Donation Prompt", systemImage: "heart.fill")
+#if DEBUG
+                    Section {
+                        Button {
+                            triggerRatePrompt()
+                        } label: {
+                            Label("Test Rate Prompt", systemImage: "star.fill")
+                        }
+                        
+                        Button {
+                            triggerSharePrompt()
+                        } label: {
+                            Label("Test Share Prompt", systemImage: "square.and.arrow.up")
+                        }
+                        
+                        Button {
+                            triggerDonationPrompt()
+                        } label: {
+                            Label("Test Donation Prompt", systemImage: "heart.fill")
+                        }
+                        
+                        Button {
+                            showWhatsNew = true
+                        } label: {
+                            Label("Show What's New", systemImage: "sparkles")
+                        }
+                        
+                        Button(role: .destructive) {
+                            fatalError("Intentional debug crash for testing crash reporting")
+                        } label: {
+                            Label("Crash reporter test", systemImage: "exclamationmark.triangle")
+                        }
                     }
+#endif
                     
-                    Button {
-                        showWhatsNew = true
-                    } label: {
-                        Label("Show What's New", systemImage: "sparkles")
-                    }
                     
-                    Button(role: .destructive) {
-                        fatalError("Intentional debug crash for testing crash reporting")
-                    } label: {
-                        Label("Crash reporter test", systemImage: "exclamationmark.triangle")
-                    }
+                    Divider()
+                    
+                    Text("Legal").font(.headline)
+                    
+                    LicenseView()
+                    
+                    versionSection
+                    
+                    copyrightSection
                 }
-                #endif
-
-                
-                Divider()
-                    
-                Text("Legal").font(.headline)
-                
-                LicenseView()
-                
-                versionSection
-                
-                copyrightSection
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
-        }
-        .sheet(isPresented: $showHelp) {
-            SafariView(
-                url: URL(string: "https://ftham.turrion.dev/#getting-started")!
-            )
-            .ignoresSafeArea()
-        }
-        .sheet(isPresented: $showWhatsNew) {
-            WhatsNewView()
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .ignoresSafeArea(.keyboard, edges: .bottom)
-        .onAppear {
-            activeHelp = nil
-        }
-        .onChange(of: shouldScrollToDonations) { shouldScroll in
-            if shouldScroll {
-                withAnimation {
-                    proxy.scrollTo("donations", anchor: .top)
-                }
-                // Reset the flag after scrolling
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    shouldScrollToDonations = false
-                }
+            .sheet(isPresented: $showHelp) {
+                SafariView(
+                    url: URL(string: "https://ftham.turrion.dev/#getting-started")!
+                )
+                .ignoresSafeArea()
             }
-        }
-        
-        // Commit on focus change
-        .onChange(of: focusedInput) { newValue in
-            // Only commit if we're leaving a field (not entering one)
-            if let lastField = lastFocusedInput, lastField != newValue {
-                switch lastField {
-                case .callsign:
-                    commitCallsign()
-                case .locator:
-                    commitLocator()
-                case .frequency:
-                    commitFrequencyText()
-                case .retries:
-                    break
+            .sheet(isPresented: $showWhatsNew) {
+                WhatsNewView()
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+            .onAppear {
+                activeHelp = nil
+            }
+            .onChange(of: shouldScrollToDonations) { shouldScroll in
+                if shouldScroll {
+                    withAnimation {
+                        proxy.scrollTo("donations", anchor: .top)
+                    }
+                    // Reset the flag after scrolling
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        shouldScrollToDonations = false
+                    }
                 }
             }
-            lastFocusedInput = newValue
-        }
-        .safeAreaInset(edge: .bottom) {
-            Color.clear.frame(height: 50)
-        }
-        .onAppear {
-            callsignText = viewModel.callsign
-            validCallsign = isValidCallsign(viewModel.callsign)
-            validLocator = isValidLocator(viewModel.locator)
             
-            frequencyText = Self.frequencyFormatter.string(
-                from: NSNumber(value: viewModel.frequency / 1000)
-            ) ?? ""
-        }
-        .onChange(of: viewModel.callsign) { newValue in
-            let isValid = isValidCallsign(newValue)
-            if validCallsign != isValid {
-                validCallsign = isValid
+            // Commit on focus change
+            .onChange(of: focusedInput) { newValue in
+                // Only commit if we're leaving a field (not entering one)
+                if let lastField = lastFocusedInput, lastField != newValue {
+                    switch lastField {
+                    case .callsign:
+                        commitCallsign()
+                    case .locator:
+                        commitLocator()
+                    case .frequency:
+                        commitFrequencyText()
+                    case .retries:
+                        break
+                    }
+                }
+                lastFocusedInput = newValue
             }
-            if isValid && !newValue.isEmpty {
-                AnalyticsManager.shared.logConfigurationSaved()
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 50)
             }
-        }
-        .onChange(of: viewModel.locator) { newValue in
-            let isValid = isValidLocator(newValue)
-            if validLocator != isValid {
-                validLocator = isValid
+            .onAppear {
+                callsignText = viewModel.callsign
+                validCallsign = isValidCallsign(viewModel.callsign)
+                validLocator = isValidLocator(viewModel.locator)
+                
+                frequencyText = Self.frequencyFormatter.string(
+                    from: NSNumber(value: viewModel.frequency / 1000)
+                ) ?? ""
             }
-            if isValid && !newValue.isEmpty {
-                AnalyticsManager.shared.logConfigurationSaved()
-            }
-        }
-        .onChange(of: viewModel.frequency) { newValue in
-            if focusedInput != .frequency {
-                let newText = Self.frequencyFormatter.string(
-                    from: NSNumber(value: newValue / 1000)
-                ) ?? frequencyText
-                if frequencyText != newText {
-                    frequencyText = newText
+            .onChange(of: viewModel.callsign) { newValue in
+                let isValid = isValidCallsign(newValue)
+                if validCallsign != isValid {
+                    validCallsign = isValid
+                }
+                if isValid && !newValue.isEmpty {
+                    AnalyticsManager.shared.logConfigurationSaved()
                 }
             }
-            if newValue > 0 {
-                AnalyticsManager.shared.logConfigurationSaved()
+            .onChange(of: viewModel.locator) { newValue in
+                let isValid = isValidLocator(newValue)
+                if validLocator != isValid {
+                    validLocator = isValid
+                }
+                if isValid && !newValue.isEmpty {
+                    AnalyticsManager.shared.logConfigurationSaved()
+                }
             }
-        }
+            .onChange(of: viewModel.frequency) { newValue in
+                if focusedInput != .frequency {
+                    let newText = Self.frequencyFormatter.string(
+                        from: NSNumber(value: newValue / 1000)
+                    ) ?? frequencyText
+                    if frequencyText != newText {
+                        frequencyText = newText
+                    }
+                }
+                if newValue > 0 {
+                    AnalyticsManager.shared.logConfigurationSaved()
+                }
+            }
         } // Close ScrollViewReader
     }
     
     // MARK: - Debug Helpers
-    #if DEBUG
+#if DEBUG
     private func triggerRatePrompt() {
         let prompts = InAppPrompts.shared
         Task { @MainActor in
@@ -524,7 +525,7 @@ struct ConfigurationView: View {
             prompts.showDonationAlert = true
         }
     }
-    #endif
+#endif
     
     enum AppStorageResetter {
         static let onboardingKey = "hasCompletedOnboarding"
@@ -568,7 +569,7 @@ struct ConfigurationView: View {
                     .border(validCallsign ? Color.clear : Color.red)
                 
             }
-
+            
             Text("Callsign modifiers are allowed")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
@@ -602,7 +603,7 @@ struct ConfigurationView: View {
                         validLocator = isValidLocator(text)
                     }
                     .border(validLocator ? Color.clear : Color.red)
-
+                
             }
             
             ToggleRow(
@@ -614,14 +615,14 @@ struct ConfigurationView: View {
                 ),
                 activeHelp: $activeHelp
             )
-
+            
             ToggleRow(
                 labelKey: "Include Grid in CQ",
                 helpTip: .cqIncludeGrid,
                 isOn: $viewModel.cqIncludeGrid,
                 activeHelp: $activeHelp
             )
-
+            
         }
         .padding(.horizontal, 20)
     }
@@ -730,26 +731,26 @@ struct ConfigurationView: View {
         let bands = FT8Message.Band.validBands
         let mode: FT8Message.FT8MessageMode = viewModel.isFT4 ? .ft4 : .ft8
         let frequencyHz = viewModel.selectedBand.frequency(for: mode)
-
+        
         let frequencyText: String = {
             guard let hz = frequencyHz else {
                 return "— " + String(localized: "MHz")
             }
             return String(format: "%.3f ", hz / 1_000_000) + String(localized: "MHz")
         }()
-
+        
         let selectedIndex: Int? = bands.firstIndex(of: viewModel.selectedBand)
-
+        
         return VStack(spacing: 10) {
             HStack(spacing: 10) {
                 Text("Band:")
                 Text(frequencyText)
                     .foregroundStyle(.secondary)
             }
-
+            
             ScrollViewReader { proxy in
                 HStack(spacing: 6) {
-
+                    
                     // MARK: - Left arrow
                     Button {
                         guard let index = selectedIndex, index > 0 else { return }
@@ -763,7 +764,7 @@ struct ConfigurationView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(selectedIndex == 0)
-
+                    
                     // MARK: - Scrollable bands
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -795,7 +796,7 @@ struct ConfigurationView: View {
                         }
                         .padding(.horizontal, 4)
                     }
-
+                    
                     // MARK: - Right arrow
                     Button {
                         guard let index = selectedIndex, index < bands.count - 1 else { return }
@@ -814,9 +815,9 @@ struct ConfigurationView: View {
             }
         }
     }
-
-
-
+    
+    
+    
     
     private var viewModeView: some View {
         VStack {
@@ -837,7 +838,7 @@ struct ConfigurationView: View {
             .padding(.horizontal, 10)
         }
     }
-
+    
     private var inputGainView: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -863,7 +864,7 @@ struct ConfigurationView: View {
         }
         .padding(.horizontal, 40)
     }
-
+    
     private var togglesView: some View {
         VStack(alignment: .leading, spacing: 12) {
             ToggleRow(
@@ -879,7 +880,7 @@ struct ConfigurationView: View {
                 isOn: $viewModel.autoCQReplyEnabled,
                 activeHelp: $activeHelp
             )
-
+            
             ToggleRow(
                 labelKey: "Only if new band/mode",
                 helpTip: .autoCQNewBandMode,
@@ -903,7 +904,7 @@ struct ConfigurationView: View {
         }
         .padding(.horizontal)
     }
-
+    
     private var qsoConfigSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             ToggleRow(
