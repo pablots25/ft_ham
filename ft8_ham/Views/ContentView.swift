@@ -21,7 +21,7 @@ struct ContentView: View {
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
-    @State private var shareURL: URL?
+
     
     @State private var selectedTab: Int = 0
     @State private var showConfigAlert = false
@@ -158,9 +158,12 @@ struct ContentView: View {
                 }
 
                 // MARK: - TabView
-
+                // Note: Not all tabs need NavigationStack. Only tabs with navigation bars,
+                // toolbar items, or deep navigation (Logbook, Configuration) are wrapped.
+                // Tabs 0-2 use direct views without navigation chrome.
+                
                 TabView(selection: $selectedTab) {
-
+                    
                     TransmissionRootView()
                         .tabItem {
                             Label("TX/RX", systemImage: "antenna.radiowaves.left.and.right")
@@ -177,7 +180,6 @@ struct ContentView: View {
                         .onAppear {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
-
                     GridMapViewWrapper(
                         locators: $viewModel.workedLocators,
                         countries: $viewModel.workedCountryPairs,
@@ -191,7 +193,7 @@ struct ContentView: View {
                     }
                     .tabItem { Label("Map", systemImage: "map.fill") }
                     .tag(2)
-
+                    
                     NavigationStack {
                         LogbookView()
                             .navigationTitle("Logbook")
@@ -203,7 +205,7 @@ struct ContentView: View {
                                     }
                                     .disabled(viewModel.qsoList.isEmpty)
                                 }
-
+                                
                                 ToolbarItem(placement: .automatic) {
                                     Button {
                                         showExportOptions = true
@@ -231,7 +233,6 @@ struct ContentView: View {
                     }
                     .tabItem { Label("Logbook", systemImage: "book") }
                     .tag(3)
-
                     Group {
                         if flags.isEnabled(.newConfigView) {
                             NavigationStack {
