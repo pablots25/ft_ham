@@ -79,24 +79,17 @@ struct CQModifierView: View {
             } label: {
                 HStack {
                     Text("CQ Modifier", comment: "Configuration section title")
+                        .foregroundStyle(.black)
                     
                     Spacer()
                     
                     Text(selectedModifierDisplay)
                         .foregroundStyle(.secondary)
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
                 }
-                .cornerRadius(8)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
             
             referenceFieldView
         }
-        .padding(.horizontal, 20)
     }
     
     @ViewBuilder

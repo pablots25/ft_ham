@@ -31,6 +31,7 @@ struct ContentView: View {
     @State private var showClearLogbookAlert = false
     @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
+    @State private var configNavigationPath = NavigationPath()
     @State private var shouldScrollToDonations = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
@@ -93,13 +94,11 @@ struct ContentView: View {
             }
             .onChange(of: hasAcceptedTerms) { accepted in
                 if accepted {
-                    // Disabled: keep What's New trigger for easy re-enable.
-                    // if AppVersionManager.shared.shouldShowWhatsNew {
-                    //     isPresentingWhatsNew = true
-                    // } else {
-                    //     scheduleSettingsCheckIfNeeded()
-                    // }
-                    scheduleSettingsCheckIfNeeded()
+                    if AppVersionManager.shared.shouldShowWhatsNew {
+                        isPresentingWhatsNew = true
+                    } else {
+                        scheduleSettingsCheckIfNeeded()
+                    }
                 }
             }
             .onChange(of: autoRXAtStart) { enabled in
@@ -123,9 +122,19 @@ struct ContentView: View {
             .onChange(of: prompts.shouldNavigateToDonations) { shouldNavigate in
                 if shouldNavigate {
                     selectedTab = 4 // Navigate to Configuration tab
-                    shouldScrollToDonations = true
-                    prompts.shouldNavigateToDonations = false // Reset flag
+                    prompts.shouldNavigateToDonations = false
+                    if flags.isEnabled(.newConfigView) {
+                        // Delay push so NavigationStack renders after tab switch
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            configNavigationPath.append(ConfigDestination.support)
+                        }
+                    } else {
+                        shouldScrollToDonations = true
+                    }
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .navigateToConfiguration)) { _ in
+                selectedTab = 4
             }
 
             .onAppear {
@@ -223,21 +232,27 @@ struct ContentView: View {
                     .tabItem { Label("Logbook", systemImage: "book") }
                     .tag(3)
 
-                    NavigationStack {
+                    Group {
                         if flags.isEnabled(.newConfigView) {
-                            NewConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
-                                .navigationTitle("Configuration")
-                                .navigationBarTitleDisplayMode(.inline)
+                            NavigationStack {
+                                NewConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
+                                    .navigationTitle("Configuration")
+                                    .navigationBarTitleDisplayMode(.inline)
+                            }
                         } else {
-                            ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
+                            NavigationStack(path: $configNavigationPath) {
+                                ConfigurationView(
+                                    navigationPath: $configNavigationPath,
+                                    shouldScrollToDonations: $shouldScrollToDonations
+                                )
                                 .navigationTitle("Configuration")
                                 .navigationBarTitleDisplayMode(.inline)
+                            }
                         }
                     }
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.configuration)
                     }
-                    
                     .tabItem { Label("Configuration", systemImage: "gearshape") }
                     .tag(4)
                 }

@@ -22,6 +22,9 @@ extension FT8ViewModel {
         
         appLogger.info("Starting Sequencer Loop (FT\(isFT4 ? "4" : "8") - \(evenCycle ? "Even" : "Odd"))")
         isSequencerRunning = true
+
+        // Track first-run milestone
+        UserDefaults.standard.set(true, forKey: "hasStartedRX")
         
         sequencerTask = Task { [weak self] in
             guard let self else { return }

@@ -2,6 +2,8 @@
 //  ViewMode.swift
 //  ft_ham
 //
+//  Extracted from ConfigurationView.swift
+//
 
 import SwiftUI
 
@@ -11,5 +13,6 @@ enum ViewMode: String, Codable, CaseIterable, Identifiable {
     case condensed = "Condensed"
 
     var id: String { rawValue }
+
     var textKey: LocalizedStringKey { LocalizedStringKey(rawValue) }
 }

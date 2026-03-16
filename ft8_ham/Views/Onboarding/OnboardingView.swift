@@ -53,6 +53,8 @@ struct OnboardingView: View {
         case 1:
             onboardingPage(image: "wave.3.right", color: .orange, title: "onb_title_rx") {
                 VStack(spacing: 8) {
+                    Text("onb_rx_ft8_explainer")
+                        .bold()
                     Text("onb_rx_text1")
                     Text("onb_rx_text2")
                 }
@@ -124,13 +126,10 @@ struct OnboardingView: View {
             onboardingPage(
                 image: "play.circle.fill",
                 color: .orange,
-                title: "Getting Started"
+                title: "onb_gstarted_title"
             ) {
-                Text("onb_gstarted_text1")
-                Text("onb_gstarted_text2")
-                Text("onb_gstarted_text3")
-                Text("onb_gstarted_text4")
-                Text("onb_gstarted_text5")
+                FirstRunChecklistView(isEmbedded: true)
+                    .padding(.top, 4)
             }
         case 11:
             finishPage()

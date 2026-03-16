@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-// MARK: - HelpTip Enum
+// MARK: - HelpTip Enum (Fallback for iOS 16)
 
 enum HelpTip: Identifiable {
     case autoRXAtStart
@@ -19,6 +19,10 @@ enum HelpTip: Identifiable {
     case locatorGPS
     case pskReporter
     case cqIncludeGrid
+    case snrExplained
+    case dtExplained
+    case audioFrequencyHz
+    case audioGain
 
     var id: Self { self }
 
@@ -46,10 +50,20 @@ enum HelpTip: Identifiable {
             return String(localized: "PSK Reporter help")
         case .cqIncludeGrid:
             return String(localized: "Include Grid in CQ help")
+        case .snrExplained:
+            return String(localized: "SNR dB help")
+        case .dtExplained:
+            return String(localized: "DT offset help")
+        case .audioFrequencyHz:
+            return String(localized: "Audio Frequency help")
+        case .audioGain:
+            return String(localized: "Audio Gain help")
         }
     }
 
-    var accessibilityHint: String { text }
+    var accessibilityHint: String {
+        text
+    }
 }
 
 // MARK: - Toggle Row Component
@@ -60,6 +74,7 @@ struct ToggleRow: View, Equatable {
     @Binding var isOn: Bool
     @Binding var activeHelp: HelpTip?
 
+    
     static func == (lhs: ToggleRow, rhs: ToggleRow) -> Bool {
         lhs.labelKey == rhs.labelKey &&
         lhs.helpTip == rhs.helpTip &&

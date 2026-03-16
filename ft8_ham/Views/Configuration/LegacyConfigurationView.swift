@@ -1,188 +1,27 @@
 //
-//  ConfigurationView.swift
+//  LegacyConfigurationView.swift
 //  ft_ham
 //
-//  Created by Pablo Turrion on 10/11/25.
+//  Original ConfigurationView preserved for feature-flag rollback.
+//  Types extracted to separate files: SafariView, HelpTip, ToggleRow,
+//  HelpBubble, ViewMode, AppStorageResetter.
 //
 
 import SwiftUI
-import SafariServices
 
-// MARK: - New Configuration View (Settings-style)
-
-struct NewConfigurationView: View {
+struct LegacyConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var flags: FeatureFlagManager
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Binding var shouldScrollToDonations: Bool
-
+    
     @State private var showHelp = false
-    @State private var showSupport = false
-
-    var body: some View {
-        List {
-            Group{
-                // MARK: - Settings
-                Section {
-                    NavigationLink {
-                        StationSettingsView()
-                    } label: {
-                        Label("Station", systemImage: "antenna.radiowaves.left.and.right")
-                    }
-                    
-                    NavigationLink {
-                        RadioSettingsView()
-                    } label: {
-                        Label("Radio", systemImage: "dial.low")
-                    }
-                    
-                    NavigationLink {
-                        BehaviorSettingsView()
-                    } label: {
-                        Label("Behavior", systemImage: "gearshape.2")
-                    }
-                    
-                    NavigationLink {
-                        InterfaceSettingsView()
-                    } label: {
-                        Label("Interface", systemImage: "rectangle.3.group")
-                    }
-                }
-                
-                // MARK: - Debug
-#if DEBUG
-                Section {
-                    NavigationLink {
-                        DebugSettingsView()
-                    } label: {
-                        Label("Debug", systemImage: "ladybug")
-                    }
-                }
-#endif
-                
-                // MARK: - Help & Support
-                Section {
-                    Button {
-                        showHelp = true
-                    } label: {
-                        HStack {
-                            Label("Getting Started Guide", systemImage: "book")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    
-                    Button {
-                        showSupport = true
-                    } label: {
-                        HStack {
-                            Label("Support Development", systemImage: "heart")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    
-                    Button {
-                        if let url = URL(string: "mailto:ftham@turrion.dev?subject=FT8%20Ham%20App%20Feedback") {
-                            UIApplication.shared.open(url)
-                        }
-                    } label: {
-                        HStack {
-                            Label("Send Feedback", systemImage: "envelope")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                } header: {
-                    Text("Help & Support")
-                }
-                
-                // MARK: - About
-                Section {
-                    NavigationLink {
-                        LegalAndPrivacyView()
-                    } label: {
-                        Label("Legal & Privacy", systemImage: "hand.raised")
-                    }
-                } footer: {
-                    versionFooter
-                }
-                
-            }
-            .padding(.horizontal)
-        }
-        .listStyle(.plain)
-        .sheet(isPresented: $showSupport) {
-            NavigationStack {
-                SupportView()
-                    .navigationTitle("Support Development")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { showSupport = false }
-                        }
-                    }
-            }
-            .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showHelp) {
-            SafariView(url: URL(string: "https://ftham.turrion.dev/#getting-started")!)
-                .ignoresSafeArea()
-        }
-        .onChange(of: shouldScrollToDonations) { shouldScroll in
-            if shouldScroll {
-                showSupport = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    shouldScrollToDonations = false
-                }
-            }
-        }
-    }
-
-    // MARK: - Version Footer
-
-    private var versionFooter: some View {
-        VStack(spacing: 2) {
-            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-               let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
-                Text(String(format: String(localized: "Version %@ (Build %@)"), version, build))
-            } else {
-                Text("Version unknown")
-            }
-            Text(".copyright")
-            Text("Pablo Turrión San Pedro (EA4IQL)")
-        }
-        .frame(maxWidth: .infinity)
-        .multilineTextAlignment(.center)
-        .foregroundStyle(.secondary)
-        .font(.footnote)
-
-    }
-
-}
-
-// MARK: - Legacy Configuration View
-
-struct ConfigurationView: View {
-    @EnvironmentObject private var viewModel: FT8ViewModel
-    @EnvironmentObject private var flags: FeatureFlagManager
-    @Binding var navigationPath: NavigationPath
-    @Binding var shouldScrollToDonations: Bool
-
     @State private var showWhatsNew = false
-    @State private var showHelp = false
+    @State private var sliderTempValue: Float = 1.0
     
-    private static let appLogger = AppLogger(category: "APP")
+    private let appLogger = AppLogger(category: "APP")
     
-    // Focus state
+    // New typed focus state
     private enum FocusField {
         case callsign
         case locator
@@ -197,65 +36,69 @@ struct ConfigurationView: View {
     @State private var validLocator = false
     @State private var activeHelp: HelpTip?
     
-    // Editable local state (avoids writing to @AppStorage on every keystroke)
-    @State private var callsignText: String = ""
-    @State private var locatorText: String = ""
-    @State private var frequencyText: String = ""
-    @State private var frequencySliderTemp: Double = 1500.0
-    @State private var sliderTempValue: Float = 1.0
-
     private let minGain: Float = 0.1
     private let maxGain: Float = 2.0
-
-    // MARK: - Number formatter (shared static instance)
+    
+    // Editable local state
+    @State private var callsignText: String = ""
+    @State private var frequencyText: String = ""
+    
+    // CQ modifier state - stored in AppStorage, managed by CQModifierView
+    
+    // Type-safe computed property for reading CQ modifier from AppStorage
+    private var cqModifier: CQModifier {
+        let raw = UserDefaults.standard.string(forKey: "cqModifier") ?? CQModifier.none.rawValue
+        return CQModifier(rawValue: raw) ?? .none
+    }
+    
+    // MARK: - Number formatter for frequency input
+    // ⚠️ Unit consistency: All frequency values are stored in Hz internally.
+    // TextField displays/accepts kHz (user-facing).
+    // Slider range: 0.1 ... 3000 Hz (= 3 kHz max)
+    // Conversion: kHz input × 1000 = Hz stored
+    
     private static let frequencyFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.locale = .current
-        f.numberStyle = .decimal
-        f.minimumFractionDigits = 3
-        f.maximumFractionDigits = 3
-        return f
+        let formatter = NumberFormatter()
+        formatter.locale = .current
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 3
+        formatter.maximumFractionDigits = 3
+        return formatter
     }()
+    
+    // MARK: - Frequency parsing
+    
+    private func commitFrequencyText() {
+        let formatter = Self.frequencyFormatter
+        
+        if let number = formatter.number(from: frequencyText) {
+            // Convert kHz (user input) to Hz (internal storage), clamped to 3000 Hz (3 kHz max)
+            let valueHz = min(max(0, number.doubleValue * 1000), 3000)
+            viewModel.frequency = valueHz
+            frequencyText = formatter.string(from: NSNumber(value: valueHz / 1000)) ?? frequencyText
+        } else {
+            // Revert to current model value if parsing fails
+            frequencyText = formatter.string(
+                from: NSNumber(value: viewModel.frequency / 1000)
+            ) ?? frequencyText
+        }
+    }
     
     private func commitCallsign() {
         let text = callsignText.uppercased()
         callsignText = text
         validCallsign = isValidCallsign(text)
         
-        if validCallsign && !text.isEmpty {
+        if validCallsign {
             viewModel.callsign = text
-            AnalyticsManager.shared.logConfigurationSaved()
         }
     }
     
     private func commitLocator() {
-        var text = locatorText.uppercased()
-        text.removeAll(where: { $0.isWhitespace })
-        if text.count > 4 { text = String(text.prefix(4)) }
-        locatorText = text
+        let text = viewModel.locator.uppercased()
         validLocator = isValidLocator(text)
-        if validLocator && !text.isEmpty {
-            viewModel.locator = text
-            AnalyticsManager.shared.logConfigurationSaved()
-        }
     }
     
-    // MARK: - Commit frequency
-    private func commitFrequencyText() {
-        let formatter = Self.frequencyFormatter
-        if let number = formatter.number(from: frequencyText) {
-            let valueHz = min(max(0, number.doubleValue * 1000), 3000)
-            viewModel.frequency = valueHz
-            frequencySliderTemp = valueHz
-            frequencyText = formatter.string(from: NSNumber(value: valueHz / 1000)) ?? frequencyText
-            AnalyticsManager.shared.logConfigurationSaved()
-        } else {
-            frequencyText = formatter.string(
-                from: NSNumber(value: viewModel.frequency / 1000)
-            ) ?? frequencyText
-        }
-    }
-
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -289,6 +132,7 @@ struct ConfigurationView: View {
                     bandView
                     
                     frequencyView
+                    
                     inputGainView
         
                     Divider()
@@ -345,18 +189,15 @@ struct ConfigurationView: View {
                     analyticsSection
                             
                     if flags.isEnabled(.showLogsView) {
-                        NavigationLink {
-                            LogsView()
-                        } label: {
+                        NavigationLink(destination: LogsView()) {
                             Text("View app logs")
+                                .foregroundStyle(.blue)
                         }
                     }
                 
 
                 #if DEBUG
-                Divider()
-                Text("Debug").font(.headline)
-                Group {
+                Section {
                     Button {
                         triggerRatePrompt()
                     } label: {
@@ -492,7 +333,7 @@ struct ConfigurationView: View {
     }
     
     // MARK: - Debug Helpers
-#if DEBUG
+    #if DEBUG
     private func triggerRatePrompt() {
         let prompts = InAppPrompts.shared
         Task { @MainActor in
@@ -598,45 +439,49 @@ struct ConfigurationView: View {
     }
     
     private var modeView: some View {
-        HStack {
+        VStack {
             Text("Mode:")
-            Spacer()
-            Picker("Mode", selection: isFT4Binding) {
+            Picker("", selection: Binding(
+                get: { viewModel.isFT4 },
+                set: { newValue in
+                    Task { @MainActor in
+                        viewModel.switchModeWhileRX(isFT4: newValue)
+                        AnalyticsManager.shared.trackRadioModeChange(isFT4: newValue)
+                        let modeStr = newValue ? "FT4" : "FT8"
+                        let cycleStr: String
+                        if newValue { // FT4
+                            cycleStr = viewModel.evenCycle ? "even (0s)" : "odd (7.5s)"
+                        } else { // FT8
+                            cycleStr = viewModel.evenCycle ? "even (0/30s)" : "odd (15/45s)"
+                        }
+                        appLogger.log(.info, "Mode changed to \(modeStr), current cycle: \(cycleStr)")
+                    }
+                }
+            )) {
                 Text("FT8").tag(false)
                 Text("FT4").tag(true)
             }
             .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 140)
-            .accessibilityLabel(Text("Radio mode"))
+            .frame(width: 120)
         }
     }
-
-    private var isFT4Binding: Binding<Bool> {
-        Binding(
-            get: { viewModel.isFT4 },
-            set: { newValue in
-                Task { @MainActor in
-                    viewModel.switchModeWhileRX(isFT4: newValue)
-                    AnalyticsManager.shared.trackRadioModeChange(isFT4: newValue)
-                    let modeStr = newValue ? "FT4" : "FT8"
-                    let cycleStr: String
-                    if newValue {
-                        cycleStr = viewModel.evenCycle ? "even (0s)" : "odd (7.5s)"
-                    } else {
-                        cycleStr = viewModel.evenCycle ? "even (0/30s)" : "odd (15/45s)"
-                    }
-                    Self.appLogger.log(.info, "Mode changed to \(modeStr), current cycle: \(cycleStr)")
-                }
-            }
-        )
-    }
-
+    
     private var cycleView: some View {
-        HStack {
+        VStack {
             Text("Transmission cycle:")
-            Spacer()
-            Picker("Cycle", selection: evenCycleBinding) {
+            Picker("", selection: Binding(
+                get: { viewModel.evenCycle },
+                set: { newValue in
+                    viewModel.evenCycle = newValue
+                    if viewModel.isFT4 {
+                        let offset = newValue ? 0.0 : 7.5
+                        appLogger.log(.info, "FT4 cycle changed to \(newValue ? "even" : "odd") — offset: \(offset)s")
+                    } else {
+                        let offset = newValue ? 0.0 : 15.0
+                        appLogger.log(.info, "FT8 cycle changed to \(newValue ? "even" : "odd") — offsets: \(offset)/\(offset + 30.0)s")
+                    }
+                }
+            )) {
                 if viewModel.isFT4 {
                     Text("0").tag(true)
                     Text("7.5").tag(false)
@@ -646,42 +491,14 @@ struct ConfigurationView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 140)
-            .accessibilityLabel(Text("TX cycle offset"))
+            .frame(width: 120)
         }
     }
-
-    private var evenCycleBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.evenCycle },
-            set: { newValue in
-                viewModel.evenCycle = newValue
-                if viewModel.isFT4 {
-                    let offset = newValue ? 0.0 : 7.5
-                    Self.appLogger.log(.info, "FT4 cycle changed to \(newValue ? "even" : "odd") — offset: \(offset)s")
-                } else {
-                    let offset = newValue ? 0.0 : 15.0
-                    Self.appLogger.log(.info, "FT8 cycle changed to \(newValue ? "even" : "odd") — offsets: \(offset)/\(offset + 30.0)s")
-                }
-            }
-        )
-    }
-
+    
     private var frequencyView: some View {
         VStack {
             HStack {
                 Text("Frequency offset:")
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
-                    }
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Help for frequency offset"))
                 Spacer()
                 HStack(spacing: 0) {
                     TextField("Frequency", text: $frequencyText)
@@ -691,21 +508,15 @@ struct ConfigurationView: View {
                         .multilineTextAlignment(.center)
                         .focused($focusedInput, equals: .frequency)
                         .lineLimit(1)
-                        .onSubmit { commitFrequencyText() }
+                        .onSubmit {
+                            commitFrequencyText()
+                        }
                         .frame(width: 80)
                     Text("kHz")
                         .padding(5)
                 }
-            }
-
-            if activeHelp == .audioFrequencyHz {
-                HelpBubble(text: HelpTip.audioFrequencyHz.text)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
-                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
-                    ))
-            }
-
+            }.padding(.horizontal, 40)
+            
             HStack {
                 Button {
                     viewModel.frequency = max(0, viewModel.frequency - 10)
@@ -713,18 +524,9 @@ struct ConfigurationView: View {
                     Image(systemName: "chevron.left")
                 }
                 .buttonStyle(.borderedProminent)
-                .accessibilityLabel(Text("Decrease frequency"))
-
-                Slider(value: $frequencySliderTemp, in: 0.1 ... 3000, step: 10) { isEditing in
-                    if !isEditing {
-                        viewModel.frequency = frequencySliderTemp
-                        frequencyText = Self.frequencyFormatter.string(
-                            from: NSNumber(value: frequencySliderTemp / 1000)
-                        ) ?? frequencyText
-                        AnalyticsManager.shared.logConfigurationSaved()
-                    }
-                }
-
+                
+                Slider(value: $viewModel.frequency, in: 0.1 ... 3000, step: 10)
+                
                 Button {
                     viewModel.frequency = min(3000, viewModel.frequency + 10)
                 } label: {
@@ -825,9 +627,6 @@ struct ConfigurationView: View {
         }
     }
 
-
-
-    
     private var viewModeView: some View {
         VStack {
             Text("View mode: ")
@@ -847,34 +646,16 @@ struct ConfigurationView: View {
             .padding(.horizontal, 10)
         }
     }
-    
+
     private var inputGainView: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Input Gain:")
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
-                    }
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Help for input gain"))
                 Spacer()
                 Text(String(format: "%.2f×", sliderTempValue))
                     .foregroundStyle(.secondary)
             }
-
-            if activeHelp == .audioGain {
-                HelpBubble(text: HelpTip.audioGain.text)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
-                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
-                    ))
-            }
-
+            
             Slider(
                 value: $sliderTempValue,
                 in: Float(minGain)...Float(maxGain),
@@ -962,18 +743,56 @@ struct ConfigurationView: View {
                 activeHelp: $activeHelp
             )
         }
+        .padding(.horizontal)
     }
     
     private var analyticsSection: some View {
-        ToggleRow(
-            labelKey: "Share usage statistics",
-            helpTip: .analytics,
-            isOn: Binding(
-                get: { AnalyticsManager.shared.isAnalyticsEnabled },
-                set: { AnalyticsManager.shared.isAnalyticsEnabled = $0 }
-            ),
-            activeHelp: $activeHelp
-        )
+        VStack(alignment: .center, spacing: 8) {
+            Text("Privacy & Anonymous Statistics")
+            
+            VStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Toggle("", isOn: Binding(
+                            get: { AnalyticsManager.shared.isAnalyticsEnabled },
+                            set: { AnalyticsManager.shared.isAnalyticsEnabled = $0 }
+                        ))
+                        .labelsHidden()
+                        .accessibilityLabel(Text("Share usage statistics"))
+                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
+                        
+                        Text("Share usage statistics")
+                            .font(.body)
+                        Spacer()
+                        
+                        // Info button: toggle inline expandable help
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
+                                activeHelp = (activeHelp == .analytics) ? nil : .analytics
+                            }
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 20, height: 20)
+                        .accessibilityLabel(Text("Help"))
+                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
+                    }
+                    
+                    // Inline expandable help with smooth spring animation
+                    if activeHelp == .analytics {
+                        HelpBubble(text: HelpTip.analytics.text)
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                                removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                            ))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(.horizontal, 8)
+        }
     }
     
     private var versionSection: some View {
@@ -1003,25 +822,6 @@ struct ConfigurationView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity)
         .multilineTextAlignment(.center)
     }
-}
-
-#Preview("ConfigurationView") {
-    NavigationStack {
-        ConfigurationView(
-            navigationPath: .constant(NavigationPath()),
-            shouldScrollToDonations: .constant(false)
-        )
-        .navigationTitle("Configuration")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-    .environmentObject(
-        FT8ViewModel(
-            txMessages: PreviewMocks.txMessages,
-            rxMessages: PreviewMocks.rxMessages
-        )
-    )
-    .environmentObject(FeatureFlagManager.shared)
 }

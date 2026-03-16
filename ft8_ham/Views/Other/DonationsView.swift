@@ -41,24 +41,20 @@ struct SupportView: View {
     @StateObject private var manager = ProductManager()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 30) {
-                TipJarView(manager: manager)
+        VStack(spacing: 20) {
+            TipJarView(manager: manager)
 
-                Text(
-                    "The app works the same even if you don’t donate. These donations are optional and help support its maintenance."
-                )
+            Text(
+                "The app works the same even if you don’t donate. These donations are optional and help support its maintenance."
+            )
+            .font(.footnote)
+            .multilineTextAlignment(.center)
+            .foregroundStyle(.gray)
+
+            Text("For app usage policies and donations, see our Privacy Policy and Terms of Use.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
                 .foregroundStyle(.gray)
-                Text("For app usage policies and donations, see our Privacy Policy and Terms of Use.")
-                    .font(.footnote)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                    .foregroundStyle(.gray)
-            }
-            .padding()
         }
         .task {
             await manager.fetchProducts()
