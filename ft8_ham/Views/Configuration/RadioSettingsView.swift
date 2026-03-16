@@ -1,0 +1,321 @@
+//
+//  RadioSettingsView.swift
+//  ft_ham
+//
+
+import SwiftUI
+
+struct RadioSettingsView: View {
+    @EnvironmentObject private var viewModel: FT8ViewModel
+
+    private let appLogger = AppLogger(category: "APP")
+
+    @FocusState private var frequencyFocused: Bool
+    @State private var frequencyText: String = ""
+    @State private var sliderTempValue: Float = 1.0
+
+    private let minGain: Float = 0.1
+    private let maxGain: Float = 2.0
+
+    private static let frequencyFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.locale = .current
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = 3
+        f.maximumFractionDigits = 3
+        return f
+    }()
+
+    var body: some View {
+        List {
+            Group {
+            // MARK: - Mode & Cycle
+            Section {
+                HStack(spacing: 20) {
+                    modeView
+                    cycleView
+                }
+                .frame(maxWidth: .infinity)
+            } header: {
+                Text("Mode and frequency")
+            } footer: {
+                Text("Select operating mode and transmission cycle timing.")
+            }
+
+            // MARK: - Band
+            Section {
+                bandView
+            } header: {
+                Text("Band")
+            }
+
+            // MARK: - Frequency offset
+            Section {
+                frequencyView
+            } header: {
+                Text("Frequency offset")
+            } footer: {
+                Text("Fine-tune your transmit frequency offset within the selected band.")
+            }
+
+            // MARK: - Input gain
+            Section {
+                inputGainView
+            } header: {
+                Text("Input Gain")
+            } footer: {
+                Text("Adjust microphone input gain for optimal decoding.")
+            }
+            }
+            .padding(.horizontal)
+        }
+        .settingsFormStyle(title: "Radio")
+        .scrollDismissesKeyboard(.interactively)
+        .onAppear {
+            frequencyText = Self.frequencyFormatter.string(
+                from: NSNumber(value: viewModel.frequency / 1000)
+            ) ?? ""
+            sliderTempValue = Float(viewModel.inputGain)
+        }
+        .onChange(of: viewModel.frequency) { newValue in
+            if !frequencyFocused {
+                let newText = Self.frequencyFormatter.string(
+                    from: NSNumber(value: newValue / 1000)
+                ) ?? frequencyText
+                if frequencyText != newText { frequencyText = newText }
+            }
+            if newValue > 0 { AnalyticsManager.shared.logConfigurationSaved() }
+        }
+    }
+
+    // MARK: - Mode picker
+
+    private var modeView: some View {
+        VStack {
+            Text("Mode:")
+            Picker("", selection: Binding(
+                get: { viewModel.isFT4 },
+                set: { newValue in
+                    Task { @MainActor in
+                        viewModel.switchModeWhileRX(isFT4: newValue)
+                        AnalyticsManager.shared.trackRadioModeChange(isFT4: newValue)
+                        let modeStr = newValue ? "FT4" : "FT8"
+                        let cycleStr: String
+                        if newValue {
+                            cycleStr = viewModel.evenCycle ? "even (0s)" : "odd (7.5s)"
+                        } else {
+                            cycleStr = viewModel.evenCycle ? "even (0/30s)" : "odd (15/45s)"
+                        }
+                        appLogger.log(.info, "Mode changed to \(modeStr), current cycle: \(cycleStr)")
+                    }
+                }
+            )) {
+                Text("FT8").tag(false)
+                Text("FT4").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 120)
+        }
+    }
+
+    // MARK: - Cycle picker
+
+    private var cycleView: some View {
+        VStack {
+            Text("Transmission cycle:")
+            Picker("", selection: Binding(
+                get: { viewModel.evenCycle },
+                set: { newValue in
+                    viewModel.evenCycle = newValue
+                    if viewModel.isFT4 {
+                        let offset = newValue ? 0.0 : 7.5
+                        appLogger.log(.info, "FT4 cycle changed to \(newValue ? "even" : "odd") — offset: \(offset)s")
+                    } else {
+                        let offset = newValue ? 0.0 : 15.0
+                        appLogger.log(.info, "FT8 cycle changed to \(newValue ? "even" : "odd") — offsets: \(offset)/\(offset + 30.0)s")
+                    }
+                }
+            )) {
+                if viewModel.isFT4 {
+                    Text("0").tag(true)
+                    Text("7.5").tag(false)
+                } else {
+                    Text("0/30").tag(true)
+                    Text("15/45").tag(false)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 120)
+        }
+    }
+
+    // MARK: - Band selector
+
+    private var bandView: some View {
+        let bands = FT8Message.Band.validBands
+        let mode: FT8Message.FT8MessageMode = viewModel.isFT4 ? .ft4 : .ft8
+        let frequencyHz = viewModel.selectedBand.frequency(for: mode)
+
+        let freqDisplay: String = {
+            guard let hz = frequencyHz else {
+                return "— " + String(localized: "MHz")
+            }
+            return String(format: "%.3f ", hz / 1_000_000) + String(localized: "MHz")
+        }()
+
+        let selectedIndex: Int? = bands.firstIndex(of: viewModel.selectedBand)
+
+        return VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Text("Band:")
+                Text(freqDisplay).foregroundStyle(.secondary)
+            }
+
+            ScrollViewReader { proxy in
+                HStack(spacing: 6) {
+                    Button {
+                        guard let idx = selectedIndex, idx > 0 else { return }
+                        let newBand = bands[idx - 1]
+                        withAnimation {
+                            viewModel.selectedBand = newBand
+                            proxy.scrollTo(newBand, anchor: .center)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedIndex == 0)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(bands, id: \.self) { band in
+                                Button {
+                                    withAnimation {
+                                        viewModel.selectedBand = band
+                                        proxy.scrollTo(band, anchor: .center)
+                                    }
+                                } label: {
+                                    Text(band.rawValue)
+                                        .font(.subheadline)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            band == viewModel.selectedBand
+                                            ? Color.accentColor
+                                            : Color.secondary.opacity(0.2)
+                                        )
+                                        .foregroundColor(
+                                            band == viewModel.selectedBand ? .white : .primary
+                                        )
+                                        .clipShape(Capsule())
+                                }
+                                .id(band)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+
+                    Button {
+                        guard let idx = selectedIndex, idx < bands.count - 1 else { return }
+                        let newBand = bands[idx + 1]
+                        withAnimation {
+                            viewModel.selectedBand = newBand
+                            proxy.scrollTo(newBand, anchor: .center)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedIndex == bands.count - 1)
+                }
+            }
+        }
+    }
+
+    // MARK: - Frequency offset
+
+    private var frequencyView: some View {
+        VStack {
+            HStack {
+                Text("Frequency offset:")
+                Spacer()
+                HStack(spacing: 0) {
+                    TextField("Frequency", text: $frequencyText)
+                        .keyboardType(.decimalPad)
+                        .submitLabel(.done)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.center)
+                        .focused($frequencyFocused)
+                        .lineLimit(1)
+                        .onSubmit { commitFrequencyText() }
+                        .frame(width: 80)
+                    Text("kHz").padding(5)
+                }
+            }
+
+            HStack {
+                Button {
+                    viewModel.frequency = max(0, viewModel.frequency - 10)
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .buttonStyle(.borderedProminent)
+
+                Slider(value: $viewModel.frequency, in: 0.1...3000, step: 10)
+
+                Button {
+                    viewModel.frequency = min(3000, viewModel.frequency + 10)
+                } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    // MARK: - Input gain
+
+    private var inputGainView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Input Gain:")
+                Spacer()
+                Text(String(format: "%.2f×", sliderTempValue))
+                    .foregroundStyle(.secondary)
+            }
+
+            Slider(
+                value: $sliderTempValue,
+                in: Float(minGain)...Float(maxGain),
+                onEditingChanged: { isEditing in
+                    if !isEditing { viewModel.inputGain = Double(sliderTempValue) }
+                }
+            )
+        }
+    }
+
+    // MARK: - Frequency commit
+
+    private func commitFrequencyText() {
+        let formatter = Self.frequencyFormatter
+        if let number = formatter.number(from: frequencyText) {
+            let valueHz = min(max(0, number.doubleValue * 1000), 3000)
+            viewModel.frequency = valueHz
+            frequencyText = formatter.string(from: NSNumber(value: valueHz / 1000)) ?? frequencyText
+        } else {
+            frequencyText = formatter.string(
+                from: NSNumber(value: viewModel.frequency / 1000)
+            ) ?? frequencyText
+        }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        RadioSettingsView()
+            .environmentObject(FT8ViewModel(
+                txMessages: PreviewMocks.txMessages,
+                rxMessages: PreviewMocks.rxMessages
+            ))
+    }
+}

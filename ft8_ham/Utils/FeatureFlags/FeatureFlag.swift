@@ -15,7 +15,7 @@ enum FeatureFlag: String, CaseIterable {
     var defaultValue: Bool {
         switch self {
         case .showLogsView: return false
-        case .newConfigView: return false
+        case .newConfigView: return true
         case .backgroundToast: return false
         }
     }
