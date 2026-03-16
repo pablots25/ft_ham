@@ -84,9 +84,10 @@ extension FT8ViewModel {
                     
                     // Trim buffer if it exceeds max size to prevent memory issues
                     if audioToDecode.count > maxExpectedSamples * 4 {
+                        let originalCount = audioToDecode.count / 4
                         audioToDecode = Data(audioToDecode.prefix(maxExpectedSamples * 4))
                         sampleCount = maxExpectedSamples
-                        self.rxLogger.warning("Audio buffer trimmed from \(audioToDecode.count / 4) to \(maxExpectedSamples) samples")
+                        self.rxLogger.debug("Audio buffer trimmed from \(originalCount) to \(maxExpectedSamples) samples")
                     }
 
                     
@@ -390,6 +391,8 @@ extension FT8ViewModel {
         self.isReadyForTX = false
         
         AnalyticsManager.shared.startRadioActivity(.tx)
+        sendCatFrequency(reason: "tx start")
+        setCatPTT(true, reason: "tx start")
         audioManager.playAudio(audioData)
         InAppPrompts.shared.recordTXStarted()
         txLogger.info("TX Started: \(message)")

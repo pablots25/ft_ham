@@ -98,6 +98,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     let rxLogger = AppLogger(category: "RX")
     let txLogger = AppLogger(category: "TX")
     internal let appLogger = AppLogger(category: "APP")
+
+    // MARK: - CAT
+    internal let catController = CatRigController.shared
+    internal var catFrequencyUpdateWorkItem: DispatchWorkItem?
     
     // MARK: - Published Properties
     @Published var decodedMessage: FT8Message?
@@ -197,6 +201,15 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
+
+    @AppStorage("catEnabled") var catEnabled = false
+    @AppStorage("catHost") var catHost = "127.0.0.1"
+    @AppStorage("catPort") var catPort = 4532
+    @AppStorage("catPTTEnabled") var catPTTEnabled = true
+    @AppStorage("catSyncFrequency") var catSyncFrequency = true
+    @AppStorage("catApplyAudioOffset") var catApplyAudioOffset = false
+
+    @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
     @AppStorage("cqIncludeGrid") var cqIncludeGrid: Bool = true
     
     @AppStorage("callsign") var callsign = ""
@@ -218,13 +231,19 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     
     var frequency: Double {
         get { _frequency }
-        set { _frequency = min(max(0, newValue), 3000) }
+        set {
+            _frequency = min(max(0, newValue), 3000)
+            if catApplyAudioOffset {
+                scheduleCatFrequencyUpdate(reason: "offset change")
+            }
+        }
     }
     
     @AppStorage("isFT4") var isFT4 = false {
         didSet {
             waterfallVM.mode = isFT4 ? .ft4 : .ft8
             restartLoopsForModeChange()
+            scheduleCatFrequencyUpdate(reason: "mode change")
         }
     }
     
@@ -240,7 +259,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("band") private var selectedBandRaw = FT8Message.Band.band10m.rawValue
     var selectedBand: FT8Message.Band {
         get { FT8Message.Band(rawValue: selectedBandRaw) ?? .band10m }
-        set { selectedBandRaw = newValue.rawValue }
+        set {
+            selectedBandRaw = newValue.rawValue
+            scheduleCatFrequencyUpdate(reason: "band change")
+        }
     }
     
     @AppStorage("inputGain") var inputGain = 1.0 {
@@ -429,10 +451,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     internal func handleTXDidFinishFromAudioManager() {
         guard let txMessage = activeTXMessage else {
             txLogger.debug("TX finished but no active TX message tracked")
+            setCatPTT(false, reason: "tx finished (no message)")
             return
         }
 
         activeTXMessage = nil  
+        setCatPTT(false, reason: "tx finished")
 
         txLogger.info("TX finished (AudioManager): \(txMessage.text)")
         AnalyticsManager.shared.stopRadioActivity() 

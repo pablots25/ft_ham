@@ -153,6 +153,10 @@ struct ft8_hamApp: App {
             default:
                 break
             }
+            
+            if newPhase == .background || newPhase == .inactive {
+                PSKReporterReporter.shared.flushPendingReports()
+            }
         }
     }
 }

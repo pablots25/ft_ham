@@ -38,6 +38,7 @@ enum HelpTip: Identifiable {
     case autoSequencing
     case autoQSOLogging
     case analytics
+    case pskReporter
     case locatorGPS
     case cqIncludeGrid
 
@@ -61,6 +62,8 @@ enum HelpTip: Identifiable {
             return String(localized: "Auto QSO Logging help")
         case .analytics:
             return String(localized: "Analytics help")
+        case .pskReporter:
+            return String(localized: "PSK Reporter help")
         case .locatorGPS:
             return String(localized: "Auto Locator help")
         case .cqIncludeGrid:
@@ -288,6 +291,21 @@ struct ConfigurationView: View {
                     qsoConfigSection
                     
                     togglesView
+
+                Divider()
+
+                pskReporterSection
+                
+                #if DEBUG
+                PSKReporterDebugView()
+                #endif
+
+                Divider()
+                
+                NavigationLink(destination: CatSettingsView()) {
+                    Text("📻 CAT Control")
+                        .foregroundStyle(.blue)
+                }
                     
                     Divider()
                     
@@ -333,6 +351,8 @@ struct ConfigurationView: View {
                     Text("Privacy and analytics").font(.headline)
                     
                     analyticsSection
+                
+                Divider()
                             
                     if flags.isEnabled(.showLogsView) {
                         NavigationLink(destination: LogsView()) {
@@ -914,6 +934,29 @@ struct ConfigurationView: View {
             )
         }
         .padding(.horizontal)
+    }
+    
+    private var pskReporterSection: some View {
+        VStack(alignment: .center, spacing: 8) {
+            Text(String(localized: "PSK Reporter"))
+            
+            VStack(spacing: 6) {
+                ToggleRow(
+                    labelKey: "Share reception reports",
+                    helpTip: .pskReporter,
+                    isOn: Binding(
+                        get: { viewModel.pskReporterEnabled },
+                        set: { newValue in
+                            viewModel.pskReporterEnabled = newValue
+                            appLogger.info("PSK Reporter upload \(newValue ? "enabled" : "disabled")")
+                        }
+                    ),
+                    activeHelp: $activeHelp
+                )
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(.horizontal, 8)
+        }
     }
     
     private var analyticsSection: some View {
