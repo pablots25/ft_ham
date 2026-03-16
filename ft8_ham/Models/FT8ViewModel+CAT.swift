@@ -31,7 +31,7 @@ extension FT8ViewModel {
         guard let dialHz = catDialFrequencyHz() else { return }
 
         Task {
-            let response = await catController.setFrequency(hz: dialHz, host: host, port: port)
+            let response = await catController.setFrequency(frequency: dialHz, host: host, port: port)
             if !response.success {
                 appLogger.warning("CAT frequency failed (\(reason)): \(response.errorMessage ?? "unknown")")
             }

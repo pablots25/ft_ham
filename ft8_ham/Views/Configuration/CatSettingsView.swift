@@ -18,7 +18,7 @@ struct CatSettingsView: View {
     @State private var isTesting = false
     @State private var testStatus: String = ""
 
-    private let catController = CatRigController.shared
+    private let catController = PremiumFeatures.catController
 
     var body: some View {
         Form {

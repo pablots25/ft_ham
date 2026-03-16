@@ -296,12 +296,13 @@ struct ConfigurationView: View {
 
                 pskReporterSection
                 
-                #if DEBUG
+                #if DEBUG && canImport(FTHamPremium)
                 PSKReporterDebugView()
                 #endif
 
                 Divider()
                 
+                #if canImport(FTHamPremium)
                 NavigationLink(destination: CatSettingsView()) {
                     Text("📻 CAT Control")
                         .foregroundStyle(.blue)

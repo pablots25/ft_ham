@@ -155,7 +155,7 @@ struct ft8_hamApp: App {
             }
             
             if newPhase == .background || newPhase == .inactive {
-                PSKReporterReporter.shared.flushPendingReports()
+                PremiumFeatures.pskReporter.flushPendingReports()
             }
         }
     }

@@ -186,17 +186,18 @@ extension FT8ViewModel {
             let offsetHz = UInt64(message.frequency)
             let totalFreq = UInt64(frequencyHz) + offsetHz
             
+            let mode: PSKReporterMode = isFT4 ? .ft4 : .ft8
             let report = PSKReporterReport(
                 receiverCallsign: callsign,
                 senderCallsign: senderCallsign,
                 receiverLocator: locator,
                 frequencyHz: totalFreq,
-                mode: isFT4 ? .ft4 : .ft8,
+                mode: mode,
                 snr: Int(message.measuredSNR.rounded())
             )
             
 //            rxLogger.debug("PSK Reporter: Submitting \(senderCallsign) on \(band) @ \(totalFreq) Hz, SNR \(Int(message.measuredSNR.rounded()))")
-            PSKReporterReporter.shared.report(report, testMode: false)
+            PremiumFeatures.pskReporter.report(report, testMode: false)
         }
         
         rxLogger.info("PSK Reporter: Submitted \(reportableMessages.count) reports")
