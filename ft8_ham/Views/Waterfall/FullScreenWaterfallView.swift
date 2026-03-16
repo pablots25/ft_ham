@@ -241,6 +241,47 @@ struct FullScreenWaterfallView: View {
         .frame(height: 40)
         .animation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0.3), value: isSettingsExpanded)
     }
+    
+    func dashboardLayout() -> some View {
+        VStack(spacing: 10) {
+            let columns = [GridItem(.flexible()), GridItem(.flexible())]
+            
+            LazyVGrid(columns: columns, spacing: 12) {
+                if #available(iOS 16.0, *) {
+                    StatusView()
+                        .gridCellColumns(2)
+                        .frame(maxWidth: .infinity)
+                    ClockView()
+                        .gridCellColumns(2)
+                } else {
+                    StatusView()
+                        .frame(maxWidth: .infinity)
+                    ClockView()
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.horizontal)
+            
+            TransmissionButtonsBar()
+                .padding(.bottom, 5)
+                .padding(.horizontal)
+            
+            WaterfallView(
+                viewModel: viewModel.waterfallVM,
+                ft8ViewModel: viewModel,
+                isSettingFrequency: $isSettingFrequency
+            )
+            .frame(maxHeight: .infinity)
+            .padding(.horizontal, 5)
+            
+            VStack {
+                QSOStatusView()
+                MessageSelector()
+            }
+            .padding(.horizontal, 40)
+            .padding(.bottom)
+        }
+    }
 
 }
 

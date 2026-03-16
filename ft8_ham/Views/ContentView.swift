@@ -15,15 +15,12 @@ struct ContentView: View {
     @EnvironmentObject private var flags: FeatureFlagManager
     @StateObject private var progressVM = ProgressViewModel()
     @StateObject private var prompts = InAppPrompts.shared
+    @StateObject private var mapSettings = MapSettingsModel.shared
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
-    @AppStorage("mapShowGrids") private var mapShowGrids: Bool = true
-    @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = true
-    @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = true
-    @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = false
     @State private var shareURL: URL?
     
     @State private var selectedTab: Int = 0
@@ -146,13 +143,15 @@ struct ContentView: View {
     
     private var mainLayout: some View {
         GeometryReader { geo in
-            // Detect landscape normally, force portrait on iPad
-            let isLandscape = (UIDevice.current.userInterfaceIdiom == .pad) ? false : (geo.size.width > geo.size.height)
+            let isIPad = UIDevice.current.userInterfaceIdiom == .pad
+            let isLandscape = geo.size.width > geo.size.height
 
             VStack(spacing: 0) {
                 // MARK: - Header
 
-                if isLandscape {
+                if isIPad {
+                    headerIPad
+                } else if isLandscape {
                     headerLandscape
                 } else {
                     headerPortrait(geo: geo)
@@ -170,6 +169,7 @@ struct ContentView: View {
                         .onAppear {
                                     AnalyticsManager.shared.trackScreen(.txRx)
                                 }
+                        .environmentObject(mapSettings)
 
                     FullScreenWaterfallView()
                         .tabItem { Label("Waterfall", systemImage: "waveform") }
@@ -181,10 +181,10 @@ struct ContentView: View {
                     GridMapViewWrapper(
                         locators: $viewModel.workedLocators,
                         countries: $viewModel.workedCountryPairs,
-                        showGrids: $mapShowGrids,
-                        showCountryCircles: $mapShowCountryCircles,
-                        showGeodesics: $mapShowGeodesics,
-                        showAnnotations: $mapShowAnnotations
+                        showGrids: $mapSettings.showGrids,
+                        showCountryCircles: $mapSettings.showCountryCircles,
+                        showGeodesics: $mapSettings.showGeodesics,
+                        showAnnotations: $mapSettings.showAnnotations
                     )
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
@@ -305,6 +305,7 @@ struct ContentView: View {
     
     struct TransmissionRootView: View {
         @EnvironmentObject private var viewModel: FT8ViewModel
+        @EnvironmentObject private var mapSettings: MapSettingsModel
 
         var body: some View {
             transmissionContent
@@ -327,6 +328,30 @@ struct ContentView: View {
 
             case .condensed:
                 CondensedTransmissionView()
+                
+            case .dashboard:
+                DashboardRootView()
+            }
+        }
+    }
+    
+    struct DashboardRootView: View {
+        @EnvironmentObject private var viewModel: FT8ViewModel
+        @EnvironmentObject private var mapSettings: MapSettingsModel
+        @EnvironmentObject private var flags: FeatureFlagManager
+        
+        var body: some View {
+            Group {
+                if flags.isEnabled(.enableIpadDashboard) {
+                    IpadDashboardView()
+                        .onAppear {
+                            AnalyticsManager.shared.trackScreen(.ipadDashboard)
+                        }
+                        .environmentObject(mapSettings)
+                } else {
+                    // Fallback to separated view if dashboard is disabled
+                    SeparatedTransmissionRootView()
+                }
             }
         }
     }
@@ -364,10 +389,10 @@ struct ContentView: View {
         // MARK: - Pane Picker
         private var panePicker: some View {
             Picker("Pane", selection: $selectedPane) {
-                Text("Received")
+                Text(String(localized: "Received"))
                     .tag(Pane.received)
 
-                Text("Transmitted")
+                Text(String(localized: "Transmitted"))
                     .tag(Pane.transmitted)
             }
             .pickerStyle(.segmented)
@@ -413,20 +438,39 @@ struct ContentView: View {
     // MARK: - Header landscape
 
     private var headerLandscape: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: LayoutConstants.headerSpacing) {
             Text("FT Ham")
                 .font(.title)
                 .frame(alignment: .leading)
-            Spacer()
             ClockView()
-            Spacer()
             StatusView()
-            Spacer()
             progressBar
-                .frame(maxWidth: 400, alignment: .trailing)
+                .frame(maxWidth: LayoutConstants.progressBarMaxWidth, alignment: .trailing)
         }
         .padding(.top, 15)
         .padding(.bottom, 10)
+    }
+    
+    // MARK: - Header iPad
+    
+    private var headerIPad: some View {
+        HStack(spacing: LayoutConstants.largePadding) {
+            Text("FT Ham")
+                .font(.largeTitle)
+                .fontWeight(.semibold)
+                .frame(alignment: .leading)
+            
+            StatusView()
+                .frame(minWidth: 150)
+            
+            progressBar
+                .frame(maxWidth: LayoutConstants.progressBarMaxWidth, alignment: .trailing)
+            
+            ClockView()
+                .frame(minWidth: 100)
+        }
+        .padding(.horizontal, LayoutConstants.ipadPadding)
+        .padding(.vertical, 15)
     }
 }
 

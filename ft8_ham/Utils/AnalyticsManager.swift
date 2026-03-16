@@ -15,6 +15,7 @@ enum AnalyticsScreen: String {
     case txRx = "tx_rx"
     case waterfall
     case map
+    case ipadDashboard = "ipad_dashboard"
     case logbook
     case configuration
     case onboarding

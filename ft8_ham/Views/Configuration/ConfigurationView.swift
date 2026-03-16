@@ -115,7 +115,6 @@ struct NewConfigurationView: View {
                 } footer: {
                     versionFooter
                 }
-                
             }
             .padding(.horizontal)
         }
@@ -360,31 +359,31 @@ struct ConfigurationView: View {
                     Button {
                         triggerRatePrompt()
                     } label: {
-                        Label("Test Rate Prompt", systemImage: "star.fill")
+                        Label(String(localized: "Test Rate Prompt"), systemImage: "star.fill")
                     }
                     
                     Button {
                         triggerSharePrompt()
                     } label: {
-                        Label("Test Share Prompt", systemImage: "square.and.arrow.up")
+                        Label(String(localized: "Test Share Prompt"), systemImage: "square.and.arrow.up")
                     }
                     
                     Button {
                         triggerDonationPrompt()
                     } label: {
-                        Label("Test Donation Prompt", systemImage: "heart.fill")
+                        Label(String(localized: "Test Donation Prompt"), systemImage: "heart.fill")
                     }
                     
                     Button {
                         showWhatsNew = true
                     } label: {
-                        Label("Show What's New", systemImage: "sparkles")
+                        Label(String(localized: "Show What's New"), systemImage: "sparkles")
                     }
                     
                     Button(role: .destructive) {
-                        fatalError("Intentional debug crash for testing crash reporting")
+                        fatalError(String(localized: "Intentional debug crash for testing crash reporting"))
                     } label: {
-                        Label("Crash reporter test", systemImage: "exclamationmark.triangle")
+                        Label(String(localized: "Crash reporter test"), systemImage: "exclamationmark.triangle")
                     }
                 }
                 #endif
@@ -520,8 +519,8 @@ struct ConfigurationView: View {
     
     // MARK: - Subviews
     private var callsignView: some View {
-        VStack(alignment: .leading){
-            HStack{
+        VStack(alignment: .leading) {
+            HStack {
                 Text("Callsign:")
                 TextField("", text: $callsignText)
                     .textFieldStyle(.roundedBorder)
@@ -537,7 +536,6 @@ struct ConfigurationView: View {
                         commitCallsign()
                     }
                     .border(validCallsign ? Color.clear : Color.red)
-                
             }
 
             Text("Callsign modifiers are allowed")
@@ -550,8 +548,8 @@ struct ConfigurationView: View {
     }
     
     private var locatorView: some View {
-        VStack (alignment: .leading){
-            HStack{
+        VStack(alignment: .leading) {
+            HStack {
                 Text("Locator:")
                 Spacer()
                 TextField("", text: $viewModel.locator)
@@ -573,7 +571,6 @@ struct ConfigurationView: View {
                         validLocator = isValidLocator(text)
                     }
                     .border(validLocator ? Color.clear : Color.red)
-
             }
             
             ToggleRow(
@@ -592,7 +589,6 @@ struct ConfigurationView: View {
                 isOn: $viewModel.cqIncludeGrid,
                 activeHelp: $activeHelp
             )
-
         }
         .padding(.horizontal, 20)
     }
@@ -752,7 +748,7 @@ struct ConfigurationView: View {
 
         return VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Text("Band:")
+                Text(String(localized: "Band:"))
                 Text(frequencyText)
                     .foregroundStyle(.secondary)
             }
@@ -829,16 +825,37 @@ struct ConfigurationView: View {
 
     
     private var viewModeView: some View {
-        VStack {
-            Text("View mode: ")
-            Picker("View mode", selection: Binding(
+        let isIPad = UIDevice.current.userInterfaceIdiom == .pad
+        
+        // Available view modes based on device and feature flags
+        let availableModes = ViewMode.allCases.filter { mode in
+            // Dashboard: in DEBUG always show (any device) if flag enabled, in RELEASE only on iPad if flag enabled
+            if mode == .dashboard {
+                #if DEBUG
+                return flags.isEnabled(.enableIpadDashboard)
+                #else
+                return isIPad && flags.isEnabled(.enableIpadDashboard)
+                #endif
+            }
+            
+            // Other iPad-only modes just require iPad device
+            if mode.isIPadOnly {
+                return isIPad
+            }
+            
+            return true
+        }
+        
+        return VStack {
+            Text(String(localized: "View mode:"))
+            Picker(String(localized: "View mode"), selection: Binding(
                 get: { viewModel.selectedViewMode },
                 set: { newMode in
                     viewModel.selectedViewMode = newMode
                     AnalyticsManager.shared.trackViewMode(newMode)
                 }
             )) {
-                ForEach(ViewMode.allCases) { mode in
+                ForEach(availableModes) { mode in
                     Text(mode.textKey)
                         .tag(mode)
                 }
@@ -942,17 +959,17 @@ struct ConfigurationView: View {
             )
             
             HStack(spacing: 6) {
-                TextField("Retries", value: $viewModel.maxRetrySlots, format: .number)
+                TextField(String(localized: "Retries"), value: $viewModel.maxRetrySlots, format: .number)
                     .keyboardType(.numberPad)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.center)
                     .focused($focusedInput, equals: .retries)
                     .lineLimit(1)
                     .frame(width: 50)
-                Text("Retries")
+                Text(String(localized: "Retries"))
                     .font(.body)
-                    .accessibilityLabel(Text("Retransmission retries"))
-                    .accessibilityHint(Text("Number of times to resend messages if not acknowledged"))
+                    .accessibilityLabel(Text(String(localized: "Retransmission retries")))
+                    .accessibilityHint(Text(String(localized: "Number of times to resend messages if not acknowledged")))
             }
             
             ToggleRow(
@@ -978,14 +995,14 @@ struct ConfigurationView: View {
     
     private var versionSection: some View {
         VStack(spacing: 4) {
-            Text("Version")
+            Text(String(localized: "Version"))
             if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                 Text(String(format: String(localized: "Version %@ (Build %@)"), version, build))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Version unknown")
+                Text(String(localized: "Version unknown"))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -996,10 +1013,10 @@ struct ConfigurationView: View {
     
     private var copyrightSection: some View {
         VStack(spacing: 4) {
-            Text(".copyright")
+            Text(String(localized: ".copyright"))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Text("Pablo Turrión San Pedro (EA4IQL)")
+            Text(String(localized: "Pablo Turrión San Pedro (EA4IQL)"))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
