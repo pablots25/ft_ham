@@ -22,8 +22,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) -> Bool {
         guard AppEnvironment.current.isProduction else { return true }
 
-        FirebaseApp.configure()
-
         configureAnalytics()
         configureCrashlytics()
         configureRemoteConfig()
@@ -105,6 +103,14 @@ extension AppDelegate {
 
 @main
 struct ft8_hamApp: App {
+
+    init() {
+        guard AppEnvironment.current.isProduction else { return }
+
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
+    }
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var viewModel = FT8ViewModel()

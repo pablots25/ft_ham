@@ -95,6 +95,7 @@ struct MessageSelector: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @State private var showGenMessages = false
     @State private var activeHelp: HelpTip?
+    @State private var sheetDetent: PresentationDetent = .large
 
     // Local editable state for callsign/locator
     @State private var callsignText: String = ""
@@ -231,7 +232,9 @@ struct MessageSelector: View {
                     }
                     .padding(.horizontal, 40)
                     .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
+                .scrollIndicators(.visible)
                 .scrollDismissesKeyboard(.interactively)
                 .navigationTitle("Quick config")
                 .navigationBarTitleDisplayMode(.inline)
@@ -250,7 +253,7 @@ struct MessageSelector: View {
                     showGenMessages = false
                 }
             }
-            .presentationDetents([.medium, .large], selection: .constant(.large))
+            .presentationDetents([.medium, .large], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
             .presentationBackground(.regularMaterial)
         }

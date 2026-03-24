@@ -19,6 +19,10 @@ struct CondensedTransmissionView: View {
     @AppStorage("showOnlyInvolved")
     private var showOnlyInvolved: Bool = false
 
+    private var needsTutorial: Bool {
+        !hasSeenTutorial || !hasSeenColumnTutorial
+    }
+
     var body: some View {
         GeometryReader { geo in
             // Detect landscape normally, force portrait on iPad
@@ -60,9 +64,7 @@ struct CondensedTransmissionView: View {
             .coordinateSpace(name: "CondensedTransmissionSpace")
         }
         .onAppear {
-            if !hasSeenTutorial || !hasSeenColumnTutorial {
-                showTutorial = true
-            }
+            showTutorial = needsTutorial
         }
     }
 
@@ -223,10 +225,10 @@ struct CondensedTransmissionView: View {
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 6)
-                if !hasSeenTutorial, allowReply {
+                if showTutorial, allowReply {
                     
                     CondensedMsgListView(
-                        messages: [PreviewMocks.rxMessages.first!],
+                        messages: tutorialSampleMessages(from: messages),
                         allowReply: allowReply,
                         showOnlyInvolved: $showOnlyInvolved
                     )
@@ -252,6 +254,18 @@ struct CondensedTransmissionView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 2)
+    }
+
+    private func tutorialSampleMessages(from messages: [FT8Message]) -> [FT8Message] {
+        if let previewSample = PreviewMocks.rxMessages.first {
+            return [previewSample]
+        }
+
+        if let firstLiveMessage = messages.first {
+            return [firstLiveMessage]
+        }
+
+        return []
     }
 }
 

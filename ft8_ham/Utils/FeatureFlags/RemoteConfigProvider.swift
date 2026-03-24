@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FirebaseCore
 import FirebaseRemoteConfig
 
 // MARK: - Prompt Configuration Models
@@ -100,6 +101,11 @@ final class RemoteConfigProvider: FeatureFlagProvider {
             remoteConfig = nil
             return
         }
+
+      guard FirebaseApp.app() != nil else {
+        remoteConfig = nil
+        return
+      }
 
         let remoteConfig = RemoteConfig.remoteConfig()
         self.remoteConfig = remoteConfig

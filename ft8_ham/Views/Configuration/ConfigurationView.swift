@@ -46,6 +46,12 @@ struct NewConfigurationView: View {
                     } label: {
                         Label("Interface", systemImage: "rectangle.3.group")
                     }
+
+                    NavigationLink {
+                        CatSettingsView()
+                    } label: {
+                        Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
+                    }
                 }
                 
                 // MARK: - Debug
@@ -668,16 +674,9 @@ struct ConfigurationView: View {
         VStack {
             HStack {
                 Text("Frequency offset:")
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
-                    }
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
+                HelpIconButton(helpHint: HelpTip.audioFrequencyHz.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Help for frequency offset"))
                 Spacer()
                 HStack(spacing: 0) {
                     TextField("Frequency", text: $frequencyText)
@@ -869,16 +868,9 @@ struct ConfigurationView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Input Gain:")
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
-                    }
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
+                HelpIconButton(helpHint: HelpTip.audioGain.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Help for input gain"))
                 Spacer()
                 Text(String(format: "%.2f×", sliderTempValue))
                     .foregroundStyle(.secondary)

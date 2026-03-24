@@ -12,7 +12,6 @@ import SwiftUI
 struct GenMessagesView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @FocusState private var focusedField: Bool
-    @Environment(\.dismiss) private var dismiss
 
     // These must be updated onAppear to reflect initial ViewModel state
     @State private var validCallsign = false
@@ -28,7 +27,6 @@ struct GenMessagesView: View {
                         .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.center)
                         .textCase(.uppercase)
-//                        .frame(width: 120)
                         .keyboardType(.asciiCapable)
                         .focused($focusedField)
                         .onChange(of: viewModel.dxCallsign) { newValue in
@@ -44,7 +42,6 @@ struct GenMessagesView: View {
                         .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.center)
                         .textCase(.uppercase)
-//                        .frame(width: 80)
                         .keyboardType(.asciiCapable)
                         .focused($focusedField)
                         .onChange(of: viewModel.dxLocator) { newValue in
@@ -69,8 +66,10 @@ struct GenMessagesView: View {
                     messageRow(index: index, text: $viewModel.allMessages[index])
                 }
             }
-//            .frame(maxWidth: 500)
+            .padding(.horizontal, 50)
+            .frame(maxWidth: 500)
         }
+        .scrollDismissesKeyboard(.interactively)
         .onAppear {
             // CRITICAL: Validate current values immediately when the view loads
             validateAll()

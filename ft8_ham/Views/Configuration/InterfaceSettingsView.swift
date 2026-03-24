@@ -9,10 +9,11 @@ struct InterfaceSettingsView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
 
     var body: some View {
-        List {
-            Group {
-            // MARK: - Transmission List Mode
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Transmission List Mode")
+                    .font(.headline)
+
                 VStack {
                     Text("View mode:")
                     Picker("View mode", selection: Binding(
@@ -28,14 +29,16 @@ struct InterfaceSettingsView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-            } header: {
-                Text("Transmission List Mode")
-            } footer: {
-                Text("Choose how the TX/RX message list is displayed.")
-            }
 
-            // MARK: - Tutorials
-            Section {
+                Text("Choose how the TX/RX message list is displayed.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Divider()
+
+                Text("Tutorials")
+                    .font(.headline)
+
                 Button {
                     AppStorageResetter.resetTutorials()
                 } label: {
@@ -47,15 +50,15 @@ struct InterfaceSettingsView: View {
                 } label: {
                     Label("Show initial tutorial", systemImage: "play.circle")
                 }
-            } header: {
-                Text("Tutorials")
-            } footer: {
+
                 Text("Re-display help messages or the initial onboarding tutorial.")
-            }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
         }
-        .settingsFormStyle(title: "Interface")
+        .navigationTitle("Interface")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

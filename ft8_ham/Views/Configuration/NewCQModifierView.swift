@@ -14,31 +14,39 @@ struct NewCQModifierSelectionView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        List {
-            Group {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
                 selectionRow(for: .none)
-            }
+                
+                Divider()
             
-            Section(CQModifier.Group.geographic.localizedName) {
+                Text(CQModifier.Group.geographic.localizedName)
+                    .font(.headline)
+
                 ForEach(CQModifier.modifiers(for: .geographic)) { modifier in
                     selectionRow(for: modifier)
                 }
-            }
+                
+                Divider()
             
-            Section(CQModifier.Group.activations.localizedName) {
+                Text(CQModifier.Group.activations.localizedName)
+                    .font(.headline)
+
                 ForEach(CQModifier.modifiers(for: .activations)) { modifier in
                     selectionRow(for: modifier)
                 }
-            }
+                
+                Divider()
 
-            Section(CQModifier.Group.custom.localizedName) {
+                Text(CQModifier.Group.custom.localizedName)
+                    .font(.headline)
+
                 selectionRow(for: .other)
-            }
             }
             .padding(.horizontal)
         }
-        .settingsFormStyle(title: "CQ Modifier")
+        .navigationTitle("CQ Modifier")
+        .navigationBarTitleDisplayMode(.inline)
     }
     
     private func selectionRow(for modifier: CQModifier) -> some View {

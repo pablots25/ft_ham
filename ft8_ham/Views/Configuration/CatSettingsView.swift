@@ -17,12 +17,30 @@ struct CatSettingsView: View {
 
     @State private var isTesting = false
     @State private var testStatus: String = ""
+    @State private var activeHelp: CatHelp?
 
     private let catController = PremiumFeatures.catController
 
+    private enum CatHelp: Equatable {
+        case tcpConnection
+        case audioOffset
+
+        var text: String {
+            switch self {
+            case .tcpConnection:
+                return String(localized: "Uses rigctld (hamlib) over TCP.")
+            case .audioOffset:
+                return String(localized: "Apply audio offset adds the TX offset in Hz to the dial frequency.")
+            }
+        }
+    }
+
     var body: some View {
-        Form {
-            Section("CAT over TCP") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("CAT over TCP")
+                    .font(.headline)
+
                 Toggle("Enable CAT", isOn: $catEnabled)
                 TextField("Host", text: $catHost)
                     .textInputAutocapitalization(.never)
@@ -33,24 +51,54 @@ struct CatSettingsView: View {
                     .onChange(of: catPort) { newValue in
                         catPort = min(max(newValue, 1), 65_535)
                     }
-                Text("Uses rigctld (hamlib) over TCP.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
 
-            Section("CAT actions") {
+                HStack {
+                    Spacer()
+                    HelpIconButton(helpHint: CatHelp.tcpConnection.text) {
+                        activeHelp = (activeHelp == .tcpConnection) ? nil : .tcpConnection
+                    }
+                }
+
+                if activeHelp == .tcpConnection {
+                    HelpBubble(text: CatHelp.tcpConnection.text)
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                            removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                        ))
+                }
+
+                Divider()
+
+                Text("CAT actions")
+                    .font(.headline)
+
                 Toggle("Send PTT on TX", isOn: $catPTTEnabled)
                     .disabled(!catEnabled)
                 Toggle("Sync rig frequency", isOn: $catSyncFrequency)
                     .disabled(!catEnabled)
                 Toggle("Apply audio offset", isOn: $catApplyAudioOffset)
                     .disabled(!catEnabled || !catSyncFrequency)
-                Text("Apply audio offset adds the TX offset in Hz to the dial frequency.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
 
-            Section("Connection test") {
+                HStack {
+                    Spacer()
+                    HelpIconButton(helpHint: CatHelp.audioOffset.text) {
+                        activeHelp = (activeHelp == .audioOffset) ? nil : .audioOffset
+                    }
+                }
+
+                if activeHelp == .audioOffset {
+                    HelpBubble(text: CatHelp.audioOffset.text)
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                            removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                        ))
+                }
+
+                Divider()
+
+                Text("Connection test")
+                    .font(.headline)
+
                 Button(isTesting ? String(localized: "Testing...") : String(localized: "Test connection")) {
                     testConnection()
                 }
@@ -62,6 +110,7 @@ struct CatSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .padding(.horizontal)
         }
         .navigationTitle("CAT Control")
         .navigationBarTitleDisplayMode(.inline)

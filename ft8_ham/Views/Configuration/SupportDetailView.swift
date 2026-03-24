@@ -14,8 +14,11 @@ struct SupportDetailView: View {
     @State private var showResetOnboardingAlert = false
 
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Help")
+                    .font(.headline)
+
                 Button {
                     showHelp = true
                 } label: {
@@ -29,29 +32,29 @@ struct SupportDetailView: View {
                 Button("Show initial tutorial") {
                     showResetOnboardingAlert = true
                 }
-            } header: {
-                Text("Help")
-            }
 
-            Section {
-                FirstRunChecklistView(isEmbedded: false)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-            } header: {
+                Divider()
+
                 Text("First Steps")
-            }
+                    .font(.headline)
 
-            Section {
-                SupportView()
-            } header: {
+                FirstRunChecklistView(isEmbedded: false)
+
+                Divider()
+
                 Text("Donations")
-            }
+                    .font(.headline)
 
-            Section {
-                ContactView()
-            } header: {
+                SupportView()
+
+                Divider()
+
                 Text("Contact")
+                    .font(.headline)
+
+                ContactView()
             }
+            .padding(.horizontal)
         }
         .navigationTitle("Support")
         .navigationBarTitleDisplayMode(.inline)

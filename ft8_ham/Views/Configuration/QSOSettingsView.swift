@@ -16,8 +16,11 @@ struct QSOSettingsView: View {
     @FocusState private var focusedInput: FocusField?
 
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Sequencing")
+                    .font(.headline)
+
                 ToggleRow(
                     labelKey: "Auto-sequence",
                     helpTip: .autoSequencing,
@@ -45,11 +48,12 @@ struct QSOSettingsView: View {
                     isOn: $viewModel.autoQSOLogging,
                     activeHelp: $activeHelp
                 )
-            } header: {
-                Text("Sequencing")
-            }
 
-            Section {
+                Divider()
+
+                Text("Behavior")
+                    .font(.headline)
+
                 ToggleRow(
                     labelKey: "Auto RX at start",
                     helpTip: .autoRXAtStart,
@@ -84,12 +88,12 @@ struct QSOSettingsView: View {
                     isOn: $viewModel.holdTXFrequency,
                     activeHelp: $activeHelp
                 )
-            } header: {
-                Text("Behavior")
             }
+            .padding(.horizontal)
         }
         .navigationTitle("QSO settings")
         .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
     }
 }
 

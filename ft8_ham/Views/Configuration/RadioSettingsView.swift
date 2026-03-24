@@ -13,6 +13,7 @@ struct RadioSettingsView: View {
     @FocusState private var frequencyFocused: Bool
     @State private var frequencyText: String = ""
     @State private var sliderTempValue: Float = 1.0
+    @State private var activeHelp: HelpTip?
 
     private let minGain: Float = 0.1
     private let maxGain: Float = 2.0
@@ -27,49 +28,50 @@ struct RadioSettingsView: View {
     }()
 
     var body: some View {
-        List {
-            Group {
-            // MARK: - Mode & Cycle
-            Section {
+        ScrollView {
+            VStack(spacing: 20) {
+                Text("Mode and frequency")
+                    .font(.headline)
+
                 HStack(spacing: 20) {
                     modeView
                     cycleView
                 }
                 .frame(maxWidth: .infinity)
-            } header: {
-                Text("Mode and frequency")
-            } footer: {
+
                 Text("Select operating mode and transmission cycle timing.")
-            }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
 
-            // MARK: - Band
-            Section {
-                bandView
-            } header: {
+                Divider()
+
                 Text("Band")
-            }
+                    .font(.headline)
 
-            // MARK: - Frequency offset
-            Section {
-                frequencyView
-            } header: {
+                bandView
+
+                Divider()
+
                 Text("Frequency offset")
-            } footer: {
-                Text("Fine-tune your transmit frequency offset within the selected band.")
-            }
+                    .font(.headline)
 
-            // MARK: - Input gain
-            Section {
-                inputGainView
-            } header: {
+                frequencyView
+
+                Divider()
+
                 Text("Input Gain")
-            } footer: {
+                    .font(.headline)
+
+                inputGainView
+
                 Text("Adjust microphone input gain for optimal decoding.")
-            }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
         }
-        .settingsFormStyle(title: "Radio")
+        .navigationTitle("Radio")
+        .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
         .onAppear {
             frequencyText = Self.frequencyFormatter.string(
@@ -238,6 +240,9 @@ struct RadioSettingsView: View {
         VStack {
             HStack {
                 Text("Frequency offset:")
+                HelpIconButton(helpHint: HelpTip.audioFrequencyHz.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
+                }
                 Spacer()
                 HStack(spacing: 0) {
                     TextField("Frequency", text: $frequencyText)
@@ -251,6 +256,14 @@ struct RadioSettingsView: View {
                         .frame(width: 80)
                     Text("kHz").padding(5)
                 }
+            }
+
+            if activeHelp == .audioFrequencyHz {
+                HelpBubble(text: HelpTip.audioFrequencyHz.text)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
             }
 
             HStack {
@@ -279,9 +292,20 @@ struct RadioSettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Input Gain:")
+                HelpIconButton(helpHint: HelpTip.audioGain.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
+                }
                 Spacer()
                 Text(String(format: "%.2f×", sliderTempValue))
                     .foregroundStyle(.secondary)
+            }
+
+            if activeHelp == .audioGain {
+                HelpBubble(text: HelpTip.audioGain.text)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
             }
 
             Slider(

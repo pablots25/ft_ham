@@ -92,7 +92,7 @@ struct TutorialOverlay: View {
                     Spacer()
 
                     Button(action: onDismiss) {
-                        Text("tutorial_got_it")
+                        Text("Got it")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)

@@ -16,6 +16,7 @@ struct ModeFrequencyView: View {
     @State private var frequencyText: String = ""
     @State private var frequencySliderTemp: Double = 1500.0
     @State private var sliderTempValue: Float = 1.0
+    @State private var activeHelp: HelpTip?
 
     private let minGain: Float = 0.1
     private let maxGain: Float = 2.0
@@ -39,37 +40,43 @@ struct ModeFrequencyView: View {
     // MARK: - Body
 
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Mode")
+                    .font(.headline)
+
                 modeView
                 cycleView
-            } header: {
-                Text("Mode")
-            }
 
-            Section {
+                Divider()
+
+                Text("Band")
+                    .font(.headline)
+
                 BandPickerView(
                     selectedBand: $viewModel.selectedBand,
                     isFT4: viewModel.isFT4
                 )
-            } header: {
-                Text("Band")
-            }
 
-            Section {
-                frequencyView
-            } header: {
+                Divider()
+
                 Text("Frequency Offset")
-            }
+                    .font(.headline)
 
-            Section {
-                inputGainView
-            } header: {
+                frequencyView
+
+                Divider()
+
                 Text("Input Gain")
+                    .font(.headline)
+
+                inputGainView
             }
+            .padding(.horizontal)
         }
         .navigationTitle("Mode and frequency")
         .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
         .onAppear {
             frequencyText = Self.frequencyFormatter.string(
                 from: NSNumber(value: viewModel.frequency / 1000)
@@ -180,6 +187,9 @@ struct ModeFrequencyView: View {
         VStack {
             HStack {
                 Text("Frequency offset:")
+                HelpIconButton(helpHint: HelpTip.audioFrequencyHz.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
+                }
                 Spacer()
                 HStack(spacing: 0) {
                     TextField("Frequency", text: $frequencyText)
@@ -194,6 +204,14 @@ struct ModeFrequencyView: View {
                     Text("kHz")
                         .padding(5)
                 }
+            }
+
+            if activeHelp == .audioFrequencyHz {
+                HelpBubble(text: HelpTip.audioFrequencyHz.text)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
             }
 
             HStack {
@@ -230,10 +248,22 @@ struct ModeFrequencyView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Input Gain:")
+                HelpIconButton(helpHint: HelpTip.audioGain.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
+                }
                 Spacer()
                 Text(String(format: "%.2f×", sliderTempValue))
                     .foregroundStyle(.secondary)
             }
+
+            if activeHelp == .audioGain {
+                HelpBubble(text: HelpTip.audioGain.text)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
+            }
+
             Slider(
                 value: $sliderTempValue,
                 in: Float(minGain)...Float(maxGain),

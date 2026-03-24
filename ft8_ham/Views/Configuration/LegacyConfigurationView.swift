@@ -766,18 +766,9 @@ struct LegacyConfigurationView: View {
                         Spacer()
                         
                         // Info button: toggle inline expandable help
-                        Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
-                                activeHelp = (activeHelp == .analytics) ? nil : .analytics
-                            }
-                        } label: {
-                            Image(systemName: "info.circle")
-                                .foregroundStyle(.secondary)
+                        HelpIconButton(helpHint: HelpTip.analytics.accessibilityHint) {
+                            activeHelp = (activeHelp == .analytics) ? nil : .analytics
                         }
-                        .buttonStyle(.plain)
-                        .frame(width: 20, height: 20)
-                        .accessibilityLabel(Text("Help"))
-                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
                     }
                     
                     // Inline expandable help with smooth spring animation

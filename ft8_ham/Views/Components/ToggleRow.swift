@@ -96,18 +96,9 @@ struct ToggleRow: View, Equatable {
 
                 Spacer()
 
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
+                HelpIconButton(helpHint: helpTip.accessibilityHint) {
                         activeHelp = (activeHelp == helpTip) ? nil : helpTip
-                    }
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .frame(width: 20, height: 20)
-                .accessibilityLabel(Text("Help"))
-                .accessibilityHint(Text(helpTip.accessibilityHint))
             }
 
             if activeHelp == helpTip {
@@ -118,6 +109,26 @@ struct ToggleRow: View, Equatable {
                     ))
             }
         }
+    }
+}
+
+struct HelpIconButton: View {
+    let helpHint: String
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
+                action()
+            }
+        } label: {
+            Image(systemName: "info.circle")
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .frame(width: 20, height: 20)
+        .accessibilityLabel(Text("Help"))
+        .accessibilityHint(Text(helpHint))
     }
 }
 
@@ -132,7 +143,7 @@ struct HelpBubble: View {
             .foregroundStyle(.secondary)
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.systemGray6))
+            .background(Color.secondary.opacity(0.12))
             .cornerRadius(8)
     }
 }

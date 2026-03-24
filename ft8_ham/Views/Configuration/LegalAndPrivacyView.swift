@@ -14,10 +14,11 @@ struct LegalAndPrivacyView: View {
     @State private var showLicenses = false
 
     var body: some View {
-        List {
-            Group {
-            // MARK: - Privacy & Analytics
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Privacy & Analytics")
+                    .font(.headline)
+
                 ToggleRow(
                     labelKey: "Share usage statistics",
                     helpTip: .analytics,
@@ -35,12 +36,12 @@ struct LegalAndPrivacyView: View {
                         Label("View app logs", systemImage: "doc.text")
                     }
                 }
-            } header: {
-                Text("Privacy & Analytics")
-            }
 
-            // MARK: - Legal Information
-            Section {
+                Divider()
+
+                Text("Legal Information")
+                    .font(.headline)
+
                 Button {
                     showLicenses = true
                 } label: {
@@ -79,13 +80,11 @@ struct LegalAndPrivacyView: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
-            } header: {
-                Text("Legal Information")
-            }
             }
             .padding(.horizontal)
         }
-        .settingsFormStyle(title: "Legal & Privacy")
+        .navigationTitle("Legal & Privacy")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear { activeHelp = nil }
         .sheet(isPresented: $showPrivacyPolicy) {
             SafariView(url: URL(string: "https://ftham.turrion.dev/privacy")!)

@@ -17,10 +17,11 @@ struct StationSettingsView: View {
     @State private var activeHelp: HelpTip?
 
     var body: some View {
-        List {
-            Group {
-            // MARK: - Station details
-            Section {
+        ScrollView {
+            VStack(spacing: 20) {
+                Text("Station details")
+                    .font(.headline)
+
                 HStack {
                     Text("Callsign:")
                     TextField("", text: $callsignText)
@@ -36,14 +37,16 @@ struct StationSettingsView: View {
                         .onSubmit { commitCallsign() }
                         .border(validCallsign ? Color.clear : Color.red)
                 }
-            } header: {
-                Text("Station details")
-            } footer: {
-                Text("Callsign modifiers are allowed")
-            }
 
-            // MARK: - Locator
-            Section {
+                Text("Callsign modifiers are allowed")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Divider()
+
+                Text("Locator")
+                    .font(.headline)
+
                 HStack {
                     Text("Locator:")
                     Spacer()
@@ -80,37 +83,18 @@ struct StationSettingsView: View {
                     isOn: $viewModel.cqIncludeGrid,
                     activeHelp: $activeHelp
                 )
-            } header: {
-                Text("Locator")
-            }
 
-            // MARK: - CQ Modifier
-            Section {
-                NewCQModifierView()
-            } header: {
+                Divider()
+
                 Text("CQ Modifier")
-            } footer: {
-                Text("Optionally add a modifier to your CQ calls (e.g. CQ DX, CQ POTA).")
-            }
+                    .font(.headline)
 
-            // MARK: - Generated Messages
-            Section {
-                NavigationLink {
-                    GenMessagesView()
-                        .navigationTitle("Messages")
-                        .navigationBarTitleDisplayMode(.inline)
-                } label: {
-                    Label("Generated Messages", systemImage: "text.bubble")
-                }
-            } header: {
-                Text("Messages")
-            } footer: {
-                Text("Preview the FT8/FT4 messages generated from your configuration.")
-            }
+                NewCQModifierView()
             }
             .padding(.horizontal)
         }
-        .settingsFormStyle(title: "Station")
+        .navigationTitle("Station")
+        .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
         .onAppear {
             callsignText = viewModel.callsign

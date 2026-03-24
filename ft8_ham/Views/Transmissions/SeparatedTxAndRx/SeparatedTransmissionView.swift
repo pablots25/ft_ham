@@ -22,6 +22,10 @@ struct SeparatedTransmissionView: View {
     @AppStorage("showOnlyInvolvedSeparatedTX")
     private var showOnlyInvolved: Bool = false
 
+    private var needsTutorial: Bool {
+        !hasSeenTutorial || !hasSeenColumnTutorial
+    }
+
     init(section: TransmissionSection, allowReply: Bool = false) {
         self.section = section
         self.allowReply = allowReply
@@ -68,9 +72,7 @@ struct SeparatedTransmissionView: View {
             .coordinateSpace(name: "SeparatedTransmissionSpace")
         }
         .onAppear {
-            if (!hasSeenTutorial || !hasSeenColumnTutorial), allowReply {
-                showTutorial = true
-            }
+            showTutorial = allowReply && needsTutorial
         }
     }
 
@@ -196,9 +198,9 @@ struct SeparatedTransmissionView: View {
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 6)
-                    if !hasSeenTutorial, allowReply {
+                    if showTutorial, allowReply {
                         SeparatedMsgListView(
-                            messages: [PreviewMocks.rxMessages.first!],
+                            messages: tutorialSampleMessages(from: messages),
                             allowReply: allowReply, showOnlyInvolved: $showOnlyInvolved
                         )
                         .background(
@@ -220,6 +222,18 @@ struct SeparatedTransmissionView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 2)
+    }
+
+    private func tutorialSampleMessages(from messages: [FT8Message]) -> [FT8Message] {
+        if let previewSample = PreviewMocks.rxMessages.first {
+            return [previewSample]
+        }
+
+        if let firstLiveMessage = messages.first {
+            return [firstLiveMessage]
+        }
+
+        return []
     }
 }
 

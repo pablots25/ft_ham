@@ -11,22 +11,23 @@ struct BehaviorSettingsView: View {
     @State private var activeHelp: HelpTip?
 
     var body: some View {
-        List {
-            Group {
-            // MARK: - Receiver Control
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Receiver Control")
+                    .font(.headline)
+
                 ToggleRow(
                     labelKey: "Auto RX at start",
                     helpTip: .autoRXAtStart,
                     isOn: $viewModel.autoRXAtStart,
                     activeHelp: $activeHelp
                 )
-            } header: {
-                Text("Receiver Control")
-            }
 
-            // MARK: - Auto CQ Reply
-            Section {
+                Divider()
+
+                Text("Auto CQ Reply")
+                    .font(.headline)
+
                 ToggleRow(
                     labelKey: "Reply to CQ received",
                     helpTip: .autoCQReply,
@@ -40,12 +41,12 @@ struct BehaviorSettingsView: View {
                     isOn: $viewModel.autoCQReplyOnlyNewBandMode,
                     activeHelp: $activeHelp
                 )
-            } header: {
-                Text("Auto CQ Reply")
-            }
 
-            // MARK: - Display & Transmission
-            Section {
+                Divider()
+
+                Text("Display & Transmission")
+                    .font(.headline)
+
                 ToggleRow(
                     labelKey: "Show TX messages in RX list",
                     helpTip: .decodeSelfTX,
@@ -59,12 +60,12 @@ struct BehaviorSettingsView: View {
                     isOn: $viewModel.holdTXFrequency,
                     activeHelp: $activeHelp
                 )
-            } header: {
-                Text("Display & Transmission")
-            }
 
-            // MARK: - QSO Automation
-            Section {
+                Divider()
+
+                Text("QSO Automation")
+                    .font(.headline)
+
                 ToggleRow(
                     labelKey: "Auto-sequence",
                     helpTip: .autoSequencing,
@@ -92,13 +93,18 @@ struct BehaviorSettingsView: View {
                     isOn: $viewModel.autoQSOLogging,
                     activeHelp: $activeHelp
                 )
-            } header: {
-                Text("QSO Automation")
-            }
+
+                ToggleRow(
+                    labelKey: "PSK Reporter",
+                    helpTip: .pskReporter,
+                    isOn: $viewModel.pskReporterEnabled,
+                    activeHelp: $activeHelp
+                )
             }
             .padding(.horizontal)
         }
-        .settingsFormStyle(title: "Behavior")
+        .navigationTitle("Behavior")
+        .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
         .onAppear { activeHelp = nil }
     }
