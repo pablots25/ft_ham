@@ -48,7 +48,10 @@ struct RadioSettingsView: View {
                 Text("Band")
                     .font(.headline)
 
-                bandView
+                BandPickerView(
+                    selectedBand: $viewModel.selectedBand,
+                    isFT4: viewModel.isFT4
+                )
 
                 Divider()
 
@@ -148,89 +151,6 @@ struct RadioSettingsView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 120)
-        }
-    }
-
-    // MARK: - Band selector
-
-    private var bandView: some View {
-        let bands = FT8Message.Band.validBands
-        let mode: FT8Message.FT8MessageMode = viewModel.isFT4 ? .ft4 : .ft8
-        let frequencyHz = viewModel.selectedBand.frequency(for: mode)
-
-        let freqDisplay: String = {
-            guard let hz = frequencyHz else {
-                return "— " + String(localized: "MHz")
-            }
-            return String(format: "%.3f ", hz / 1_000_000) + String(localized: "MHz")
-        }()
-
-        let selectedIndex: Int? = bands.firstIndex(of: viewModel.selectedBand)
-
-        return VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Text("Band:")
-                Text(freqDisplay).foregroundStyle(.secondary)
-            }
-
-            ScrollViewReader { proxy in
-                HStack(spacing: 6) {
-                    Button {
-                        guard let idx = selectedIndex, idx > 0 else { return }
-                        let newBand = bands[idx - 1]
-                        withAnimation {
-                            viewModel.selectedBand = newBand
-                            proxy.scrollTo(newBand, anchor: .center)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedIndex == 0)
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(bands, id: \.self) { band in
-                                Button {
-                                    withAnimation {
-                                        viewModel.selectedBand = band
-                                        proxy.scrollTo(band, anchor: .center)
-                                    }
-                                } label: {
-                                    Text(band.rawValue)
-                                        .font(.subheadline)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(
-                                            band == viewModel.selectedBand
-                                            ? Color.accentColor
-                                            : Color.secondary.opacity(0.2)
-                                        )
-                                        .foregroundColor(
-                                            band == viewModel.selectedBand ? .white : .primary
-                                        )
-                                        .clipShape(Capsule())
-                                }
-                                .id(band)
-                            }
-                        }
-                        .padding(.horizontal, 4)
-                    }
-
-                    Button {
-                        guard let idx = selectedIndex, idx < bands.count - 1 else { return }
-                        let newBand = bands[idx + 1]
-                        withAnimation {
-                            viewModel.selectedBand = newBand
-                            proxy.scrollTo(newBand, anchor: .center)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.right")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedIndex == bands.count - 1)
-                }
-            }
         }
     }
 

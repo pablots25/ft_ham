@@ -37,7 +37,6 @@ struct GenMessagesView: View {
                 // MARK: DX Locator Input
                 VStack {
                     Text("DX Locator:")
-                        .frame(minWidth: 120)
                     TextField("", text: $viewModel.dxLocator)
                         .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.center)

@@ -202,6 +202,11 @@ struct MessageSelector: View {
                                 }
                             )
                         }
+                        
+                        BandPickerView(
+                            selectedBand: $viewModel.selectedBand,
+                            isFT4: viewModel.isFT4
+                        )
 
                         Divider()
 
@@ -258,6 +263,7 @@ struct MessageSelector: View {
             .presentationBackground(.regularMaterial)
         }
     }
+
 }
 
 struct StatusView: View {

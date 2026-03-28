@@ -102,6 +102,21 @@ struct BandPickerView: View {
                     .disabled(selectedIndex == bands.count - 1)
                     .accessibilityLabel(Text("Next band"))
                 }
+                .onAppear {
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(selectedBand, anchor: .center)
+                    }
+                }
+                .onChange(of: selectedBand) { newBand in
+                    withAnimation {
+                        proxy.scrollTo(newBand, anchor: .center)
+                    }
+                }
+                .onChange(of: isFT4) { _ in
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(selectedBand, anchor: .center)
+                    }
+                }
             }
         }
     }

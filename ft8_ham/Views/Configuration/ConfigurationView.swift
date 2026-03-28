@@ -48,7 +48,11 @@ struct NewConfigurationView: View {
                     }
 
                     NavigationLink {
+                        #if canImport(FTHamPremium)
                         CatSettingsView()
+                        #else
+                        CatSettingsViewStub()
+                        #endif
                     } label: {
                         Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
                     }
@@ -291,7 +295,10 @@ struct ConfigurationView: View {
                         cycleView
                     }
                     
-                    bandView
+                    BandPickerView(
+                        selectedBand: $viewModel.selectedBand,
+                        isFT4: viewModel.isFT4
+                    )
                     
                     frequencyView
                     inputGainView
@@ -730,98 +737,6 @@ struct ConfigurationView: View {
             .padding(.horizontal, 40)
         }
     }
-    
-    private var bandView: some View {
-        let bands = FT8Message.Band.validBands
-        let mode: FT8Message.FT8MessageMode = viewModel.isFT4 ? .ft4 : .ft8
-        let frequencyHz = viewModel.selectedBand.frequency(for: mode)
-
-        let frequencyText: String = {
-            guard let hz = frequencyHz else {
-                return "— " + String(localized: "MHz")
-            }
-            return String(format: "%.3f ", hz / 1_000_000) + String(localized: "MHz")
-        }()
-
-        let selectedIndex: Int? = bands.firstIndex(of: viewModel.selectedBand)
-
-        return VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Text(String(localized: "Band:"))
-                Text(frequencyText)
-                    .foregroundStyle(.secondary)
-            }
-
-            ScrollViewReader { proxy in
-                HStack(spacing: 6) {
-
-                    // MARK: - Left arrow
-                    Button {
-                        guard let index = selectedIndex, index > 0 else { return }
-                        let newBand = bands[index - 1]
-                        withAnimation {
-                            viewModel.selectedBand = newBand
-                            proxy.scrollTo(newBand, anchor: .center)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedIndex == 0)
-
-                    // MARK: - Scrollable bands
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(bands, id: \.self) { band in
-                                Button {
-                                    withAnimation {
-                                        viewModel.selectedBand = band
-                                        proxy.scrollTo(band, anchor: .center)
-                                    }
-                                } label: {
-                                    Text(band.rawValue)
-                                        .font(.subheadline)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(
-                                            band == viewModel.selectedBand
-                                            ? Color.accentColor
-                                            : Color.secondary.opacity(0.2)
-                                        )
-                                        .foregroundColor(
-                                            band == viewModel.selectedBand
-                                            ? .white
-                                            : .primary
-                                        )
-                                        .clipShape(Capsule())
-                                }
-                                .id(band)
-                            }
-                        }
-                        .padding(.horizontal, 4)
-                    }
-
-                    // MARK: - Right arrow
-                    Button {
-                        guard let index = selectedIndex, index < bands.count - 1 else { return }
-                        let newBand = bands[index + 1]
-                        withAnimation {
-                            viewModel.selectedBand = newBand
-                            proxy.scrollTo(newBand, anchor: .center)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.right")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedIndex == bands.count - 1)
-                }
-                .padding(.horizontal, 20)
-            }
-        }
-    }
-
-
-
     
     private var viewModeView: some View {
         let isIPad = UIDevice.current.userInterfaceIdiom == .pad

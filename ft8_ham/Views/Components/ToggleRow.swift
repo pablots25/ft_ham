@@ -124,9 +124,11 @@ struct HelpIconButton: View {
         } label: {
             Image(systemName: "info.circle")
                 .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
         }
         .buttonStyle(.plain)
-        .frame(width: 20, height: 20)
+        .contentShape(Rectangle())
+        .frame(minWidth: 44, minHeight: 44)
         .accessibilityLabel(Text("Help"))
         .accessibilityHint(Text(helpHint))
     }

@@ -12,51 +12,55 @@ struct DebugSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                    Button {
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(500))
-                            InAppPrompts.shared.requestRate()
-                        }
-                    } label: {
-                        Label("Test Rate Prompt", systemImage: "star.fill")
+                Button {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(500))
+                        InAppPrompts.shared.requestRate()
                     }
-                    
-                    Button {
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(500))
-                            InAppPrompts.shared.showPreShareAlert = true
-                        }
-                    } label: {
-                        Label("Test Share Prompt", systemImage: "square.and.arrow.up")
+                } label: {
+                    Label("Test Rate Prompt", systemImage: "star.fill")
+                }
+
+                Button {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(500))
+                        InAppPrompts.shared.showPreShareAlert = true
                     }
-                    
-                    Button {
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(500))
-                            InAppPrompts.shared.showDonationAlert = true
-                        }
-                    } label: {
-                        Label("Test Donation Prompt", systemImage: "heart.fill")
+                } label: {
+                    Label("Test Share Prompt", systemImage: "square.and.arrow.up")
+                }
+
+                Button {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(500))
+                        InAppPrompts.shared.showDonationAlert = true
                     }
-                    
-                    Button {
-                        showWhatsNew = true
-                    } label: {
-                        Label("What's New", systemImage: "sparkles")
-                    }
-                    
-                    Button(role: .destructive) {
-                        fatalError("Intentional debug crash for testing crash reporting")
-                    } label: {
-                        Label("Crash reporter test", systemImage: "exclamationmark.triangle")
-                    }
+                } label: {
+                    Label("Test Donation Prompt", systemImage: "heart.fill")
+                }
+
+                Button {
+                    showWhatsNew = true
+                } label: {
+                    Label("What's New", systemImage: "sparkles")
+                }
+
+                Button(role: .destructive) {
+                    fatalError("Intentional debug crash for testing crash reporting")
+                } label: {
+                    Label("Crash reporter test", systemImage: "exclamationmark.triangle")
+                }
 
                 Divider()
 
                 Text("PSK Reporter")
                     .font(.headline)
 
+                #if canImport(FTHamPremium)
                 PSKReporterDebugView()
+                #else
+                PSKReporterDebugViewStub()
+                #endif
             }
             .padding(.horizontal)
         }
