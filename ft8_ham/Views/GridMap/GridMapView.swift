@@ -377,7 +377,16 @@ struct GridMapViewWrapper: View {
     @Binding var showAnnotations: Bool
     @State private var isControlsExpanded: Bool = false
 
+    @ViewBuilder
     var body: some View {
+        if #available(iOS 18.0, *) {
+            mapContent.toolbarVisibility(.visible, for: .tabBar)
+        } else {
+            mapContent
+        }
+    }
+
+    private var mapContent: some View {
         ZStack(alignment: .topTrailing) {
             GridMapView(
                 locators: $locators,
@@ -389,7 +398,7 @@ struct GridMapViewWrapper: View {
                 showAnnotations: showAnnotations
             )
             .ignoresSafeArea()
-            
+
             mapControlBar
                 .padding(10)
         }
