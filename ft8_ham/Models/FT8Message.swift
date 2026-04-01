@@ -265,12 +265,12 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
             case .ft8:
                 switch self {
                 case .band160m: return 1_840_000
-                case .band80m:  return 3_574_000
+                case .band80m:  return 3_573_000
                 case .band60m:  return 5_357_000
                 case .band40m:  return 7_074_000
                 case .band30m:  return 10_136_000
                 case .band20m:  return 14_074_000
-                case .band17m:  return 18_074_000
+                case .band17m:  return 18_100_000
                 case .band15m:  return 21_074_000
                 case .band12m:  return 24_915_000
                 case .band11m:  return 27_245_000
@@ -281,17 +281,17 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
 
             case .ft4:
                 switch self {
-                case .band160m: return 1_840_000
+                case .band160m: return 1_840_000         // No standard FT4 frequency
                 case .band80m:  return 3_575_000
-                case .band60m:  return 5_357_000
+                case .band60m:  return 5_357_000         // No standard FT4 frequency
                 case .band40m:  return 7_047_500
                 case .band30m:  return 10_140_000
                 case .band20m:  return 14_080_000
                 case .band17m:  return 18_104_000
                 case .band15m:  return 21_140_000
                 case .band12m:  return 24_919_000
-                case .band11m:  return 27_245_000
-                case .band10m:  return 28_080_000
+                case .band11m:  return 27_245_000         // No standard FT4 frequency
+                case .band10m:  return 28_180_000
                 case .band6m:   return 50_318_000
                 case .unknown:  return nil
                 }
