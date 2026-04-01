@@ -75,6 +75,7 @@ struct CQModifierView: View {
     @AppStorage("mySotaRef") var mySotaRef: String = ""
     @AppStorage("myWwffRef") var myWwffRef: String = ""
     @AppStorage("myIotaRef") var myIotaRef: String = ""
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     private var cqModifier: CQModifier {
         CQModifier(rawValue: cqModifierRaw) ?? .none
@@ -104,7 +105,8 @@ struct CQModifierView: View {
             
             referenceFieldView
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
     @ViewBuilder

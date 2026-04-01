@@ -304,7 +304,9 @@ final class LogbookManager: LogbookManaging {
             if let frequency = adifFrequencyString(fromHz: entry.frequencyHz) {
                 adifContent += "<FREQ:\(frequency.count)>\(frequency) "
             }
-            adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
+            if entry.band != "Unknown" && !entry.band.isEmpty {
+                adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
+            }
             adifContent += "<MODE:3>\(entry.mode) "
             adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "
             adifContent += "<RST_RCVD:\(entry.rstRcvd.count)>\(entry.rstRcvd) "

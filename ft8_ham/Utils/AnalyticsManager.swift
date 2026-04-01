@@ -119,19 +119,44 @@ final class AnalyticsManager {
 
     // MARK: - Donation Events
 
-    func logDonationPromptShown() {
+    func logDonationPromptShown(triggerSource: String, appLaunches: Int) {
         guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("donation_prompt_shown", parameters: nil)
+        Analytics.logEvent("donation_prompt_shown", parameters: [
+            "trigger_source": triggerSource,
+            "app_launches": NSNumber(value: appLaunches)
+        ])
     }
 
-    func logDonationPromptConfirmed() {
+    func logDonationPromptConfirmed(triggerSource: String, appLaunches: Int) {
         guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("donation_prompt_confirmed", parameters: nil)
+        Analytics.logEvent("donation_prompt_confirmed", parameters: [
+            "trigger_source": triggerSource,
+            "app_launches": NSNumber(value: appLaunches)
+        ])
     }
 
-    func logDonationPromptPostponed() {
+    func logDonationPromptPostponed(triggerSource: String, appLaunches: Int) {
         guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("donation_prompt_postponed", parameters: nil)
+        Analytics.logEvent("donation_prompt_postponed", parameters: [
+            "trigger_source": triggerSource,
+            "app_launches": NSNumber(value: appLaunches)
+        ])
+    }
+
+    func logDonationPromptSkipped(triggerSource: String, reason: String, appLaunches: Int, roll: Int? = nil) {
+        guard isAnalyticsEnabled else { return }
+
+        var parameters: [String: Any] = [
+            "trigger_source": triggerSource,
+            "reason": reason,
+            "app_launches": NSNumber(value: appLaunches)
+        ]
+
+        if let roll {
+            parameters["roll"] = NSNumber(value: roll)
+        }
+
+        Analytics.logEvent("donation_prompt_skipped", parameters: parameters)
     }
 
     func logPurchaseCompleted(productID: String) {

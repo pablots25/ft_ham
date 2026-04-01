@@ -211,7 +211,9 @@ struct ActivityViewController: UIViewControllerRepresentable {
         UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
     }
     
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        // No incremental updates are needed once the activity controller is presented.
+    }
 }
 
 #Preview("ExportOptionsView") {

@@ -55,6 +55,7 @@ final class InAppPrompts: ObservableObject {
 
     // MARK: - Session state
     private var hasPresentedPromptThisSession = false
+    private var lastDonationTriggerSource = "unknown"
 
     // MARK: - Published state for SwiftUI
     @Published var showPreShareAlert = false
@@ -168,23 +169,51 @@ final class InAppPrompts: ObservableObject {
         case qsoLogged
         case adifExport
         case txStarted
+
+        var analyticsSource: String {
+            switch self {
+            case .qsoLogged:
+                return "qso"
+            case .adifExport:
+                return "adif"
+            case .txStarted:
+                return "tx"
+            }
+        }
     }
 
     private func recordDonationTrigger(_ trigger: DonationTrigger) {
         guard isDonationPromptEnabled else { return }
-        guard !hasPresentedPromptThisSession else { return }
-        guard shareItem == nil else { return }
+        guard !hasPresentedPromptThisSession else {
+            logDonationPromptSkipped(trigger: trigger, reason: "prompt_presented_this_session")
+            return
+        }
+        guard shareItem == nil else {
+            logDonationPromptSkipped(trigger: trigger, reason: "share_sheet_active")
+            return
+        }
         
         // Skip if user has already donated
         Task {
             let hasDonated = await ProductManager.hasMadeAnyPurchase()
             guard !hasDonated else {
                 appLogger.debug("Donation prompt skipped - user has already donated")
+                logDonationPromptSkipped(trigger: trigger, reason: "already_donated")
                 return
             }
             
             await processDonationTrigger(trigger)
         }
+    }
+
+    private func logDonationPromptSkipped(trigger: DonationTrigger, reason: String, roll: Int? = nil) {
+        let launches = UserDefaults.standard.integer(forKey: Keys.appLaunches)
+        AnalyticsManager.shared.logDonationPromptSkipped(
+            triggerSource: trigger.analyticsSource,
+            reason: reason,
+            appLaunches: launches,
+            roll: roll
+        )
     }
     
     private func processDonationTrigger(_ trigger: DonationTrigger) async {
@@ -193,6 +222,7 @@ final class InAppPrompts: ObservableObject {
         let lastPromptLaunch = defaults.integer(forKey: Keys.donationLastPromptLaunch)
 
         if launches - lastPromptLaunch < donationCooldownLaunches {
+            logDonationPromptSkipped(trigger: trigger, reason: "cooldown")
             return
         }
 
@@ -217,13 +247,18 @@ final class InAppPrompts: ObservableObject {
 
         guard roll <= donationProbabilityPercent else {
             appLogger.debug("Donation prompt skipped (roll=\(roll))")
+            logDonationPromptSkipped(trigger: trigger, reason: "probability_roll", roll: roll)
             return
         }
 
         hasPresentedPromptThisSession = true
+        lastDonationTriggerSource = trigger.analyticsSource
         defaults.set(launches, forKey: Keys.donationLastPromptLaunch)
 
-        AnalyticsManager.shared.logDonationPromptShown()
+        AnalyticsManager.shared.logDonationPromptShown(
+            triggerSource: trigger.analyticsSource,
+            appLaunches: launches
+        )
 
         try? await Task.sleep(nanoseconds: 1_000_000_000)
         await MainActor.run {
@@ -285,15 +320,21 @@ final class InAppPrompts: ObservableObject {
         let defaults = UserDefaults.standard
         let launches = defaults.integer(forKey: Keys.appLaunches)
         defaults.set(launches, forKey: Keys.donationLastPromptLaunch)
-        AnalyticsManager.shared.logDonationPromptConfirmed()
+        AnalyticsManager.shared.logDonationPromptConfirmed(
+            triggerSource: lastDonationTriggerSource,
+            appLaunches: launches
+        )
         showDonationAlert = false
         shouldNavigateToDonations = true
     }
 
     func postponeDonation() {
         let defaults = UserDefaults.standard
-        AnalyticsManager.shared.logDonationPromptPostponed()
         let launches = defaults.integer(forKey: Keys.appLaunches)
+        AnalyticsManager.shared.logDonationPromptPostponed(
+            triggerSource: lastDonationTriggerSource,
+            appLaunches: launches
+        )
         defaults.set(launches, forKey: Keys.donationLastPromptLaunch)
         showDonationAlert = false
     }

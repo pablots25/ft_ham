@@ -16,7 +16,9 @@ class AppVersionManager {
     
     private let remoteConfig = RemoteConfigProvider()
     
-    private init() {}
+    private init() {
+        // Singleton initialization is intentionally empty.
+    }
     
     var currentVersion: String {
         Bundle.main.appVersion

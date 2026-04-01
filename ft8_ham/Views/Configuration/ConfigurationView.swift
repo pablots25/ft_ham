@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import SafariServices
 
 // MARK: - New Configuration View (Settings-style)
 
@@ -20,7 +19,7 @@ struct NewConfigurationView: View {
 
     var body: some View {
         List {
-            Group{
+            Group {
                 // MARK: - Settings
                 Section {
                     NavigationLink {
@@ -59,7 +58,7 @@ struct NewConfigurationView: View {
                 }
                 
                 // MARK: - Debug
-#if DEBUG
+                #if DEBUG
                 Section {
                     NavigationLink {
                         DebugSettingsView()
@@ -67,7 +66,7 @@ struct NewConfigurationView: View {
                         Label("Debug", systemImage: "ladybug")
                     }
                 }
-#endif
+                #endif
                 
                 // MARK: - Help & Support
                 Section {
@@ -156,38 +155,35 @@ struct NewConfigurationView: View {
         }
     }
 
-    // MARK: - Version Footer
-
     private var versionFooter: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 4) {
             if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                 Text(String(format: String(localized: "Version %@ (Build %@)"), version, build))
-            } else {
-                Text("Version unknown")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
-            Text(".copyright")
-            Text("Pablo Turrión San Pedro (EA4IQL)")
         }
         .frame(maxWidth: .infinity)
         .multilineTextAlignment(.center)
-        .foregroundStyle(.secondary)
-        .font(.footnote)
-
+        .padding(.top, 8)
     }
-
 }
 
-// MARK: - Legacy Configuration View
+// MARK: - Configuration View
 
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var flags: FeatureFlagManager
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Binding var navigationPath: NavigationPath
     @Binding var shouldScrollToDonations: Bool
 
     @State private var showWhatsNew = false
     @State private var showHelp = false
+    @State private var showMessagesSection = false
+    @State private var sliderTempValue: Float = 1.0
+    @State private var frequencySliderTemp: Double = 1500.0
     
     private static let appLogger = AppLogger(category: "APP")
     
@@ -197,6 +193,7 @@ struct ConfigurationView: View {
         case locator
         case frequency
         case retries
+        case customDialFrequency
     }
     
     @FocusState private var focusedInput: FocusField?
@@ -206,50 +203,67 @@ struct ConfigurationView: View {
     @State private var validLocator = false
     @State private var activeHelp: HelpTip?
     
+    private let minGain: Float = 0.1
+    private let maxGain: Float = 2.0
+    
     // Editable local state (avoids writing to @AppStorage on every keystroke)
     @State private var callsignText: String = ""
     @State private var locatorText: String = ""
     @State private var frequencyText: String = ""
-    @State private var frequencySliderTemp: Double = 1500.0
-    @State private var sliderTempValue: Float = 1.0
-
-    private let minGain: Float = 0.1
-    private let maxGain: Float = 2.0
-
-    // MARK: - Number formatter (shared static instance)
+    @State private var customDialFrequencyText: String = ""
+    
+    // CQ modifier state - stored in AppStorage, managed by CQModifierView
+    
+    // Type-safe computed property for reading CQ modifier from AppStorage
+    private var cqModifier: CQModifier {
+        let raw = UserDefaults.standard.string(forKey: "cqModifier") ?? CQModifier.none.rawValue
+        return CQModifier(rawValue: raw) ?? .none
+    }
+    
+    // Available view modes filtered by device and feature flags
+    private var availableModes: [ViewMode] {
+        let isIPad = UIDevice.current.userInterfaceIdiom == .pad
+        return ViewMode.allCases.filter { mode in
+            if mode == .dashboard {
+                #if DEBUG
+                return flags.isEnabled(.enableIpadDashboard)
+                #else
+                return isIPad && flags.isEnabled(.enableIpadDashboard)
+                #endif
+            }
+            if mode.isIPadOnly {
+                return isIPad
+            }
+            return true
+        }
+    }
+    
+    // MARK: - Number formatter for frequency input
+    // ⚠️ Unit consistency: All frequency values are stored in Hz internally.
+    // TextField displays/accepts kHz (user-facing).
+    // Slider range: 0.1 ... 3000 Hz (= 3 kHz max)
+    // Conversion: kHz input × 1000 = Hz stored
+    
     private static let frequencyFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.locale = .current
-        f.numberStyle = .decimal
-        f.minimumFractionDigits = 3
-        f.maximumFractionDigits = 3
-        return f
+        let formatter = NumberFormatter()
+        formatter.locale = .current
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 3
+        formatter.maximumFractionDigits = 3
+        return formatter
+    }()
+
+    private static let dialFrequencyFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.locale = .current
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 3
+        formatter.maximumFractionDigits = 6
+        return formatter
     }()
     
-    private func commitCallsign() {
-        let text = callsignText.uppercased()
-        callsignText = text
-        validCallsign = isValidCallsign(text)
-        
-        if validCallsign && !text.isEmpty {
-            viewModel.callsign = text
-            AnalyticsManager.shared.logConfigurationSaved()
-        }
-    }
+    // MARK: - Frequency parsing
     
-    private func commitLocator() {
-        var text = locatorText.uppercased()
-        text.removeAll(where: { $0.isWhitespace })
-        if text.count > 4 { text = String(text.prefix(4)) }
-        locatorText = text
-        validLocator = isValidLocator(text)
-        if validLocator && !text.isEmpty {
-            viewModel.locator = text
-            AnalyticsManager.shared.logConfigurationSaved()
-        }
-    }
-    
-    // MARK: - Commit frequency
     private func commitFrequencyText() {
         let formatter = Self.frequencyFormatter
         if let number = formatter.number(from: frequencyText) {
@@ -265,6 +279,34 @@ struct ConfigurationView: View {
         }
     }
 
+    /// Parses and validates the custom dial frequency text (entered in MHz).
+    private func commitCustomDialFrequency() {
+        let formatter = Self.dialFrequencyFormatter
+        if let number = formatter.number(from: customDialFrequencyText), number.doubleValue > 0 {
+            viewModel.customDialFrequencyHz = number.doubleValue * 1_000_000
+            customDialFrequencyText = formatter.string(from: NSNumber(value: number.doubleValue)) ?? customDialFrequencyText
+        } else {
+            customDialFrequencyText = formatter.string(
+                from: NSNumber(value: viewModel.customDialFrequencyHz / 1_000_000)
+            ) ?? customDialFrequencyText
+        }
+    }
+    
+    private func commitCallsign() {
+        let text = callsignText.uppercased()
+        callsignText = text
+        validCallsign = isValidCallsign(text)
+        
+        if validCallsign {
+            viewModel.callsign = text
+        }
+    }
+    
+    private func commitLocator() {
+        let text = viewModel.locator.uppercased()
+        validLocator = isValidLocator(text)
+    }
+    
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -274,17 +316,14 @@ struct ConfigurationView: View {
                     Text("Station details").font(.headline)
                     
                     callsignView
-                        .padding(.horizontal)
                     
                     Divider()
 
                     locatorView
-                        .padding(.horizontal)
                     
                     Divider()
                     
                     CQModifierView()
-                        .padding(.horizontal)
                     
                     Divider()
                     
@@ -294,13 +333,18 @@ struct ConfigurationView: View {
                         modeView
                         cycleView
                     }
+                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
+                    
+                    Divider()
                     
                     BandPickerView(
                         selectedBand: $viewModel.selectedBand,
-                        isFT4: viewModel.isFT4
+                        isFT4: viewModel.isFT4,
+                        customDialFrequencyHz: $viewModel.customDialFrequencyHz
                     )
                     
                     frequencyView
+                    
                     inputGainView
         
                     Divider()
@@ -308,6 +352,8 @@ struct ConfigurationView: View {
                     Text("QSO settings").font(.headline)
                     
                     qsoConfigSection
+                    
+                    Divider()
                     
                     togglesView
                     
@@ -318,10 +364,41 @@ struct ConfigurationView: View {
                     viewModeView
                     
                     Divider()
+
+                    VStack(alignment: .center, spacing: 0) {
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showMessagesSection.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text("Messages")
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                Image(systemName: "chevron.right")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .rotationEffect(.degrees(showMessagesSection ? 90 : 0))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        if showMessagesSection {
+                            GenMessagesView()
+                                .padding(.top, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
+                    .clipped()
+
+                    Divider()
                     
-                    Text("Messages").font(.headline)
-                    
-                    GenMessagesView()
+                    Text("Support FT HAM").font(.headline)
+                    SupportView()
+                        .id("donations")
                     
                     Divider()
                     
@@ -343,168 +420,171 @@ struct ConfigurationView: View {
                     
                     Divider()
                     
-                    SupportView()
-                        .id("donations") // Add ID for scrolling
-                    
-                    Divider()
-                    
                     ContactView()
                     
                     Divider()
                     
-                    Text("Privacy and analytics").font(.headline)
+                    Text("Privacy & Anonymous Statistics").font(.headline)
                     
                     analyticsSection
                             
                     if flags.isEnabled(.showLogsView) {
-                        NavigationLink {
-                            LogsView()
-                        } label: {
+                        NavigationLink(destination: LogsView()) {
                             Text("View app logs")
+                                .foregroundStyle(.blue)
                         }
                     }
                 
+                    #if DEBUG
+                    Divider()
+                    
+                    Text("Debug").font(.headline)
+                    
+                    Section {
+                        Button {
+                            triggerRatePrompt()
+                        } label: {
+                            Label(String(localized: "Test Rate Prompt"), systemImage: "star.fill")
+                        }
+                        
+                        Button {
+                            triggerSharePrompt()
+                        } label: {
+                            Label(String(localized: "Test Share Prompt"), systemImage: "square.and.arrow.up")
+                        }
+                        
+                        Button {
+                            triggerDonationPrompt()
+                        } label: {
+                            Label(String(localized: "Test Donation Prompt"), systemImage: "heart.fill")
+                        }
+                        
+                        Button {
+                            showWhatsNew = true
+                        } label: {
+                            Label(String(localized: "Show What's New"), systemImage: "sparkles")
+                        }
+                        
+                        Button(role: .destructive) {
+                            fatalError(String(localized: "Intentional debug crash for testing crash reporting"))
+                        } label: {
+                            Label(String(localized: "Crash reporter test"), systemImage: "exclamationmark.triangle")
+                        }
+                    }
+                    #endif
 
-                #if DEBUG
-                Divider()
-                Text("Debug").font(.headline)
-                Group {
-                    Button {
-                        triggerRatePrompt()
-                    } label: {
-                        Label(String(localized: "Test Rate Prompt"), systemImage: "star.fill")
-                    }
+                    Divider()
+                        
+                    Text("Legal").font(.headline)
                     
-                    Button {
-                        triggerSharePrompt()
-                    } label: {
-                        Label(String(localized: "Test Share Prompt"), systemImage: "square.and.arrow.up")
-                    }
+                    LicenseView()
                     
-                    Button {
-                        triggerDonationPrompt()
-                    } label: {
-                        Label(String(localized: "Test Donation Prompt"), systemImage: "heart.fill")
-                    }
+                    versionSection
                     
-                    Button {
-                        showWhatsNew = true
-                    } label: {
-                        Label(String(localized: "Show What's New"), systemImage: "sparkles")
-                    }
-                    
-                    Button(role: .destructive) {
-                        fatalError(String(localized: "Intentional debug crash for testing crash reporting"))
-                    } label: {
-                        Label(String(localized: "Crash reporter test"), systemImage: "exclamationmark.triangle")
-                    }
+                    copyrightSection
                 }
-                #endif
-
-                
-                Divider()
-                    
-                Text("Legal").font(.headline)
-                
-                LicenseView()
-                
-                versionSection
-                
-                copyrightSection
-            }
-            .padding(.horizontal)
-        }
-        .sheet(isPresented: $showHelp) {
-            SafariView(
-                url: URL(string: "https://ftham.turrion.dev/#getting-started")!
-            )
-            .ignoresSafeArea()
-        }
-        .sheet(isPresented: $showWhatsNew) {
-            WhatsNewView()
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .ignoresSafeArea(.keyboard, edges: .bottom)
-        .onAppear {
-            activeHelp = nil
-        }
-        .onChange(of: shouldScrollToDonations) { shouldScroll in
-            if shouldScroll {
-                withAnimation {
-                    proxy.scrollTo("donations", anchor: .top)
-                }
-                // Reset the flag after scrolling
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    shouldScrollToDonations = false
+                .padding(.horizontal)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    focusedInput = nil
                 }
             }
-        }
-        
-        // Commit on focus change
-        .onChange(of: focusedInput) { newValue in
-            // Only commit if we're leaving a field (not entering one)
-            if let lastField = lastFocusedInput, lastField != newValue {
-                switch lastField {
-                case .callsign:
-                    commitCallsign()
-                case .locator:
-                    commitLocator()
-                case .frequency:
-                    commitFrequencyText()
-                case .retries:
-                    break
+            .sheet(isPresented: $showHelp) {
+                SafariView(
+                    url: URL(string: "https://ftham.turrion.dev/#getting-started")!
+                )
+                .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showWhatsNew) {
+                WhatsNewView()
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+            .onAppear {
+                activeHelp = nil
+            }
+            .onChange(of: shouldScrollToDonations) { shouldScroll in
+                if shouldScroll {
+                    withAnimation {
+                        proxy.scrollTo("donations", anchor: .top)
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        shouldScrollToDonations = false
+                    }
                 }
             }
-            lastFocusedInput = newValue
-        }
-        .safeAreaInset(edge: .bottom) {
-            Color.clear.frame(height: 50)
-        }
-        .onAppear {
-            callsignText = viewModel.callsign
-            validCallsign = isValidCallsign(viewModel.callsign)
-            validLocator = isValidLocator(viewModel.locator)
             
-            frequencyText = Self.frequencyFormatter.string(
-                from: NSNumber(value: viewModel.frequency / 1000)
-            ) ?? ""
-        }
-        .onChange(of: viewModel.callsign) { newValue in
-            let isValid = isValidCallsign(newValue)
-            if validCallsign != isValid {
-                validCallsign = isValid
+            // Commit on focus change
+            .onChange(of: focusedInput) { newValue in
+                // Only commit if we're leaving a field (not entering one)
+                if let lastField = lastFocusedInput, lastField != newValue {
+                    switch lastField {
+                    case .callsign:
+                        commitCallsign()
+                    case .locator:
+                        commitLocator()
+                    case .frequency:
+                        commitFrequencyText()
+                    case .retries:
+                        break
+                    case .customDialFrequency:
+                        commitCustomDialFrequency()
+                    }
+                }
+                lastFocusedInput = newValue
             }
-            if isValid && !newValue.isEmpty {
-                AnalyticsManager.shared.logConfigurationSaved()
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 50)
             }
-        }
-        .onChange(of: viewModel.locator) { newValue in
-            let isValid = isValidLocator(newValue)
-            if validLocator != isValid {
-                validLocator = isValid
+            .onAppear {
+                callsignText = viewModel.callsign
+                validCallsign = isValidCallsign(viewModel.callsign)
+                validLocator = isValidLocator(viewModel.locator)
+                
+                frequencyText = Self.frequencyFormatter.string(
+                    from: NSNumber(value: viewModel.frequency / 1000)
+                ) ?? ""
+
+                customDialFrequencyText = Self.dialFrequencyFormatter.string(
+                    from: NSNumber(value: viewModel.customDialFrequencyHz / 1_000_000)
+                ) ?? ""
             }
-            if isValid && !newValue.isEmpty {
-                AnalyticsManager.shared.logConfigurationSaved()
-            }
-        }
-        .onChange(of: viewModel.frequency) { newValue in
-            if focusedInput != .frequency {
-                let newText = Self.frequencyFormatter.string(
-                    from: NSNumber(value: newValue / 1000)
-                ) ?? frequencyText
-                if frequencyText != newText {
-                    frequencyText = newText
+            .onChange(of: viewModel.callsign) { newValue in
+                let isValid = isValidCallsign(newValue)
+                if validCallsign != isValid {
+                    validCallsign = isValid
+                }
+                if isValid && !newValue.isEmpty {
+                    AnalyticsManager.shared.logConfigurationSaved()
                 }
             }
-            if newValue > 0 {
-                AnalyticsManager.shared.logConfigurationSaved()
+            .onChange(of: viewModel.locator) { newValue in
+                let isValid = isValidLocator(newValue)
+                if validLocator != isValid {
+                    validLocator = isValid
+                }
+                if isValid && !newValue.isEmpty {
+                    AnalyticsManager.shared.logConfigurationSaved()
+                }
             }
-        }
+            .onChange(of: viewModel.frequency) { newValue in
+                if focusedInput != .frequency {
+                    let newText = Self.frequencyFormatter.string(
+                        from: NSNumber(value: newValue / 1000)
+                    ) ?? frequencyText
+                    if frequencyText != newText {
+                        frequencyText = newText
+                    }
+                }
+                if newValue > 0 {
+                    AnalyticsManager.shared.logConfigurationSaved()
+                }
+            }
         } // Close ScrollViewReader
     }
     
     // MARK: - Debug Helpers
-#if DEBUG
+    #if DEBUG
     private func triggerRatePrompt() {
         let prompts = InAppPrompts.shared
         Task { @MainActor in
@@ -532,7 +612,7 @@ struct ConfigurationView: View {
     
     // MARK: - Subviews
     private var callsignView: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Callsign:")
                 TextField("", text: $callsignText)
@@ -557,11 +637,12 @@ struct ConfigurationView: View {
                 .lineLimit(1)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
     private var locatorView: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Locator:")
                 Spacer()
@@ -603,13 +684,13 @@ struct ConfigurationView: View {
                 activeHelp: $activeHelp
             )
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
     private var modeView: some View {
-        HStack {
+        VStack(spacing: 6) {
             Text("Mode:")
-            Spacer()
             Picker("Mode", selection: isFT4Binding) {
                 Text("FT8").tag(false)
                 Text("FT4").tag(true)
@@ -642,9 +723,8 @@ struct ConfigurationView: View {
     }
 
     private var cycleView: some View {
-        HStack {
+        VStack(spacing: 6) {
             Text("Transmission cycle:")
-            Spacer()
             Picker("Cycle", selection: evenCycleBinding) {
                 if viewModel.isFT4 {
                     Text("0").tag(true)
@@ -678,7 +758,7 @@ struct ConfigurationView: View {
     }
 
     private var frequencyView: some View {
-        VStack {
+        VStack(spacing: 10) {
             HStack {
                 Text("Frequency offset:")
                 HelpIconButton(helpHint: HelpTip.audioFrequencyHz.accessibilityHint) {
@@ -707,7 +787,7 @@ struct ConfigurationView: View {
                         removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
                     ))
             }
-
+            
             HStack {
                 Button {
                     viewModel.frequency = max(0, viewModel.frequency - 10)
@@ -734,35 +814,15 @@ struct ConfigurationView: View {
                 }
                 .buttonStyle(.borderedProminent)
             }
-            .padding(.horizontal, 40)
         }
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
     private var viewModeView: some View {
-        let isIPad = UIDevice.current.userInterfaceIdiom == .pad
-        
-        // Available view modes based on device and feature flags
-        let availableModes = ViewMode.allCases.filter { mode in
-            // Dashboard: in DEBUG always show (any device) if flag enabled, in RELEASE only on iPad if flag enabled
-            if mode == .dashboard {
-                #if DEBUG
-                return flags.isEnabled(.enableIpadDashboard)
-                #else
-                return isIPad && flags.isEnabled(.enableIpadDashboard)
-                #endif
-            }
-            
-            // Other iPad-only modes just require iPad device
-            if mode.isIPadOnly {
-                return isIPad
-            }
-            
-            return true
-        }
-        
-        return VStack {
-            Text(String(localized: "View mode:"))
-            Picker(String(localized: "View mode"), selection: Binding(
+        VStack(spacing: 6) {
+            Text("View mode:")
+            Picker("View mode", selection: Binding(
                 get: { viewModel.selectedViewMode },
                 set: { newMode in
                     viewModel.selectedViewMode = newMode
@@ -775,8 +835,9 @@ struct ConfigurationView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, 10)
         }
+        .padding(.horizontal, horizontalSizeClass == .compact ? 10 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
     private var inputGainView: some View {
@@ -813,15 +874,30 @@ struct ConfigurationView: View {
                 sliderTempValue = Float(viewModel.inputGain)
             }
         }
-        .padding(.horizontal, 40)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
 
     private var togglesView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             ToggleRow(
                 labelKey: "Auto RX at start",
                 helpTip: .autoRXAtStart,
                 isOn: $viewModel.autoRXAtStart,
+                activeHelp: $activeHelp
+            )
+
+            ToggleRow(
+                labelKey: "Hold TX frequency",
+                helpTip: .holdTXFrequency,
+                isOn: $viewModel.holdTXFrequency,
+                activeHelp: $activeHelp
+            )
+
+            ToggleRow(
+                labelKey: "Show TX messages in RX list",
+                helpTip: .decodeSelfTX,
+                isOn: $viewModel.decodeSelfTXMessages,
                 activeHelp: $activeHelp
             )
             
@@ -838,26 +914,12 @@ struct ConfigurationView: View {
                 isOn: $viewModel.autoCQReplyOnlyNewBandMode,
                 activeHelp: $activeHelp
             )
-            
-            ToggleRow(
-                labelKey: "Show TX messages in RX list",
-                helpTip: .decodeSelfTX,
-                isOn: $viewModel.decodeSelfTXMessages,
-                activeHelp: $activeHelp
-            )
-            
-            ToggleRow(
-                labelKey: "Hold TX frequency",
-                helpTip: .holdTXFrequency,
-                isOn: $viewModel.holdTXFrequency,
-                activeHelp: $activeHelp
-            )
         }
-        .padding(.horizontal)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
     }
 
     private var qsoConfigSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             ToggleRow(
                 labelKey: "Auto-sequence",
                 helpTip: .autoSequencing,
@@ -886,18 +948,55 @@ struct ConfigurationView: View {
                 activeHelp: $activeHelp
             )
         }
+        .padding(.horizontal)
     }
     
     private var analyticsSection: some View {
-        ToggleRow(
-            labelKey: "Share usage statistics",
-            helpTip: .analytics,
-            isOn: Binding(
-                get: { AnalyticsManager.shared.isAnalyticsEnabled },
-                set: { AnalyticsManager.shared.isAnalyticsEnabled = $0 }
-            ),
-            activeHelp: $activeHelp
-        )
+        VStack(alignment: .center, spacing: 8) {
+            VStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Toggle("", isOn: Binding(
+                            get: { AnalyticsManager.shared.isAnalyticsEnabled },
+                            set: { AnalyticsManager.shared.isAnalyticsEnabled = $0 }
+                        ))
+                        .labelsHidden()
+                        .accessibilityLabel(Text("Share usage statistics"))
+                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
+                        
+                        Text("Share usage statistics")
+                            .font(.body)
+                        Spacer()
+                        
+                        // Info button: toggle inline expandable help
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
+                                activeHelp = (activeHelp == .analytics) ? nil : .analytics
+                            }
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 20, height: 20)
+                        .accessibilityLabel(Text("Help"))
+                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
+                    }
+                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
+                    
+                    // Inline expandable help with smooth spring animation
+                    if activeHelp == .analytics {
+                        HelpBubble(text: HelpTip.analytics.text)
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                                removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                            ))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
+        }
     }
     
     private var versionSection: some View {

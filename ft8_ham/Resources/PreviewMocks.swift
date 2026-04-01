@@ -59,7 +59,7 @@ enum PreviewMocks {
 
         // Final 73
         FT8Message(text: "EA4IQL UB5OFG 73", mode: .ft8, measuredSNR: -6, frequency: 1520.5, timeOffset: 0.2, isTX: false),
-
+        
         // Separator / unknown messages
         FT8Message(
             text: "\(DateFormatter.utcFormatterMessage.string(from: .now)) - 10m",
@@ -70,7 +70,7 @@ enum PreviewMocks {
         ),
         FT8Message(text: "HELLO WORLD TEST", mode: .ft8, measuredSNR: -20, frequency: 1501.0, timeOffset: 0.3, isTX: false)
     ]
-
+    
     static let txMessages = [
         FT8Message(text: "CQ EA4IQL IN80", mode: .ft8, measuredSNR: .nan, frequency: 1500.0, timeOffset: .nan, isTX: true),
         FT8Message(text: "EA4IQL UB5OFG +12", mode: .ft8, measuredSNR: .nan, frequency: 1510.0, timeOffset: .nan, isTX: true),
@@ -96,7 +96,7 @@ enum PreviewMocks {
             country: "Spain",
             flag: "🇪🇸"
         ),
-
+        
         // POTA activation
         LogEntry(
             callsign: "K1XYZ",
@@ -113,7 +113,7 @@ enum PreviewMocks {
             country: "United States",
             flag: "🇺🇸"
         ),
-
+        
         // SOTA activation
         LogEntry(
             callsign: "DL5ME",
@@ -130,7 +130,7 @@ enum PreviewMocks {
             country: "Germany",
             flag: "🇩🇪"
         ),
-
+        
         // WWFF activation
         LogEntry(
             callsign: "JA1NXS",
@@ -147,7 +147,7 @@ enum PreviewMocks {
             country: "Japan",
             flag: "🇯🇵"
         ),
-
+        
         // Another normal QSO after activation (must NOT contain MY_SIG)
         LogEntry(
             callsign: "LU4AA",
@@ -164,7 +164,7 @@ enum PreviewMocks {
             country: "Argentina",
             flag: "🇦🇷"
         ),
-
+        
         // POTA again (to test multiple activations in same log)
         LogEntry(
             callsign: "VK3XYZ",
@@ -180,8 +180,40 @@ enum PreviewMocks {
             mySigInfo: "EA-1234",
             country: "Australia",
             flag: "🇦🇺"
+        ),
+        
+        // Custom frequency within a known band (20m)
+        LogEntry(
+            callsign: "G3ZAY",
+            grid: "IO91",
+            date: Date().addingTimeInterval(-3600),
+            frequencyHz: 14_100_000,
+            mode: "FT8",
+            band: "20m",
+            rstSent: "-05",
+            rstRcvd: "-08",
+            stationCallsign: "EA4IQL",
+            cqModifier: nil,
+            mySigInfo: nil,
+            country: "United Kingdom",
+            flag: "🇬🇧"
+        ),
+        
+        // Custom frequency outside any known band (Unknown band)
+        LogEntry(
+            callsign: "W1AW",
+            grid: "FN31",
+            date: Date().addingTimeInterval(-7200),
+            frequencyHz: 4_630_000,
+            mode: "FT8",
+            band: "Unknown",
+            rstSent: "-10",
+            rstRcvd: "-14",
+            stationCallsign: "EA4IQL",
+            cqModifier: nil,
+            mySigInfo: nil,
+            country: "United States",
+            flag: "🇺🇸"
         )
     ]
-
-
 }

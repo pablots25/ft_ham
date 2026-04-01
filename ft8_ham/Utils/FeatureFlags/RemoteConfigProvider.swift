@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseCore
+import FirebaseCore
 import FirebaseRemoteConfig
 
 // MARK: - Prompt Configuration Models
@@ -48,10 +49,10 @@ struct PromptConfig: Decodable {
     static func defaults() -> PromptConfig {
         PromptConfig(
             prompts: PromptConfig.PromptsSettings(
-                rate: RatePromptSettings(threshold: 4, enabled: true),
-                share: SharePromptSettings(threshold: 6, enabled: true),
-                donation: DonationPromptSettings(qsoThreshold: 10, adifThreshold: 2, txThreshold: 20, enabled: true),
-                common: CommonPromptSettings(probability: 25, reminderDelay: 10, donationProbability: 25, donationCooldown: 20)
+          rate: RatePromptSettings(threshold: 10, enabled: true),
+          share: SharePromptSettings(threshold: 25, enabled: true),
+          donation: DonationPromptSettings(qsoThreshold: 10, adifThreshold: 2, txThreshold: 50, enabled: true),
+          common: CommonPromptSettings(probability: 25, reminderDelay: 10, donationProbability: 50, donationCooldown: 10)
             )
         )
     }
@@ -102,10 +103,10 @@ final class RemoteConfigProvider: FeatureFlagProvider {
             return
         }
 
-      guard FirebaseApp.app() != nil else {
-        remoteConfig = nil
-        return
-      }
+        guard FirebaseApp.app() != nil else {
+            remoteConfig = nil
+            return
+        }
 
         let remoteConfig = RemoteConfig.remoteConfig()
         self.remoteConfig = remoteConfig
@@ -140,24 +141,24 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         {
           "prompts": {
             "rate": {
-              "threshold": 4,
+              "threshold": 10,
               "enabled": true
             },
             "share": {
-              "threshold": 6,
+              "threshold": 25,
               "enabled": true
             },
             "donation": {
               "qsoThreshold": 10,
               "adifThreshold": 2,
-              "txThreshold": 20,
+              "txThreshold": 50,
               "enabled": true
             },
             "common": {
               "probability": 25,
               "reminderDelay": 10,
-              "donationProbability": 25,
-              "donationCooldown": 20
+              "donationProbability": 50,
+              "donationCooldown": 10
             }
           }
         }

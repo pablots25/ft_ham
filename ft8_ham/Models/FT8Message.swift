@@ -256,6 +256,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         case band11m  = "CB/11m"
         case band10m  = "10m"
         case band6m   = "6m"
+        case custom   = "Custom"
         case unknown  = "Unknown"
 
         // Returns the standard dial frequency in Hz for the given mode.
@@ -265,34 +266,36 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
             case .ft8:
                 switch self {
                 case .band160m: return 1_840_000
-                case .band80m:  return 3_574_000
+                case .band80m:  return 3_573_000
                 case .band60m:  return 5_357_000
                 case .band40m:  return 7_074_000
                 case .band30m:  return 10_136_000
                 case .band20m:  return 14_074_000
-                case .band17m:  return 18_074_000
+                case .band17m:  return 18_100_000
                 case .band15m:  return 21_074_000
                 case .band12m:  return 24_915_000
                 case .band11m:  return 27_245_000
                 case .band10m:  return 28_074_000
                 case .band6m:   return 50_313_000
+                case .custom:   return nil
                 case .unknown:  return nil
                 }
 
             case .ft4:
                 switch self {
-                case .band160m: return 1_840_000
+                case .band160m: return 1_840_000         // No standard FT4 frequency
                 case .band80m:  return 3_575_000
-                case .band60m:  return 5_357_000
+                case .band60m:  return 5_357_000         // No standard FT4 frequency
                 case .band40m:  return 7_047_500
                 case .band30m:  return 10_140_000
                 case .band20m:  return 14_080_000
                 case .band17m:  return 18_104_000
                 case .band15m:  return 21_140_000
                 case .band12m:  return 24_919_000
-                case .band11m:  return 27_245_000
-                case .band10m:  return 28_080_000
+                case .band11m:  return 27_245_000         // No standard FT4 frequency
+                case .band10m:  return 28_180_000
                 case .band6m:   return 50_318_000
+                case .custom:   return nil
                 case .unknown:  return nil
                 }
             }
@@ -300,6 +303,28 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
 
         static var validBands: [Band] {
             allCases.filter { $0 != .unknown }
+        }
+
+        // MARK: - Detect band from a dial frequency in Hz
+        // Uses standard ITU amateur radio band allocations.
+        // Returns .unknown if the frequency does not fall within a known ham band.
+        static func fromFrequency(_ hz: Double) -> Band {
+            let mhz = hz / 1_000_000
+            switch mhz {
+            case 1.8..<2.0:        return .band160m
+            case 3.5..<4.0:        return .band80m
+            case 5.3505..<5.3665:  return .band60m
+            case 7.0..<7.3:        return .band40m
+            case 10.1..<10.15:     return .band30m
+            case 14.0..<14.35:     return .band20m
+            case 18.068..<18.168:  return .band17m
+            case 21.0..<21.45:     return .band15m
+            case 24.89..<24.99:    return .band12m
+            case 26.96..<27.41:    return .band11m
+            case 28.0..<29.7:      return .band10m
+            case 50.0..<54.0:      return .band6m
+            default:               return .unknown
+            }
         }
     }
 
@@ -415,7 +440,23 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         // <receiver> <sender> <xxx>
         guard isValidCallsign(String(parts[0])),
               isValidCallsign(String(parts[1])) else {
-            return (nil, nil, nil, nil)
+            // Partial decode: the called-callsign field was not decoded, but the
+            // calling callsign is valid. Extract sender info so that the message
+            // type can still be inferred from the remaining fields (grid, signal
+            // report, RR73, etc.) using the standard detection logic.
+            guard isValidCallsign(String(parts[1])) else {
+                return (nil, nil, nil, nil)
+            }
+            var senderLocator: String? = nil
+            if parts.count >= 3, isValidLocator(String(parts[2])) {
+                senderLocator = String(parts[2])
+            }
+            return (
+                senderCallsign: String(parts[1]),
+                senderLocator: senderLocator,
+                receiverCallsign: nil,
+                receiverLocator: nil
+            )
         }
 
         let receiverCall = String(parts[0])
@@ -450,20 +491,24 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         
         let p = parseParticipants(parts: parts)
         
-        if p.senderCallsign != nil && p.receiverCallsign != nil {
+        // Apply type inference whenever the sender callsign is decoded.
+        // This covers both fully-decoded messages (receiverCallsign != nil) and
+        // partially-decoded ones where the called-callsign field was unreadable —
+        // the message type is inferred from the content (grid, signal report, etc.)
+        if p.senderCallsign != nil {
             
             if parts.contains("RR73") { return .rr73 }
             if parts.contains("RRR") { return .rrr }
             if parts.contains("73") { return .final73 }
             
             if parts.count == 3,
-            let locator = p.senderLocator,
-            isValidLocator(locator) {
+               let locator = p.senderLocator,
+               isValidLocator(locator) {
                 return .gridExchange
             }
             
             if parts.count == 3,
-            isSignalReport(parts[2]) {
+               isSignalReport(parts[2]) {
                 return parts[2].contains("R")
                     ? .rSignalReport
                     : .standardSignalReport
