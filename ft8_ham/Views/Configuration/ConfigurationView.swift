@@ -80,6 +80,7 @@ struct ToggleRow: View, Equatable {
     let helpTip: HelpTip
     @Binding var isOn: Bool
     @Binding var activeHelp: HelpTip?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     static func == (lhs: ToggleRow, rhs: ToggleRow) -> Bool {
         lhs.labelKey == rhs.labelKey &&
@@ -116,6 +117,7 @@ struct ToggleRow: View, Equatable {
                 .accessibilityLabel(Text("Help"))
                 .accessibilityHint(Text(helpTip.accessibilityHint))
             }
+            .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
             
             // Inline expandable help with smooth spring animation
             if activeHelp == helpTip {
@@ -254,17 +256,14 @@ struct ConfigurationView: View {
                     Text("Station details").font(.headline)
                     
                     callsignView
-                        .padding(.horizontal)
                     
                     Divider()
 
                     locatorView
-                        .padding(.horizontal)
                     
                     Divider()
                     
                     CQModifierView()
-                        .padding(.horizontal)
                     
                     Divider()
                     
@@ -274,6 +273,7 @@ struct ConfigurationView: View {
                         modeView
                         cycleView
                     }
+                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
                     
                     bandView
                     
@@ -532,7 +532,7 @@ struct ConfigurationView: View {
     
     // MARK: - Subviews
     private var callsignView: some View {
-        VStack(alignment: .leading){
+        VStack(alignment: .leading, spacing: 6){
             HStack{
                 Text("Callsign:")
                 TextField("", text: $callsignText)
@@ -558,11 +558,12 @@ struct ConfigurationView: View {
                 .lineLimit(1)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
     private var locatorView: some View {
-        VStack (alignment: .leading){
+        VStack(alignment: .leading, spacing: 12){
             HStack{
                 Text("Locator:")
                 Spacer()
@@ -606,11 +607,12 @@ struct ConfigurationView: View {
             )
 
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
     private var modeView: some View {
-        VStack {
+        VStack(spacing: 6) {
             Text("Mode:")
             Picker("", selection: Binding(
                 get: { viewModel.isFT4 },
@@ -638,7 +640,7 @@ struct ConfigurationView: View {
     }
     
     private var cycleView: some View {
-        VStack {
+        VStack(spacing: 6) {
             Text("Transmission cycle:")
             Picker("", selection: Binding(
                 get: { viewModel.evenCycle },
@@ -667,7 +669,7 @@ struct ConfigurationView: View {
     }
     
     private var frequencyView: some View {
-        VStack {
+        VStack(spacing: 10) {
             HStack {
                 Text("Frequency offset:")
                 Spacer()
@@ -686,7 +688,7 @@ struct ConfigurationView: View {
                     Text("kHz")
                         .padding(5)
                 }
-            }.padding(.horizontal, 40)
+            }
             
             HStack {
                 Button {
@@ -705,8 +707,9 @@ struct ConfigurationView: View {
                 }
                 .buttonStyle(.borderedProminent)
             }
-            .padding(.horizontal, 40)
         }
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
     private var bandView: some View {
@@ -793,16 +796,25 @@ struct ConfigurationView: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(selectedIndex == bands.count - 1)
                 }
-                .padding(.horizontal, 20)
+                .onAppear {
+                    proxy.scrollTo(viewModel.selectedBand, anchor: .center)
+                }
+                .onChange(of: viewModel.selectedBand) { newBand in
+                    withAnimation {
+                        proxy.scrollTo(newBand, anchor: .center)
+                    }
+                }
             }
         }
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
 
 
 
     
     private var viewModeView: some View {
-        VStack {
+        VStack(spacing: 6) {
             Text("View mode: ")
             Picker("View mode", selection: Binding(
                 get: { viewModel.selectedViewMode },
@@ -817,8 +829,9 @@ struct ConfigurationView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, 10)
         }
+        .padding(.horizontal, horizontalSizeClass == .compact ? 10 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
 
     private var inputGainView: some View {
@@ -844,11 +857,12 @@ struct ConfigurationView: View {
                 sliderTempValue = Float(viewModel.inputGain)
             }
         }
-        .padding(.horizontal, 40)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
+        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
 
     private var togglesView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             ToggleRow(
                 labelKey: "Auto RX at start",
                 helpTip: .autoRXAtStart,
@@ -884,11 +898,11 @@ struct ConfigurationView: View {
                 activeHelp: $activeHelp
             )
         }
-        .padding(.horizontal)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
     }
 
     private var qsoConfigSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             ToggleRow(
                 labelKey: "Auto-sequence",
                 helpTip: .autoSequencing,
@@ -917,7 +931,7 @@ struct ConfigurationView: View {
                 activeHelp: $activeHelp
             )
         }
-        .padding(.horizontal)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
     }
     
     private var analyticsSection: some View {
@@ -953,6 +967,7 @@ struct ConfigurationView: View {
                         .accessibilityLabel(Text("Help"))
                         .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
                     }
+                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
                     
                     // Inline expandable help with smooth spring animation
                     if activeHelp == .analytics {
@@ -965,7 +980,7 @@ struct ConfigurationView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
         }
     }
     
