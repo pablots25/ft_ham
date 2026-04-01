@@ -19,7 +19,10 @@ extension FT8ViewModel {
     @MainActor
     func startSequencer() {
         guard sequencerTask == nil else { return }
-        
+        guard settingsLoaded else {
+            appLogger.warning("startSequencer called with invalid settings (callsign/locator). Aborting.")
+            return
+        }
         appLogger.info("Starting Sequencer Loop (FT\(isFT4 ? "4" : "8") - \(evenCycle ? "Even" : "Odd"))")
         isSequencerRunning = true
         

@@ -388,6 +388,10 @@ struct ConfigurationView: View {
                 copyrightSection
             }
             .padding(.horizontal)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focusedInput = nil
+            }
         }
         .sheet(isPresented: $showHelp) {
             SafariView(

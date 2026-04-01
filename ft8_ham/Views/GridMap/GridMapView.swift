@@ -365,6 +365,22 @@ private extension Array {
     subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }
 
+// MARK: - Safe area modifier
+
+/// On iOS 18+ the tab bar is a translucent floating element, so the map should extend
+/// fully edge-to-edge behind it (Apple Maps pattern). On iOS 17 and earlier the tab bar
+/// is an opaque, fixed bar, so extending behind it causes UIKit layout conflicts; we
+/// limit expansion to the top and side edges only.
+private struct MapSafeAreaModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.ignoresSafeArea()
+        } else {
+            content.ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
+        }
+    }
+}
+
 // MARK: - Wrapper
 
 struct GridMapViewWrapper: View {
@@ -397,7 +413,7 @@ struct GridMapViewWrapper: View {
                 showGeodesics: showGeodesics,
                 showAnnotations: showAnnotations
             )
-            .ignoresSafeArea()
+            .modifier(MapSafeAreaModifier())
 
             mapControlBar
                 .padding(10)

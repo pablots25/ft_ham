@@ -147,6 +147,7 @@ struct ft8_hamApp: App {
                         }
                         await viewModel.stopSequencer()
                         viewModel.wasSequencerRunningBeforeBackground = false
+                        guard viewModel.settingsLoaded else { return }
                         viewModel.startSequencer()
                     }
                 }
