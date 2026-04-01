@@ -165,6 +165,7 @@ struct ConfigurationView: View {
     
     @State private var showHelp = false
     @State private var showWhatsNew = false
+    @State private var showMessagesSection = false
     @State private var sliderTempValue: Float = 1.0
     
     private let appLogger = AppLogger(category: "APP")
@@ -175,6 +176,7 @@ struct ConfigurationView: View {
         case locator
         case frequency
         case retries
+        case customDialFrequency
     }
     
     @FocusState private var focusedInput: FocusField?
@@ -190,6 +192,7 @@ struct ConfigurationView: View {
     // Editable local state
     @State private var callsignText: String = ""
     @State private var frequencyText: String = ""
+    @State private var customDialFrequencyText: String = ""
     
     // CQ modifier state - stored in AppStorage, managed by CQModifierView
     
@@ -213,6 +216,15 @@ struct ConfigurationView: View {
         formatter.maximumFractionDigits = 3
         return formatter
     }()
+
+    private static let dialFrequencyFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.locale = .current
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 3
+        formatter.maximumFractionDigits = 6
+        return formatter
+    }()
     
     // MARK: - Frequency parsing
     
@@ -229,6 +241,21 @@ struct ConfigurationView: View {
             frequencyText = formatter.string(
                 from: NSNumber(value: viewModel.frequency / 1000)
             ) ?? frequencyText
+        }
+    }
+
+    /// Parses and validates the custom dial frequency text (entered in MHz).
+    /// Uses the same locale-aware NumberFormatter as the offset frequency field.
+    private func commitCustomDialFrequency() {
+        let formatter = Self.dialFrequencyFormatter
+        if let number = formatter.number(from: customDialFrequencyText), number.doubleValue > 0 {
+            viewModel.customDialFrequencyHz = number.doubleValue * 1_000_000
+            customDialFrequencyText = formatter.string(from: NSNumber(value: number.doubleValue)) ?? customDialFrequencyText
+        } else {
+            // Revert to current model value if parsing fails
+            customDialFrequencyText = formatter.string(
+                from: NSNumber(value: viewModel.customDialFrequencyHz / 1_000_000)
+            ) ?? customDialFrequencyText
         }
     }
     
@@ -275,9 +302,13 @@ struct ConfigurationView: View {
                     }
                     .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
                     
+                    Divider()
+                    
                     bandView
                     
                     frequencyView
+                    
+                    Divider()
                     
                     inputGainView
         
@@ -286,6 +317,8 @@ struct ConfigurationView: View {
                     Text("QSO settings").font(.headline)
                     
                     qsoConfigSection
+                    
+                    Divider()
                     
                     togglesView
                     
@@ -296,10 +329,41 @@ struct ConfigurationView: View {
                     viewModeView
                     
                     Divider()
+
+                    VStack(alignment: .center, spacing: 0) {
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showMessagesSection.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text("Messages")
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                Image(systemName: "chevron.right")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .rotationEffect(.degrees(showMessagesSection ? 90 : 0))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        if showMessagesSection {
+                            GenMessagesView()
+                                .padding(.top, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
+                    .clipped()
+
+                    Divider()
                     
-                    Text("Messages").font(.headline)
-                    
-                    GenMessagesView()
+                    Text("Support FT HAM").font(.headline)
+                    SupportView()
+                        .id("donations") // Add ID for scrolling
                     
                     Divider()
                     
@@ -321,28 +385,26 @@ struct ConfigurationView: View {
                     
                     Divider()
                     
-                    SupportView()
-                        .id("donations") // Add ID for scrolling
-                    
-                    Divider()
-                    
                     ContactView()
                     
                     Divider()
                     
-                    Text("Privacy and analytics").font(.headline)
+                    Text("Privacy & Anonymous Statistics").font(.headline)
                     
                     analyticsSection
-                            
-                    if flags.isEnabled(.showLogsView) {
-                        NavigationLink(destination: LogsView()) {
-                            Text("View app logs")
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                
-
+                        
                 #if DEBUG
+                Divider()
+                    
+                Text("Debug").font(.headline)
+                    
+                if flags.isEnabled(.showLogsView) {
+                    NavigationLink(destination: LogsView()) {
+                        Text("View app logs")
+                            .foregroundStyle(.blue)
+                    }
+                }
+                    
                 Section {
                     Button {
                         triggerRatePrompt()
@@ -432,6 +494,8 @@ struct ConfigurationView: View {
                     commitFrequencyText()
                 case .retries:
                     break
+                case .customDialFrequency:
+                    commitCustomDialFrequency()
                 }
             }
             lastFocusedInput = newValue
@@ -446,6 +510,10 @@ struct ConfigurationView: View {
             
             frequencyText = Self.frequencyFormatter.string(
                 from: NSNumber(value: viewModel.frequency / 1000)
+            ) ?? ""
+
+            customDialFrequencyText = Self.dialFrequencyFormatter.string(
+                from: NSNumber(value: viewModel.customDialFrequencyHz / 1_000_000)
             ) ?? ""
         }
         .onChange(of: viewModel.callsign) { newValue in
@@ -715,12 +783,16 @@ struct ConfigurationView: View {
     private var bandView: some View {
         let bands = FT8Message.Band.validBands
         let mode: FT8Message.FT8MessageMode = viewModel.isFT4 ? .ft4 : .ft8
+        let isCustom = viewModel.selectedBand == .custom
         let frequencyHz = viewModel.selectedBand.frequency(for: mode)
 
-        let frequencyText: String = {
-            guard let hz = frequencyHz else {
-                return "— " + String(localized: "MHz")
+        let dialFrequencyLabel: String = {
+            if isCustom {
+                let detectedBand = FT8Message.Band.fromFrequency(viewModel.customDialFrequencyHz)
+                let detectedText = detectedBand != .unknown ? " · \(detectedBand.rawValue)" : ""
+                return String(format: "%.3f MHz%@", viewModel.customDialFrequencyHz / 1_000_000, detectedText)
             }
+            guard let hz = frequencyHz else { return "— " + String(localized: "MHz") }
             return String(format: "%.3f ", hz / 1_000_000) + String(localized: "MHz")
         }()
 
@@ -729,7 +801,7 @@ struct ConfigurationView: View {
         return VStack(spacing: 10) {
             HStack(spacing: 10) {
                 Text("Band:")
-                Text(frequencyText)
+                Text(dialFrequencyLabel)
                     .foregroundStyle(.secondary)
             }
 
@@ -805,7 +877,28 @@ struct ConfigurationView: View {
                     }
                 }
             }
+
+            // MARK: - Custom frequency input (shown when Custom band is selected)
+            if isCustom {
+                HStack(spacing: 8) {
+                    Text("Dial freq:")
+                        .foregroundStyle(.secondary)
+                    TextField("e.g. 14.074", text: $customDialFrequencyText)
+                        .keyboardType(.decimalPad)
+                        .submitLabel(.done)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.center)
+                        .focused($focusedInput, equals: .customDialFrequency)
+                        .onSubmit { commitCustomDialFrequency() }
+                        .frame(width: 130)
+                    Text("MHz")
+                        .foregroundStyle(.secondary)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: isCustom)
         .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
         .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
@@ -869,6 +962,20 @@ struct ConfigurationView: View {
                 isOn: $viewModel.autoRXAtStart,
                 activeHelp: $activeHelp
             )
+
+            ToggleRow(
+                labelKey: "Hold TX frequency",
+                helpTip: .holdTXFrequency,
+                isOn: $viewModel.holdTXFrequency,
+                activeHelp: $activeHelp
+            )
+
+            ToggleRow(
+                labelKey: "Show TX messages in RX list",
+                helpTip: .decodeSelfTX,
+                isOn: $viewModel.decodeSelfTXMessages,
+                activeHelp: $activeHelp
+            )
             
             ToggleRow(
                 labelKey: "Reply to CQ received",
@@ -881,20 +988,6 @@ struct ConfigurationView: View {
                 labelKey: "Only if new band/mode",
                 helpTip: .autoCQNewBandMode,
                 isOn: $viewModel.autoCQReplyOnlyNewBandMode,
-                activeHelp: $activeHelp
-            )
-            
-            ToggleRow(
-                labelKey: "Show TX messages in RX list",
-                helpTip: .decodeSelfTX,
-                isOn: $viewModel.decodeSelfTXMessages,
-                activeHelp: $activeHelp
-            )
-            
-            ToggleRow(
-                labelKey: "Hold TX frequency",
-                helpTip: .holdTXFrequency,
-                isOn: $viewModel.holdTXFrequency,
                 activeHelp: $activeHelp
             )
         }
@@ -936,8 +1029,6 @@ struct ConfigurationView: View {
     
     private var analyticsSection: some View {
         VStack(alignment: .center, spacing: 8) {
-            Text("Privacy & Anonymous Statistics")
-            
             VStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {

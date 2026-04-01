@@ -725,7 +725,8 @@ final class QSOStatusManager: ObservableObject {
         band: FT8Message.Band,
         isFT4: Bool,
         rstSent: Int,
-        rstRcvd: Int
+        rstRcvd: Int,
+        customFrequencyHz: Double? = nil
     ) -> LogEntry {
         // Station callsign as-is from UserDefaults (may include /suffix)
         let stationCallsign = UserDefaults.standard.string(forKey: "callsign")
@@ -746,7 +747,8 @@ final class QSOStatusManager: ObservableObject {
         }()
 
         let mode: FT8Message.FT8MessageMode = isFT4 ? .ft4 : .ft8
-        let frequencyHz = band.frequency(for: mode)
+        // Use the custom frequency when provided (Custom band), otherwise use the standard band frequency
+        let frequencyHz = customFrequencyHz ?? band.frequency(for: mode)
 
         guard rstSent != invalidSNR, rstRcvd != invalidSNR else {
             appLogger.error("""

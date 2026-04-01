@@ -476,6 +476,7 @@ struct TermsSheet: View {
     
     return ContentView()
             .environmentObject(viewModel)
+            .environmentObject(FeatureFlagManager.shared)
             .environment(\.locale, .init(identifier: "en"))
 }
 
@@ -490,6 +491,7 @@ struct TermsSheet: View {
     
     return ContentView()
         .environmentObject(viewModel)
+        .environmentObject(FeatureFlagManager.shared)
         .environment(\.locale, .init(identifier: "es"))
 }
 

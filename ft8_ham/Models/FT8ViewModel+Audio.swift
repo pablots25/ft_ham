@@ -287,10 +287,11 @@ extension FT8ViewModel {
                 dxCallsign: completedCallsign,
                 dxLocator: completedLocator,
                 qsoDate: .now,
-                band: selectedBand,
+                band: effectiveBand,
                 isFT4: isFT4,
                 rstSent: qsoManager.lastSentSNR,
-                rstRcvd: qsoManager.lastReceivedSNR
+                rstRcvd: qsoManager.lastReceivedSNR,
+                customFrequencyHz: selectedBand == .custom ? customDialFrequencyHz : nil
             )
 
             qsoManager.resetRadioStateAfterCompletion()

@@ -242,6 +242,18 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         get { FT8Message.Band(rawValue: selectedBandRaw) ?? .band10m }
         set { selectedBandRaw = newValue.rawValue }
     }
+
+    /// Dial frequency in Hz used when the user selects the Custom band (default: 14.074 MHz)
+    @AppStorage("customDialFrequencyHz") var customDialFrequencyHz: Double = 14_074_000
+
+    /// The effective band for QSO logging.
+    /// When Custom is selected, the band is derived from the entered dial frequency.
+    var effectiveBand: FT8Message.Band {
+        if selectedBand == .custom {
+            return FT8Message.Band.fromFrequency(customDialFrequencyHz)
+        }
+        return selectedBand
+    }
     
     @AppStorage("inputGain") var inputGain = 1.0 {
         didSet {

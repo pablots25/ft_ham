@@ -15,8 +15,6 @@ struct TipJarView: View {
     var body: some View {
         VStack(spacing: 15) {
             Text("☕️ Support my app with a coffee")
-                .font(.title3)
-                .multilineTextAlignment(.center)
 
             if manager.products.isEmpty {
                 ProgressView("Loading...")
@@ -42,7 +40,7 @@ struct SupportView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 30) {
+            VStack(spacing: 10) {
                 TipJarView(manager: manager)
 
                 Text(
@@ -58,7 +56,6 @@ struct SupportView: View {
                     .padding(.horizontal)
                     .foregroundStyle(.gray)
             }
-            .padding()
         }
         .task {
             await manager.fetchProducts()
