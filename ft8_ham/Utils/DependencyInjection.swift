@@ -173,7 +173,9 @@ final class DependencyContainer {
 
 extension AudioManaging {
     /// Default no-op for optional methods
-    func cleanup() {}
+    func cleanup() {
+        // Default implementations do not allocate resources, so no cleanup is required.
+    }
 }
 
 // MARK: - ft8_Engine Conformance to MessageDecoding

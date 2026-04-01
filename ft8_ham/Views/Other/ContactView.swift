@@ -24,7 +24,9 @@ struct MailComposer: UIViewControllerRepresentable {
         return mail
     }
     
-    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {
+        // Mail composer content is configured at creation time and does not require runtime updates.
+    }
     
     func makeCoordinator() -> Coordinator {
         Coordinator(dismiss: dismiss)

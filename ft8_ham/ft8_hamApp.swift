@@ -70,7 +70,7 @@ private extension AppDelegate {
         // Explicitly refresh all Firebase Remote Config variables at app launch
         let provider = RemoteConfigProvider()
         let logger = AppLogger(category: "APPINIT")
-        
+
         logger.debug("🔄 Starting Firebase Remote Config synchronization...")
         provider.refreshAllFlags { [weak provider] in
             if let provider = provider {
@@ -85,7 +85,9 @@ private extension AppDelegate {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         // Authorization request with empty handler - notification handling is done in userNotificationCenter(_:willPresent:withCompletionHandler:)
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in
+            // Result is intentionally ignored; in-app presentation is handled by UNUserNotificationCenterDelegate.
+        }
     }
 }
 
