@@ -39,6 +39,12 @@ struct LogbookView: View {
                                 .foregroundStyle(.secondary)
                         }
 
+                        if let hz = entry.frequencyHz {
+                            Text(String(format: "%.3f MHz", hz / 1_000_000))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
                         if let cqModifier = entry.cqModifier, !cqModifier.isEmpty {
                             if let sigInfo = entry.mySigInfo, !sigInfo.isEmpty {
                                 Text("\(cqModifier): \(sigInfo)")
@@ -101,11 +107,15 @@ struct LogbookView: View {
                         }
                     }
 
-                    Text(entry.band)
-                        .font(.caption)
-                        .padding(6)
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(6)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if entry.band != "Unknown" && !entry.band.isEmpty {
+                            Text(entry.band)
+                                .font(.caption)
+                                .padding(6)
+                                .background(Color.blue.opacity(0.2))
+                                .cornerRadius(6)
+                        }
+                    }
                 }
                 .listRowBackground(Color.clear)
             }
