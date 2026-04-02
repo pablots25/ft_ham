@@ -16,7 +16,7 @@ struct LegalAndPrivacyView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Privacy & Analytics")
+                Text("Privacy and analytics")
                     .font(.headline)
 
                 ToggleRow(
@@ -39,7 +39,7 @@ struct LegalAndPrivacyView: View {
 
                 Divider()
 
-                Text("Legal Information")
+                Text("Legal")
                     .font(.headline)
 
                 Button {
@@ -83,7 +83,7 @@ struct LegalAndPrivacyView: View {
             }
             .padding(.horizontal)
         }
-        .navigationTitle("Legal & Privacy")
+        .navigationTitle("Legal & Licenses")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { activeHelp = nil }
         .sheet(isPresented: $showPrivacyPolicy) {
