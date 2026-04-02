@@ -117,6 +117,7 @@ struct ft8_hamApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var viewModel = FT8ViewModel()
     @StateObject private var featureFlags = FeatureFlagManager.shared
+    @StateObject private var premiumManager = PremiumManager.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -125,6 +126,7 @@ struct ft8_hamApp: App {
                 .environmentObject(viewModel)
                 .environmentObject(FeatureFlagManager.shared)
                 .environmentObject(featureFlags)
+                .environmentObject(premiumManager)
                 .modifier(QSOLogConfirmationModifier(manager: viewModel))
                 .inAppPrompts()
                 .task {

@@ -7,6 +7,7 @@ import SwiftUI
 
 struct BehaviorSettingsView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @StateObject private var premiumManager = PremiumManager.shared
     @FocusState private var retriesFocused: Bool
     @State private var activeHelp: HelpTip?
 
@@ -94,12 +95,14 @@ struct BehaviorSettingsView: View {
                     activeHelp: $activeHelp
                 )
 
-                ToggleRow(
-                    labelKey: "PSK Reporter",
-                    helpTip: .pskReporter,
-                    isOn: $viewModel.pskReporterEnabled,
-                    activeHelp: $activeHelp
-                )
+                if premiumManager.isPremiumUnlocked {
+                    ToggleRow(
+                        labelKey: "PSK Reporter",
+                        helpTip: .pskReporter,
+                        isOn: $viewModel.pskReporterEnabled,
+                        activeHelp: $activeHelp
+                    )
+                }
             }
             .padding(.horizontal)
         }

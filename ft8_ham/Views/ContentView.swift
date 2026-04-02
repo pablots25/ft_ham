@@ -21,6 +21,9 @@ struct ContentView: View {
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
+    #if DEBUG
+    @AppStorage("debugUseNewConfigView") private var debugUseNewConfigView: Bool = true
+    #endif
 
     
     @State private var selectedTab: Int = 0
@@ -120,7 +123,12 @@ struct ContentView: View {
                 if shouldNavigate {
                     selectedTab = 4 // Navigate to Configuration tab
                     prompts.shouldNavigateToDonations = false
-                    if flags.isEnabled(.newConfigView) {
+                    #if DEBUG
+                    let useNewConfig = debugUseNewConfigView
+                    #else
+                    let useNewConfig = flags.isEnabled(.newConfigView)
+                    #endif
+                    if useNewConfig {
                         // Delay push so NavigationStack renders after tab switch
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                             configNavigationPath.append(ConfigDestination.support)
@@ -234,7 +242,12 @@ struct ContentView: View {
                     .tabItem { Label("Logbook", systemImage: "book") }
                     .tag(3)
                     Group {
-                        if flags.isEnabled(.newConfigView) {
+                        #if DEBUG
+                    let showNewConfigView = debugUseNewConfigView
+                    #else
+                    let showNewConfigView = flags.isEnabled(.newConfigView)
+                    #endif
+                    if showNewConfigView {
                             NavigationStack {
                                 NewConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
                                     .navigationTitle("Configuration")

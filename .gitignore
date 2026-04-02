@@ -107,3 +107,4 @@ ENV/
 .swiftformat
 .swiftlint.yml
 *.md
+*.storekit

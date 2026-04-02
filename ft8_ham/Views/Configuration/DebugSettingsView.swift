@@ -7,11 +7,18 @@ import SwiftUI
 
 #if DEBUG
 struct DebugSettingsView: View {
+    @EnvironmentObject private var viewModel: FT8ViewModel
     @State private var showWhatsNew = false
+    @State private var showPaywall = false
+    @AppStorage("debugUseNewConfigView") private var debugUseNewConfigView: Bool = true
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                Toggle("Use new config view", isOn: $debugUseNewConfigView)
+
+                Divider()
+
                 Button {
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(500))
@@ -45,6 +52,12 @@ struct DebugSettingsView: View {
                     Label("What's New", systemImage: "sparkles")
                 }
 
+                Button {
+                    showPaywall = true
+                } label: {
+                    Label("Show Paywall", systemImage: "star.circle.fill")
+                }
+
                 Button(role: .destructive) {
                     fatalError("Intentional debug crash for testing crash reporting")
                 } label: {
@@ -57,7 +70,7 @@ struct DebugSettingsView: View {
                     .font(.headline)
 
                 #if canImport(FTHamPremium)
-                PSKReporterDebugView()
+                PSKReporterDebugView(isEnabled: viewModel.pskReporterEnabled, callsign: viewModel.callsign)
                 #else
                 PSKReporterDebugViewStub()
                 #endif
@@ -68,6 +81,9 @@ struct DebugSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showWhatsNew) {
             WhatsNewView()
+        }
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView(premiumManager: PremiumManager.shared, source: "debug")
         }
     }
 }

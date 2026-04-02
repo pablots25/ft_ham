@@ -12,10 +12,12 @@ import SwiftUI
 struct NewConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var flags: FeatureFlagManager
+    @StateObject private var premiumManager = PremiumManager.shared
     @Binding var shouldScrollToDonations: Bool
 
     @State private var showHelp = false
     @State private var showSupport = false
+    @State private var showPremium = false
 
     var body: some View {
         List {
@@ -45,16 +47,18 @@ struct NewConfigurationView: View {
                     } label: {
                         Label("Interface", systemImage: "rectangle.3.group")
                     }
+                    
+                    #if canImport(FTHamPremium)
+                    if premiumManager.isPremiumUnlocked {
 
-                    NavigationLink {
-                        #if canImport(FTHamPremium)
-                        CatSettingsView()
-                        #else
-                        CatSettingsViewStub()
-                        #endif
-                    } label: {
-                        Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
+                        NavigationLink {
+                            CatSettingsView(initialFrequencyMHz: viewModel.catDialFrequencyMHz)
+                        } label: {
+                            Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
+                        }
+   
                     }
+                    #endif
                 }
                 
                 // MARK: - Debug
@@ -63,9 +67,26 @@ struct NewConfigurationView: View {
                     NavigationLink {
                         DebugSettingsView()
                     } label: {
-                        Label("Debug", systemImage: "ladybug")
+                        Label("Toggles", systemImage: "ladybug")
                     }
+                    
+                    Button {
+                        showSupport = true
+                    } label: {
+                        HStack {
+                            Label("Support FT HAM", systemImage: "heart")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    
+                } header: {
+                    Text("Debug")
                 }
+                
+
                 #endif
                 
                 // MARK: - Help & Support
@@ -74,8 +95,7 @@ struct NewConfigurationView: View {
                         showHelp = true
                     } label: {
                         HStack {
-                            Label("Getting Started Guide", systemImage: "book")
-                                .foregroundStyle(.primary)
+                            Label("Getting Started", systemImage: "book")
                             Spacer()
                             Image(systemName: "arrow.up.right")
                                 .font(.caption)
@@ -84,11 +104,10 @@ struct NewConfigurationView: View {
                     }
                     
                     Button {
-                        showSupport = true
+                        showPremium = true
                     } label: {
                         HStack {
-                            Label("Support Development", systemImage: "heart")
-                                .foregroundStyle(.primary)
+                            Label("Become premium", systemImage: "star")
                             Spacer()
                             Image(systemName: "arrow.up.right")
                                 .font(.caption)
@@ -103,7 +122,6 @@ struct NewConfigurationView: View {
                     } label: {
                         HStack {
                             Label("Send Feedback", systemImage: "envelope")
-                                .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "arrow.up.right")
                                 .font(.caption)
@@ -111,7 +129,7 @@ struct NewConfigurationView: View {
                         }
                     }
                 } header: {
-                    Text("Help & Support")
+                    Text("Support")
                 }
                 
                 // MARK: - About
@@ -119,7 +137,8 @@ struct NewConfigurationView: View {
                     NavigationLink {
                         LegalAndPrivacyView()
                     } label: {
-                        Label("Legal & Privacy", systemImage: "hand.raised")
+                        Label("Legal & Licenses", systemImage: "hand.raised")
+                            .tint(.blue)
                     }
                 } footer: {
                     versionFooter
@@ -131,7 +150,7 @@ struct NewConfigurationView: View {
         .sheet(isPresented: $showSupport) {
             NavigationStack {
                 SupportView()
-                    .navigationTitle("Support Development")
+                    .navigationTitle("Support FT HAM")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -140,6 +159,19 @@ struct NewConfigurationView: View {
                     }
             }
             .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showPremium) {
+            NavigationStack {
+                PremiumPaywallView(premiumManager: PremiumManager.shared, source: "configuration")
+                    .navigationTitle("Become Premium")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showPremium = false }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
         }
         .sheet(isPresented: $showHelp) {
             SafariView(url: URL(string: "https://ftham.turrion.dev/#getting-started")!)
@@ -184,6 +216,9 @@ struct ConfigurationView: View {
     @State private var showMessagesSection = false
     @State private var sliderTempValue: Float = 1.0
     @State private var frequencySliderTemp: Double = 1500.0
+    #if DEBUG
+    @AppStorage("debugUseNewConfigView") private var debugUseNewConfigView: Bool = true
+    #endif
     
     private static let appLogger = AppLogger(category: "APP")
     
@@ -441,6 +476,8 @@ struct ConfigurationView: View {
                     Text("Debug").font(.headline)
                     
                     Section {
+                        Toggle("Use new config view", isOn: $debugUseNewConfigView)
+
                         Button {
                             triggerRatePrompt()
                         } label: {
