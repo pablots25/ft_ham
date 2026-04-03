@@ -2,8 +2,7 @@
 //  FirstRunChecklistView.swift
 //  ft_ham
 //
-//  Interactive first-run checklist tracking key milestones.
-//  Shown on onboarding page 10 and accessible from Support.
+//  Created by Pablo Turrion on 13/03/26.
 //
 
 import SwiftUI

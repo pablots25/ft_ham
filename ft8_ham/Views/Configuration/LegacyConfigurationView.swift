@@ -2,9 +2,7 @@
 //  LegacyConfigurationView.swift
 //  ft_ham
 //
-//  Original ConfigurationView preserved for feature-flag rollback.
-//  Types extracted to separate files: SafariView, HelpTip, ToggleRow,
-//  HelpBubble, ViewMode, AppStorageResetter.
+//  Created by Pablo Turrion on 30/01/26.
 //
 
 import SwiftUI

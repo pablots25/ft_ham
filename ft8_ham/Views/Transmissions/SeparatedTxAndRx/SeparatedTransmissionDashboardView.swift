@@ -2,7 +2,7 @@
 //  SeparatedTransmissionDashboardView.swift
 //  ft_ham
 //
-//  Created for iPad Dashboard
+//  Created by Pablo Turrion on 26/02/26.
 //
 
 import SwiftUI

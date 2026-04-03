@@ -2,7 +2,7 @@
 //  ConfigDestination.swift
 //  ft_ham
 //
-//  Navigation destinations for ConfigurationView's NavigationStack.
+//  Created by Pablo Turrion on 13/03/26.
 //
 
 import Foundation

@@ -2,8 +2,7 @@
 //  SupportDetailView.swift
 //  ft_ham
 //
-//  Detail screen for Help, Donations, and Contact.
-//  Extracted from ConfigurationView for Apple-standard NavigationLink pattern.
+//  Created by Pablo Turrion on 13/03/26.
 //
 
 import SwiftUI

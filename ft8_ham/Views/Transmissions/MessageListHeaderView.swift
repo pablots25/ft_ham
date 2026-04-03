@@ -2,6 +2,8 @@
 //  MessageListHeaderView.swift
 //  ft_ham
 //
+//  Created by Pablo Turrion on 02/02/26.
+//
 
 import SwiftUI
 

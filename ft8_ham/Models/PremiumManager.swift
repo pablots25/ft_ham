@@ -1,8 +1,8 @@
 //
 //  PremiumManager.swift
-//  ft8_ham
+//  ft_ham
 //
-//  Created by Pablo Turrion on 26/02/26.
+//  Created by Pablo Turrion on 02/04/26.
 //
 
 import StoreKit

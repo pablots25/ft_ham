@@ -1,11 +1,9 @@
 //
 //  PremiumFeatures.swift
-//  ft8_ham
+//  ft_ham
 //
-//  Factory for premium features - provides real or stub implementations
-//  based on whether the premium package is available
+//  Created by Pablo Turrion on 01/03/26.
 //
-//  Created on 01/03/26.
 //
 
 import Foundation

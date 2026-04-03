@@ -2,7 +2,7 @@
 //  SafariView.swift
 //  ft_ham
 //
-//  Extracted from ConfigurationView.swift
+//  Created by Pablo Turrion on 13/03/26.
 //
 
 import SwiftUI

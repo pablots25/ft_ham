@@ -2,9 +2,7 @@
 //  ModeFrequencyView.swift
 //  ft_ham
 //
-//  Detail screen for Mode, Cycle, Band, Frequency, and Input Gain settings.
-//  Extracted from ConfigurationView for Apple-standard NavigationLink pattern
-//  and to reduce unnecessary re-renders on the root settings list.
+//  Created by Pablo Turrion on 13/03/26.
 //
 
 import SwiftUI

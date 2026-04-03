@@ -2,8 +2,7 @@
 //  GridMapViewWrapper.swift
 //  ft_ham
 //
-//  Wrapper around GridMapView that exposes Binding-based visibility toggles
-//  and provides a floating controls bar overlay.
+//  Created by Pablo Turrion on 13/03/26.
 //
 
 import SwiftUI

@@ -2,7 +2,7 @@
 //  NewCQModifierView.swift
 //  ft_ham
 //
-//  CQ Modifier views adapted for the new Settings-style configuration.
+//  Created by Pablo Turrion on 20/02/26.
 //
 
 import SwiftUI

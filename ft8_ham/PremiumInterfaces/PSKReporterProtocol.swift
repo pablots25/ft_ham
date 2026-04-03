@@ -1,11 +1,9 @@
 //
 //  PSKReporterProtocol.swift
-//  ft8_ham
+//  ft_ham
 //
-//  Public interface for PSK Reporter integration
-//  Premium implementation is in private ft_ham_premium package
+//  Created by Pablo Turrion on 01/03/26.
 //
-//  Created on 01/03/26.
 //
 
 import Foundation

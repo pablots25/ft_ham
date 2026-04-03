@@ -2,8 +2,7 @@
 //  QSOSettingsView.swift
 //  ft_ham
 //
-//  Detail screen for QSO-related settings: auto-sequence, retries, toggles.
-//  Extracted from ConfigurationView for Apple-standard NavigationLink pattern.
+//  Created by Pablo Turrion on 13/03/26.
 //
 
 import SwiftUI

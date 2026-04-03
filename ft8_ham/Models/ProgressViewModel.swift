@@ -1,8 +1,8 @@
 //
 //  ProgressViewModel.swift
-//  ft8_ham
+//  ft_ham
 //
-//  Anchor-based progress (no timers/tasks)
+//  Created by Pablo Turrion on 26/02/26.
 //
 
 import Foundation

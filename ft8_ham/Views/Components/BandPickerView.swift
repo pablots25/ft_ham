@@ -2,9 +2,7 @@
 //  BandPickerView.swift
 //  ft_ham
 //
-//  Extracted from ConfigurationView for performance:
-//  only re-renders when selectedBand or isFT4 change,
-//  not on every FT8ViewModel @Published update.
+//  Created by Pablo Turrion on 13/03/26.
 //
 
 import SwiftUI

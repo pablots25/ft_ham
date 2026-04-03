@@ -1,8 +1,8 @@
 //
 //  PSKReporterDebugView.swift
-//  ft8_ham
+//  ft_ham
 //
-//  Created by Copilot on 2026-02-26.
+//  Created by Pablo Turrion on 26/02/26.
 //
 
 import SwiftUI
