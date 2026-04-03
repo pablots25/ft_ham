@@ -52,6 +52,12 @@ extension FT8ViewModel {
     }
 
     @MainActor
+    var catDialFrequencyMHz: Double? {
+        guard let hz = catDialFrequencyHz() else { return nil }
+        return Double(hz) / 1_000_000.0
+    }
+
+    @MainActor
     private func catDialFrequencyHz() -> Int64? {
         let mode: FT8Message.FT8MessageMode = isFT4 ? .ft4 : .ft8
         guard let baseHz = selectedBand.frequency(for: mode) else { return nil }

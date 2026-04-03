@@ -15,7 +15,12 @@ struct LegacyConfigurationView: View {
     
     @State private var showHelp = false
     @State private var showWhatsNew = false
+    @State private var showMessagesSection = false
     @State private var sliderTempValue: Float = 1.0
+    
+    #if DEBUG
+    @AppStorage("debugUseNewConfigView") private var debugUseNewConfigView: Bool = true
+    #endif
     
     private let appLogger = AppLogger(category: "APP")
     
@@ -129,7 +134,8 @@ struct LegacyConfigurationView: View {
                     
                     BandPickerView(
                         selectedBand: $viewModel.selectedBand,
-                        isFT4: viewModel.isFT4
+                        isFT4: viewModel.isFT4,
+                        customDialFrequencyHz: $viewModel.customDialFrequencyHz
                     )
                     
                     frequencyView
@@ -142,6 +148,8 @@ struct LegacyConfigurationView: View {
                     
                     qsoConfigSection
                     
+                    Divider()
+                    
                     togglesView
                     
                     Divider()
@@ -152,9 +160,40 @@ struct LegacyConfigurationView: View {
                     
                     Divider()
                     
-                    Text("Messages").font(.headline)
+                    VStack(alignment: .center, spacing: 0) {
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showMessagesSection.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text("Messages")
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                Image(systemName: "chevron.right")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .rotationEffect(.degrees(showMessagesSection ? 90 : 0))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        if showMessagesSection {
+                            GenMessagesView()
+                                .padding(.top, 16)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .clipped()
                     
-                    GenMessagesView()
+                    Divider()
+                    
+                    Text("Support FT HAM").font(.headline)
+                    
+                    SupportView()
+                        .id("donations") // Add ID for scrolling
                     
                     Divider()
                     
@@ -176,11 +215,6 @@ struct LegacyConfigurationView: View {
                     
                     Divider()
                     
-                    SupportView()
-                        .id("donations") // Add ID for scrolling
-                    
-                    Divider()
-                    
                     ContactView()
                     
                     Divider()
@@ -199,6 +233,8 @@ struct LegacyConfigurationView: View {
 
                 #if DEBUG
                 Section {
+                    Toggle("Use new config view", isOn: $debugUseNewConfigView)
+                    
                     Button {
                         triggerRatePrompt()
                     } label: {

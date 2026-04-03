@@ -7,7 +7,6 @@
 
 import Foundation
 import FirebaseCore
-import FirebaseCore
 import FirebaseRemoteConfig
 
 // MARK: - Prompt Configuration Models
