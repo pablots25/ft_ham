@@ -26,24 +26,28 @@ struct NewConfigurationView: View {
                 Section {
                     NavigationLink {
                         StationSettingsView()
+                            .padding(.horizontal)
                     } label: {
                         Label("Station", systemImage: "antenna.radiowaves.left.and.right")
                     }
                     
                     NavigationLink {
                         RadioSettingsView()
+                        .padding(.horizontal)
                     } label: {
                         Label("Radio", systemImage: "dial.low")
                     }
                     
                     NavigationLink {
                         BehaviorSettingsView()
+                        .padding(.horizontal)
                     } label: {
                         Label("Behavior", systemImage: "gearshape.2")
                     }
                     
                     NavigationLink {
                         InterfaceSettingsView()
+                        .padding(.horizontal)
                     } label: {
                         Label("Interface", systemImage: "rectangle.3.group")
                     }
@@ -53,6 +57,7 @@ struct NewConfigurationView: View {
 
                         NavigationLink {
                             CatSettingsView(initialFrequencyMHz: viewModel.catDialFrequencyMHz)
+                                .padding(.horizontal)
                         } label: {
                             Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
                         }
@@ -66,6 +71,7 @@ struct NewConfigurationView: View {
                 Section {
                     NavigationLink {
                         DebugSettingsView()
+                        .padding(.horizontal)
                     } label: {
                         Label("Toggles", systemImage: "ladybug")
                     }
@@ -107,7 +113,7 @@ struct NewConfigurationView: View {
                         showPremium = true
                     } label: {
                         HStack {
-                            Label("Become premium", systemImage: "star")
+                            Label("Become Premium", systemImage: "star")
                             Spacer()
                             Image(systemName: "arrow.up.right")
                                 .font(.caption)
@@ -136,6 +142,7 @@ struct NewConfigurationView: View {
                 Section {
                     NavigationLink {
                         LegalAndPrivacyView()
+                        .padding(.horizontal)
                     } label: {
                         Label("Legal & Licenses", systemImage: "hand.raised")
                             .tint(.blue)
@@ -798,9 +805,6 @@ struct ConfigurationView: View {
         VStack(spacing: 10) {
             HStack {
                 Text("Frequency offset:")
-                HelpIconButton(helpHint: HelpTip.audioFrequencyHz.accessibilityHint) {
-                    activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
-                }
                 Spacer()
                 HStack(spacing: 0) {
                     TextField("Frequency", text: $frequencyText)
@@ -814,6 +818,9 @@ struct ConfigurationView: View {
                         .frame(width: 80)
                     Text("kHz")
                         .padding(5)
+                }
+                HelpIconButton(helpHint: HelpTip.audioFrequencyHz.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
                 }
             }
 
@@ -873,7 +880,7 @@ struct ConfigurationView: View {
             }
             .pickerStyle(.segmented)
         }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 10 : 0)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
         .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
     
@@ -881,12 +888,12 @@ struct ConfigurationView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Input Gain:")
-                HelpIconButton(helpHint: HelpTip.audioGain.accessibilityHint) {
-                    activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
-                }
                 Spacer()
                 Text(String(format: "%.2f×", sliderTempValue))
                     .foregroundStyle(.secondary)
+                HelpIconButton(helpHint: HelpTip.audioGain.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
+                }
             }
 
             if activeHelp == .audioGain {
@@ -952,7 +959,7 @@ struct ConfigurationView: View {
                 activeHelp: $activeHelp
             )
         }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
     }
 
     private var qsoConfigSection: some View {
@@ -985,7 +992,7 @@ struct ConfigurationView: View {
                 activeHelp: $activeHelp
             )
         }
-        .padding(.horizontal)
+        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
     }
     
     private var analyticsSection: some View {
@@ -1032,7 +1039,7 @@ struct ConfigurationView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
             }
-            .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
+            .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
         }
     }
     

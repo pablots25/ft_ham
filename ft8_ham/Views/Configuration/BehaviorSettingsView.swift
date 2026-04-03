@@ -12,10 +12,19 @@ struct BehaviorSettingsView: View {
     @StateObject private var premiumManager = PremiumManager.shared
     @FocusState private var retriesFocused: Bool
     @State private var activeHelp: HelpTip?
+    @State private var showPSKReporter = false
+
+    private var pskReporterURL: URL {
+        var components = URLComponents(string: "https://pskreporter.info/pskmap")!
+        components.queryItems = [
+            URLQueryItem(name: "callsign", value: viewModel.callsign.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines))
+        ]
+        return components.url!
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text("Receiver Control")
                     .font(.headline)
 
@@ -98,20 +107,33 @@ struct BehaviorSettingsView: View {
                 )
 
                 if premiumManager.isPremiumUnlocked {
+                    Text("PSK reporter integration")
+                        .font(.headline)
+
                     ToggleRow(
                         labelKey: "PSK Reporter",
                         helpTip: .pskReporter,
                         isOn: $viewModel.pskReporterEnabled,
                         activeHelp: $activeHelp
                     )
+                    Button("View on PSK Reporter →") {
+                        showPSKReporter = true
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.bottom, 20)
                 }
             }
             .padding(.horizontal)
+            .padding(.bottom, 20)
         }
         .navigationTitle("Behavior")
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
         .onAppear { activeHelp = nil }
+        .sheet(isPresented: $showPSKReporter) {
+            SafariView(url: pskReporterURL)
+                .ignoresSafeArea()
+        }
     }
 }
 

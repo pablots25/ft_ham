@@ -19,7 +19,7 @@ struct CallsignFieldView: View {
             HStack {
                 Text("Callsign:")
                 Spacer()
-                TextField("EA4IQL", text: $callsignText)
+                TextField("", text: $callsignText)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.center)
                     .textInputAutocapitalization(.characters)
@@ -61,7 +61,7 @@ struct LocatorFieldView: View {
             HStack {
                 Text("Locator:")
                 Spacer()
-                TextField("IN80", text: $locatorText)
+                TextField("", text: $locatorText)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.center)
                     .textCase(.uppercase)

@@ -56,16 +56,10 @@ struct RadioSettingsView: View {
                 )
 
                 Divider()
-
-                Text("Frequency offset")
+                Text("Frequency offset and input gain")
                     .font(.headline)
 
                 frequencyView
-
-                Divider()
-
-                Text("Input Gain")
-                    .font(.headline)
 
                 inputGainView
 
@@ -162,9 +156,7 @@ struct RadioSettingsView: View {
         VStack {
             HStack {
                 Text("Frequency offset:")
-                HelpIconButton(helpHint: HelpTip.audioFrequencyHz.accessibilityHint) {
-                    activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
-                }
+
                 Spacer()
                 HStack(spacing: 0) {
                     TextField("Frequency", text: $frequencyText)
@@ -177,6 +169,9 @@ struct RadioSettingsView: View {
                         .onSubmit { commitFrequencyText() }
                         .frame(width: 80)
                     Text("kHz").padding(5)
+                }
+                HelpIconButton(helpHint: HelpTip.audioFrequencyHz.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioFrequencyHz) ? nil : .audioFrequencyHz
                 }
             }
 
@@ -214,12 +209,13 @@ struct RadioSettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Input Gain:")
-                HelpIconButton(helpHint: HelpTip.audioGain.accessibilityHint) {
-                    activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
-                }
+
                 Spacer()
                 Text(String(format: "%.2f×", sliderTempValue))
                     .foregroundStyle(.secondary)
+                HelpIconButton(helpHint: HelpTip.audioGain.accessibilityHint) {
+                    activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
+                }
             }
 
             if activeHelp == .audioGain {
