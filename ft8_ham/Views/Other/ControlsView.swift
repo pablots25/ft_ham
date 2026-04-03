@@ -93,6 +93,7 @@ struct DXInfoFields: View {
 
 struct MessageSelector: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @State private var showGenMessages = false
     @State private var activeHelp: HelpTip?
     @State private var sheetDetent: PresentationDetent = .large
@@ -154,12 +155,14 @@ struct MessageSelector: View {
                     .buttonStyle(.borderedProminent)
                 }
 
-                Button {
-                    showGenMessages = true
-                } label: {
-                    Image(systemName: "list.bullet")
+                if flags.isEnabled(.controlsSheet) {
+                    Button {
+                        showGenMessages = true
+                    } label: {
+                        Image(systemName: "list.bullet")
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
             }
         }
         .sheet(isPresented: $showGenMessages) {

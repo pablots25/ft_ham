@@ -28,6 +28,20 @@ enum RadioActivityType: String {
     case rx
 }
 
+enum AnalyticsParam {
+    static let triggerSource = "trigger_source"
+    static let reason = "reason"
+    static let appLaunches = "app_launches"
+    static let roll = "roll"
+    static let activity = "activity"
+    static let durationSec = "duration_sec"
+    static let count = "count"
+    static let qsoCount = "qso_count"
+    static let exportType = "export_type"
+    static let viewMode = "view_mode"
+    static let radioMode = "radio_mode"
+}
+
 /// Singleton manager to handle anonymous app metrics, App Store compliant.
 final class AnalyticsManager {
 
@@ -66,111 +80,109 @@ final class AnalyticsManager {
         }
     }
 
+    // MARK: - Central Event Logger
+
+    func logEvent(_ name: String, parameters: [String: Any]? = nil) {
+        guard isAnalyticsEnabled else { return }
+        appLogger.debug("Analytics event: \(name) \(parameters ?? [:])")
+        Analytics.logEvent(name, parameters: parameters)
+    }
 
     // MARK: - App Lifecycle
     func logAppOpened() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent(AnalyticsEventAppOpen, parameters: nil)
+        logEvent(AnalyticsEventAppOpen)
     }
 
     // MARK: - Onboarding & Legal
 
     func logOnboardingCompleted() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("onboarding_completed", parameters: nil)
+        logEvent("onboarding_completed")
     }
 
     func logTermsAccepted() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("terms_accepted", parameters: nil)
+        logEvent("terms_accepted")
     }
 
     // MARK: - Rate & Share Events
 
     func logRatePromptShown() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("rate_prompt_shown", parameters: nil)
+        logEvent("rate_prompt_shown")
     }
 
     func logRateConfirmed() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("rate_confirmed", parameters: nil)
+        logEvent("rate_confirmed")
     }
 
     func logRatePostponed() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("rate_postponed", parameters: nil)
+        logEvent("rate_postponed")
     }
 
     func logShareCompleted() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("share_completed", parameters: nil)
+        logEvent("share_completed")
     }
 
     func logSharePromptShown() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("share_prompt_shown", parameters: nil)
+        logEvent("share_prompt_shown")
     }
 
     func logSharePromptPostponed() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("share_prompt_postponed", parameters: nil)
+        logEvent("share_prompt_postponed")
     }
 
     // MARK: - Donation Events
 
     func logDonationPromptShown(triggerSource: String, appLaunches: Int) {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("donation_prompt_shown", parameters: [
-            "trigger_source": triggerSource,
-            "app_launches": NSNumber(value: appLaunches)
+        logEvent("donation_prompt_shown", parameters: [
+            AnalyticsParam.triggerSource: triggerSource,
+            AnalyticsParam.appLaunches: NSNumber(value: appLaunches)
         ])
     }
 
     func logDonationPromptConfirmed(triggerSource: String, appLaunches: Int) {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("donation_prompt_confirmed", parameters: [
-            "trigger_source": triggerSource,
-            "app_launches": NSNumber(value: appLaunches)
+        logEvent("donation_prompt_confirmed", parameters: [
+            AnalyticsParam.triggerSource: triggerSource,
+            AnalyticsParam.appLaunches: NSNumber(value: appLaunches)
         ])
     }
 
     func logDonationPromptPostponed(triggerSource: String, appLaunches: Int) {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("donation_prompt_postponed", parameters: [
-            "trigger_source": triggerSource,
-            "app_launches": NSNumber(value: appLaunches)
+        logEvent("donation_prompt_postponed", parameters: [
+            AnalyticsParam.triggerSource: triggerSource,
+            AnalyticsParam.appLaunches: NSNumber(value: appLaunches)
         ])
     }
 
     func logDonationPromptSkipped(triggerSource: String, reason: String, appLaunches: Int, roll: Int? = nil) {
-        guard isAnalyticsEnabled else { return }
-
         var parameters: [String: Any] = [
-            "trigger_source": triggerSource,
-            "reason": reason,
-            "app_launches": NSNumber(value: appLaunches)
+            AnalyticsParam.triggerSource: triggerSource,
+            AnalyticsParam.reason: reason,
+            AnalyticsParam.appLaunches: NSNumber(value: appLaunches)
         ]
 
         if let roll {
-            parameters["roll"] = NSNumber(value: roll)
+            parameters[AnalyticsParam.roll] = NSNumber(value: roll)
         }
 
-        Analytics.logEvent("donation_prompt_skipped", parameters: parameters)
+        logEvent("donation_prompt_skipped", parameters: parameters)
     }
 
-    func logPurchaseCompleted(productID: String) {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("in_app_purchase", parameters: [
-            "product_id": productID
-        ])
+    func logPurchaseCompleted(productID: String, value: Double? = nil, currency: String? = nil) {
+        var parameters: [String: Any] = [
+            AnalyticsParameterItemID: productID
+        ]
+        if let value {
+            parameters[AnalyticsParameterValue] = NSNumber(value: value)
+        }
+        if let currency {
+            parameters[AnalyticsParameterCurrency] = currency
+        }
+        logEvent(AnalyticsEventPurchase, parameters: parameters)
     }
 
     // MARK: - Configuration
 
     func logConfigurationSaved() {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("configuration_saved", parameters: nil)
+        logEvent("configuration_saved")
     }
 
     // MARK: - Radio Activity Tracking
@@ -185,17 +197,17 @@ final class AnalyticsManager {
         radioActivityStartTime = Date()
 
         if activity == .tx {
-            Analytics.logEvent("transmission_started", parameters: nil)
+            logEvent("transmission_started")
         }
     }
 
     func stopRadioActivity(success: Bool? = nil, failureReason: String? = nil) {
         if let success {
             if success {
-                Analytics.logEvent("transmission_success", parameters: nil)
+                logEvent("transmission_success")
             } else {
-                Analytics.logEvent("transmission_failed", parameters: [
-                    "reason": failureReason ?? "unknown"
+                logEvent("transmission_failed", parameters: [
+                    AnalyticsParam.reason: failureReason ?? "unknown"
                 ])
             }
         }
@@ -216,9 +228,9 @@ final class AnalyticsManager {
             return
         }
 
-        Analytics.logEvent("radio_activity_usage", parameters: [
-            "activity": activity.rawValue,
-            "duration_sec": NSNumber(value: duration)
+        logEvent("radio_activity_usage", parameters: [
+            AnalyticsParam.activity: activity.rawValue,
+            AnalyticsParam.durationSec: NSNumber(value: duration)
         ])
 
         activeRadioActivity = nil
@@ -228,13 +240,13 @@ final class AnalyticsManager {
     // MARK: - Decoded Messages Logic
 
     func addDecodedMessages(count: Int = 1) {
-        sessionDecodedMessages += count
+        sessionDecodedMessages = min(sessionDecodedMessages + count, 10_000)
     }
 
     func flushDecodedMessages() {
         guard isAnalyticsEnabled, sessionDecodedMessages > 0 else { return }
-        Analytics.logEvent("messages_decoded", parameters: [
-            "count": NSNumber(value: sessionDecodedMessages)
+        logEvent("messages_decoded", parameters: [
+            AnalyticsParam.count: NSNumber(value: sessionDecodedMessages)
         ])
         sessionDecodedMessages = 0
     }
@@ -247,8 +259,8 @@ final class AnalyticsManager {
 
     func flushQSOs() {
         guard isAnalyticsEnabled, sessionQSOs > 0 else { return }
-        Analytics.logEvent("qso_logged", parameters: [
-            "count": NSNumber(value: sessionQSOs)
+        logEvent("qso_logged", parameters: [
+            AnalyticsParam.count: NSNumber(value: sessionQSOs)
         ])
         sessionQSOs = 0
     }
@@ -256,10 +268,9 @@ final class AnalyticsManager {
     // MARK: - ADIF Export
 
     func logADIFExport(qsoCount: Int, exportType: String = "file") {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("adif_export", parameters: [
-            "qso_count": NSNumber(value: qsoCount),
-            "export_type": exportType
+        logEvent("adif_export", parameters: [
+            AnalyticsParam.qsoCount: NSNumber(value: qsoCount),
+            AnalyticsParam.exportType: exportType
         ])
     }
 
@@ -276,8 +287,7 @@ final class AnalyticsManager {
     // MARK: - Screen Tracking
 
     func trackScreen(_ screen: AnalyticsScreen) {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent(
+        logEvent(
             AnalyticsEventScreenView,
             parameters: [
                 AnalyticsParameterScreenName: screen.rawValue,
@@ -287,16 +297,33 @@ final class AnalyticsManager {
     }
 
     func trackViewMode(_ mode: ViewMode) {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("view_mode_selected", parameters: [
-            "view_mode": mode.rawValue.lowercased()
+        logEvent("view_mode_selected", parameters: [
+            AnalyticsParam.viewMode: mode.rawValue.lowercased()
         ])
     }
 
     func trackRadioModeChange(isFT4: Bool) {
-        guard isAnalyticsEnabled else { return }
-        Analytics.logEvent("radio_mode_changed", parameters: [
-            "radio_mode": isFT4 ? "ft4" : "ft8"
+        logEvent("radio_mode_changed", parameters: [
+            AnalyticsParam.radioMode: isFT4 ? "ft4" : "ft8"
         ])
+    }
+}
+
+// MARK: - SwiftUI View Modifier
+
+struct AnalyticsScreenModifier: ViewModifier {
+    let screen: AnalyticsScreen
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                AnalyticsManager.shared.trackScreen(screen)
+            }
+    }
+}
+
+extension View {
+    func trackScreen(_ screen: AnalyticsScreen) -> some View {
+        modifier(AnalyticsScreenModifier(screen: screen))
     }
 }

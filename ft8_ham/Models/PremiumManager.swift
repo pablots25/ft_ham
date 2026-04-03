@@ -226,17 +226,17 @@ enum PremiumError: LocalizedError {
 
 extension AnalyticsManager {
     func logPremiumPurchase(price: Decimal, currency: String?) {
-        Analytics.logEvent("premium_purchased", parameters: [
+        logEvent("premium_purchased", parameters: [
             "price": NSDecimalNumber(decimal: price),
             "currency": currency ?? "USD"
         ])
     }
 
     func logPremiumRestore() {
-        Analytics.logEvent("premium_restored", parameters: nil)
+        logEvent("premium_restored")
     }
 
     func logPremiumPaywallShown(source: String) {
-        Analytics.logEvent("premium_paywall_shown", parameters: ["source": source])
+        logEvent("premium_paywall_shown", parameters: ["source": source])
     }
 }

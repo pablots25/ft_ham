@@ -47,7 +47,11 @@ class ProductManager: ObservableObject {
             
             logger.info("Purchase successful: \(transaction.productID)")
             
-            AnalyticsManager.shared.logPurchaseCompleted(productID: transaction.productID)
+            AnalyticsManager.shared.logPurchaseCompleted(
+                productID: transaction.productID,
+                value: NSDecimalNumber(decimal: product.price).doubleValue,
+                currency: product.priceFormatStyle.currencyCode
+            )
             
             ProductManager.showSuccessPrompt()
             

@@ -36,7 +36,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 private extension AppDelegate {
 
     func configureAnalytics() {
-        Analytics.setAnalyticsCollectionEnabled(true)
+        let enabled = UserDefaults.standard.bool(forKey: "analyticsEnabled")
+        Analytics.setAnalyticsCollectionEnabled(enabled)
 
         #if DEBUG
         // Keep Analytics alive for Remote Config, but avoid event noise

@@ -123,19 +123,10 @@ struct ContentView: View {
                 if shouldNavigate {
                     selectedTab = 4 // Navigate to Configuration tab
                     prompts.shouldNavigateToDonations = false
-                    #if DEBUG
-                    let useNewConfig = debugUseNewConfigView
-                    #else
-                    let useNewConfig = flags.isEnabled(.newConfigView)
-                    #endif
-                    if useNewConfig {
-                        // Delay push so NavigationStack renders after tab switch
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            configNavigationPath.append(ConfigDestination.support)
-                        }
-                    } else {
-                        shouldScrollToDonations = true
-                    }
+                    // Both old and new config views observe shouldScrollToDonations:
+                    // - Old view scrolls to the donations section
+                    // - New view presents the Support sheet
+                    shouldScrollToDonations = true
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .navigateToConfiguration)) { _ in
