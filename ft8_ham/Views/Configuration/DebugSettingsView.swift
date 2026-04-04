@@ -10,12 +10,22 @@ import SwiftUI
 #if DEBUG
 struct DebugSettingsView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @State private var showWhatsNew = false
     @State private var showPaywall = false
     @ObservedObject private var premiumManager = PremiumManager.shared
 
     var body: some View {
         SettingsScrollContainer(title: "Debug", alignment: .leading, spacing: 20) {
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.newConfigView) },
+                    set: { flags.setOverride(.newConfigView, value: $0) }
+                )) {
+                    Label("New Config View", systemImage: "rectangle.3.group")
+                }
+
+                Divider()
+
                 Toggle(isOn: Binding(
                     get: { premiumManager.debugPremiumEnabled },
                     set: { premiumManager.setDebugPremium(enabled: $0) }
@@ -93,6 +103,7 @@ struct DebugSettingsView: View {
 #Preview {
     NavigationStack {
         DebugSettingsView()
+            .environmentObject(FeatureFlagManager.shared)
     }
 }
 #endif

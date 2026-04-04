@@ -9,6 +9,7 @@ import Foundation
 
 enum AppStorageResetter {
     static let onboardingKey = "hasCompletedOnboarding"
+    static let initialPermissionFlowKey = "hasCompletedInitialPermissionFlow"
     
     static let tutorialKeys = [
         "hasSeenFloatingButtonTutorial",
@@ -26,6 +27,7 @@ enum AppStorageResetter {
     
     static func resetOnboarding() {
         UserDefaults.standard.removeObject(forKey: onboardingKey)
+        UserDefaults.standard.removeObject(forKey: initialPermissionFlowKey)
         UserDefaults.standard.synchronize()
     }
 }

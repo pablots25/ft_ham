@@ -83,10 +83,6 @@ private extension AppDelegate {
     func configureNotifications() {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        // Authorization request with empty handler - notification handling is done in userNotificationCenter(_:willPresent:withCompletionHandler:)
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in
-            // Result is intentionally ignored; in-app presentation is handled by UNUserNotificationCenterDelegate.
-        }
     }
 }
 
@@ -109,6 +105,8 @@ struct ft8_hamApp: App {
 
     init() {
         guard AppEnvironment.current.isProduction else { return }
+
+        AnalyticsManager.applyConsentBeforeConfigure()
 
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()

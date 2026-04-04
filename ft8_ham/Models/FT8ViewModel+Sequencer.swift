@@ -81,11 +81,20 @@ extension FT8ViewModel {
                     let signalDuration = self.isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration
                     let decodeMargin   = self.isFT4 ? Constants.ft4DecodeMargin : Constants.ft8DecodeMargin
                     let requiredSeconds = signalDuration + decodeMargin
-                    let minSamples = Int(requiredSeconds * self.audioManager.micSampleRate)
+
+                    // Guard: micSampleRate starts at 0 and is populated lazily by startMicInput().
+                    // Passing 0 to monitor_init produces nfft=0, which causes a KISS FFT crash.
+                    let capturedSampleRate = self.audioManager.micSampleRate
+                    guard capturedSampleRate > 0 else {
+                        self.rxLogger.warning("Skipping decode (slot \(completedSlotIndex)): micSampleRate not yet initialized")
+                        continue
+                    }
+
+                    let minSamples = Int(requiredSeconds * capturedSampleRate)
                     
                     // Disrcard extra long buffers
                     let maxExpectedSamples = Int(
-                        (signalDuration + decodeMargin + 1.0) * self.audioManager.micSampleRate
+                        (signalDuration + decodeMargin + 1.0) * capturedSampleRate
                     )
                     
                     // Trim buffer if it exceeds max size to prevent memory issues
@@ -100,26 +109,26 @@ extension FT8ViewModel {
                     if sampleCount >= minSamples && !self.isHarvestingRX {
 
                         self.rxLogger.info(
-                            "Harvested \(sampleCount) samples (~\(String(format: "%.1f", Double(sampleCount) / self.audioManager.micSampleRate))s) for slot \(completedSlotIndex)"
+                            "Harvested \(sampleCount) samples (~\(String(format: "%.1f", Double(sampleCount) / capturedSampleRate))s) for slot \(completedSlotIndex)"
                         )
-                        
+
+                        // Capture @MainActor values before spawning the detached task so the
+                        // CPU-intensive FFT decode runs on a background thread, not the main thread.
+                        let capturedEngine = self.engine
+                        let capturedIsFT4 = self.isFT4
+                        let capturedLogger = self.rxLogger
                         self.isHarvestingRX = true
-                        Task { [weak self] in
+                        Task.detached(priority: .userInitiated) { [weak self] in
                             defer { Task { await MainActor.run { self?.isHarvestingRX = false } } }
-                            guard let self else { return }
-                            
-                            do {
-                                let msgs = self.engine.decodeAudioBuffer(
-                                    audioToDecode,
-                                    sampleRate: self.audioManager.micSampleRate,
-                                    isFT4: self.isFT4
-                                )
-                                
-                                self.rxLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
-                                await self.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
-                            } catch {
-                                self.rxLogger.error("Decode error: \(error.localizedDescription)")
-                            }
+
+                            let msgs = capturedEngine.decodeAudioBuffer(
+                                audioToDecode,
+                                sampleRate: capturedSampleRate,
+                                isFT4: capturedIsFT4
+                            )
+
+                            capturedLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
+                            await self?.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
                         }
                     } else {
                         if sampleCount < minSamples {

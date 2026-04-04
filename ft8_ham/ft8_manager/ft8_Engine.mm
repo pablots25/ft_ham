@@ -372,6 +372,12 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
 - (NSArray<NSDictionary *> *)decodeBufferUsingMonitor:(NSData *)audioData
                                            sampleRate:(double)sampleRate
                                                 isFT4:(BOOL)isFT4 {
+  // Second-line defence: reject invalid sample rates before they reach monitor_init,
+  // where sample_rate=0 would produce nfft=0 and crash KISS FFT.
+  if (sampleRate <= 0) {
+    [self logFT8:@"decodeBufferUsingMonitor: invalid sampleRate=%.1f – aborting to prevent FFT crash", sampleRate];
+    return @[];
+  }
   const float *audio = (const float *)audioData.bytes;
   NSUInteger nSamples = audioData.length / sizeof(float);
   ftx_protocol_t protocol = isFT4 ? FTX_PROTOCOL_FT4 : FTX_PROTOCOL_FT8;

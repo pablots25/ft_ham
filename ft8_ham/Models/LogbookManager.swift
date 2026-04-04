@@ -8,6 +8,21 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Log Sync Status
+
+/// Upload/confirmation status for a single QSO in an external logbook service.
+/// ✗ local → ✓ uploaded → ★ confirmed
+enum LogSyncStatus: String, Codable, Sendable {
+    case notUploaded   // QSO exists only locally
+    case pending       // Queued for upload; network unavailable or retry in progress
+    case uploaded      // Successfully delivered to remote service
+    case confirmed     // Remote service confirmed the QSO (award credit)
+    case duplicate     // Remote service rejected as duplicate
+    case rejected      // Remote service rejected with a permanent error
+}
+
+// MARK: - LogEntry
+
 struct LogEntry: Identifiable {
     let id = UUID()
     let callsign: String
@@ -24,6 +39,10 @@ struct LogEntry: Identifiable {
     let country: String?        // Resolved country name from CountryResolver
     let flag: String?           // Cached flag emoji for performance
 
+    // MARK: Sync Status
+    var qrzStatus: LogSyncStatus
+    var lotwStatus: LogSyncStatus
+
     init(
         callsign: String,
         grid: String,
@@ -37,7 +56,9 @@ struct LogEntry: Identifiable {
         cqModifier: String?,
         mySigInfo: String?,
         country: String?,
-        flag: String?
+        flag: String?,
+        qrzStatus: LogSyncStatus = .notUploaded,
+        lotwStatus: LogSyncStatus = .notUploaded
     ) {
         self.callsign = callsign
         self.grid = grid
@@ -52,6 +73,8 @@ struct LogEntry: Identifiable {
         self.country = country
         self.flag = flag
         self.frequencyHz = frequencyHz
+        self.qrzStatus = qrzStatus
+        self.lotwStatus = lotwStatus
     }
 }
 

@@ -77,7 +77,29 @@ final class AnalyticsManager {
         didSet {
             UserDefaults.standard.set(isAnalyticsEnabled, forKey: "analyticsEnabled")
             Analytics.setAnalyticsCollectionEnabled(isAnalyticsEnabled)
+            Analytics.setConsent([
+                .analyticsStorage: isAnalyticsEnabled ? .granted : .denied
+            ])
         }
+    }
+
+    // MARK: - Consent Mode
+
+    /// Must be called **before** `FirebaseApp.configure()` at every app launch.
+    /// Sets default consent signals based on whether the user has previously accepted the terms.
+    static func applyConsentBeforeConfigure() {
+        let hasAccepted = UserDefaults.standard.bool(forKey: "hasAcceptedTerms")
+        Analytics.setConsent([
+            .analyticsStorage: hasAccepted ? .granted : .denied,
+            .adStorage: .denied,
+            .adUserData: .denied,
+            .adPersonalization: .denied
+        ])
+    }
+
+    /// Grants analytics consent after the user accepts the terms. Call this when the user taps "I Accept".
+    func grantAnalyticsConsent() {
+        Analytics.setConsent([.analyticsStorage: .granted])
     }
 
     // MARK: - Central Event Logger

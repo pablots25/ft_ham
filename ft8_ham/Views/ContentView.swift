@@ -18,6 +18,7 @@ struct ContentView: View {
     @StateObject private var mapSettings = MapSettingsModel.shared
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+    @AppStorage("hasCompletedInitialPermissionFlow") private var hasCompletedInitialPermissionFlow: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
@@ -60,6 +61,11 @@ struct ContentView: View {
                 } else {
                     selectedTab = lastSelectedTab
                 }
+                // Users who completed onboarding before the permission flow existed
+                // are grandfathered in — their OS dialogs were triggered by the old code.
+                if hasCompletedOnboarding && !hasCompletedInitialPermissionFlow {
+                    hasCompletedInitialPermissionFlow = true
+                }
                 // Decide which prompt to show at launch
                 if !hasCompletedOnboarding {
                     isPresentingOnboarding = true
@@ -79,8 +85,11 @@ struct ContentView: View {
                     isPresentingOnboarding = false
                     if !hasAcceptedTerms {
                         isPresentingLicense = true
+                    } else if AppVersionManager.shared.shouldShowWhatsNew {
+                        isPresentingWhatsNew = true
                     } else {
                         scheduleSettingsCheckIfNeeded()
+                        evaluateAutoRX()
                     }
                 } else {
                     // If onboarding was reset (e.g. from ConfigurationView), show it immediately
@@ -93,7 +102,14 @@ struct ContentView: View {
                         isPresentingWhatsNew = true
                     } else {
                         scheduleSettingsCheckIfNeeded()
+                        evaluateAutoRX()
                     }
+                }
+            }
+            .onChange(of: isPresentingWhatsNew) { isPresented in
+                if !isPresented {
+                    scheduleSettingsCheckIfNeeded()
+                    evaluateAutoRX()
                 }
             }
             .onChange(of: autoRXAtStart) { enabled in
@@ -257,7 +273,7 @@ struct ContentView: View {
                 Text("Please fill in your callsign and locator in the Configuration tab to start using the app")
             }
             .onAppear {
-                if hasCompletedOnboarding && hasAcceptedTerms && viewModel.settingsLoaded {
+                if hasCompletedOnboarding && hasAcceptedTerms && hasCompletedInitialPermissionFlow && viewModel.settingsLoaded {
                     InAppPrompts.shared.checkPrompts()
                 }
             }
@@ -267,7 +283,9 @@ struct ContentView: View {
     // MARK: - Prompt sequencing helpers
     private func scheduleSettingsCheckIfNeeded() {
         // Avoid showing settings alert while a full-screen cover is presented
-        guard !isPresentingOnboarding && !isPresentingLicense else { return }
+        guard !isPresentingOnboarding,
+              !isPresentingLicense,
+              !isPresentingWhatsNew else { return }
         if !viewModel.settingsLoaded {
             showConfigAlert = true
             shouldNavigateToConfiguration = true
@@ -276,15 +294,18 @@ struct ContentView: View {
     
     // MARK: - Auto RX orchestration
     private func evaluateAutoRX() {
-        // Gates: onboarding complete, terms accepted, settings valid, and autoRX enabled
+        // Gates: onboarding complete, terms accepted, permissions flow done, settings valid, and autoRX enabled
         guard hasCompletedOnboarding,
               hasAcceptedTerms,
+              hasCompletedInitialPermissionFlow,
               viewModel.settingsLoaded,
               autoRXAtStart else {
             return
         }
         // Do not start during full-screen overlays
-        guard !isPresentingOnboarding && !isPresentingLicense else { return }
+        guard !isPresentingOnboarding,
+              !isPresentingLicense,
+              !isPresentingWhatsNew else { return }
         // Prevent double start
         guard !viewModel.isSequencerRunning else { return }
         // Start RX
@@ -500,6 +521,7 @@ struct TermsSheet: View {
                 Spacer()
                 
                 Button(action: {
+                    AnalyticsManager.shared.grantAnalyticsConsent()
                     AnalyticsManager.shared.logTermsAccepted()
                     hasAcceptedTerms = true
                     dismiss()

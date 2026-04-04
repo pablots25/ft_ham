@@ -51,7 +51,7 @@ struct GridMapView: UIViewRepresentable {
         mapView.isScrollEnabled = true
         mapView.isZoomEnabled = true
         mapView.isUserInteractionEnabled = true
-        mapView.showsUserLocation = true
+        mapView.showsUserLocation = context.coordinator.canShowUserLocation
         mapView.pointOfInterestFilter = .excludingAll
 
         context.coordinator.configureLocationManager()
@@ -95,10 +95,26 @@ struct GridMapView: UIViewRepresentable {
 
         // MARK: - Location handling
 
+        var canShowUserLocation: Bool {
+            switch locationManager.authorizationStatus {
+            case .authorizedAlways, .authorizedWhenInUse:
+                return true
+            default:
+                return false
+            }
+        }
+
         func configureLocationManager() {
             locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
-            locationManager.requestWhenInUseAuthorization()
-            locationManager.startUpdatingLocation()
+
+            switch locationManager.authorizationStatus {
+            case .authorizedAlways, .authorizedWhenInUse:
+                locationManager.startUpdatingLocation()
+            case .notDetermined, .denied, .restricted:
+                break
+            @unknown default:
+                break
+            }
         }
 
         func locationManager(_ manager: CLLocationManager,

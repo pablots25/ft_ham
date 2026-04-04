@@ -75,7 +75,67 @@ struct ConfigurationView: View {
                         .foregroundStyle(.secondary)
                     }
                     #endif
+                } header: {
+                    Text("General")
                 }
+                // MARK: - Log Syncing (Premium)
+                #if canImport(FTHamPremium)
+                Section {
+                    if premiumManager.isPremiumUnlocked {
+                        NavigationLink {
+                            ScrollView {
+                                QRZSettingsView()
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 20)
+                            }
+                            .navigationTitle("QRZ Logbook")
+                            .navigationBarTitleDisplayMode(.inline)
+                        } label: {
+                            Label("QRZ Logbook", systemImage: "network")
+                        }
+
+                        NavigationLink {
+                            ScrollView {
+                                LoTWSettingsView()
+                                    .padding([.horizontal])
+                                    .padding([.bottom], 20)
+                            }
+                            .navigationTitle("LoTW")
+                            .navigationBarTitleDisplayMode(.inline)
+                        } label: {
+                            Label("LoTW", systemImage: "checkmark.seal")
+                        }
+                    } else {
+                        Button {
+                            showPremium = true
+                        } label: {
+                            HStack {
+                                Label("QRZ Logbook", systemImage: "network")
+                                Spacer()
+                                Image(systemName: "lock.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .foregroundStyle(.secondary)
+
+                        Button {
+                            showPremium = true
+                        } label: {
+                            HStack {
+                                Label("LoTW", systemImage: "checkmark.seal")
+                                Spacer()
+                                Image(systemName: "lock.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Log Syncing")
+                }
+                #endif
                 
                 // MARK: - Debug
                 #if DEBUG

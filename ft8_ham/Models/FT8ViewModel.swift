@@ -211,7 +211,18 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
 
     @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
     @AppStorage("cqIncludeGrid") var cqIncludeGrid: Bool = true
-    
+
+    // MARK: - QRZ Logbook Integration (Premium)
+    @AppStorage("qrzAutoUpload") var qrzAutoUpload: Bool = false
+    @AppStorage("qrzConfirmationIntervalHours") var qrzConfirmationIntervalHours: Int = 6
+
+    // MARK: - LoTW Integration (Premium)
+    @AppStorage("lotwAutoUpload") var lotwAutoUpload: Bool = false
+    @AppStorage("lotwConfirmationIntervalHours") var lotwConfirmationIntervalHours: Int = 6
+
+    // MARK: - Log Sync Strategy (Premium)
+    @AppStorage("logSyncStrategy") var logSyncStrategyRaw: String = LogSyncStrategy.either.rawValue
+
     @AppStorage("callsign") var callsign = ""
     @AppStorage("locator") var locator = ""
     @AppStorage("autoLocatorFromGPS") var autoLocatorFromGPS: Bool = true
@@ -510,8 +521,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         
         switch status {
         case .notDetermined:
-            // Request authorization
-            locationManager.requestWhenInUseAuthorization()
+            appLogger.info("Location authorization not determined yet; waiting for guided permission flow")
         case .authorizedWhenInUse, .authorizedAlways:
             // Already authorized, start updates
             locationManager.startUpdatingLocation()

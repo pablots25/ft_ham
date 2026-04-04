@@ -24,7 +24,7 @@ struct FullScreenWaterfallView: View {
     @State private var isSettingsExpanded: Bool = false
     @AppStorage("hasSeenFloatingButtonTutorial") private var hasSeenTutorial: Bool = false
     @State private var showTutorial: Bool = true
-    
+
     // Tutorial items for all toolbar buttons
     let tutorialItems: [ButtonTutorialItem] = [
         ButtonTutorialItem(iconName: "arrow.left.arrow.right", description: "Toggle frequency adjustment"),
@@ -34,19 +34,31 @@ struct FullScreenWaterfallView: View {
         ButtonTutorialItem(iconName: "lines.measurement.horizontal", description: "Show/hide frequency ticks"),
         ButtonTutorialItem(iconName: "ruler", description: "Show/hide frequency marker")
     ]
-    
+
+    private let portraitFloatingBarBaseOffset: CGFloat = 92
+
     var body: some View {
+        Group {
+            if #available(iOS 18.0, *) {
+                waterfallScreen
+                    .toolbarVisibility(.visible, for: .tabBar)
+            } else {
+                waterfallScreen
+            }
+        }
+    }
+
+    private var waterfallScreen: some View {
         GeometryReader { geo in
             // Detect landscape normally, force portrait on iPad
             let isLandscape = (UIDevice.current.userInterfaceIdiom == .pad) ? false : (geo.size.width > geo.size.height)
 
-            
             ZStack {
                 Group {
                     if isLandscape {
-                        landscapeLayout(width: geo.size.width)
+                        landscapeLayout(width: geo.size.width, safeAreaInsets: geo.safeAreaInsets)
                     } else {
-                        portraitLayout()
+                        portraitLayout(safeAreaInsets: geo.safeAreaInsets)
                     }
                 }
                 .animation(.easeInOut(duration: 0.25), value: isLandscape)
@@ -60,32 +72,36 @@ struct FullScreenWaterfallView: View {
                         }
                     }
                 )
-            }
 
-            // Simple overlay tutorial
-            if showTutorial && !hasSeenTutorial {
-                tutorialOverlay
-                    .transition(.opacity)
-                    .zIndex(1)
-            }
-            
-            if viewModel.isListening {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        unifiedControlBar
-                    }
-                    .padding(.trailing, 10)
-                    .padding(.bottom, isLandscape ? 5 : 130)
+                // Simple overlay tutorial
+                if showTutorial && !hasSeenTutorial {
+                    tutorialOverlay
+                        .transition(.opacity)
+                        .zIndex(1)
                 }
-                .zIndex(100)
-                .frame(maxWidth: .infinity)
+
+                if viewModel.isListening {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            unifiedControlBar
+                        }
+                        .padding(.trailing, 10)
+                        .padding(
+                            .bottom,
+                            isLandscape
+                                ? max(geo.safeAreaInsets.bottom, 8)
+                                : geo.safeAreaInsets.bottom + portraitFloatingBarBaseOffset
+                        )
+                    }
+                    .zIndex(100)
+                    .frame(maxWidth: .infinity)
+                }
             }
         }
     }
 
-    
     // MARK: - Simple Tutorial Overlay
     private var tutorialOverlay: some View {
         ZStack {
@@ -95,7 +111,7 @@ struct FullScreenWaterfallView: View {
 
             VStack {
                 Spacer()
-                
+
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(tutorialItems) { item in
                         HStack(spacing: 12) {
@@ -112,11 +128,11 @@ struct FullScreenWaterfallView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.top)
-                    
+
                     Divider()
                         .background(Color.white.opacity(0.5))
                         .padding(.vertical, 8)
-                    
+
                     Button("Got it") {
                         hasSeenTutorial = true
                         showTutorial = false
@@ -127,7 +143,7 @@ struct FullScreenWaterfallView: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.bottom)
                     .padding(.horizontal)
-                    
+
                 }
                 .background(RoundedRectangle(cornerRadius: 16)
                     .fill(Color.black.opacity(0.85)))
@@ -140,11 +156,9 @@ struct FullScreenWaterfallView: View {
         }
     }
 
-
     // MARK: - Toolbar
     private var unifiedControlBar: some View {
         HStack(spacing: 12) {
-            
             // Frequency Adjustment Button
             Button {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0.3)) {
@@ -161,9 +175,8 @@ struct FullScreenWaterfallView: View {
             }
             .padding(.horizontal, isSettingFrequency ? 20 : 1)
             .frame(height: 30)
-            
-            
-            if(!isSettingFrequency){
+
+            if !isSettingFrequency {
                 // Settings Button
                 Button {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0.3)) {
@@ -174,10 +187,10 @@ struct FullScreenWaterfallView: View {
                         .foregroundStyle(isSettingsExpanded ? .green : .primary)
                 }
             }
-        
+
             if isSettingsExpanded {
                 Divider()
-                
+
                 // Show All Overlays Toggle
                 Button {
                     viewModel.waterfallVM.toggleShowAllOverlays()
@@ -185,7 +198,7 @@ struct FullScreenWaterfallView: View {
                     Image(systemName: viewModel.waterfallVM.showOverlay ? "eye.fill" : "eye")
                         .foregroundStyle(viewModel.waterfallVM.showOverlay ? .blue : .primary)
                 }
-                
+
                 Divider()
 
                 // Show Timestamps Toggle
@@ -195,7 +208,7 @@ struct FullScreenWaterfallView: View {
                     Image(systemName: viewModel.waterfallVM.showTimestamps ? "clock.fill" : "clock")
                         .foregroundStyle(viewModel.waterfallVM.showTimestamps ? .blue : .primary)
                 }
-                
+
                 // Show Vertical Labels Toggle
                 Button {
                     viewModel.waterfallVM.toggleVerticalLabels()
@@ -205,12 +218,12 @@ struct FullScreenWaterfallView: View {
                     )
                         .foregroundStyle(viewModel.waterfallVM.showVerticalLabels ? .blue : .primary)
                 }
-                
+
                 // Show Frequency Ticks Toggle
                 Button {
                     viewModel.waterfallVM.toggleFrequencyTicks()
                 } label: {
-                    Image(systemName:"lines.measurement.horizontal")
+                    Image(systemName: "lines.measurement.horizontal")
                         .renderingMode(.template)
                         .foregroundStyle(viewModel.waterfallVM.showFrequencyTicks ? .blue : .primary)
                 }
@@ -224,8 +237,6 @@ struct FullScreenWaterfallView: View {
                 }
                 .padding(.trailing, 5)
             }
-        
-            
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -241,58 +252,17 @@ struct FullScreenWaterfallView: View {
         .frame(height: 40)
         .animation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0.3), value: isSettingsExpanded)
     }
-    
-    func dashboardLayout() -> some View {
-        VStack(spacing: 10) {
-            let columns = [GridItem(.flexible()), GridItem(.flexible())]
-            
-            LazyVGrid(columns: columns, spacing: 12) {
-                if #available(iOS 16.0, *) {
-                    StatusView()
-                        .gridCellColumns(2)
-                        .frame(maxWidth: .infinity)
-                    ClockView()
-                        .gridCellColumns(2)
-                } else {
-                    StatusView()
-                        .frame(maxWidth: .infinity)
-                    ClockView()
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(.horizontal)
-            
-            TransmissionButtonsBar()
-                .padding(.bottom, 5)
-                .padding(.horizontal)
-            
-            WaterfallView(
-                viewModel: viewModel.waterfallVM,
-                ft8ViewModel: viewModel,
-                isSettingFrequency: $isSettingFrequency
-            )
-            .frame(maxHeight: .infinity)
-            .padding(.horizontal, 5)
-            
-            VStack {
-                QSOStatusView()
-                MessageSelector()
-            }
-            .padding(.horizontal, 40)
-            .padding(.bottom)
-        }
-    }
 
 }
 
 // MARK: - Layouts
 private extension FullScreenWaterfallView {
     // MARK: - Portrait layout
-    
-    func portraitLayout() -> some View {
+
+    func portraitLayout(safeAreaInsets: EdgeInsets) -> some View {
         VStack(spacing: 10) {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
-            
+
             LazyVGrid(columns: columns, spacing: 12) {
                 if #available(iOS 16.0, *) {
                     StatusView()
@@ -308,11 +278,11 @@ private extension FullScreenWaterfallView {
                 }
             }
             .padding(.horizontal)
-            
+
             TransmissionButtonsBar()
                 .padding(.bottom, 5)
                 .padding(.horizontal)
-            
+
             WaterfallView(
                 viewModel: viewModel.waterfallVM,
                 ft8ViewModel: viewModel,
@@ -320,7 +290,8 @@ private extension FullScreenWaterfallView {
             )
             .frame(maxHeight: .infinity)
             .padding(.horizontal, 5)
-            
+            .modifier(MapSafeAreaModifier())
+
             VStack {
                 QSOStatusView()
                 MessageSelector()
@@ -329,13 +300,14 @@ private extension FullScreenWaterfallView {
             .padding(.bottom)
         }
     }
-    
-    func landscapeLayout(width: CGFloat) -> some View {
+
+    func landscapeLayout(width: CGFloat, safeAreaInsets: EdgeInsets) -> some View {
         HStack(spacing: 0) {
             controlPanel
                 .frame(width: width * 0.45)
+                .padding(.top, max(safeAreaInsets.top, 8))
             Divider()
-            
+
             WaterfallView(
                 viewModel: viewModel.waterfallVM,
                 ft8ViewModel: viewModel,
@@ -344,9 +316,10 @@ private extension FullScreenWaterfallView {
             .frame(width: width * 0.55)
             .padding(.horizontal)
             .padding(.trailing)
+            .modifier(MapSafeAreaModifier())
         }
     }
-    
+
     private var controlPanel: some View {
         VStack(spacing: 20) {
             TransmissionButtonsBar()
@@ -356,7 +329,7 @@ private extension FullScreenWaterfallView {
             MessageSelector().padding(.horizontal)
         }
     }
-    
+
 }
 
 #Preview("FullScreenWaterfallView") {
@@ -367,7 +340,7 @@ private extension FullScreenWaterfallView {
 // MARK: - TipKit Support (iOS 17+ isolated)
 @available(iOS 17.0, *)
 private extension FullScreenWaterfallView {
-    
+
     struct FrequencyTip: Tip {
         var title: Text { Text("Adjust Frequency") }
         var message: Text? {
@@ -377,7 +350,7 @@ private extension FullScreenWaterfallView {
             Image(systemName: "arrow.left.arrow.right")
         }
     }
-    
+
     func invalidateFrequencyTipIfNeeded() {
         FrequencyTip().invalidate(reason: .actionPerformed)
     }
