@@ -13,7 +13,7 @@ struct DebugSettingsView: View {
     @EnvironmentObject private var flags: FeatureFlagManager
     @State private var showWhatsNew = false
     @State private var showPaywall = false
-    @ObservedObject private var premiumManager = PremiumManager.shared
+    @EnvironmentObject private var premiumManager: PremiumManager
 
     var body: some View {
         SettingsScrollContainer(title: "Debug", alignment: .leading, spacing: 20) {
@@ -95,7 +95,7 @@ struct DebugSettingsView: View {
             WhatsNewView()
         }
         .sheet(isPresented: $showPaywall) {
-            PremiumPaywallView(premiumManager: PremiumManager.shared, source: "debug")
+            PremiumPaywallView(source: "debug")
         }
     }
 }

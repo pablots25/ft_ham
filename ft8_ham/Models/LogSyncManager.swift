@@ -63,6 +63,13 @@ final class LogSyncManager: ObservableObject {
         startConfirmationTimer()
     }
 
+    /// Creates an isolated instance for unit testing with injected services.
+    /// Does **not** start the confirmation timer or load persisted pending IDs.
+    init(qrzService: any QRZServiceProtocol, lotwService: any LoTWServiceProtocol) {
+        self.qrzService = qrzService
+        self.lotwService = lotwService
+    }
+
     deinit {
         confirmationTimer?.cancel()
     }

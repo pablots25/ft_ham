@@ -11,7 +11,7 @@ import SwiftUI
 /// Premium paywall modal view
 struct PremiumPaywallView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject var premiumManager: PremiumManager
+    @EnvironmentObject private var premiumManager: PremiumManager
 
     let source: String // Track where the paywall was shown from
 
@@ -19,6 +19,8 @@ struct PremiumPaywallView: View {
     @State private var isRestoring = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showPurchaseSuccess = false
+    @State private var showRestoreSuccess = false
 
     var body: some View {
         NavigationStack {
@@ -57,6 +59,16 @@ struct PremiumPaywallView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(errorMessage)
+            }
+            .alert("🎉 Welcome to Premium!", isPresented: $showPurchaseSuccess) {
+                Button("Let's Go!") { dismiss() }
+            } message: {
+                Text("All premium features are now unlocked. Thank you for your support!")
+            }
+            .alert("✅ Restored Successfully", isPresented: $showRestoreSuccess) {
+                Button("OK") { dismiss() }
+            } message: {
+                Text("Your premium purchase has been restored.")
             }
         }
         .task {
@@ -204,17 +216,13 @@ struct PremiumPaywallView: View {
         
         do {
             try await premiumManager.purchasePremium()
-            
-            // Success - dismiss after short delay
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            dismiss()
-            
-            // Show success alert
-            showSuccessAlert()
-            
+            showPurchaseSuccess = true
         } catch PremiumError.userCancelled {
             // User cancelled - no error needed
             return
+        } catch PremiumError.pending {
+            errorMessage = "Your purchase is awaiting approval. You'll get access once it's approved."
+            showError = true
         } catch {
             errorMessage = error.localizedDescription
             showError = true
@@ -227,48 +235,10 @@ struct PremiumPaywallView: View {
         
         do {
             try await premiumManager.restorePurchases()
-            
-            // Success - dismiss
-            dismiss()
-            
-            // Show success alert
-            showRestoreSuccessAlert()
-            
+            showRestoreSuccess = true
         } catch {
             errorMessage = error.localizedDescription
             showError = true
-        }
-    }
-    
-    private func showSuccessAlert() {
-        let alert = UIAlertController(
-            title: "🎉 Welcome to Premium!",
-            message: "All premium features are now unlocked. Thank you for your support!",
-            preferredStyle: .alert
-        )
-        
-        alert.addAction(UIAlertAction(title: "Let's Go!", style: .default))
-        
-        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = scene.windows.first?.rootViewController {
-            let topVC = rootVC.presentedViewController ?? rootVC
-            topVC.present(alert, animated: true)
-        }
-    }
-    
-    private func showRestoreSuccessAlert() {
-        let alert = UIAlertController(
-            title: "✅ Restored Successfully",
-            message: "Your premium purchase has been restored.",
-            preferredStyle: .alert
-        )
-        
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        
-        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = scene.windows.first?.rootViewController {
-            let topVC = rootVC.presentedViewController ?? rootVC
-            topVC.present(alert, animated: true)
         }
     }
 }
@@ -304,7 +274,7 @@ private struct FeatureRow: View {
 
 #Preview("Premium Paywall") {
     PremiumPaywallView(
-        premiumManager: PremiumManager.shared,
         source: "preview"
     )
+    .environmentObject(PremiumManager.shared)
 }

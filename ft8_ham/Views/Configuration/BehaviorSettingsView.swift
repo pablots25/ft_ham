@@ -9,7 +9,7 @@ import SwiftUI
 
 struct BehaviorSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
-    @StateObject private var premiumManager = PremiumManager.shared
+    @EnvironmentObject private var premiumManager: PremiumManager
     @State private var activeHelp: HelpTip?
     @State private var showPSKReporter = false
     @State private var showPaywall = false
@@ -140,7 +140,7 @@ struct BehaviorSettingsContent: View {
         }
         .sheet(isPresented: $showPaywall) {
             NavigationStack {
-                PremiumPaywallView(premiumManager: PremiumManager.shared, source: "behavior_settings")
+                PremiumPaywallView(source: "behavior_settings")
                     .navigationTitle("Become Premium")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {

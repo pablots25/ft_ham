@@ -7,11 +7,12 @@
 
 import StoreKit
 import SwiftUI
+import Security
 import FirebaseAnalytics
 
 /// Manages Premium one-time purchase and feature unlocking
 @MainActor
-class PremiumManager: ObservableObject {
+final class PremiumManager: ObservableObject {
     static let shared = PremiumManager()
 
     private let logger = AppLogger(category: "PREMIUM")
@@ -31,6 +32,9 @@ class PremiumManager: ObservableObject {
     /// Debug-only override: when true, premium is treated as unlocked regardless of purchases.
     @Published private(set) var debugPremiumEnabled: Bool = UserDefaults.standard.bool(forKey: "debug_premium_enabled")
     #endif
+
+    // MARK: - Keychain
+    private static let donationKeychainKey = "com.ea4iql.ftham.donation.granted"
 
     // MARK: - Transaction Listener
     private var transactionListener: Task<Void, Never>?
@@ -75,11 +79,19 @@ class PremiumManager: ObservableObject {
             }
         }
 
-        // 2. Check consumable donations — any verified donation also grants premium
+        // 2. Check Keychain for persisted donation grant (survives device restores)
+        if Self.hasDonationKeychainFlag() {
+            logger.info("Premium unlocked via persisted donation flag (Keychain)")
+            isPremiumUnlocked = true
+            return
+        }
+
+        // 3. Check consumable donations via Transaction.all as fallback
         for await result in Transaction.all {
             if case let .verified(transaction) = result,
                Self.donationProductIDs.contains(transaction.productID) {
                 logger.info("Premium unlocked via donation: \(transaction.productID)")
+                Self.setDonationKeychainFlag()
                 isPremiumUnlocked = true
                 return
             }
@@ -181,7 +193,18 @@ class PremiumManager: ObservableObject {
                     let isDonationTx = Self.donationProductIDs.contains(transaction.productID)
 
                     if isPremiumTx || isDonationTx {
+                        // Check for refund
+                        if transaction.revocationDate != nil {
+                            logger.info("Revoked transaction detected: \(transaction.productID)")
+                            await transaction.finish()
+                            await loadPremiumStatus()
+                            return
+                        }
+
                         logger.info("Transaction update received: \(transaction.productID)")
+                        if isDonationTx {
+                            Self.setDonationKeychainFlag()
+                        }
                         isPremiumUnlocked = true
                         await transaction.finish()
                     }
@@ -200,6 +223,32 @@ class PremiumManager: ObservableObject {
         case .verified(let safe):
             return safe
         }
+    }
+
+    // MARK: - Keychain Helpers
+
+    /// Persist donation grant in Keychain (survives device restores unlike Transaction.all for consumables)
+    private static func setDonationKeychainFlag() {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: donationKeychainKey,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+        SecItemDelete(query as CFDictionary)
+
+        var attributes = query
+        attributes[kSecValueData] = Data("granted".utf8)
+        SecItemAdd(attributes as CFDictionary, nil)
+    }
+
+    /// Check if donation grant flag exists in Keychain
+    private static func hasDonationKeychainFlag() -> Bool {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: donationKeychainKey,
+            kSecReturnData: false
+        ]
+        return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
     }
 
     // MARK: - Debug Helpers

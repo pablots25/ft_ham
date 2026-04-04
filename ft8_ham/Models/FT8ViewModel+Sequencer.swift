@@ -60,7 +60,7 @@ extension FT8ViewModel {
                     
                     // --- HARVEST AND DECODE PREVIOUS SLOT ---
                     // Wait a tiny bit more (200ms) to ensure the audio tap delivers the final samples of the previous slot
-                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    try await Task.sleep(nanoseconds: 200_000_000)
                     
                     let completedSlotIndex = nextSlot.slotIndex - 1
                     

@@ -9,7 +9,7 @@ import SwiftUI
 
 struct LegacyConfigurationView: View {
 	@EnvironmentObject private var viewModel: FT8ViewModel
-	@StateObject private var premiumManager = PremiumManager.shared
+	@EnvironmentObject private var premiumManager: PremiumManager
 	@Binding var shouldScrollToDonations: Bool
 
 	@State private var showHelp = false
@@ -137,7 +137,7 @@ struct LegacyConfigurationView: View {
 		}
 		.sheet(isPresented: $showPremium) {
 			NavigationStack {
-				PremiumPaywallView(premiumManager: PremiumManager.shared, source: "configuration")
+				PremiumPaywallView(source: "configuration")
 					.navigationTitle("Become Premium")
 					.navigationBarTitleDisplayMode(.inline)
 					.toolbar {

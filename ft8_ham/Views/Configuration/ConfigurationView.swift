@@ -12,7 +12,7 @@ import SwiftUI
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var flags: FeatureFlagManager
-    @StateObject private var premiumManager = PremiumManager.shared
+    @EnvironmentObject private var premiumManager: PremiumManager
     @Binding var shouldScrollToDonations: Bool
 
     @State private var showHelp = false
@@ -61,18 +61,9 @@ struct ConfigurationView: View {
                             Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
                         }
                     } else {
-                        Button {
+                        PremiumLockedRow(feature: .catControl) {
                             showPremium = true
-                        } label: {
-                            HStack {
-                                Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
-                                Spacer()
-                                Image(systemName: "lock.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
                         }
-                        .foregroundStyle(.secondary)
                     }
                     #endif
                 } header: {
@@ -106,31 +97,13 @@ struct ConfigurationView: View {
                             Label("LoTW", systemImage: "checkmark.seal")
                         }
                     } else {
-                        Button {
+                        PremiumLockedRow(feature: .qrzLogbook) {
                             showPremium = true
-                        } label: {
-                            HStack {
-                                Label("QRZ Logbook", systemImage: "network")
-                                Spacer()
-                                Image(systemName: "lock.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
                         }
-                        .foregroundStyle(.secondary)
 
-                        Button {
+                        PremiumLockedRow(feature: .lotwSync) {
                             showPremium = true
-                        } label: {
-                            HStack {
-                                Label("LoTW", systemImage: "checkmark.seal")
-                                Spacer()
-                                Image(systemName: "lock.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
                         }
-                        .foregroundStyle(.secondary)
                     }
                 } header: {
                     Text("Log Syncing")
@@ -222,7 +195,7 @@ struct ConfigurationView: View {
         }
         .sheet(isPresented: $showPremium) {
             NavigationStack {
-                PremiumPaywallView(premiumManager: PremiumManager.shared, source: "configuration")
+                PremiumPaywallView(source: "configuration")
                     .navigationTitle("Become Premium")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {

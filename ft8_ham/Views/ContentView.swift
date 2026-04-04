@@ -14,8 +14,8 @@ struct ContentView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var flags: FeatureFlagManager
     @StateObject private var progressVM = ProgressViewModel()
-    @StateObject private var prompts = InAppPrompts.shared
-    @StateObject private var mapSettings = MapSettingsModel.shared
+    @ObservedObject private var prompts = InAppPrompts.shared
+    @ObservedObject private var mapSettings = MapSettingsModel.shared
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("hasCompletedInitialPermissionFlow") private var hasCompletedInitialPermissionFlow: Bool = false
