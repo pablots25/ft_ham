@@ -7,108 +7,82 @@
 
 import SwiftUI
 
-struct StationSettingsView: View {
+struct StationSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
 
-    private enum FocusField { case callsign, locator }
-    @FocusState private var focusedInput: FocusField?
-
     @State private var callsignText: String = ""
+    @State private var locatorText: String = ""
     @State private var validCallsign = false
     @State private var validLocator = false
     @State private var activeHelp: HelpTip?
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Text("Station details")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Station details")
+                .font(.headline)
 
-                HStack {
-                    Text("Callsign:")
-                    TextField("", text: $callsignText)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
-                        .focused($focusedInput, equals: .callsign)
-                        .lineLimit(1)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .onChange(of: callsignText) { newValue in
-                            validCallsign = isValidCallsign(newValue.uppercased())
-                        }
-                        .onSubmit { commitCallsign() }
-                        .border(validCallsign ? Color.clear : Color.red)
+            CallsignFieldView(
+                callsignText: $callsignText,
+                validCallsign: $validCallsign,
+                onCommit: {
+                    let text = callsignText.uppercased()
+                    callsignText = text
+                    validCallsign = isValidCallsign(text)
+                    if validCallsign { viewModel.callsign = text }
                 }
+            )
 
-                Text("Callsign modifiers are allowed")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            Divider()
 
-                Divider()
+            Text("Locator")
+                .font(.headline)
 
-                Text("Locator")
-                    .font(.headline)
-
-                HStack {
-                    Text("Locator:")
-                    Spacer()
-                    TextField("", text: $viewModel.locator)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
-                        .textCase(.uppercase)
-                        .focused($focusedInput, equals: .locator)
-                        .lineLimit(1)
-                        .disabled(viewModel.autoLocatorFromGPS)
-                        .onChange(of: viewModel.locator) { newValue in
-                            var text = newValue.uppercased()
-                            text.removeAll(where: { $0.isWhitespace })
-                            if text.count > 4 { text = String(text.prefix(4)) }
-                            if text != viewModel.locator { viewModel.locator = text }
-                            validLocator = isValidLocator(text)
-                        }
-                        .border(validLocator ? Color.clear : Color.red)
+            LocatorFieldView(
+                locatorText: $locatorText,
+                validLocator: $validLocator,
+                disabled: viewModel.autoLocatorFromGPS,
+                onCommit: {
+                    var text = locatorText.uppercased()
+                    text.removeAll(where: { $0.isWhitespace })
+                    if text.count > 4 { text = String(text.prefix(4)) }
+                    locatorText = text
+                    if isValidLocator(text) { viewModel.locator = text }
                 }
+            )
 
-                ToggleRow(
-                    labelKey: "Auto (from GPS)",
-                    helpTip: .locatorGPS,
-                    isOn: Binding(
-                        get: { viewModel.autoLocatorFromGPS },
-                        set: { viewModel.setAutoLocatorFromGPS($0) }
-                    ),
-                    activeHelp: $activeHelp
-                )
+            ToggleRow(
+                labelKey: "Auto (from GPS)",
+                helpTip: .locatorGPS,
+                isOn: Binding(
+                    get: { viewModel.autoLocatorFromGPS },
+                    set: { viewModel.setAutoLocatorFromGPS($0) }
+                ),
+                activeHelp: $activeHelp
+            )
 
-                ToggleRow(
-                    labelKey: "Include Grid in CQ",
-                    helpTip: .cqIncludeGrid,
-                    isOn: $viewModel.cqIncludeGrid,
-                    activeHelp: $activeHelp
-                )
+            ToggleRow(
+                labelKey: "Include Grid in CQ",
+                helpTip: .cqIncludeGrid,
+                isOn: $viewModel.cqIncludeGrid,
+                activeHelp: $activeHelp
+            )
 
-                Divider()
+            Divider()
 
-                Text("CQ Modifier")
-                    .font(.headline)
+            Text("CQ Modifier")
+                .font(.headline)
 
-                NewCQModifierView()
-            }
-            .padding(.horizontal)
+            CQModifierView()
         }
-        .navigationTitle("Station")
-        .navigationBarTitleDisplayMode(.inline)
-        .scrollDismissesKeyboard(.interactively)
         .onAppear {
             callsignText = viewModel.callsign
+            locatorText = viewModel.locator
             validCallsign = isValidCallsign(viewModel.callsign)
             validLocator = isValidLocator(viewModel.locator)
             activeHelp = nil
         }
-        .onChange(of: focusedInput) { newValue in
-            // Commit callsign when leaving the callsign field (not just on full blur)
-            if newValue != .callsign { commitCallsign() }
-        }
         .onChange(of: viewModel.callsign) { newValue in
+            callsignText = newValue
             let isValid = isValidCallsign(newValue)
             if validCallsign != isValid { validCallsign = isValid }
             if isValid && !newValue.isEmpty {
@@ -116,6 +90,7 @@ struct StationSettingsView: View {
             }
         }
         .onChange(of: viewModel.locator) { newValue in
+            locatorText = newValue
             let isValid = isValidLocator(newValue)
             if validLocator != isValid { validLocator = isValid }
             if isValid && !newValue.isEmpty {
@@ -123,12 +98,13 @@ struct StationSettingsView: View {
             }
         }
     }
+}
 
-    private func commitCallsign() {
-        let text = callsignText.uppercased()
-        callsignText = text
-        validCallsign = isValidCallsign(text)
-        if validCallsign { viewModel.callsign = text }
+struct StationSettingsView: View {
+    var body: some View {
+        SettingsScrollContainer(title: "Station", spacing: 20, dismissKeyboardOnScroll: true) {
+            StationSettingsContent()
+        }
     }
 }
 

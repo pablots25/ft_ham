@@ -7,12 +7,11 @@
 
 import SwiftUI
 
-struct InterfaceSettingsView: View {
+struct InterfaceSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 20) {
                 Text("Transmission List Mode")
                     .font(.headline)
 
@@ -56,11 +55,15 @@ struct InterfaceSettingsView: View {
                 Text("Re-display help messages or the initial onboarding tutorial.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal)
         }
-        .navigationTitle("Interface")
-        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct InterfaceSettingsView: View {
+    var body: some View {
+        SettingsScrollContainer(title: "Interface", alignment: .leading, spacing: 20) {
+            InterfaceSettingsContent()
+        }
     }
 }
 

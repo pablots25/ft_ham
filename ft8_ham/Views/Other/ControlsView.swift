@@ -95,14 +95,7 @@ struct MessageSelector: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var flags: FeatureFlagManager
     @State private var showGenMessages = false
-    @State private var activeHelp: HelpTip?
     @State private var sheetDetent: PresentationDetent = .large
-
-    // Local editable state for callsign/locator
-    @State private var callsignText: String = ""
-    @State private var locatorText: String = ""
-    @State private var validCallsign = false
-    @State private var validLocator = false
 
     var body: some View {
         VStack(spacing: 0){
@@ -169,60 +162,22 @@ struct MessageSelector: View {
             NavigationStack {
                 ScrollView {
                     VStack(spacing: 16) {
-                        // MARK: Callsign
-                        CallsignFieldView(
-                            callsignText: $callsignText,
-                            validCallsign: $validCallsign,
-                            onCommit: {
-                                let text = callsignText.uppercased()
-                                callsignText = text
-                                if isValidCallsign(text) { viewModel.callsign = text }
-                            }
-                        )
+                        StationSettingsContent()
 
-                        // MARK: Auto GPS Toggle
-                        ToggleRow(
-                            labelKey: "Auto (from GPS)",
-                            helpTip: .locatorGPS,
-                            isOn: Binding(
-                                get: { viewModel.autoLocatorFromGPS },
-                                set: { viewModel.setAutoLocatorFromGPS($0) }
-                            ),
-                            activeHelp: $activeHelp
-                        )
+                        Divider()
 
-                        // MARK: Locator (only when GPS is off)
-                        if !viewModel.autoLocatorFromGPS {
-                            LocatorFieldView(
-                                locatorText: $locatorText,
-                                validLocator: $validLocator,
-                                onCommit: {
-                                    var text = locatorText.uppercased()
-                                    text.removeAll(where: { $0.isWhitespace })
-                                    if text.count > 4 { text = String(text.prefix(4)) }
-                                    locatorText = text
-                                    if isValidLocator(text) { viewModel.locator = text }
-                                }
-                            )
-                        }
-                        
                         BandPickerView(
                             selectedBand: $viewModel.selectedBand,
-                            isFT4: viewModel.isFT4
+                            isFT4: viewModel.isFT4,
+                            customDialFrequencyHz: $viewModel.customDialFrequencyHz
                         )
 
                         Divider()
 
-                        // MARK: CQ Options
-                        ToggleRow(
-                            labelKey: "Include Grid in CQ",
-                            helpTip: .cqIncludeGrid,
-                            isOn: $viewModel.cqIncludeGrid,
-                            activeHelp: $activeHelp
-                        )
-                        Divider()
-                        CQModifierView()
-                        Divider()
+                        Text("Quick message generation")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
                         GenMessagesView()
 
                         // MARK: Full Configuration Link
@@ -238,7 +193,7 @@ struct MessageSelector: View {
                         .buttonStyle(.borderedProminent)
                         .padding(.top, 4)
                     }
-                    .padding(.horizontal, 40)
+                    .padding(.horizontal, 20)
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
@@ -250,12 +205,6 @@ struct MessageSelector: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { showGenMessages = false }
                     }
-                }
-                .onAppear {
-                    callsignText = viewModel.callsign
-                    locatorText = viewModel.locator
-                    validCallsign = isValidCallsign(viewModel.callsign)
-                    validLocator = isValidLocator(viewModel.locator)
                 }
                 .onChange(of: viewModel.selectedMessageIndex) { _ in
                     showGenMessages = false

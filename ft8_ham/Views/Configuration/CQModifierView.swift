@@ -60,7 +60,7 @@ struct CQModifierSelectionView: View {
                 Spacer()
                 if cqModifierRaw == modifier.rawValue {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
         }

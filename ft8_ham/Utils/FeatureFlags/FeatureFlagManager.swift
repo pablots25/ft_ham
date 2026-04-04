@@ -18,6 +18,10 @@ final class FeatureFlagManager: ObservableObject {
     private var refreshTimer: Timer?
     
     @Published private(set) var values: [FeatureFlag: Bool]
+
+#if DEBUG
+    private var newConfigViewOverride: Bool? = nil
+#endif
     
     private init(provider: FeatureFlagProvider = RemoteConfigProvider()) {
         self.provider = provider
@@ -28,7 +32,10 @@ final class FeatureFlagManager: ObservableObject {
     }
     
     func isEnabled(_ flag: FeatureFlag) -> Bool {
-        values[flag] ?? flag.defaultValue
+#if DEBUG
+        if flag == .newConfigView, let override = newConfigViewOverride { return override }
+#endif
+        return values[flag] ?? flag.defaultValue
     }
     
     private func startAutoRefresh() {
@@ -52,6 +59,12 @@ final class FeatureFlagManager: ObservableObject {
             
             Task { @MainActor in
                 self.values = newValues
+#if DEBUG
+                // Re-apply newConfigView debug override on top of remote values
+                if let override = self.newConfigViewOverride {
+                    self.values[.newConfigView] = override
+                }
+#endif
                 self.logChanges(from: oldValues, to: newValues)
             }
         }
@@ -67,4 +80,13 @@ final class FeatureFlagManager: ObservableObject {
             }
         }
     }
+
+#if DEBUG
+    func setOverride(_ flag: FeatureFlag, value: Bool) {
+        guard flag == .newConfigView else { return }
+        newConfigViewOverride = value
+        values[flag] = value
+        logger.info("[DEBUG] Feature flag '\(flag.rawValue)' overridden to: \(value)")
+    }
+#endif
 }

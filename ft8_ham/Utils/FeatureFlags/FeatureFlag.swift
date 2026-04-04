@@ -9,18 +9,18 @@ import Foundation
 
 enum FeatureFlag: String, CaseIterable {
     case showLogsView
-    case newConfigView
     case backgroundToast
     case enableIpadDashboard
     case controlsSheet
+    case newConfigView
     
     var defaultValue: Bool {
         switch self {
         case .showLogsView: return false
-        case .newConfigView: return true
         case .backgroundToast: return false
         case .enableIpadDashboard: return false
         case .controlsSheet: return true
+        case .newConfigView: return false
         }
     }
 }

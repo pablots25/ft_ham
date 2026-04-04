@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct RadioSettingsView: View {
+struct RadioSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
 
     private let appLogger = AppLogger(category: "APP")
@@ -30,53 +30,49 @@ struct RadioSettingsView: View {
     }()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Text("Mode and frequency")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Mode and frequency")
+                .font(.headline)
 
-                HStack(spacing: 20) {
-                    modeView
-                    cycleView
-                }
-                .frame(maxWidth: .infinity)
-
-                Text("Select operating mode and transmission cycle timing.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-
-                Divider()
-
-                Text("Band")
-                    .font(.headline)
-
-                BandPickerView(
-                    selectedBand: $viewModel.selectedBand,
-                    isFT4: viewModel.isFT4
-                )
-
-                Divider()
-                Text("Frequency offset and input gain")
-                    .font(.headline)
-
-                frequencyView
-
-                inputGainView
-
-                Text("Adjust microphone input gain for optimal decoding.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 20) {
+                modeView
+                cycleView
             }
-            .padding(.horizontal)
+            .frame(maxWidth: .infinity)
+
+            Text("Select operating mode and transmission cycle timing.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            Text("Band")
+                .font(.headline)
+
+            BandPickerView(
+                selectedBand: $viewModel.selectedBand,
+                isFT4: viewModel.isFT4,
+                customDialFrequencyHz: $viewModel.customDialFrequencyHz
+            )
+
+            Divider()
+            Text("Frequency offset and input gain")
+                .font(.headline)
+
+            frequencyView
+
+            inputGainView
+
+            Text("Adjust microphone input gain for optimal decoding.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
-        .navigationTitle("Radio")
-        .navigationBarTitleDisplayMode(.inline)
-        .scrollDismissesKeyboard(.interactively)
         .onAppear {
             frequencyText = Self.frequencyFormatter.string(
                 from: NSNumber(value: viewModel.frequency / 1000)
             ) ?? ""
             sliderTempValue = Float(viewModel.inputGain)
+            activeHelp = nil
         }
         .onChange(of: viewModel.frequency) { newValue in
             if !frequencyFocused {
@@ -162,10 +158,8 @@ struct RadioSettingsView: View {
                     TextField("Frequency", text: $frequencyText)
                         .keyboardType(.decimalPad)
                         .submitLabel(.done)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
+                        .settingsCenteredInput()
                         .focused($frequencyFocused)
-                        .lineLimit(1)
                         .onSubmit { commitFrequencyText() }
                         .frame(width: 80)
                     Text("kHz").padding(5)
@@ -248,6 +242,14 @@ struct RadioSettingsView: View {
             frequencyText = formatter.string(
                 from: NSNumber(value: viewModel.frequency / 1000)
             ) ?? frequencyText
+        }
+    }
+}
+
+struct RadioSettingsView: View {
+    var body: some View {
+        SettingsScrollContainer(title: "Radio", spacing: 20, dismissKeyboardOnScroll: true) {
+            RadioSettingsContent()
         }
     }
 }

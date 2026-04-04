@@ -10,14 +10,18 @@ import SwiftUI
 #if DEBUG
 struct DebugSettingsView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @State private var showWhatsNew = false
     @State private var showPaywall = false
-    @AppStorage("debugUseNewConfigView") private var debugUseNewConfigView: Bool = true
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Toggle("Use new config view", isOn: $debugUseNewConfigView)
+        SettingsScrollContainer(title: "Debug", alignment: .leading, spacing: 20) {
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.newConfigView) },
+                    set: { flags.setOverride(.newConfigView, value: $0) }
+                )) {
+                    Label("New Config View", systemImage: "rectangle.3.group")
+                }
 
                 Divider()
 
@@ -76,11 +80,7 @@ struct DebugSettingsView: View {
                 #else
                 PSKReporterDebugViewStub()
                 #endif
-            }
-            .padding(.horizontal)
         }
-        .navigationTitle("Debug")
-        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showWhatsNew) {
             WhatsNewView()
         }
@@ -93,6 +93,7 @@ struct DebugSettingsView: View {
 #Preview {
     NavigationStack {
         DebugSettingsView()
+            .environmentObject(FeatureFlagManager.shared)
     }
 }
 #endif

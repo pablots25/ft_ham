@@ -7,15 +7,14 @@
 
 import SwiftUI
 
-struct BehaviorSettingsView: View {
+struct BehaviorSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @StateObject private var premiumManager = PremiumManager.shared
-    @FocusState private var retriesFocused: Bool
     @State private var activeHelp: HelpTip?
     @State private var showPSKReporter = false
 
     private var pskReporterURL: URL {
-        var components = URLComponents(string: "https://pskreporter.info/pskmap")!
+        var components = URLComponents(string: "https://pskreporter.info/pskmap.html")!
         components.queryItems = [
             URLQueryItem(name: "callsign", value: viewModel.callsign.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines))
         ]
@@ -23,8 +22,7 @@ struct BehaviorSettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
                 Text("Receiver Control")
                     .font(.headline)
 
@@ -85,19 +83,7 @@ struct BehaviorSettingsView: View {
                     activeHelp: $activeHelp
                 )
 
-                HStack(spacing: 6) {
-                    TextField("Retries", value: $viewModel.maxRetrySlots, format: .number)
-                        .keyboardType(.numberPad)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
-                        .focused($retriesFocused)
-                        .lineLimit(1)
-                        .frame(width: 50)
-                    Text("Retries")
-                        .font(.body)
-                        .accessibilityLabel(Text("Retransmission retries"))
-                        .accessibilityHint(Text("Number of times to resend messages if not acknowledged"))
-                }
+                RetrySlotsField(retries: $viewModel.maxRetrySlots)
 
                 ToggleRow(
                     labelKey: "Auto QSO logging",
@@ -120,19 +106,26 @@ struct BehaviorSettingsView: View {
                         showPSKReporter = true
                     }
                     .foregroundColor(.blue)
-                    .padding(.bottom, 20)
                 }
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 20)
         }
-        .navigationTitle("Behavior")
-        .navigationBarTitleDisplayMode(.inline)
-        .scrollDismissesKeyboard(.interactively)
         .onAppear { activeHelp = nil }
         .sheet(isPresented: $showPSKReporter) {
             SafariView(url: pskReporterURL)
                 .ignoresSafeArea()
+        }
+    }
+}
+
+struct BehaviorSettingsView: View {
+    var body: some View {
+        SettingsScrollContainer(
+            title: "Behavior",
+            alignment: .leading,
+            spacing: 10,
+            contentBottomPadding: 20,
+            dismissKeyboardOnScroll: true
+        ) {
+            BehaviorSettingsContent()
         }
     }
 }

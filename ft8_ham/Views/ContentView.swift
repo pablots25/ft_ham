@@ -21,17 +21,12 @@ struct ContentView: View {
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
-    #if DEBUG
-    @AppStorage("debugUseNewConfigView") private var debugUseNewConfigView: Bool = true
-    #endif
 
-    
     @State private var selectedTab: Int = 0
     @State private var showConfigAlert = false
     @State private var showClearLogbookAlert = false
     @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
-    @State private var configNavigationPath = NavigationPath()
     @State private var shouldScrollToDonations = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
@@ -232,27 +227,15 @@ struct ContentView: View {
                     }
                     .tabItem { Label("Logbook", systemImage: "book") }
                     .tag(3)
-                    Group {
-                        #if DEBUG
-                    let showNewConfigView = debugUseNewConfigView
-                    #else
-                    let showNewConfigView = flags.isEnabled(.newConfigView)
-                    #endif
-                    if showNewConfigView {
-                            NavigationStack {
-                                NewConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
-                                    .navigationTitle("Configuration")
-                                    .navigationBarTitleDisplayMode(.inline)
-                            }
-                        } else {
-                            NavigationStack(path: $configNavigationPath) {
-                                ConfigurationView(
-                                    navigationPath: $configNavigationPath,
-                                    shouldScrollToDonations: $shouldScrollToDonations
-                                )
+                    NavigationStack {
+                        if flags.isEnabled(.newConfigView) {
+                            ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
                                 .navigationTitle("Configuration")
                                 .navigationBarTitleDisplayMode(.inline)
-                            }
+                        } else {
+                            LegacyConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
+                                .navigationTitle("Configuration")
+                                .navigationBarTitleDisplayMode(.inline)
                         }
                     }
                     .onAppear {
