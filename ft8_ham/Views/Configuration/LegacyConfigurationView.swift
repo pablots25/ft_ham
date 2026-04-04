@@ -36,14 +36,27 @@ struct LegacyConfigurationView: View {
 				}
 
 				#if canImport(FTHamPremium)
-				if premiumManager.isPremiumUnlocked {
-					section("CAT Control") {
+				section("CAT Control") {
+					if premiumManager.isPremiumUnlocked {
 						NavigationLink {
 							CatSettingsView(initialFrequencyMHz: viewModel.catDialFrequencyMHz)
 								.padding(.horizontal)
 						} label: {
 							Label("Open CAT settings", systemImage: "dot.radiowaves.left.and.right")
 						}
+					} else {
+						Button {
+							showPremium = true
+						} label: {
+							HStack {
+								Label("Open CAT settings", systemImage: "dot.radiowaves.left.and.right")
+								Spacer()
+								Image(systemName: "lock.fill")
+									.font(.caption)
+									.foregroundStyle(.tertiary)
+							}
+						}
+						.foregroundStyle(.secondary)
 					}
 				}
 				#endif

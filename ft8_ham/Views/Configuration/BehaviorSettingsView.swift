@@ -12,6 +12,7 @@ struct BehaviorSettingsContent: View {
     @StateObject private var premiumManager = PremiumManager.shared
     @State private var activeHelp: HelpTip?
     @State private var showPSKReporter = false
+    @State private var showPaywall = false
 
     private var pskReporterURL: URL {
         var components = URLComponents(string: "https://pskreporter.info/pskmap.html")!
@@ -32,6 +33,7 @@ struct BehaviorSettingsContent: View {
                     isOn: $viewModel.autoRXAtStart,
                     activeHelp: $activeHelp
                 )
+                .accessibilityIdentifier("toggle_autoRXAtStart")
 
                 Divider()
 
@@ -44,6 +46,7 @@ struct BehaviorSettingsContent: View {
                     isOn: $viewModel.autoCQReplyEnabled,
                     activeHelp: $activeHelp
                 )
+                .accessibilityIdentifier("toggle_autoCQReplyEnabled")
 
                 ToggleRow(
                     labelKey: "Only if new band/mode",
@@ -51,6 +54,7 @@ struct BehaviorSettingsContent: View {
                     isOn: $viewModel.autoCQReplyOnlyNewBandMode,
                     activeHelp: $activeHelp
                 )
+                .accessibilityIdentifier("toggle_autoCQReplyOnlyNewBandMode")
 
                 Divider()
 
@@ -63,6 +67,7 @@ struct BehaviorSettingsContent: View {
                     isOn: $viewModel.decodeSelfTXMessages,
                     activeHelp: $activeHelp
                 )
+                .accessibilityIdentifier("toggle_decodeSelfTXMessages")
 
                 ToggleRow(
                     labelKey: "Hold TX frequency",
@@ -70,6 +75,7 @@ struct BehaviorSettingsContent: View {
                     isOn: $viewModel.holdTXFrequency,
                     activeHelp: $activeHelp
                 )
+                .accessibilityIdentifier("toggle_holdTXFrequency")
 
                 Divider()
 
@@ -82,8 +88,10 @@ struct BehaviorSettingsContent: View {
                     isOn: $viewModel.autoSequencingEnabled,
                     activeHelp: $activeHelp
                 )
+                .accessibilityIdentifier("toggle_autoSequencingEnabled")
 
                 RetrySlotsField(retries: $viewModel.maxRetrySlots)
+                    .accessibilityIdentifier("field_maxRetrySlots")
 
                 ToggleRow(
                     labelKey: "Auto QSO logging",
@@ -91,8 +99,11 @@ struct BehaviorSettingsContent: View {
                     isOn: $viewModel.autoQSOLogging,
                     activeHelp: $activeHelp
                 )
+                .accessibilityIdentifier("toggle_autoQSOLogging")
 
-                if premiumManager.isPremiumUnlocked {
+                Divider()
+
+                Group {
                     Text("PSK reporter integration")
                         .font(.headline)
 
@@ -102,16 +113,43 @@ struct BehaviorSettingsContent: View {
                         isOn: $viewModel.pskReporterEnabled,
                         activeHelp: $activeHelp
                     )
+                    .accessibilityIdentifier("toggle_pskReporterEnabled")
+
                     Button("View on PSK Reporter →") {
                         showPSKReporter = true
                     }
                     .foregroundColor(.blue)
+                    .accessibilityIdentifier("button_viewOnPSKReporter")
+                }
+                .opacity(premiumManager.isPremiumUnlocked ? 1.0 : 0.4)
+                .disabled(!premiumManager.isPremiumUnlocked)
+                .overlay {
+                    if !premiumManager.isPremiumUnlocked {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Color.clear
+                        }
+                    }
                 }
         }
         .onAppear { activeHelp = nil }
         .sheet(isPresented: $showPSKReporter) {
             SafariView(url: pskReporterURL)
                 .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showPaywall) {
+            NavigationStack {
+                PremiumPaywallView(premiumManager: PremiumManager.shared, source: "behavior_settings")
+                    .navigationTitle("Become Premium")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showPaywall = false }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
         }
     }
 }

@@ -54,14 +54,25 @@ struct ConfigurationView: View {
                     
                     #if canImport(FTHamPremium)
                     if premiumManager.isPremiumUnlocked {
-
                         NavigationLink {
                             CatSettingsView(initialFrequencyMHz: viewModel.catDialFrequencyMHz)
                                 .padding(.horizontal)
                         } label: {
                             Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
                         }
-   
+                    } else {
+                        Button {
+                            showPremium = true
+                        } label: {
+                            HStack {
+                                Label("CAT Control", systemImage: "dot.radiowaves.left.and.right")
+                                Spacer()
+                                Image(systemName: "lock.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .foregroundStyle(.secondary)
                     }
                     #endif
                 }

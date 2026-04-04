@@ -27,6 +27,11 @@ class PremiumManager: ObservableObject {
     @Published private(set) var premiumProduct: Product?
     @Published private(set) var isLoading: Bool = false
 
+    #if DEBUG
+    /// Debug-only override: when true, premium is treated as unlocked regardless of purchases.
+    @Published private(set) var debugPremiumEnabled: Bool = UserDefaults.standard.bool(forKey: "debug_premium_enabled")
+    #endif
+
     // MARK: - Transaction Listener
     private var transactionListener: Task<Void, Never>?
 
@@ -50,11 +55,16 @@ class PremiumManager: ObservableObject {
     /// - Donations (consumable): checked via `Transaction.all` (consumables don't appear in entitlements)
     func loadPremiumStatus() async {
         logger.info("Loading premium status...")
-        
+
         #if DEBUG
-        logger.info("Debug build - enabling premium")
-        isPremiumUnlocked = true
-        #else
+        if debugPremiumEnabled {
+            logger.info("Debug override active - premium enabled")
+            isPremiumUnlocked = true
+            return
+        }
+        logger.info("Debug override inactive - checking real purchases")
+        #endif
+
         // 1. Check non-consumable premium product via entitlements
         for await result in Transaction.currentEntitlements {
             if case let .verified(transaction) = result,
@@ -75,11 +85,10 @@ class PremiumManager: ObservableObject {
             }
         }
 
-
         logger.info("No qualifying purchase found — premium not unlocked")
         isPremiumUnlocked = false
-        #endif
-
+        UserDefaults.standard.set(false, forKey: "catEnabled")
+        UserDefaults.standard.set(false, forKey: "pskReporterEnabled")
     }
 
     // MARK: - Fetch Product
@@ -192,6 +201,17 @@ class PremiumManager: ObservableObject {
             return safe
         }
     }
+
+    // MARK: - Debug Helpers
+
+    #if DEBUG
+    /// Toggle premium on/off for debugging. Persists across launches.
+    func setDebugPremium(enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: "debug_premium_enabled")
+        debugPremiumEnabled = enabled
+        Task { await loadPremiumStatus() }
+    }
+    #endif
 }
 
 // MARK: - Premium Errors

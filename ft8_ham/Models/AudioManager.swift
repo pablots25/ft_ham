@@ -96,6 +96,10 @@ final class AudioManager: NSObject, AudioManaging {
     private let micBufferState: OSAllocatedUnfairLock<[Float]>
     private let clippingThreshold: Float = 0.99
 
+    // MARK: - Engine failure tracking (reduces Crashlytics noise)
+
+    private var engineStartFailureLogged = false
+
     // MARK: - Preview Task
 
     private var fakeSamplesTask: Task<Void, Never>?
@@ -152,7 +156,14 @@ final class AudioManager: NSObject, AudioManaging {
         }
 
         attachPlaybackChain()
-        startEngineIfNeeded()
+
+        do {
+            try startEngineIfNeeded()
+        } catch {
+            audioLogger.log(.warning, "Engine not started during init (will retry): \(error.localizedDescription)")
+        }
+
+        observeAudioSessionInterruptions()
 
         audioLogger.log(
             .info,
@@ -216,20 +227,29 @@ final class AudioManager: NSObject, AudioManaging {
 
     // MARK: - Engine Control
 
-    private func startEngineIfNeeded() {
-        guard !audioEngine.isRunning else { return }
+    private func startEngineIfNeeded() throws {
+        guard !audioEngine.isRunning else {
+            engineStartFailureLogged = false
+            return
+        }
 
         do {
-            // Reset audio engine to ensure it's in a clean state
             try audioEngine.start()
             audioLogger.log(.info, "AudioEngine started")
-            
-            // Small delay to allow engine to stabilize
-            Thread.sleep(forTimeInterval: 0.05)
+            engineStartFailureLogged = false
         } catch {
-            let error = AudioManagerError.engineStartFailed(underlying: error)
-            audioLogger.log(.error, error.localizedDescription)
-            audioErrorPublisher.send(error.localizedDescription)
+            let wrappedError = AudioManagerError.engineStartFailed(underlying: error)
+            audioErrorPublisher.send(wrappedError.localizedDescription)
+
+            // Only log as .error (→ Crashlytics non-fatal) on the first failure
+            if !engineStartFailureLogged {
+                audioLogger.log(.error, wrappedError.localizedDescription)
+                engineStartFailureLogged = true
+            } else {
+                audioLogger.log(.warning, "Engine start still failing: \(wrappedError.localizedDescription)")
+            }
+
+            throw wrappedError
         }
     }
 
@@ -246,8 +266,13 @@ final class AudioManager: NSObject, AudioManaging {
         }
 
         // Ensure engine is started BEFORE attempting to tap
-        startEngineIfNeeded()
-        
+        do {
+            try startEngineIfNeeded()
+        } catch {
+            audioErrorPublisher.send(error.localizedDescription)
+            return
+        }
+
         // Remove any existing tap
         inputNode.removeTap(onBus: 0)
 
@@ -383,12 +408,18 @@ final class AudioManager: NSObject, AudioManaging {
         var gain = Float(gainState.withLock { min(max($0, minGain), maxGain) })
         vDSP_vsmul(buffer.floatChannelData![0], 1, &gain, buffer.floatChannelData![0], 1, vDSP_Length(nSamples))
 
+        do {
+            try startEngineIfNeeded()
+        } catch {
+            audioErrorPublisher.send(error.localizedDescription)
+            return
+        }
+
         playerNode.scheduleBuffer(buffer) { [weak self] in
             DispatchQueue.main.async { self?.isPlaying = false }
         }
 
         isPlaying = true
-        startEngineIfNeeded()
         playerNode.play()
         audioLogger.log(.info, "Playback started, isPlaying: \(isPlaying)")
     }
@@ -415,10 +446,52 @@ final class AudioManager: NSObject, AudioManaging {
         }
     }
 
+    // MARK: - Audio Session Interruption Recovery
+
+    private func observeAudioSessionInterruptions() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
+    @objc private func handleAudioSessionInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue)
+        else { return }
+
+        switch type {
+        case .began:
+            audioLogger.log(.info, "Audio session interrupted")
+        case .ended:
+            let shouldResume = (userInfo[AVAudioSessionInterruptionOptionKey] as? UInt)
+                .map { AVAudioSession.InterruptionOptions(rawValue: $0).contains(.shouldResume) } ?? false
+
+            if shouldResume {
+                audioLogger.log(.info, "Audio session interruption ended — resuming engine")
+                do {
+                    try configureAudioSession()
+                    try startEngineIfNeeded()
+                } catch {
+                    audioLogger.log(.error, "Failed to recover from interruption: \(error.localizedDescription)")
+                    audioErrorPublisher.send(error.localizedDescription)
+                }
+            } else {
+                audioLogger.log(.info, "Audio session interruption ended — not resuming")
+            }
+        @unknown default:
+            break
+        }
+    }
+
     // MARK: - Cleanup
 
     func cleanup() {
         fakeSamplesTask?.cancel()
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
         inputNode?.removeTap(onBus: 0)
         playerNode.stop()
         audioEngine.stop()
