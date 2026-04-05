@@ -26,6 +26,13 @@ enum LogSyncStatus: String, Codable, Sendable {
 struct ImportResult {
     let imported: Int
     let skipped: Int
+    let error: String?
+
+    init(imported: Int, skipped: Int, error: String? = nil) {
+        self.imported = imported
+        self.skipped = skipped
+        self.error = error
+    }
 }
 
 // MARK: - LogEntry
@@ -139,11 +146,11 @@ final class LogbookManager: LogbookManaging {
     }
 
     // MARK: - Load entries from disk
-    func loadEntries() -> [LogEntry] {
-        guard let fileURL = getFileURL(),
-              let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
-            return []
-        }
+    func loadEntries() throws -> [LogEntry] {
+        guard let fileURL = getFileURL() else { return [] }
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+
+        let content = try String(contentsOf: fileURL, encoding: .utf8)
 
         let records = content.components(separatedBy: "<EOR>")
         var loadedEntries: [LogEntry] = []
@@ -255,9 +262,13 @@ final class LogbookManager: LogbookManaging {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            appLogger.error("importFromADIF: failed to read file at \(url.lastPathComponent)")
-            return ImportResult(imported: 0, skipped: 0)
+        let content: String
+        do {
+            content = try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            let message = "Could not read the ADIF file: \(error.localizedDescription)"
+            appLogger.error("importFromADIF: failed to read file at \(url.lastPathComponent): \(error.localizedDescription)")
+            return ImportResult(imported: 0, skipped: 0, error: message)
         }
 
         // Normalise <EOR> tag casing before splitting
@@ -345,7 +356,12 @@ final class LogbookManager: LogbookManaging {
     // MARK: - Private helper to write ADIF content
     private func writeADIF(_ qsoList: [LogEntry], to fileURL: URL, operationName: String) -> URL? {
         if qsoList.isEmpty {
-            try? adifHeader.write(to: fileURL, atomically: true, encoding: .utf8)
+            do {
+                try adifHeader.write(to: fileURL, atomically: true, encoding: .utf8)
+            } catch {
+                appLogger.error("Failed to write ADIF header: \(error.localizedDescription)")
+                return nil
+            }
             return fileURL
         }
 
@@ -406,10 +422,15 @@ final class LogbookManager: LogbookManaging {
         return Self.adifFrequencyFormatter.string(from: NSNumber(value: mhz))
     }
     
-    func getEmptyADIFURL() -> URL {
-        let url = getFileURL()!
+    func getEmptyADIFURL() -> URL? {
+        guard let url = getFileURL() else { return nil }
         if !FileManager.default.fileExists(atPath: url.path) {
-            try? adifHeader.write(to: url, atomically: true, encoding: .utf8)
+            do {
+                try adifHeader.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                appLogger.error("Failed to write empty ADIF header: \(error.localizedDescription)")
+                return nil
+            }
         }
         return url
     }

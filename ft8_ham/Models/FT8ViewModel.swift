@@ -115,6 +115,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @Published var qsoList: [LogEntry] = []
     @Published var audioError: String?
     @Published var adifURL: URL?
+    @Published var logbookLoadError: String?
     
     @Published var isListening = false
     @Published var isTransmitting = false
@@ -400,7 +401,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @MainActor
     private func setupLogbook() {
         if !hasLoadedLogbook {
-            self.qsoList = logbookManager.loadEntries()
+            do {
+                self.qsoList = try logbookManager.loadEntries()
+            } catch {
+                self.logbookLoadError = "Your logbook could not be read. It may be corrupted. (\(error.localizedDescription))"
+                appLogger.error("setupLogbook: failed to load entries: \(error.localizedDescription)")
+            }
             self.adifURL = logbookManager.saveInternalLog(self.qsoList) ?? logbookManager.getEmptyADIFURL()
             hasLoadedLogbook = true
         }

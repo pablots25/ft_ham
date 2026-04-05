@@ -164,6 +164,14 @@ struct LogbookView: View {
             LogbookImportView()
                 .environmentObject(viewModel)
         }
+        .alert("Logbook Error", isPresented: Binding(
+            get: { viewModel.logbookLoadError != nil },
+            set: { if !$0 { viewModel.logbookLoadError = nil } }
+        )) {
+            Button("OK") { viewModel.logbookLoadError = nil }
+        } message: {
+            Text(viewModel.logbookLoadError ?? "")
+        }
         .onAppear {
             sortQSOsByDate()
         }

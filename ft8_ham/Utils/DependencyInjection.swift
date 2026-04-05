@@ -140,13 +140,13 @@ protocol MessageDecoding: AnyObject {
 
 /// Protocol for logbook operations.
 protocol LogbookManaging {
-    func loadEntries() -> [LogEntry]
+    func loadEntries() throws -> [LogEntry]
     func saveInternalLog(_ qsoList: [LogEntry]) -> URL?
     func saveToADIF(_ qsoList: [LogEntry]) -> URL?
     func exportToADIF(_ qsoList: [LogEntry]) -> URL?
     func importFromADIF(url: URL, existingEntries: [LogEntry]) -> ImportResult
     func clearLogbook()
-    func getEmptyADIFURL() -> URL
+    func getEmptyADIFURL() -> URL?
     func filterEntries(_ entries: [LogEntry], from startDate: Date?, to endDate: Date?) -> [LogEntry]
     func filterEntriesSince(_ entries: [LogEntry], since date: Date, upTo upperBound: Date) -> [LogEntry]
 }

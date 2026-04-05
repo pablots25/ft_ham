@@ -41,6 +41,7 @@ struct ExportOptionsView: View {
     @State private var endTime: Date = Date()
     @State private var showingShareSheet = false
     @State private var exportURL: URL?
+    @State private var showExportError = false
     
     private var lastExportDate: Date? {
         guard lastExportTimestamp > 0 else { return nil }
@@ -153,6 +154,11 @@ struct ExportOptionsView: View {
                     ActivityViewController(activityItems: [url])
                 }
             }
+            .alert("Export Failed", isPresented: $showExportError) {
+                Button("OK") {}
+            } message: {
+                Text("The logbook could not be exported. Please try again.")
+            }
         }
     }
     
@@ -220,6 +226,8 @@ struct ExportOptionsView: View {
             case .new: exportType = "new"
             }
             AnalyticsManager.shared.logADIFExport(qsoCount: filtered.count, exportType: exportType)
+        } else {
+            showExportError = true
         }
     }
     

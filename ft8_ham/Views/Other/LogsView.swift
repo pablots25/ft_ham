@@ -76,7 +76,7 @@ struct LogsView: View {
             // Loading overlay
             if isExporting {
                 ZStack {
-                    Color.black.opacity(0.15)
+                    Color(.separator).opacity(0.15)
                         .ignoresSafeArea()
                     
                     VStack(spacing: 15) {

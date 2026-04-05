@@ -101,7 +101,15 @@ struct LogbookImportView: View {
                 manager.importFromADIF(url: url, existingEntries: existingEntries)
             }.value
 
-            viewModel.qsoList = manager.loadEntries()
+            if let error = result.error {
+                importError = error
+            } else {
+                do {
+                    viewModel.qsoList = try manager.loadEntries()
+                } catch {
+                    importError = "Could not reload logbook after import: \(error.localizedDescription)"
+                }
+            }
             importResult = result
             isImporting = false
         }
