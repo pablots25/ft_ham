@@ -15,7 +15,6 @@ enum InitialPermissionStep: Int, CaseIterable, Identifiable {
     case location
     case notifications
     case microphone
-    case tracking
 
     var id: Int { rawValue }
 
@@ -24,7 +23,6 @@ enum InitialPermissionStep: Int, CaseIterable, Identifiable {
         case .location:      return "location.fill"
         case .notifications: return "bell.badge.fill"
         case .microphone:    return "mic.fill"
-        case .tracking:      return "hand.raised.fill"
         }
     }
 
@@ -33,7 +31,6 @@ enum InitialPermissionStep: Int, CaseIterable, Identifiable {
         case .location:      return .blue
         case .notifications: return .orange
         case .microphone:    return .red
-        case .tracking:      return .gray
         }
     }
 
@@ -42,7 +39,6 @@ enum InitialPermissionStep: Int, CaseIterable, Identifiable {
         case .location:      return "Location Access"
         case .notifications: return "Notifications"
         case .microphone:    return "Microphone Access"
-        case .tracking:      return "Tracking Permission"
         }
     }
 
@@ -54,8 +50,6 @@ enum InitialPermissionStep: Int, CaseIterable, Identifiable {
             return "Notifications let you know when RX/TX is paused in the background so you can return to the session quickly."
         case .microphone:
             return "Microphone access is required to decode incoming FT8/FT4 signals and run live RX."
-        case .tracking:
-            return "If enabled, this allows personalized measurement across apps and websites. You can change this anytime in Settings."
         }
     }
 
@@ -67,8 +61,6 @@ enum InitialPermissionStep: Int, CaseIterable, Identifiable {
             return "Without this, background pause reminders will be disabled."
         case .microphone:
             return "Without this, RX decoding will not work until you grant access in Settings."
-        case .tracking:
-            return "Declining does not affect any app functionality."
         }
     }
 }

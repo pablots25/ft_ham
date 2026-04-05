@@ -148,7 +148,7 @@ struct LegacyConfigurationView: View {
 						DebugSettingsView()
 							.padding(.horizontal)
 					} label: {
-						Label("Toggles", systemImage: "ladybug")
+						Label("Debug", systemImage: "ladybug")
 					}
 
 					Button {

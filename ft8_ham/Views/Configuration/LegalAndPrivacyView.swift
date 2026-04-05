@@ -9,7 +9,6 @@ import SwiftUI
 import SafariServices
 
 struct LegalAndPrivacyView: View {
-    @EnvironmentObject private var flags: FeatureFlagManager
     @State private var activeHelp: HelpTip?
     @State private var showPrivacyPolicy = false
     @State private var showTermsOfUse = false
@@ -30,14 +29,6 @@ struct LegalAndPrivacyView: View {
                     ),
                     activeHelp: $activeHelp
                 )
-
-                if flags.isEnabled(.showLogsView) {
-                    NavigationLink {
-                        LogsView()
-                    } label: {
-                        Label("View app logs", systemImage: "doc.text")
-                    }
-                }
 
                 Divider()
 

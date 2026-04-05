@@ -40,6 +40,7 @@ enum AnalyticsParam {
     static let exportType = "export_type"
     static let viewMode = "view_mode"
     static let radioMode = "radio_mode"
+    static let callsign = "callsign"
 }
 
 /// Singleton manager to handle anonymous app metrics, App Store compliant.
@@ -199,6 +200,12 @@ final class AnalyticsManager {
             parameters[AnalyticsParameterCurrency] = currency
         }
         logEvent(AnalyticsEventPurchase, parameters: parameters)
+    }
+
+    // MARK: - Errors
+
+    func logCountryNotFound(callsign: String) {
+        logEvent("country_not_found", parameters: [AnalyticsParam.callsign: callsign])
     }
 
     // MARK: - Configuration

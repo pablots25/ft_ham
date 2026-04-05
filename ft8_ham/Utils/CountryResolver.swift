@@ -92,6 +92,7 @@ static func countryAndCoordinates(for callsign: String) -> CountryInfo {
     }
 
     appLogger.error("Country not found for callsign: \(callsign)")
+    AnalyticsManager.shared.logCountryNotFound(callsign: callsign)
     return CountryInfo(country: nil, coordinates: nil)
 }
 

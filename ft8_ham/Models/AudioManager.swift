@@ -105,7 +105,7 @@ final class AudioManager: NSObject, AudioManaging {
     /// `.categoryChange` / `.override` route-change notifications that would
     /// re-enter the same reconfiguration path.
     /// `internal(set)` so unit tests can seed the flag.
-    private(set) var isReconfiguring = false
+    internal(set) var isReconfiguring = false
 
     /// Minimum interval between successive reconfigurations to debounce
     /// rapid-fire route change notifications from the OS.

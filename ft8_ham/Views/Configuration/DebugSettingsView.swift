@@ -95,6 +95,14 @@ struct DebugSettingsView: View {
 
                 Divider()
 
+                NavigationLink {
+                    LogsView()
+                } label: {
+                    Label("View app logs", systemImage: "doc.text")
+                }
+
+                Divider()
+
                 Text("PSK Reporter")
                     .font(.headline)
 

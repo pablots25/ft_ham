@@ -9,27 +9,23 @@ import SwiftUI
 import CoreLocation
 import UserNotifications
 import AVFoundation
-import AppTrackingTransparency
 
 struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("hasCompletedInitialPermissionFlow") private var hasCompletedInitialPermissionFlow: Bool = false
+    @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @State private var currentPage = 0
     @StateObject private var locationRequester = LocationPermissionRequester()
     @State private var permissionInProgress = false
     
-    private let contentPageCount = 11
-    
+    private let contentPageCount = 10
+    // After content pages: 1 terms page + permission pages + 1 finish page
     private var permissionSteps: [InitialPermissionStep] {
-        var steps: [InitialPermissionStep] = [.location, .notifications, .microphone]
-        if let desc = Bundle.main.object(forInfoDictionaryKey: "NSUserTrackingUsageDescription") as? String,
-           !desc.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            steps.append(.tracking)
-        }
-        return steps
+        [.location, .notifications, .microphone]
     }
     
-    private var finishPageIndex: Int { contentPageCount + permissionSteps.count }
+    private var termsPageIndex: Int { contentPageCount }
+    private var finishPageIndex: Int { contentPageCount + 1 + permissionSteps.count }
     private var totalPages: Int { finishPageIndex + 1 }
     
     var body: some View {
@@ -66,8 +62,10 @@ struct OnboardingView: View {
     private func pageContent(for index: Int) -> some View {
         if index < contentPageCount {
             contentPage(for: index)
+        } else if index == termsPageIndex {
+            termsPage()
         } else if index < finishPageIndex {
-            permissionPage(for: permissionSteps[index - contentPageCount])
+            permissionPage(for: permissionSteps[index - contentPageCount - 1])
         } else {
             finishPage()
         }
@@ -152,20 +150,72 @@ struct OnboardingView: View {
                     Text("onb_station_text2")
                 }
             }
-        case 10:
-            onboardingPage(
-                image: "play.circle.fill",
-                color: .orange,
-                title: "onb_gstarted_title"
-            ) {
-                FirstRunChecklistView(isEmbedded: true)
-                    .padding(.top, 4)
-            }
         default:
             EmptyView()
         }
     }
     
+    // MARK: - Terms Page
+    private func termsPage() -> some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "doc.plaintext.fill")
+                .font(.system(size: 100))
+                .foregroundStyle(.blue)
+
+            Text("Terms & Privacy")
+                .font(.largeTitle)
+                .bold()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("By using FT Ham, you agree to the Terms of Use and End-User License Agreement (EULA).")
+                        .multilineTextAlignment(.leading)
+
+                    Text("Please review the full documents:")
+                        .font(.headline)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Link("Terms of Use", destination: URL(string: "https://ftham.turrion.dev/terms")!)
+                        Link("Privacy Policy", destination: URL(string: "https://ftham.turrion.dev/privacy")!)
+                    }
+                    .foregroundStyle(.blue)
+
+                    Divider()
+
+                    Text("Anonymous usage metrics may be collected via Firebase Analytics to improve the app. No personally identifiable information (PII) is collected.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 32)
+            }
+
+            Spacer()
+
+            Button {
+                acceptTermsAndAdvance()
+            } label: {
+                Text("I Accept")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+            .controlSize(.large)
+            .padding(.horizontal, 40)
+            .padding(.bottom, 60)
+        }
+    }
+
+    private func acceptTermsAndAdvance() {
+        if !hasAcceptedTerms {
+            AnalyticsManager.shared.grantAnalyticsConsent()
+            AnalyticsManager.shared.logTermsAccepted()
+            hasAcceptedTerms = true
+        }
+        advancePage()
+    }
+
     // MARK: - Permission Pages
     //
     // These pages explain WHY the permission is needed.
@@ -278,6 +328,12 @@ struct OnboardingView: View {
                 .padding(.horizontal, 32)
             
             Button {
+                // Accept terms if the user swiped past the terms page
+                if !hasAcceptedTerms {
+                    AnalyticsManager.shared.grantAnalyticsConsent()
+                    AnalyticsManager.shared.logTermsAccepted()
+                    hasAcceptedTerms = true
+                }
                 AnalyticsManager.shared.logOnboardingCompleted()
                 hasCompletedInitialPermissionFlow = true
                 hasCompletedOnboarding = true
@@ -315,9 +371,6 @@ struct OnboardingView: View {
                     AVAudioSession.sharedInstance().requestRecordPermission { _ in c.resume() }
                 }
             }
-        case .tracking:
-            guard ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { break }
-            _ = await ATTrackingManager.requestTrackingAuthorization()
         }
         
         advancePage()
