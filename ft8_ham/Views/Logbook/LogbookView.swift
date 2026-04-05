@@ -168,7 +168,11 @@ struct LogbookView: View {
             get: { viewModel.logbookLoadError != nil },
             set: { if !$0 { viewModel.logbookLoadError = nil } }
         )) {
-            Button("OK") { viewModel.logbookLoadError = nil }
+            if viewModel.logbookManager.hasBackup {
+                Button("Restore Backup") { viewModel.restoreLogbookFromBackup() }
+            }
+            Button("Clear & Start Over", role: .destructive) { viewModel.clearLogbookAfterError() }
+            Button("Cancel", role: .cancel) { viewModel.logbookLoadError = nil }
         } message: {
             Text(viewModel.logbookLoadError ?? "")
         }

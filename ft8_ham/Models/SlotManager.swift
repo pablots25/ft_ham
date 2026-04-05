@@ -123,9 +123,10 @@ actor SlotManager {
             anchor = TimeAnchor(wallClock: now, monotonicInstant: nowInstant)
         }
         
-        // Calculate target instant from anchor
-        let elapsedWall = targetWallClock.timeIntervalSince(anchor!.wallClock)
-        let targetInstant = anchor!.monotonicInstant + .seconds(elapsedWall)
+        // Calculate target instant from anchor (capture to avoid TOCTOU race)
+        guard let currentAnchor = anchor else { return }
+        let elapsedWall = targetWallClock.timeIntervalSince(currentAnchor.wallClock)
+        let targetInstant = currentAnchor.monotonicInstant + .seconds(elapsedWall)
         
         // Sleep using monotonic clock for stability
         try await monotonicClock.sleep(until: targetInstant)

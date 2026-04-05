@@ -35,6 +35,18 @@ struct ImportResult {
     }
 }
 
+// MARK: - LogbookError
+
+enum LogbookError: Error, LocalizedError {
+    case noBackupAvailable
+    var errorDescription: String? {
+        switch self {
+        case .noBackupAvailable:
+            return "No backup file is available to restore from."
+        }
+    }
+}
+
 // MARK: - LogEntry
 
 struct LogEntry: Identifiable {
@@ -96,7 +108,13 @@ final class LogbookManager: LogbookManaging {
     private let appLogger = AppLogger(category: "LOGBK")
     
     private let persistentFileName = "ft8_log.adi"
+    private let backupFileName = "ft8_log.adi.bak"
     private let adifHeader = "ADIF Export from FT8Ham\n<ADIF_VER:5>3.1.4\n<EOH>\n"
+
+    var hasBackup: Bool {
+        guard let backupURL = getBackupURL() else { return false }
+        return FileManager.default.fileExists(atPath: backupURL.path)
+    }
     
     // MARK: - Export filename with timestamp (for user exports)
     private var exportFileName: String {
@@ -163,6 +181,7 @@ final class LogbookManager: LogbookManaging {
     }
     
     func saveInternalLog(_ qsoList: [LogEntry]) -> URL? {
+        createBackup()
         return saveToADIF(qsoList)
     }
 
@@ -181,6 +200,39 @@ final class LogbookManager: LogbookManaging {
         } catch {
             appLogger.error("Failed to clear logbook: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Backup & Restore
+
+    private func createBackup() {
+        guard let fileURL = getFileURL(),
+              let backupURL = getBackupURL(),
+              FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        do {
+            if FileManager.default.fileExists(atPath: backupURL.path) {
+                try FileManager.default.removeItem(at: backupURL)
+            }
+            try FileManager.default.copyItem(at: fileURL, to: backupURL)
+            appLogger.info("Created logbook backup")
+        } catch {
+            appLogger.error("Failed to create logbook backup: \(error.localizedDescription)")
+        }
+    }
+
+    func restoreFromBackup() throws -> [LogEntry] {
+        guard let backupURL = getBackupURL(),
+              let fileURL = getFileURL() else {
+            throw LogbookError.noBackupAvailable
+        }
+        guard FileManager.default.fileExists(atPath: backupURL.path) else {
+            throw LogbookError.noBackupAvailable
+        }
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try FileManager.default.removeItem(at: fileURL)
+        }
+        try FileManager.default.copyItem(at: backupURL, to: fileURL)
+        appLogger.info("Restored logbook from backup")
+        return try loadEntries()
     }
 
     // MARK: - ADIF Parsing (UTC)
@@ -339,7 +391,14 @@ final class LogbookManager: LogbookManaging {
             .first?
             .appendingPathComponent(persistentFileName)
     }
-    
+
+    private func getBackupURL() -> URL? {
+        FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)
+            .first?
+            .appendingPathComponent(backupFileName)
+    }
+
     private func getExportFileURL() -> URL? {
         FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)

@@ -177,8 +177,12 @@ struct OnboardingView: View {
                         .font(.headline)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Link("Terms of Use", destination: URL(string: "https://ftham.turrion.dev/terms")!)
-                        Link("Privacy Policy", destination: URL(string: "https://ftham.turrion.dev/privacy")!)
+                        if let termsURL = URL(string: "https://ftham.turrion.dev/terms") {
+                            Link("Terms of Use", destination: termsURL)
+                        }
+                        if let privacyURL = URL(string: "https://ftham.turrion.dev/privacy") {
+                            Link("Privacy Policy", destination: privacyURL)
+                        }
                     }
                     .foregroundStyle(.blue)
 

@@ -147,6 +147,8 @@ protocol LogbookManaging {
     func importFromADIF(url: URL, existingEntries: [LogEntry]) -> ImportResult
     func clearLogbook()
     func getEmptyADIFURL() -> URL?
+    var hasBackup: Bool { get }
+    func restoreFromBackup() throws -> [LogEntry]
     func filterEntries(_ entries: [LogEntry], from startDate: Date?, to endDate: Date?) -> [LogEntry]
     func filterEntriesSince(_ entries: [LogEntry], since date: Date, upTo upperBound: Date) -> [LogEntry]
 }

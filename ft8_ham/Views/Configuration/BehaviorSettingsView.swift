@@ -15,11 +15,14 @@ struct BehaviorSettingsContent: View {
     @State private var showPaywall = false
 
     private var pskReporterURL: URL {
-        var components = URLComponents(string: "https://pskreporter.info/pskmap.html")!
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "pskreporter.info"
+        components.path = "/pskmap.html"
         components.queryItems = [
-            URLQueryItem(name: "callsign", value: viewModel.callsign.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines))
+            URLQueryItem(name: "callsign", value: viewModel.callsign.trimmingCharacters(in: .whitespacesAndNewlines))
         ]
-        return components.url!
+        return components.url ?? URL(string: "https://pskreporter.info/pskmap.html")!
     }
 
     var body: some View {
