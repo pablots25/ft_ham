@@ -39,7 +39,7 @@ struct LogbookView: View {
                         }
 
                         Text(entry.grid)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary)
 
                         if let station = entry.stationCallsign, !station.isEmpty {
                             Text("Station: \(station)")
@@ -71,32 +71,28 @@ struct LogbookView: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         HStack(spacing: 2) {
                             Text("SNR:")
-                                .font(.body)
+                                .font(.caption)
                                 .foregroundStyle(.primary)
-                                .padding(.trailing, 5)
 
                             Text("\(entry.rstSent)")
-                                .font(.body)
+                                .font(.caption)
                                 .foregroundStyle(.primary)
                             Text("(TX)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
-                            Text(" / ")
-                                .font(.body)
+                            Text("/")
+                                .font(.caption)
                                 .foregroundStyle(.primary)
 
                             Text("\(entry.rstRcvd)")
-                                .font(.body)
+                                .font(.caption)
                                 .foregroundStyle(.primary)
                             Text("(RX)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-
-                        Text("Mode: \(entry.mode)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        .lineLimit(1)
 
                         Text(dateFormatter.string(from: entry.date))
                             .font(.caption)
@@ -116,11 +112,20 @@ struct LogbookView: View {
                     }
 
                     VStack(alignment: .trailing, spacing: 4) {
+                        if !entry.mode.isEmpty {
+                            Text(entry.mode)
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                                .padding(6)
+                                .background(modeColor(entry.mode).opacity(0.2))
+                                .cornerRadius(6)
+                        }
                         if entry.band != "Unknown" && !entry.band.isEmpty {
                             Text(entry.band)
                                 .font(.caption)
+                                .foregroundStyle(.primary)
                                 .padding(6)
-                                .background(Color.blue.opacity(0.2))
+                                .background(bandColor(entry.band).opacity(0.2))
                                 .cornerRadius(6)
                         }
                     }
@@ -188,6 +193,35 @@ struct LogbookView: View {
         }
         .onChange(of: viewModel.qsoList.count) { _ in
             sortQSOsByDate()
+        }
+    }
+
+    // MARK: - Badge Colors
+
+    private func modeColor(_ mode: String) -> Color {
+        switch mode.uppercased() {
+        case "FT8":  return .green
+        case "FT4":  return .blue
+        default:     return .gray
+        }
+    }
+
+    private func bandColor(_ band: String) -> Color {
+        switch band {
+        case "160m":    return .purple
+        case "80m":     return Color(red: 0.5, green: 0.0, blue: 0.5)  // dark purple
+        case "60m":     return .indigo
+        case "40m":     return .blue
+        case "30m":     return .teal
+        case "20m":     return .green
+        case "17m":     return .cyan
+        case "15m":     return .yellow
+        case "12m":     return .orange
+        case "CB/11m":  return .gray
+        case "10m":     return .red
+        case "6m":      return .pink
+        case "Custom":  return .mint
+        default:        return .blue
         }
     }
 

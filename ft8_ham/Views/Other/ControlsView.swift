@@ -11,9 +11,11 @@ import SwiftUI
 
 struct TransmissionButtonsBar: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @State private var containerWidth: CGFloat = 0
 
     var body: some View {
-        HStack {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
             Button(viewModel.transmitLoopActive ? "Stop Auto TX" : "Start Auto TX") {
                 viewModel.toggleTransmit()
             }
@@ -50,7 +52,7 @@ struct TransmissionButtonsBar: View {
             .buttonStyle(.borderedProminent)
             .disabled(!viewModel.settingsLoaded)
 
-            Button("Stop TX & RX") {
+            Button("Stop all") {
                 viewModel.stopCurrentTX()
                 Task { @MainActor in
                     await viewModel.stopSequencer()
@@ -62,7 +64,17 @@ struct TransmissionButtonsBar: View {
             .tint(.red)
             .buttonStyle(.borderedProminent)
             .disabled(!viewModel.settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive))
+            }
+            .padding(.horizontal)
+            .frame(minWidth: containerWidth, alignment: .center)
         }
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { containerWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { containerWidth = $0 }
+            }
+        )
     }
 }
 
@@ -109,6 +121,8 @@ struct MessageSelector: View {
     @EnvironmentObject private var flags: FeatureFlagManager
     @State private var showGenMessages = false
     @State private var sheetDetent: PresentationDetent = .large
+    @State private var stationSettingsExpanded = false
+    @State private var genMessagesExpanded = false
 
     var body: some View {
         VStack(spacing: 0){
@@ -177,7 +191,14 @@ struct MessageSelector: View {
                     VStack(spacing: 16) {
                         
                         
-                        StationSettingsContent()
+                        DisclosureGroup(isExpanded: $stationSettingsExpanded) {
+                            StationSettingsContent()
+                        } label: {
+                            Text("Station Settings")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
 
                         Divider()
 
@@ -189,11 +210,14 @@ struct MessageSelector: View {
 
                         Divider()
 
-                        Text("Quick message generation")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        GenMessagesView()
+                        DisclosureGroup(isExpanded: $genMessagesExpanded) {
+                            GenMessagesView()
+                        } label: {
+                            Text("Quick message generation")
+                            .   font(.headline)
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
 
                         // MARK: Full Configuration Link
                         Button {
