@@ -122,6 +122,8 @@ extension FT8ViewModel {
         // Only trigger timeout if this was an RX slot (not our TX slot)
         // DX's response will come in the slot AFTER we transmit
         if !slotContainedOurTX {
+            // Sync the user-configured retry limit into the manager before each check
+            qsoManager.maxRetrySlots = maxRetrySlots
             let timeoutAction = qsoManager.handleQSOTimeout()
             if timeoutAction != .ignore {
                 handleRXAction(timeoutAction)

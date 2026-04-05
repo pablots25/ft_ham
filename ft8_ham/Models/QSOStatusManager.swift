@@ -467,6 +467,15 @@ final class QSOStatusManager: ObservableObject {
 
         retryCounter += 1
         
+        // FT8 protocol: 73 is terminal — the sender does NOT retry.
+        // Close the QSO immediately on any timeout while in sending73 state,
+        // regardless of retryCounter. The TX-confirmation path is also guarded
+        // by qsoAlreadyLogged, so a duplicate close is harmless.
+        if case .sending73(let dx) = qsoState {
+            appLogger.debug("73 timeout — closing QSO for \(dx) per FT8 protocol (no retry)")
+            return closeQSO(dxCallsign: dx, openCourtesyWindow: false)
+        }
+
         if retryCounter <= maxRetrySlots {
             appLogger.debug("Slot timeout for \(lockedDXCallsign), attempt \(retryCounter)/\(maxRetrySlots)")
 
@@ -493,8 +502,6 @@ final class QSOStatusManager: ObservableObject {
             case .sendingRRR(let dx), .listeningRRR(let dx):
                 // RUN mode: Resend RRR if DX hasn't sent 73/RR73 yet
                 return .sendRRR(dxCallsign: dx)
-            case .sending73(let dx):
-                return .send73(dxCallsign: dx)
             default:
                 break
             }

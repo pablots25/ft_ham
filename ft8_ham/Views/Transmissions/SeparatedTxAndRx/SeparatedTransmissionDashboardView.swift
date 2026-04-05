@@ -11,7 +11,7 @@ import SwiftUI
 /// Designed for use within the iPad Dashboard layout
 struct SeparatedTransmissionDashboardView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
-    @AppStorage("showOnlyInvolvedSeparatedTX") private var showOnlyInvolved: Bool = false
+    @AppStorage("rxFilterModeSeparated") private var filterMode: Int = 0
     @State private var showLegend: Bool = false
 
     var body: some View {
@@ -101,15 +101,21 @@ struct SeparatedTransmissionDashboardView: View {
                 if showFilter {
                     Button {
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            showOnlyInvolved.toggle()
+                            filterMode = (filterMode + 1) % 3
                         }
                     } label: {
-                        Image(systemName: showOnlyInvolved
-                              ? "line.3.horizontal.decrease.circle.fill"
-                              : "line.3.horizontal.decrease.circle")
+                        Image(systemName: filterMode == 0
+                              ? "line.3.horizontal.decrease.circle"
+                              : "line.3.horizontal.decrease.circle.fill")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
-                        .accessibilityLabel("Filter messages")
+                        .foregroundStyle(
+                            filterMode == 0 ? .secondary :
+                            filterMode == 1 ? .primary : Color.accentColor
+                        )
+                        .accessibilityLabel(
+                            filterMode == 0 ? "Show all messages" :
+                            filterMode == 1 ? "Show mine" : "Show mine and CQ"
+                        )
                     }
                     .buttonStyle(.plain)
                 }
@@ -134,7 +140,7 @@ struct SeparatedTransmissionDashboardView: View {
             SeparatedMsgListView(
                 messages: messages,
                 allowReply: showFilter,
-                showOnlyInvolved: $showOnlyInvolved
+                filterMode: $filterMode
             )
         }
         .frame(maxWidth: .infinity)

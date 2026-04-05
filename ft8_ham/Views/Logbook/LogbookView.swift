@@ -29,6 +29,13 @@ struct LogbookView: View {
                                 Text(flag)
                                     .font(.headline)
                             }
+
+                            if let country = entry.country, !country.isEmpty {
+                                Text(country)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
 
                         Text(entry.grid)

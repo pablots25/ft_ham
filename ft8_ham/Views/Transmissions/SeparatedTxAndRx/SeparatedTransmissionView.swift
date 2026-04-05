@@ -17,8 +17,8 @@ struct SeparatedTransmissionView: View {
     @AppStorage("hasSeenSlideToReplyTutorial") private var hasSeenTutorial: Bool = false
     @State private var showTutorial: Bool = false
 
-    @AppStorage("showOnlyInvolvedSeparatedTX")
-    private var showOnlyInvolved: Bool = false
+    @AppStorage("rxFilterModeSeparated")
+    private var filterMode: Int = 0
 
     @State private var showLegend: Bool = false
 
@@ -136,10 +136,14 @@ struct SeparatedTransmissionView: View {
 
     private var messagesSection: some View {
         HStack(alignment: .top, spacing: 12) {
-            let filtered = showOnlyInvolved
-                ? (allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages)
-                    .filter { $0.forMe || $0.isTX }
-                : (allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages)
+            let baseMessages = allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages
+            let filtered: [FT8Message] = {
+                switch filterMode {
+                case 1: return baseMessages.filter { $0.forMe || $0.isTX }
+                case 2: return baseMessages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
+                default: return baseMessages
+                }
+            }()
             
             let clearAction = allowReply ? viewModel.clearReceived : viewModel.clearTransmitted
             
@@ -173,15 +177,21 @@ struct SeparatedTransmissionView: View {
                         if allowReply {
                             Button {
                                 withAnimation(.easeInOut(duration: 0.15)) {
-                                    showOnlyInvolved.toggle()
+                                    filterMode = (filterMode + 1) % 3
                                 }
                             } label: {
-                                Image(systemName: showOnlyInvolved
-                                      ? "line.3.horizontal.decrease.circle.fill"
-                                      : "line.3.horizontal.decrease.circle")
+                                Image(systemName: filterMode == 0
+                                      ? "line.3.horizontal.decrease.circle"
+                                      : "line.3.horizontal.decrease.circle.fill")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
-                                .accessibilityLabel("Filter messages")
+                                .foregroundStyle(
+                                    filterMode == 0 ? .secondary :
+                                    filterMode == 1 ? .primary : Color.accentColor
+                                )
+                                .accessibilityLabel(
+                                    filterMode == 0 ? "Show all messages" :
+                                    filterMode == 1 ? "Show mine" : "Show mine and CQ"
+                                )
                             }
                             .buttonStyle(.plain)
                         }
@@ -203,7 +213,7 @@ struct SeparatedTransmissionView: View {
                     if showTutorial, allowReply {
                         SeparatedMsgListView(
                             messages: tutorialSampleMessages(from: messages),
-                            allowReply: allowReply, showOnlyInvolved: $showOnlyInvolved
+                            allowReply: allowReply, filterMode: $filterMode
                         )
                         .background(
                             GeometryReader { proxy in
@@ -217,7 +227,7 @@ struct SeparatedTransmissionView: View {
                             }
                         )
                     } else {
-                        SeparatedMsgListView(messages: messages, allowReply: allowReply, showOnlyInvolved: $showOnlyInvolved)
+                        SeparatedMsgListView(messages: messages, allowReply: allowReply, filterMode: $filterMode)
                     }
                 
             }

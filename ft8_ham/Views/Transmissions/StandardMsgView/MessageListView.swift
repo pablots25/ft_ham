@@ -14,11 +14,14 @@ struct MessageListView: View {
     let messages: [FT8Message]
     let allowReply: Bool
 
-    @Binding var showOnlyInvolved: Bool
+    @Binding var filterMode: Int
 
     private var filteredMessages: [FT8Message] {
-        guard showOnlyInvolved else { return messages }
-        return messages.filter { $0.forMe || $0.isTX }
+        switch filterMode {
+        case 1: return messages.filter { $0.forMe || $0.isTX }
+        case 2: return messages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
+        default: return messages
+        }
     }
 
     var body: some View {
@@ -26,8 +29,7 @@ struct MessageListView: View {
             // MARK: - Header
 
             MessageListHeaderView(
-                allowReply: allowReply,
-                showOnlyInvolved: $showOnlyInvolved
+                allowReply: allowReply
             )
 
             Divider()
@@ -64,6 +66,10 @@ struct MessageListView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                                     .frame(maxWidth: .infinity, minHeight: 0, alignment: .center)
                                     .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        guard msg.allowsReply && allowReply else { return }
+                                        viewModel.reply(to: msg)
+                                    }
                                     .swipeActionsIfNeeded(allowReply: msg.allowsReply && allowReply) {
                                         viewModel.reply(to: msg)
                                     }

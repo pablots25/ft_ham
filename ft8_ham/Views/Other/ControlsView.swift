@@ -49,6 +49,19 @@ struct TransmissionButtonsBar: View {
             .tint(viewModel.isListening ? .red : .green)
             .buttonStyle(.borderedProminent)
             .disabled(!viewModel.settingsLoaded)
+
+            Button("Stop TX & RX") {
+                viewModel.stopCurrentTX()
+                Task { @MainActor in
+                    await viewModel.stopSequencer()
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .fixedSize(horizontal: true, vertical: false)
+            .tint(.red)
+            .buttonStyle(.borderedProminent)
+            .disabled(!viewModel.settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive))
         }
     }
 }

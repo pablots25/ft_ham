@@ -9,7 +9,6 @@ import SwiftUI
 
 struct MessageListHeaderView: View {
     let allowReply: Bool
-    @Binding var showOnlyInvolved: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {

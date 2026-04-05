@@ -54,7 +54,7 @@ struct MessageColorLegendView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Show all messages")
                                 .font(.subheadline)
-                            Text("Displays every decoded message in the list.")
+                            Text("Every decoded message is shown, regardless of whether it involves your callsign.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -65,13 +65,30 @@ struct MessageColorLegendView: View {
                             .foregroundStyle(.primary)
                             .frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Filter active \u{2014} my messages only")
+                            Text("My messages only")
                                 .font(.subheadline)
-                            Text("Hides messages that do not involve your callsign, keeping only CQ calls, direct replies to you, and your own transmissions.")
+                            Text("Only messages directly involving your callsign and your own transmissions are shown. CQ calls from others are hidden.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    HStack(spacing: 14) {
+                        Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("My messages + CQ calls")
+                                .font(.subheadline)
+                            Text("Shows messages involving you, your own transmissions, and all CQ calls — useful for monitoring new contacts while keeping noise down.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Text("Tap the filter icon to cycle through the three modes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 2)
                 } header: {
                     Text("Filter Button")
                 }

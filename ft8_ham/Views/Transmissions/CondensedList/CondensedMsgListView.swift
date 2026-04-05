@@ -19,18 +19,20 @@ struct CondensedMsgListView: View {
     @State private var didTriggerHaptic: [UUID: Bool] = [:]
     @State private var userDragging: Bool = false
 
-    @Binding var showOnlyInvolved: Bool
+    @Binding var filterMode: Int
 
     private var filteredMessages: [FT8Message] {
-        guard showOnlyInvolved else { return messages }
-        return messages.filter { $0.forMe || $0.isTX }
+        switch filterMode {
+        case 1: return messages.filter { $0.forMe || $0.isTX }
+        case 2: return messages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
+        default: return messages
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             MessageListHeaderView(
-                allowReply: allowReply,
-                showOnlyInvolved: $showOnlyInvolved
+                allowReply: allowReply
             )
 
             Divider()
@@ -68,6 +70,11 @@ struct CondensedMsgListView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 4)
                                         .background(backgroundColor(for: msg))
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            guard allowReply && msg.allowsReply else { return }
+                                            viewModel.reply(to: msg)
+                                        }
                                         .swipeToReply(
                                             allowReply: allowReply && msg.allowsReply,
                                             messageID: msg.id,

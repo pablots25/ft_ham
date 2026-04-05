@@ -15,8 +15,8 @@ struct TransmissionView: View {
     @AppStorage("hasSeenSlideToReplyTutorial") private var hasSeenTutorial: Bool = false
     @State private var showTutorial: Bool = false
 
-    @AppStorage("showOnlyInvolved")
-    private var showOnlyInvolved: Bool = false
+    @AppStorage("rxFilterMode")
+    private var filterMode: Int = 0
 
     @State private var showLegend: Bool = false
 
@@ -137,13 +137,21 @@ private extension TransmissionView {
     
     var messagesSection: some View {
         HStack(alignment: .top, spacing: 12) {
-            let receivedFiltered = showOnlyInvolved
-            ? viewModel.receivedMessages.filter { $0.forMe || $0.isTX }
-            : viewModel.receivedMessages
-            
-            let txFiltered = showOnlyInvolved
-            ? viewModel.transmittedMessages.filter { $0.forMe || $0.isTX }
-            : viewModel.transmittedMessages
+            let receivedFiltered: [FT8Message] = {
+                switch filterMode {
+                case 1: return viewModel.receivedMessages.filter { $0.forMe || $0.isTX }
+                case 2: return viewModel.receivedMessages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
+                default: return viewModel.receivedMessages
+                }
+            }()
+
+            let txFiltered: [FT8Message] = {
+                switch filterMode {
+                case 1: return viewModel.transmittedMessages.filter { $0.forMe || $0.isTX }
+                case 2: return viewModel.transmittedMessages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
+                default: return viewModel.transmittedMessages
+                }
+            }()
             
             messagesColumn(
                 section: .received,
@@ -179,15 +187,21 @@ private extension TransmissionView {
                     if allowReply {
                         Button {
                             withAnimation(.easeInOut(duration: 0.15)) {
-                                showOnlyInvolved.toggle()
+                                filterMode = (filterMode + 1) % 3
                             }
                         } label: {
-                            Image(systemName: showOnlyInvolved
-                                  ? "line.3.horizontal.decrease.circle.fill"
-                                  : "line.3.horizontal.decrease.circle")
+                            Image(systemName: filterMode == 0
+                                  ? "line.3.horizontal.decrease.circle"
+                                  : "line.3.horizontal.decrease.circle.fill")
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
-                            .accessibilityLabel("Filter messages")
+                            .foregroundStyle(
+                                filterMode == 0 ? .secondary :
+                                filterMode == 1 ? .primary : Color.accentColor
+                            )
+                            .accessibilityLabel(
+                                filterMode == 0 ? "Show all messages" :
+                                filterMode == 1 ? "Show mine" : "Show mine and CQ"
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -212,7 +226,7 @@ private extension TransmissionView {
                     MessageListView(
                         messages: tutorialSampleMessages(from: messages),
                         allowReply: allowReply,
-                        showOnlyInvolved: $showOnlyInvolved
+                        filterMode: $filterMode
                     )
                     .background(
                         GeometryReader { proxy in
@@ -229,7 +243,7 @@ private extension TransmissionView {
                     MessageListView(
                         messages: messages,
                         allowReply: allowReply,
-                        showOnlyInvolved: $showOnlyInvolved
+                        filterMode: $filterMode
                     )
                 }
             }
