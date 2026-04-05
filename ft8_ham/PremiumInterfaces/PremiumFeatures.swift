@@ -217,6 +217,47 @@ private final class LoTWServiceAdapter: LoTWServiceProtocol {
     }
 }
 
+// MARK: - eQSL Adapter
+
+/// Adapter that wraps FTHamPremium.eQSLService to conform to local eQSLServiceProtocol.
+@MainActor
+private final class eQSLServiceAdapter: eQSLServiceProtocol {
+    private let service: FTHamPremium.eQSLService
+
+    nonisolated let objectWillChange = ObservableObjectPublisher()
+
+    var pendingCount: Int { service.pendingCount }
+    var lastError: String? { service.lastError }
+    var isSyncing: Bool { service.isSyncing }
+    var hasCredentials: Bool { service.hasCredentials }
+
+    private var cancellable: AnyCancellable?
+
+    init(service: FTHamPremium.eQSLService) {
+        self.service = service
+        cancellable = service.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+    }
+
+    func uploadADIF(_ adif: String) async -> eQSLUploadResult {
+        let result = await service.uploadADIF(adif)
+        return eQSLUploadResult(success: result.success, errorMessage: result.errorMessage)
+    }
+
+    func fetchConfirmations(since date: Date) async -> String? {
+        await service.fetchConfirmations(since: date)
+    }
+
+    func saveCredentials(callsign: String, password: String) throws {
+        try service.saveCredentials(callsign: callsign, password: password)
+    }
+
+    func deleteCredentials() {
+        service.deleteCredentials()
+    }
+}
+
 #endif
 
 /// Factory for premium features
@@ -266,6 +307,16 @@ public enum PremiumFeatures {
         return LoTWServiceAdapter(service: FTHamPremium.LoTWService.shared)
         #else
         return LoTWServiceStub.shared
+        #endif
+    }
+
+    /// Get eQSL service instance
+    /// Returns real implementation if premium package is linked, stub otherwise
+    public static var eqslService: any eQSLServiceProtocol {
+        #if canImport(FTHamPremium)
+        return eQSLServiceAdapter(service: FTHamPremium.eQSLService.shared)
+        #else
+        return eQSLServiceStub.shared
         #endif
     }
 }

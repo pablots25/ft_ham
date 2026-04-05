@@ -96,12 +96,28 @@ struct ConfigurationView: View {
                         } label: {
                             Label("LoTW", systemImage: "checkmark.seal")
                         }
+
+                        NavigationLink {
+                            ScrollView {
+                                eQSLSettingsView()
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 20)
+                            }
+                            .navigationTitle("eQSL")
+                            .navigationBarTitleDisplayMode(.inline)
+                        } label: {
+                            Label("eQSL", systemImage: "envelope.badge.shield.half.filled")
+                        }
                     } else {
                         PremiumLockedRow(feature: .qrzLogbook) {
                             showPremium = true
                         }
 
                         PremiumLockedRow(feature: .lotwSync) {
+                            showPremium = true
+                        }
+
+                        PremiumLockedRow(feature: .eqslSync) {
                             showPremium = true
                         }
                     }

@@ -31,15 +31,18 @@ final class LogSyncManager: ObservableObject {
     private enum StorageKeys {
         static let pendingQRZIDs = "pendingQRZIDs"
         static let pendingLoTWIDs = "pendingLoTWIDs"
+        static let pendingEQSLIDs = "pendingEQSLIDs"
     }
 
     // MARK: - Services (set via PremiumFeatures factory)
     private(set) var qrzService: (any QRZServiceProtocol) = QRZServiceStub.shared
     private(set) var lotwService: (any LoTWServiceProtocol) = LoTWServiceStub.shared
+    private(set) var eqslService: (any eQSLServiceProtocol) = eQSLServiceStub.shared
 
     // MARK: - Settings (read from AppStorage-backed UserDefaults)
     private var qrzAutoUpload: Bool { UserDefaults.standard.bool(forKey: "qrzAutoUpload") }
     private var lotwAutoUpload: Bool { UserDefaults.standard.bool(forKey: "lotwAutoUpload") }
+    private var eqslAutoUpload: Bool { UserDefaults.standard.bool(forKey: "eqslAutoUpload") }
     private var confirmIntervalHours: Int {
         let v = UserDefaults.standard.integer(forKey: "qrzConfirmationIntervalHours")
         return v > 0 ? v : 6
@@ -48,6 +51,7 @@ final class LogSyncManager: ObservableObject {
     // MARK: - Pending upload queue (indexed by LogEntry.id string)
     @Published private(set) var pendingQRZIDs: Set<String> = []
     @Published private(set) var pendingLoTWIDs: Set<String> = []
+    @Published private(set) var pendingEQSLIDs: Set<String> = []
 
     // MARK: - Published combined badge count
     @Published private(set) var totalPendingCount: Int = 0
@@ -59,15 +63,17 @@ final class LogSyncManager: ObservableObject {
         loadPendingIDs()
         qrzService = PremiumFeatures.qrzService
         lotwService = PremiumFeatures.lotwService
+        eqslService = PremiumFeatures.eqslService
         updatePendingCount()
         startConfirmationTimer()
     }
 
     /// Creates an isolated instance for unit testing with injected services.
     /// Does **not** start the confirmation timer or load persisted pending IDs.
-    init(qrzService: any QRZServiceProtocol, lotwService: any LoTWServiceProtocol) {
+    init(qrzService: any QRZServiceProtocol, lotwService: any LoTWServiceProtocol, eqslService: any eQSLServiceProtocol = eQSLServiceStub.shared) {
         self.qrzService = qrzService
         self.lotwService = lotwService
+        self.eqslService = eqslService
     }
 
     deinit {
@@ -107,7 +113,18 @@ final class LogSyncManager: ObservableObject {
                 }
             }
         }
-    }
+        if eqslAutoUpload && eqslService.hasCredentials {
+            insertPendingID(idString, into: &pendingEQSLIDs, storageKey: StorageKeys.pendingEQSLIDs)
+            Task {
+                let result = await eqslService.uploadADIF(adif)
+                if result.success {
+                    removePendingID(idString, from: &pendingEQSLIDs, storageKey: StorageKeys.pendingEQSLIDs)
+                    logger.info("eQSL upload success for \(entry.callsign)")
+                } else {
+                    logger.warning("eQSL upload failed for \(entry.callsign): \(result.errorMessage ?? "unknown")")
+                }
+            }
+        }    }
 
     /// Retry all pending uploads using the current qsoList.
     func retryPendingUploads(_ allEntries: [LogEntry]) {
@@ -137,6 +154,18 @@ final class LogSyncManager: ObservableObject {
                 }
             }
         }
+
+        let pendingEQSL = allEntries.filter { pendingEQSLIDs.contains($0.id.uuidString) }
+        for entry in pendingEQSL {
+            let adif = buildSingleEntryADIF(entry)
+            let idString = entry.id.uuidString
+            Task {
+                let result = await eqslService.uploadADIF(adif)
+                if result.success {
+                    removePendingID(idString, from: &pendingEQSLIDs, storageKey: StorageKeys.pendingEQSLIDs)
+                }
+            }
+        }
     }
 
     /// Trigger a confirmation check on demand.
@@ -145,6 +174,7 @@ final class LogSyncManager: ObservableObject {
         Task {
             _ = await qrzService.fetchConfirmations(since: since)
             _ = await lotwService.fetchConfirmations(since: since)
+            _ = await eqslService.fetchConfirmations(since: since)
             logger.info("Confirmation check completed")
         }
     }
@@ -190,6 +220,7 @@ final class LogSyncManager: ObservableObject {
     private func loadPendingIDs() {
         pendingQRZIDs = loadPendingIDs(forKey: StorageKeys.pendingQRZIDs)
         pendingLoTWIDs = loadPendingIDs(forKey: StorageKeys.pendingLoTWIDs)
+        pendingEQSLIDs = loadPendingIDs(forKey: StorageKeys.pendingEQSLIDs)
     }
 
     private func loadPendingIDs(forKey key: String) -> Set<String> {
@@ -233,6 +264,12 @@ final class LogSyncManager: ObservableObject {
             pendingLoTWIDs = prunedLoTWIDs
             persistPendingIDs(prunedLoTWIDs, forKey: StorageKeys.pendingLoTWIDs)
         }
+
+        let prunedEQSLIDs = pendingEQSLIDs.intersection(validIDs)
+        if prunedEQSLIDs != pendingEQSLIDs {
+            pendingEQSLIDs = prunedEQSLIDs
+            persistPendingIDs(prunedEQSLIDs, forKey: StorageKeys.pendingEQSLIDs)
+        }
     }
 
     // MARK: - Private: Confirmation timer
@@ -250,6 +287,6 @@ final class LogSyncManager: ObservableObject {
     }
 
     private func updatePendingCount() {
-        totalPendingCount = pendingQRZIDs.count + pendingLoTWIDs.count
+        totalPendingCount = pendingQRZIDs.count + pendingLoTWIDs.count + pendingEQSLIDs.count
     }
 }

@@ -11,8 +11,9 @@ import Foundation
 enum PremiumFeature: String, CaseIterable {
     case catControl = "cat_control"
     case pskReporter = "psk_reporter"
-    case qrzLogbook = "qrz_logbook"
+    case qrzLogbook = "qrz_logbook_sync"
     case lotwSync = "lotw_sync"
+    case eqslSync = "eqsl_sync"
     case iPadDashboard = "ipad_dashboard"
 
     var displayName: String {
@@ -21,6 +22,7 @@ enum PremiumFeature: String, CaseIterable {
         case .pskReporter: return "PSK Reporter"
         case .qrzLogbook: return "QRZ Logbook"
         case .lotwSync: return "LoTW"
+        case .eqslSync: return "eQSL"
         case .iPadDashboard: return "iPad Dashboard"
         }
     }
@@ -31,6 +33,7 @@ enum PremiumFeature: String, CaseIterable {
         case .pskReporter: return "chart.bar.fill"
         case .qrzLogbook: return "network"
         case .lotwSync: return "checkmark.seal"
+        case .eqslSync: return "envelope.badge.shield.half.filled"
         case .iPadDashboard: return "rectangle.split.3x1"
         }
     }
