@@ -21,7 +21,12 @@ final class FeatureFlagManager: ObservableObject {
 
 #if DEBUG
     private static let newConfigViewOverrideKey = "debug.newConfigViewOverride"
-    private var newConfigViewOverride: Bool? = UserDefaults.standard.object(forKey: newConfigViewOverrideKey) as? Bool
+    // Computed so it correctly handles both Bool objects (set by setOverride) and
+    // string values ("1"/"0") injected via XCUIApplication launchArguments.
+    private var newConfigViewOverride: Bool? {
+        guard UserDefaults.standard.object(forKey: Self.newConfigViewOverrideKey) != nil else { return nil }
+        return UserDefaults.standard.bool(forKey: Self.newConfigViewOverrideKey)
+    }
 #endif
     
     private init(provider: FeatureFlagProvider = RemoteConfigProvider()) {
@@ -85,7 +90,6 @@ final class FeatureFlagManager: ObservableObject {
 #if DEBUG
     func setOverride(_ flag: FeatureFlag, value: Bool) {
         guard flag == .newConfigView else { return }
-        newConfigViewOverride = value
         values[flag] = value
         UserDefaults.standard.set(value, forKey: Self.newConfigViewOverrideKey)
         logger.info("[DEBUG] Feature flag '\(flag.rawValue)' overridden to: \(value)")

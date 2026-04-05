@@ -162,6 +162,8 @@ struct MessageSelector: View {
             NavigationStack {
                 ScrollView {
                     VStack(spacing: 16) {
+                        
+                        
                         StationSettingsContent()
 
                         Divider()

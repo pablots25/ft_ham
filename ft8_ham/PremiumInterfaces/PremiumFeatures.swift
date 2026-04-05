@@ -155,7 +155,8 @@ private final class QRZServiceAdapter: QRZServiceProtocol {
     }
 
     func fetchConfirmations(since date: Date) async -> String? {
-        await service.fetchConfirmations(since: date)
+        let count = await service.fetchConfirmations(since: date)
+        return count > 0 ? "\(count)" : nil
     }
 
     func saveAPIKey(_ key: String) throws {

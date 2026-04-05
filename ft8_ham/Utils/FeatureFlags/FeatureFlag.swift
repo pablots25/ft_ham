@@ -16,7 +16,12 @@ enum FeatureFlag: String, CaseIterable {
     
     var defaultValue: Bool {
         switch self {
-        case .showLogsView: return false
+        case .showLogsView:
+            #if DEBUG
+            return true
+            #else
+            return false
+            #endif
         case .backgroundToast: return false
         case .enableIpadDashboard: return false
         case .controlsSheet: return true

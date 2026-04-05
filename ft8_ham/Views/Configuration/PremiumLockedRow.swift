@@ -24,5 +24,6 @@ struct PremiumLockedRow: View {
             }
         }
         .foregroundStyle(.secondary)
+        .accessibilityIdentifier("premiumLocked_\(feature.rawValue)")
     }
 }

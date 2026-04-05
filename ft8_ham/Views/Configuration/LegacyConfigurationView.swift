@@ -61,6 +61,87 @@ struct LegacyConfigurationView: View {
 				}
 				#endif
 
+				#if canImport(FTHamPremium)
+				section("Log Syncing") {
+					if premiumManager.isPremiumUnlocked {
+						NavigationLink {
+							ScrollView {
+								QRZSettingsView()
+									.padding(.horizontal)
+									.padding(.bottom, 20)
+							}
+							.navigationTitle("QRZ Logbook")
+							.navigationBarTitleDisplayMode(.inline)
+						} label: {
+							Label("QRZ Logbook", systemImage: "network")
+						}
+
+						NavigationLink {
+							ScrollView {
+								LoTWSettingsView()
+									.padding(.horizontal)
+									.padding(.bottom, 20)
+							}
+							.navigationTitle("LoTW")
+							.navigationBarTitleDisplayMode(.inline)
+						} label: {
+							Label("LoTW", systemImage: "checkmark.seal")
+						}
+
+						NavigationLink {
+							ScrollView {
+								eQSLSettingsView()
+									.padding(.horizontal)
+									.padding(.bottom, 20)
+							}
+							.navigationTitle("eQSL")
+							.navigationBarTitleDisplayMode(.inline)
+						} label: {
+							Label("eQSL", systemImage: "envelope.badge.shield.half.filled")
+						}
+					} else {
+						Button {
+							showPremium = true
+						} label: {
+							HStack {
+								Label("QRZ Logbook", systemImage: "network")
+								Spacer()
+								Image(systemName: "lock.fill")
+									.font(.caption)
+									.foregroundStyle(.tertiary)
+							}
+						}
+						.foregroundStyle(.secondary)
+
+						Button {
+							showPremium = true
+						} label: {
+							HStack {
+								Label("LoTW", systemImage: "checkmark.seal")
+								Spacer()
+								Image(systemName: "lock.fill")
+									.font(.caption)
+									.foregroundStyle(.tertiary)
+							}
+						}
+						.foregroundStyle(.secondary)
+
+						Button {
+							showPremium = true
+						} label: {
+							HStack {
+								Label("eQSL", systemImage: "envelope.badge.shield.half.filled")
+								Spacer()
+								Image(systemName: "lock.fill")
+									.font(.caption)
+									.foregroundStyle(.tertiary)
+							}
+						}
+						.foregroundStyle(.secondary)
+					}
+				}
+				#endif
+
 				#if DEBUG
 				section("Debug") {
 					NavigationLink {

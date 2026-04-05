@@ -168,6 +168,7 @@ struct ConfigurationView: View {
                     } label: {
                         ExternalActionRow(title: "Become Premium", systemImage: "star")
                     }
+                    .accessibilityLabel("Become Premium")
                     
                     Button {
                         if let url = URL(string: "mailto:ftham@turrion.dev?subject=FT8%20Ham%20App%20Feedback") {

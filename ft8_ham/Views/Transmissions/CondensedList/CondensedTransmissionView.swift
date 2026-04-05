@@ -17,6 +17,8 @@ struct CondensedTransmissionView: View {
     @AppStorage("showOnlyInvolved")
     private var showOnlyInvolved: Bool = false
 
+    @State private var showLegend: Bool = false
+
     private var needsTutorial: Bool {
         !hasSeenTutorial
     }
@@ -60,11 +62,13 @@ struct CondensedTransmissionView: View {
         VStack(spacing: 10) {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
-            LazyVGrid(columns: columns, spacing: 12) {
-                StatusView().gridCellColumns(2)
-                ClockView().gridCellColumns(2)
+            if UIDevice.current.userInterfaceIdiom != .pad {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    StatusView().gridCellColumns(2)
+                    ClockView().gridCellColumns(2)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
 
             TransmissionButtonsBar()
                 .padding(.horizontal)
@@ -207,6 +211,18 @@ struct CondensedTransmissionView: View {
                             .accessibilityLabel("Filter messages")
                         }
                         .buttonStyle(.plain)
+
+                        Button {
+                            showLegend.toggle()
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $showLegend) {
+                            MessageColorLegendView()
+                        }
                     }
                 }
                 .padding(.horizontal)

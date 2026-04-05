@@ -63,6 +63,9 @@ func isSignalReport(_ token: Substring) -> Bool {
     // Single zero is a valid report
     if raw == "0" { return true }
 
+    // "73" is a protocol farewell token, not a signal report
+    if raw == "73" { return false }
+
     // Handle optional leading 'R' (ack) e.g. R+12, R-8
     var text = raw
     var hasRPrefix = false

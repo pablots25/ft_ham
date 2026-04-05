@@ -35,16 +35,18 @@ struct GridMapView: UIViewRepresentable {
     var showCountryCircles: Bool = true
     var showGeodesics: Bool = true
     var showAnnotations: Bool = true
+    @Binding var userTrackingMode: MKUserTrackingMode
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(locators: $locators)
+        Coordinator(locators: $locators, trackingMode: $userTrackingMode)
     }
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
+        context.coordinator.attachMapView(mapView)
 
-        mapView.showsCompass = true
+        mapView.showsCompass = false   // replaced by positioned MKCompassButton below
         mapView.showsScale = true
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = true
@@ -53,13 +55,32 @@ struct GridMapView: UIViewRepresentable {
         mapView.isUserInteractionEnabled = true
         mapView.showsUserLocation = context.coordinator.canShowUserLocation
         mapView.pointOfInterestFilter = .excludingAll
+        if #available(iOS 17.0, *) {
+            mapView.pitchButtonVisibility = .adaptive
+        }
 
         context.coordinator.configureLocationManager()
+
+        // MARK: - Native map buttons
+
+        // Compass only — tracking is handled by the SwiftUI toolbar button via userTrackingMode binding
+        let compass = MKCompassButton(mapView: mapView)
+        compass.compassVisibility = .adaptive
+        compass.translatesAutoresizingMaskIntoConstraints = false
+        mapView.addSubview(compass)
+
+        NSLayoutConstraint.activate([
+            compass.topAnchor.constraint(equalTo: mapView.safeAreaLayoutGuide.topAnchor, constant: 8),
+            compass.trailingAnchor.constraint(equalTo: mapView.trailingAnchor, constant: -12)
+        ])
 
         return mapView
     }
 
     func updateUIView(_ uiView: MKMapView, context: Context) {
+        if uiView.userTrackingMode != userTrackingMode {
+            uiView.setUserTrackingMode(userTrackingMode, animated: true)
+        }
         let visibility = MapVisibility(
             grids: showGrids,
             countryCircles: showCountryCircles,
@@ -75,10 +96,12 @@ struct GridMapView: UIViewRepresentable {
 
         // Bindings
         private let locatorsBinding: Binding<[String]>
+        private let trackingModeBinding: Binding<MKUserTrackingMode>
 
         // Location
         private let locationManager = CLLocationManager()
         private var lastUserLocator: String?
+        private weak var mapView: MKMapView?
 
         // Rendering caches
         private var polygonCache: [String: MKPolygon] = [:]
@@ -87,8 +110,9 @@ struct GridMapView: UIViewRepresentable {
         private var hasEverFitRegion = false
         private var lastHash: Int = 0
 
-        init(locators: Binding<[String]>) {
+        init(locators: Binding<[String]>, trackingMode: Binding<MKUserTrackingMode>) {
             self.locatorsBinding = locators
+            self.trackingModeBinding = trackingMode
             super.init()
             locationManager.delegate = self
         }
@@ -110,7 +134,30 @@ struct GridMapView: UIViewRepresentable {
             switch locationManager.authorizationStatus {
             case .authorizedAlways, .authorizedWhenInUse:
                 locationManager.startUpdatingLocation()
-            case .notDetermined, .denied, .restricted:
+            case .notDetermined:
+                locationManager.requestWhenInUseAuthorization()
+            case .denied, .restricted:
+                break
+            @unknown default:
+                break
+            }
+        }
+
+        func attachMapView(_ mapView: MKMapView) {
+            self.mapView = mapView
+        }
+
+        func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+            guard let mapView else { return }
+
+            switch manager.authorizationStatus {
+            case .authorizedAlways, .authorizedWhenInUse:
+                mapView.showsUserLocation = true
+                manager.startUpdatingLocation()
+            case .denied, .restricted:
+                mapView.showsUserLocation = false
+                manager.stopUpdatingLocation()
+            case .notDetermined:
                 break
             @unknown default:
                 break
@@ -131,9 +178,14 @@ struct GridMapView: UIViewRepresentable {
             guard locator != lastUserLocator else { return }
             lastUserLocator = locator
 
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 if !self.locatorsBinding.wrappedValue.contains(locator) {
                     self.locatorsBinding.wrappedValue.append(locator)
+                }
+
+                if let mapView = self.mapView,
+                   mapView.userTrackingMode == .follow || mapView.userTrackingMode == .followWithHeading {
+                    self.zoomToGridSquare(locator: locator, on: mapView, animated: true)
                 }
             }
         }
@@ -215,9 +267,9 @@ struct GridMapView: UIViewRepresentable {
         }
 
         private func updateMapOverlays(_ mapView: MKMapView,
-                                      overlays: [MKOverlay],
-                                      annotations: [MKPointAnnotation],
-                                      showAnnotations: Bool) {
+                                       overlays: [MKOverlay],
+                                       annotations: [MKPointAnnotation],
+                                       showAnnotations: Bool) {
             mapView.removeOverlays(mapView.overlays)
             mapView.addOverlays(overlays)
 
@@ -274,6 +326,28 @@ struct GridMapView: UIViewRepresentable {
             return view
         }
 
+        func mapView(
+            _ mapView: MKMapView,
+            didChange mode: MKUserTrackingMode,
+            animated: Bool
+        ) {
+            Task { @MainActor in self.trackingModeBinding.wrappedValue = mode }
+            guard mode == .follow || mode == .followWithHeading else { return }
+
+            let locator =
+                lastUserLocator
+                ?? mapView.userLocation.location.map {
+                    MaidenheadGrid.locator(
+                        latitude: $0.coordinate.latitude,
+                        longitude: $0.coordinate.longitude,
+                        precision: 4
+                    )
+                }
+
+            guard let locator else { return }
+            zoomToGridSquare(locator: locator, on: mapView, animated: animated)
+        }
+
         // MARK: - Helpers
 
         private func fitAll(_ mapView: MKMapView, overlays: [MKOverlay]) {
@@ -298,9 +372,32 @@ struct GridMapView: UIViewRepresentable {
             return CLLocationCoordinate2D(latitude: lat / Double(count),
                                           longitude: lon / Double(count))
         }
+
+        private func zoomToGridSquare(locator: String, on mapView: MKMapView, animated: Bool) {
+            guard let coordinates = MaidenheadGrid.gridPolygon(for: locator),
+                  !coordinates.isEmpty else { return }
+
+            let minLat = coordinates.map(\.latitude).min() ?? 0
+            let maxLat = coordinates.map(\.latitude).max() ?? 0
+            let minLon = coordinates.map(\.longitude).min() ?? 0
+            let maxLon = coordinates.map(\.longitude).max() ?? 0
+
+            let center = CLLocationCoordinate2D(
+                latitude: (minLat + maxLat) / 2,
+                longitude: (minLon + maxLon) / 2
+            )
+
+            // Keep map focus around one Maidenhead square with a small visual margin.
+            let paddingFactor = 1.15
+            let span = MKCoordinateSpan(
+                latitudeDelta: max((maxLat - minLat) * paddingFactor, 0.01),
+                longitudeDelta: max((maxLon - minLon) * paddingFactor, 0.01)
+            )
+
+            mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: animated)
+        }
     }
 }
-
 
 // MARK: - Helper Maidenhead Grid
 // MARK: - Maidenhead Grid utilities
@@ -396,5 +493,3 @@ struct MapSafeAreaModifier: ViewModifier {
         }
     }
 }
-
-

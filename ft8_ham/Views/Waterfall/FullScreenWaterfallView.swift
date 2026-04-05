@@ -35,8 +35,6 @@ struct FullScreenWaterfallView: View {
         ButtonTutorialItem(iconName: "ruler", description: "Show/hide frequency marker")
     ]
 
-    private let portraitFloatingBarBaseOffset: CGFloat = 92
-
     var body: some View {
         Group {
             if #available(iOS 18.0, *) {
@@ -88,12 +86,7 @@ struct FullScreenWaterfallView: View {
                             unifiedControlBar
                         }
                         .padding(.trailing, 10)
-                        .padding(
-                            .bottom,
-                            isLandscape
-                                ? max(geo.safeAreaInsets.bottom, 8)
-                                : geo.safeAreaInsets.bottom + portraitFloatingBarBaseOffset
-                        )
+                        .padding(.bottom, 8)
                     }
                     .zIndex(100)
                     .frame(maxWidth: .infinity)
@@ -260,74 +253,71 @@ private extension FullScreenWaterfallView {
     // MARK: - Portrait layout
 
     func portraitLayout(safeAreaInsets: EdgeInsets) -> some View {
-        VStack(spacing: 10) {
-            let columns = [GridItem(.flexible()), GridItem(.flexible())]
-
-            LazyVGrid(columns: columns, spacing: 12) {
-                if #available(iOS 16.0, *) {
-                    StatusView()
-                        .gridCellColumns(2)
-                        .frame(maxWidth: .infinity)
-                    ClockView()
-                        .gridCellColumns(2)
-                } else {
-                    StatusView()
-                        .frame(maxWidth: .infinity)
-                    ClockView()
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(.horizontal)
-
-            TransmissionButtonsBar()
-                .padding(.bottom, 5)
-                .padding(.horizontal)
+        VStack(spacing: 8) {
+            portraitHeader
 
             WaterfallView(
                 viewModel: viewModel.waterfallVM,
                 ft8ViewModel: viewModel,
                 isSettingFrequency: $isSettingFrequency
             )
-            .frame(maxHeight: .infinity)
-            .padding(.horizontal, 5)
-            .modifier(MapSafeAreaModifier())
-
-            VStack {
-                QSOStatusView()
-                MessageSelector()
-            }
-            .padding(.horizontal, 40)
-            .padding(.bottom)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea(.container, edges: [.leading, .trailing, .bottom])
         }
     }
 
     func landscapeLayout(width: CGFloat, safeAreaInsets: EdgeInsets) -> some View {
-        HStack(spacing: 0) {
-            controlPanel
-                .frame(width: width * 0.45)
-                .padding(.top, max(safeAreaInsets.top, 8))
-            Divider()
-
+        ZStack(alignment: .leading) {
             WaterfallView(
                 viewModel: viewModel.waterfallVM,
                 ft8ViewModel: viewModel,
                 isSettingFrequency: $isSettingFrequency
             )
-            .frame(width: width * 0.55)
-            .padding(.horizontal)
-            .padding(.trailing)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .modifier(MapSafeAreaModifier())
+
+            controlPanel
+                .frame(width: width * 0.45)
+                .frame(maxHeight: .infinity)
+                .background(Color(UIColor.systemBackground))
         }
     }
 
     private var controlPanel: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             TransmissionButtonsBar()
-            Divider()
-            QSOStatusView().padding(.horizontal)
-//            DXInfoFields().padding(.horizontal)
-            MessageSelector().padding(.horizontal)
+                .padding(.horizontal)
+                .padding(.trailing, 8)
         }
+    }
+
+    private var portraitHeader: some View {
+        VStack(spacing: 0) {
+            if UIDevice.current.userInterfaceIdiom != .pad {
+                let columns = [GridItem(.flexible()), GridItem(.flexible())]
+
+                LazyVGrid(columns: columns, spacing: 8) {
+                    if #available(iOS 16.0, *) {
+                        StatusView()
+                            .gridCellColumns(2)
+                            .frame(maxWidth: .infinity)
+                        ClockView()
+                            .gridCellColumns(2)
+                    } else {
+                        StatusView()
+                            .frame(maxWidth: .infinity)
+                        ClockView()
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+            }
+
+            TransmissionButtonsBar()
+                .padding(.horizontal)
+        }
+        .background(Color(UIColor.systemBackground))
     }
 
 }

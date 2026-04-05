@@ -98,7 +98,40 @@ final class AudioManager: NSObject, AudioManaging {
 
     // MARK: - Engine failure tracking (reduces Crashlytics noise)
 
-    private var engineStartFailureLogged = false
+    // MARK: - Route-change re-entrancy guard
+
+    /// `true` while `reconfigureEngineAfterRouteChange()` is executing.
+    /// Prevents the feedback loop where `configureAudioSession()` triggers
+    /// `.categoryChange` / `.override` route-change notifications that would
+    /// re-enter the same reconfiguration path.
+    /// `internal(set)` so unit tests can seed the flag.
+    private(set) var isReconfiguring = false
+
+    /// Minimum interval between successive reconfigurations to debounce
+    /// rapid-fire route change notifications from the OS.
+    private let routeChangeDebounceInterval: TimeInterval = 0.5
+    /// Timestamp of the last successful reconfiguration entry.
+    /// `internal(set)` so unit tests can seed the date.
+    var lastRouteChangeDate: Date = .distantPast
+
+    /// Date of the first engine-start failure in the current failure run.
+    /// `nil` means no active failure run. Only reset after a full successful playback,
+    /// not just after a transient engine start (which avoids re-logging on every TX slot).
+    /// `internal` so unit tests can seed the date without hitting AVAudioEngine.
+    var engineStartFirstFailureDate: Date?
+    private let engineStartErrorCooldown: TimeInterval = 5 * 60   // 5 min
+
+    /// Returns `true` when a new Crashlytics non-fatal should be recorded for an
+    /// engine-start failure. `false` means the error is within the suppression window.
+    /// Exposed as `internal` for deterministic unit testing.
+    func shouldRecordEngineStartError(at date: Date = Date()) -> Bool {
+        guard let firstFailure = engineStartFirstFailureDate,
+              date.timeIntervalSince(firstFailure) < engineStartErrorCooldown
+        else {
+            return true
+        }
+        return false
+    }
 
     // MARK: - Preview Task
 
@@ -164,6 +197,8 @@ final class AudioManager: NSObject, AudioManaging {
         }
 
         observeAudioSessionInterruptions()
+        observeAudioSessionRouteChanges()
+        observeEngineConfigurationChanges()
 
         audioLogger.log(
             .info,
@@ -182,7 +217,8 @@ final class AudioManager: NSObject, AudioManaging {
                 options: [
                     .defaultToSpeaker,
                     .allowBluetoothHFP,
-                    .allowBluetoothA2DP
+                    .allowBluetoothA2DP,
+                    .allowAirPlay
                 ]
             )
         } catch {
@@ -228,24 +264,24 @@ final class AudioManager: NSObject, AudioManaging {
     // MARK: - Engine Control
 
     private func startEngineIfNeeded() throws {
-        guard !audioEngine.isRunning else {
-            engineStartFailureLogged = false
-            return
-        }
+        guard !audioEngine.isRunning else { return }
 
         do {
             try audioEngine.start()
             audioLogger.log(.info, "AudioEngine started")
-            engineStartFailureLogged = false
+            // Do NOT clear engineStartFirstFailureDate here — a transient start during
+            // interruption recovery should not re-arm the Crashlytics gate. It is cleared
+            // only after a complete successful playback (see playAudio).
         } catch {
             let wrappedError = AudioManagerError.engineStartFailed(underlying: error)
             audioErrorPublisher.send(wrappedError.localizedDescription)
 
-            // Only log as .error (→ Crashlytics non-fatal) on the first failure
-            if !engineStartFailureLogged {
+            if shouldRecordEngineStartError() {
+                // First failure (or cooldown expired) — record to Crashlytics once
                 audioLogger.log(.error, wrappedError.localizedDescription)
-                engineStartFailureLogged = true
+                engineStartFirstFailureDate = Date()
             } else {
+                // Within cooldown window — suppress Crashlytics, log locally only
                 audioLogger.log(.warning, "Engine start still failing: \(wrappedError.localizedDescription)")
             }
 
@@ -408,6 +444,10 @@ final class AudioManager: NSObject, AudioManaging {
         var gain = Float(gainState.withLock { min(max($0, minGain), maxGain) })
         vDSP_vsmul(buffer.floatChannelData![0], 1, &gain, buffer.floatChannelData![0], 1, vDSP_Length(nSamples))
 
+        // Reactivate session before engine start — recovers from interruptions
+        // where the session became inactive between slots.
+        try? AVAudioSession.sharedInstance().setActive(true)
+
         do {
             try startEngineIfNeeded()
         } catch {
@@ -416,7 +456,12 @@ final class AudioManager: NSObject, AudioManaging {
         }
 
         playerNode.scheduleBuffer(buffer) { [weak self] in
-            DispatchQueue.main.async { self?.isPlaying = false }
+            DispatchQueue.main.async {
+                self?.isPlaying = false
+                // Playback completed successfully — reset the failure gate so a future
+                // genuine engine failure gets a fresh Crashlytics event.
+                self?.engineStartFirstFailureDate = nil
+            }
         }
 
         isPlaying = true
@@ -446,6 +491,126 @@ final class AudioManager: NSObject, AudioManaging {
         }
     }
 
+    // MARK: - Audio Route Change Recovery
+
+    private func observeAudioSessionRouteChanges() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionRouteChange(_:)),
+            name: AVAudioSession.routeChangeNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
+    /// Exposed as `internal` for deterministic unit testing. Do not call from app code.
+    @objc func handleAudioSessionRouteChange(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue)
+        else { return }
+
+        // Dispatch to main actor to safely access isListening and other mutable state.
+        Task { @MainActor [weak self] in
+            self?.handleRouteChange(reason: reason)
+        }
+    }
+
+    /// Exposed as `internal` for deterministic unit testing. Do not call from app code.
+    @MainActor
+    func handleRouteChange(reason: AVAudioSession.RouteChangeReason) {
+        switch reason {
+        case .newDeviceAvailable:
+            reconfigureEngineAfterRouteChange(reason: "new device available")
+        case .oldDeviceUnavailable:
+            reconfigureEngineAfterRouteChange(reason: "device removed")
+        case .wakeFromSleep:
+            reconfigureEngineAfterRouteChange(reason: "wake from sleep")
+        case .categoryChange, .override:
+            reconfigureEngineAfterRouteChange(reason: "category/override change")
+        case .noSuitableRouteForCategory:
+            audioLogger.log(.warning, "Audio route: no suitable route for current session category")
+            audioErrorPublisher.send("No audio output available. Check your audio device connection.")
+        default:
+            audioLogger.log(.debug, "Audio route changed (reason: \(reason.rawValue)) — ignored")
+        }
+    }
+
+    /// Stops the mic tap, reconfigures the session, and restarts the engine,
+    /// then reinstalls the tap using the new hardware format. Called after any
+    /// route change or AVAudioEngine I/O configuration change.
+    /// Exposed as `internal` for deterministic unit testing. Do not call from app code.
+    @MainActor
+    func reconfigureEngineAfterRouteChange(reason: String = "unknown") {
+        guard !environment.shouldDisableAudio, inputNode != nil else { return }
+
+        // Prevent re-entrant calls: configureAudioSession() sets category/mode/active
+        // which fires new .categoryChange/.override route-change notifications.
+        guard !isReconfiguring else {
+            audioLogger.log(.debug, "Audio route: \(reason) — skipped (reconfiguration in progress)")
+            return
+        }
+
+        // Debounce rapid-fire notifications from the OS.
+        let now = Date()
+        guard now.timeIntervalSince(lastRouteChangeDate) >= routeChangeDebounceInterval else {
+            audioLogger.log(.debug, "Audio route: \(reason) — debounced")
+            return
+        }
+        lastRouteChangeDate = now
+        isReconfiguring = true
+        defer { isReconfiguring = false }
+
+        audioLogger.log(.info, "Audio route: \(reason) — reconfiguring engine")
+
+        let wasListening = isListening
+
+        if wasListening {
+            inputNode?.removeTap(onBus: 0)
+        }
+
+        do {
+            try configureAudioSession()
+            try startEngineIfNeeded()
+        } catch {
+            audioLogger.log(.error, "Failed to reconfigure after route change: \(error.localizedDescription)")
+            audioErrorPublisher.send(error.localizedDescription)
+            return
+        }
+
+        guard wasListening, let inputNode else { return }
+
+        let hwFormat = inputNode.inputFormat(forBus: 0)
+        guard hwFormat.sampleRate > 0, hwFormat.channelCount > 0 else {
+            audioLogger.log(.error, "Hardware format invalid after route change — mic tap not reinstalled")
+            return
+        }
+        micSampleRate = hwFormat.sampleRate
+        audioLogger.log(.info, "Reinstalling mic tap after route change: \(micSampleRate) Hz")
+        do {
+            try installInputTap(on: inputNode, format: hwFormat)
+        } catch {
+            audioLogger.log(.error, "Failed to reinstall mic tap after route change: \(error.localizedDescription)")
+            audioErrorPublisher.send(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Engine Configuration Change Recovery
+
+    private func observeEngineConfigurationChanges() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleEngineConfigurationChange(_:)),
+            name: NSNotification.Name.AVAudioEngineConfigurationChange,
+            object: audioEngine
+        )
+    }
+
+    @objc private func handleEngineConfigurationChange(_ notification: Notification) {
+        Task { @MainActor [weak self] in
+            self?.reconfigureEngineAfterRouteChange(reason: "engine hardware config change")
+        }
+    }
+
     // MARK: - Audio Session Interruption Recovery
 
     private func observeAudioSessionInterruptions() {
@@ -457,7 +622,8 @@ final class AudioManager: NSObject, AudioManaging {
         )
     }
 
-    @objc private func handleAudioSessionInterruption(_ notification: Notification) {
+    /// Exposed as `internal` for deterministic unit testing. Do not call from app code.
+    @objc func handleAudioSessionInterruption(_ notification: Notification) {
         guard let userInfo = notification.userInfo,
               let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue)
@@ -465,6 +631,14 @@ final class AudioManager: NSObject, AudioManaging {
 
         switch type {
         case .began:
+            if #available(iOS 14.5, *) {
+                if let reasonValue = userInfo[AVAudioSessionInterruptionReasonKey] as? UInt,
+                   let reason = AVAudioSession.InterruptionReason(rawValue: reasonValue),
+                   reason == .builtInMicMuted {
+                    audioLogger.log(.info, "Audio session interrupted — built-in microphone muted by hardware switch")
+                    return
+                }
+            }
             audioLogger.log(.info, "Audio session interrupted")
         case .ended:
             let shouldResume = (userInfo[AVAudioSessionInterruptionOptionKey] as? UInt)
@@ -492,6 +666,8 @@ final class AudioManager: NSObject, AudioManaging {
     func cleanup() {
         fakeSamplesTask?.cancel()
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.AVAudioEngineConfigurationChange, object: nil)
         inputNode?.removeTap(onBus: 0)
         playerNode.stop()
         audioEngine.stop()

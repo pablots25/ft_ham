@@ -67,15 +67,19 @@ struct ContentView: View {
                     hasCompletedInitialPermissionFlow = true
                 }
                 // Decide which prompt to show at launch
-                if !hasCompletedOnboarding {
-                    isPresentingOnboarding = true
-                } else if !hasAcceptedTerms {
-                    isPresentingLicense = true
-                } else if AppVersionManager.shared.shouldShowWhatsNew {
-                    isPresentingWhatsNew = true
-                } else if !viewModel.settingsLoaded {
-                    showConfigAlert = true
-                    shouldNavigateToConfiguration = true
+                // Skip all full-screen covers in UI tests — the onboarding / terms
+                // covers would block every interaction target on a fresh simulator.
+                if !AppEnvironment.current.isUITest {
+                    if !hasCompletedOnboarding {
+                        isPresentingOnboarding = true
+                    } else if !hasAcceptedTerms {
+                        isPresentingLicense = true
+                    } else if AppVersionManager.shared.shouldShowWhatsNew {
+                        isPresentingWhatsNew = true
+                    } else if !viewModel.settingsLoaded {
+                        showConfigAlert = true
+                        shouldNavigateToConfiguration = true
+                    }
                 }
                 // Once UI is ready, evaluate RX start
                 evaluateAutoRX()
@@ -349,9 +353,17 @@ struct ContentView: View {
         @EnvironmentObject private var mapSettings: MapSettingsModel
         @EnvironmentObject private var flags: FeatureFlagManager
         
+        private var isDashboardEnabled: Bool {
+            #if DEBUG
+            return true
+            #else
+            return flags.isEnabled(.enableIpadDashboard)
+            #endif
+        }
+        
         var body: some View {
             Group {
-                if flags.isEnabled(.enableIpadDashboard) {
+                if isDashboardEnabled {
                     IpadDashboardView()
                         .onAppear {
                             AnalyticsManager.shared.trackScreen(.ipadDashboard)
@@ -368,6 +380,7 @@ struct ContentView: View {
     
     struct SeparatedTransmissionRootView: View {
         @State private var selectedPane: Pane = .received
+        @State private var showLegend: Bool = false
         @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
         enum Pane {
@@ -397,14 +410,30 @@ struct ContentView: View {
 
         // MARK: - Pane Picker
         private var panePicker: some View {
-            Picker("Pane", selection: $selectedPane) {
-                Text(String(localized: "Received"))
-                    .tag(Pane.received)
+            HStack(spacing: 8) {
+                Picker("Pane", selection: $selectedPane) {
+                    Text(String(localized: "Received"))
+                        .tag(Pane.received)
 
-                Text(String(localized: "Transmitted"))
-                    .tag(Pane.transmitted)
+                    Text(String(localized: "Transmitted"))
+                        .tag(Pane.transmitted)
+                }
+                .pickerStyle(.segmented)
+
+                if selectedPane == .transmitted {
+                    Button {
+                        showLegend.toggle()
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .sheet(isPresented: $showLegend) {
+                        MessageColorLegendView()
+                    }
+                }
             }
-            .pickerStyle(.segmented)
             .padding(.horizontal, 25)
             .padding(.bottom, 10)
         }
@@ -553,6 +582,7 @@ struct TermsSheet: View {
     return ContentView()
             .environmentObject(viewModel)
             .environmentObject(FeatureFlagManager.shared)
+            .environmentObject(PremiumManager.shared)
             .environment(\.locale, .init(identifier: "en"))
 }
 
@@ -568,6 +598,7 @@ struct TermsSheet: View {
     return ContentView()
         .environmentObject(viewModel)
         .environmentObject(FeatureFlagManager.shared)
+        .environmentObject(PremiumManager.shared)
         .environment(\.locale, .init(identifier: "es"))
 }
 

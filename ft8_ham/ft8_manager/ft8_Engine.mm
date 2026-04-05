@@ -229,6 +229,10 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
 
 #pragma mark - Real-time Decoding
 
+// NOTE: startRealtimeDecode:messageHandler: is legacy code that is never called
+// from Swift. AVAudioSession ownership and all audio I/O were migrated to
+// AudioManager.swift. The AVAudioSession configuration below is therefore dead
+// code and does not conflict with the live session at runtime.
 - (void)startRealtimeDecode:(BOOL)isFT4
              messageHandler:
                  (void (^)(NSArray<NSDictionary *> *messages))handler {

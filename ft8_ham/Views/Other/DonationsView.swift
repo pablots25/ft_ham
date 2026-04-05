@@ -16,9 +16,10 @@ struct TipJarView: View {
         VStack(spacing: 15) {
             Text("☕️ Support my app with a coffee")
 
-            if manager.products.isEmpty {
+            switch manager.loadingState {
+            case .idle, .loading:
                 ProgressView("Loading...")
-            } else {
+            case .loaded:
                 ForEach(manager.products, id: \.id) { product in
                     Button("\(product.displayName) – \(product.displayPrice)") {
                         Task {
@@ -26,6 +27,16 @@ struct TipJarView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
+                }
+            case .failed:
+                VStack(spacing: 10) {
+                    Text("Could not load donation options.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button("Retry") {
+                        Task { await manager.fetchProducts() }
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
         }

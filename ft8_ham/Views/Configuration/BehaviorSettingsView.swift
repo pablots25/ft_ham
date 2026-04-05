@@ -103,7 +103,7 @@ struct BehaviorSettingsContent: View {
 
                 Divider()
 
-                Group {
+                VStack(alignment: .leading, spacing: 10) {
                     Text("PSK reporter integration")
                         .font(.headline)
 
@@ -130,6 +130,9 @@ struct BehaviorSettingsContent: View {
                         } label: {
                             Color.clear
                         }
+                        .contentShape(Rectangle())
+                        .accessibilityIdentifier("button_pskReporterLock")
+                        .accessibilityLabel("PSK Reporter, Premium Feature")
                     }
                 }
         }

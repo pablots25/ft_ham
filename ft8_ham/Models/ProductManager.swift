@@ -7,12 +7,39 @@
 
 import StoreKit
 
+// MARK: - Testability seam
+
+protocol ProductFetching {
+    func fetchProducts(for identifiers: [String]) async throws -> [Product]
+}
+
+struct StoreKitProductFetcher: ProductFetching {
+    func fetchProducts(for identifiers: [String]) async throws -> [Product] {
+        try await Product.products(for: identifiers)
+    }
+}
+
+// MARK: -
+
 @MainActor
 class ProductManager: ObservableObject {
+    enum LoadingState {
+        case idle
+        case loading
+        case loaded
+        case failed(Error)
+    }
+
     private let logger = AppLogger(category: "PRODUCTS")
-    
+    private let fetcher: ProductFetching
+
     @Published var products: [Product] = []
-    
+    @Published private(set) var loadingState: LoadingState = .idle
+
+    init(fetcher: ProductFetching = StoreKitProductFetcher()) {
+        self.fetcher = fetcher
+    }
+
     /// Check if the user has made any purchases
     static func hasMadeAnyPurchase() async -> Bool {
         for await result in Transaction.all {
@@ -24,16 +51,19 @@ class ProductManager: ObservableObject {
     }
     
     func fetchProducts() async {
+        loadingState = .loading
         do {
-            let fetched = try await Product.products(for: [
+            let fetched = try await fetcher.fetchProducts(for: [
                 "coffe_small",
                 "coffe_medium",
                 "coffee_large",
             ])
             self.products = fetched
+            loadingState = .loaded
             logger.info("Successfully loaded \(fetched.count) products")
         } catch {
-            logger.error("Failed to load products: \(error.localizedDescription)")
+            loadingState = .failed(error)
+            logger.warning("Failed to load products: \(error.localizedDescription)")
         }
     }
     

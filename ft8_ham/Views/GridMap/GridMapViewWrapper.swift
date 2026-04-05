@@ -5,6 +5,7 @@
 //  Created by Pablo Turrion on 13/03/26.
 //
 
+import MapKit
 import SwiftUI
 import CoreLocation
 
@@ -16,12 +17,16 @@ struct GridMapViewWrapper: View {
     @Binding var showCountryCircles: Bool
     @Binding var showGeodesics: Bool
     @Binding var showAnnotations: Bool
+    @State private var userTrackingMode: MKUserTrackingMode = .none
     @State private var isControlsExpanded: Bool = false
+    @State private var showMapLegend: Bool = false
 
     @ViewBuilder
     var body: some View {
         if #available(iOS 18.0, *) {
-            mapContent.toolbarVisibility(.visible, for: .tabBar)
+            mapContent
+                .toolbarVisibility(.visible, for: .tabBar)
+                .toolbarBackground(.visible, for: .tabBar)
         } else {
             mapContent
         }
@@ -36,7 +41,8 @@ struct GridMapViewWrapper: View {
                 showGrids: showGrids,
                 showCountryCircles: showCountryCircles,
                 showGeodesics: showGeodesics,
-                showAnnotations: showAnnotations
+                showAnnotations: showAnnotations,
+                userTrackingMode: $userTrackingMode
             )
             .modifier(MapSafeAreaModifier())
 
@@ -46,6 +52,15 @@ struct GridMapViewWrapper: View {
     }
 
     // MARK: - Floating Map Controls
+
+    private var trackingModeIcon: String {
+        switch userTrackingMode {
+        case .follow: return "location.fill"
+        case .followWithHeading: return "location.north.fill"
+        default: return "location"
+        }
+    }
+
     private var mapControlBar: some View {
         HStack(spacing: 12) {
             Button {
@@ -102,6 +117,34 @@ struct GridMapViewWrapper: View {
                     Image(systemName: showAnnotations ? "tag.fill" : "tag")
                         .foregroundStyle(showAnnotations ? .blue : .primary)
                 }
+            }
+
+            Divider()
+
+            Button {
+                switch userTrackingMode {
+                case .none:
+                    userTrackingMode = .follow
+                case .follow:
+                    userTrackingMode = .followWithHeading
+                default:
+                    userTrackingMode = .none
+                }
+            } label: {
+                Image(systemName: trackingModeIcon)
+                    .foregroundStyle(userTrackingMode == .none ? Color.secondary : Color.blue)
+            }
+
+            Divider()
+
+            Button {
+                showMapLegend.toggle()
+            } label: {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+            }
+            .sheet(isPresented: $showMapLegend) {
+                MapLegendView()
             }
         }
         .padding(.horizontal, 10)

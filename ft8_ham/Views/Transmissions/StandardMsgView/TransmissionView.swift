@@ -18,6 +18,8 @@ struct TransmissionView: View {
     @AppStorage("showOnlyInvolved")
     private var showOnlyInvolved: Bool = false
 
+    @State private var showLegend: Bool = false
+
     private var needsTutorial: Bool {
         !hasSeenTutorial
     }
@@ -77,11 +79,13 @@ private extension TransmissionView {
         VStack(spacing: 10) {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
             
-            LazyVGrid(columns: columns, spacing: 12) {
-                StatusView().gridCellColumns(2)
-                ClockView().gridCellColumns(2)
+            if UIDevice.current.userInterfaceIdiom != .pad {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    StatusView().gridCellColumns(2)
+                    ClockView().gridCellColumns(2)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
             
             TransmissionButtonsBar()
                 .padding(.horizontal)
@@ -172,7 +176,7 @@ private extension TransmissionView {
                     Button(String(localized: "Clear"), action: clearAction)
                         .disabled(messages.isEmpty)
                     
-                    if(allowReply){
+                    if allowReply {
                         Button {
                             withAnimation(.easeInOut(duration: 0.15)) {
                                 showOnlyInvolved.toggle()
@@ -186,6 +190,20 @@ private extension TransmissionView {
                             .accessibilityLabel("Filter messages")
                         }
                         .buttonStyle(.plain)
+                    }
+
+                    if !allowReply {
+                        Button {
+                            showLegend.toggle()
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $showLegend) {
+                            MessageColorLegendView()
+                        }
                     }
                 }
                 .padding(.vertical, 6)

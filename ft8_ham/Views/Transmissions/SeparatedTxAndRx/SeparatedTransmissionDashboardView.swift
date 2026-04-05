@@ -12,7 +12,8 @@ import SwiftUI
 struct SeparatedTransmissionDashboardView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @AppStorage("showOnlyInvolvedSeparatedTX") private var showOnlyInvolved: Bool = false
-    
+    @State private var showLegend: Bool = false
+
     var body: some View {
         GeometryReader { geo in
             let isLandscape = geo.size.width > geo.size.height
@@ -90,13 +91,42 @@ struct SeparatedTransmissionDashboardView: View {
             HStack {
                 Text(title)
                     .font(.headline)
-                
-                Spacer()
-                
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
                 Button(String(localized: "Clear"), action: clearAction)
                     .disabled(messages.isEmpty)
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+
+                Spacer()
+
+                if showFilter {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            showOnlyInvolved.toggle()
+                        }
+                    } label: {
+                        Image(systemName: showOnlyInvolved
+                              ? "line.3.horizontal.decrease.circle.fill"
+                              : "line.3.horizontal.decrease.circle")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
+                        .accessibilityLabel("Filter messages")
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if !showFilter {
+                    Button {
+                        showLegend.toggle()
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .sheet(isPresented: $showLegend) {
+                        MessageColorLegendView()
+                    }
+                }
             }
             .padding(.horizontal, LayoutConstants.compactPadding)
             .padding(.vertical, 4)

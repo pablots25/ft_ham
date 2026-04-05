@@ -20,6 +20,8 @@ struct SeparatedTransmissionView: View {
     @AppStorage("showOnlyInvolvedSeparatedTX")
     private var showOnlyInvolved: Bool = false
 
+    @State private var showLegend: Bool = false
+
     private var needsTutorial: Bool {
         !hasSeenTutorial
     }
@@ -81,11 +83,13 @@ struct SeparatedTransmissionView: View {
         VStack(spacing: 10) {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
-            LazyVGrid(columns: columns, spacing: 12) {
-                StatusView().gridCellColumns(2)
-                ClockView().gridCellColumns(2)
+            if UIDevice.current.userInterfaceIdiom != .pad {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    StatusView().gridCellColumns(2)
+                    ClockView().gridCellColumns(2)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
 
             TransmissionButtonsBar()
                 .padding(.horizontal)
@@ -166,7 +170,7 @@ struct SeparatedTransmissionView: View {
 
                         Spacer()
 
-                        if(allowReply){
+                        if allowReply {
                             Button {
                                 withAnimation(.easeInOut(duration: 0.15)) {
                                     showOnlyInvolved.toggle()
@@ -180,6 +184,18 @@ struct SeparatedTransmissionView: View {
                                 .accessibilityLabel("Filter messages")
                             }
                             .buttonStyle(.plain)
+                        }
+
+                        Button {
+                            showLegend.toggle()
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $showLegend) {
+                            MessageColorLegendView()
                         }
                     }
                     .padding(.horizontal)

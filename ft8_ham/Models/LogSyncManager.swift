@@ -89,11 +89,13 @@ final class LogSyncManager: ObservableObject {
         let idString = entry.id.uuidString
 
         if qrzAutoUpload && qrzService.hasAPIKey {
-            insertPendingID(idString, into: &pendingQRZIDs, storageKey: StorageKeys.pendingQRZIDs)
+            pendingQRZIDs.insert(idString)
+            persistPendingIDs(pendingQRZIDs, forKey: StorageKeys.pendingQRZIDs)
             Task {
                 let result = await qrzService.uploadADIF(adif)
                 if result.success {
-                    removePendingID(idString, from: &pendingQRZIDs, storageKey: StorageKeys.pendingQRZIDs)
+                    pendingQRZIDs.remove(idString)
+                    persistPendingIDs(pendingQRZIDs, forKey: StorageKeys.pendingQRZIDs)
                     logger.info("QRZ upload success for \(entry.callsign)")
                 } else {
                     logger.warning("QRZ upload failed for \(entry.callsign): \(result.errorMessage ?? "unknown")")
@@ -102,11 +104,13 @@ final class LogSyncManager: ObservableObject {
         }
 
         if lotwAutoUpload && lotwService.hasCertificate {
-            insertPendingID(idString, into: &pendingLoTWIDs, storageKey: StorageKeys.pendingLoTWIDs)
+            pendingLoTWIDs.insert(idString)
+            persistPendingIDs(pendingLoTWIDs, forKey: StorageKeys.pendingLoTWIDs)
             Task {
                 let result = await lotwService.uploadADIF(adif)
                 if result.success {
-                    removePendingID(idString, from: &pendingLoTWIDs, storageKey: StorageKeys.pendingLoTWIDs)
+                    pendingLoTWIDs.remove(idString)
+                    persistPendingIDs(pendingLoTWIDs, forKey: StorageKeys.pendingLoTWIDs)
                     logger.info("LoTW upload success for \(entry.callsign)")
                 } else {
                     logger.warning("LoTW upload failed for \(entry.callsign): \(result.errorMessage ?? "unknown")")
@@ -114,11 +118,13 @@ final class LogSyncManager: ObservableObject {
             }
         }
         if eqslAutoUpload && eqslService.hasCredentials {
-            insertPendingID(idString, into: &pendingEQSLIDs, storageKey: StorageKeys.pendingEQSLIDs)
+            pendingEQSLIDs.insert(idString)
+            persistPendingIDs(pendingEQSLIDs, forKey: StorageKeys.pendingEQSLIDs)
             Task {
                 let result = await eqslService.uploadADIF(adif)
                 if result.success {
-                    removePendingID(idString, from: &pendingEQSLIDs, storageKey: StorageKeys.pendingEQSLIDs)
+                    pendingEQSLIDs.remove(idString)
+                    persistPendingIDs(pendingEQSLIDs, forKey: StorageKeys.pendingEQSLIDs)
                     logger.info("eQSL upload success for \(entry.callsign)")
                 } else {
                     logger.warning("eQSL upload failed for \(entry.callsign): \(result.errorMessage ?? "unknown")")
@@ -139,7 +145,8 @@ final class LogSyncManager: ObservableObject {
             Task {
                 let result = await qrzService.uploadADIF(adif)
                 if result.success {
-                    removePendingID(idString, from: &pendingQRZIDs, storageKey: StorageKeys.pendingQRZIDs)
+                    pendingQRZIDs.remove(idString)
+                    persistPendingIDs(pendingQRZIDs, forKey: StorageKeys.pendingQRZIDs)
                 }
             }
         }
@@ -150,7 +157,8 @@ final class LogSyncManager: ObservableObject {
             Task {
                 let result = await lotwService.uploadADIF(adif)
                 if result.success {
-                    removePendingID(idString, from: &pendingLoTWIDs, storageKey: StorageKeys.pendingLoTWIDs)
+                    pendingLoTWIDs.remove(idString)
+                    persistPendingIDs(pendingLoTWIDs, forKey: StorageKeys.pendingLoTWIDs)
                 }
             }
         }
@@ -162,7 +170,8 @@ final class LogSyncManager: ObservableObject {
             Task {
                 let result = await eqslService.uploadADIF(adif)
                 if result.success {
-                    removePendingID(idString, from: &pendingEQSLIDs, storageKey: StorageKeys.pendingEQSLIDs)
+                    pendingEQSLIDs.remove(idString)
+                    persistPendingIDs(pendingEQSLIDs, forKey: StorageKeys.pendingEQSLIDs)
                 }
             }
         }
@@ -230,16 +239,6 @@ final class LogSyncManager: ObservableObject {
         }
 
         return decoded
-    }
-
-    private func insertPendingID(_ id: String, into set: inout Set<String>, storageKey: String) {
-        set.insert(id)
-        persistPendingIDs(set, forKey: storageKey)
-    }
-
-    private func removePendingID(_ id: String, from set: inout Set<String>, storageKey: String) {
-        set.remove(id)
-        persistPendingIDs(set, forKey: storageKey)
     }
 
     private func persistPendingIDs(_ ids: Set<String>, forKey key: String) {
