@@ -61,7 +61,14 @@ extension FT8ViewModel {
     @MainActor
     private func catDialFrequencyHz() -> Int64? {
         let mode: FT8Message.FT8MessageMode = isFT4 ? .ft4 : .ft8
-        guard let baseHz = selectedBand.frequency(for: mode) else { return nil }
+        let baseHz: Double
+        if let known = selectedBand.frequency(for: mode) {
+            baseHz = known
+        } else {
+            // .custom or .unknown — use the stored custom dial frequency directly
+            guard customDialFrequencyHz > 0 else { return nil }
+            baseHz = customDialFrequencyHz
+        }
         let offset = catApplyAudioOffset ? frequency : 0
         return Int64((baseHz + offset).rounded())
     }
@@ -118,9 +125,11 @@ extension FT8ViewModel {
         let host = catHost.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let port = catPortValue(), !host.isEmpty else { return }
 
-        Task {
+        catPollingTask?.cancel()
+        catPollingTask = Task {
             let response = await catController.getFrequency(host: host, port: port)
-            guard response.success,
+            guard !Task.isCancelled,
+                  response.success,
                   let polledHz = Int64(response.response.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
             await MainActor.run { [weak self] in
                 self?.applyPolledFrequency(polledHz)
@@ -129,8 +138,11 @@ extension FT8ViewModel {
     }
 
     /// Applies a frequency polled from the rig to the app's band/frequency state.
+    /// `internal` (not private) so unit tests can exercise this path directly.
     @MainActor
-    private func applyPolledFrequency(_ polledHz: Int64) {
+    func applyPolledFrequency(_ polledHz: Int64) {
+        if let sendDate = lastCatSendDate, Date().timeIntervalSince(sendDate) < 1.5 { return }
+
         // Remove audio offset if it was added on send, to get the true dial frequency
         let audioOffsetHz: Int64 = catApplyAudioOffset ? Int64(frequency.rounded()) : 0
         let baseDialHz = polledHz - audioOffsetHz

@@ -103,6 +103,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     internal let catController = PremiumFeatures.catController
     internal var catFrequencyUpdateWorkItem: DispatchWorkItem?
     internal var catPollingTimer: Timer?
+    /// Tracks the in-flight poll Task so we can cancel-and-replace when a new timer tick fires
+    /// before the previous getFrequency() call has returned (BUG 3).
+    internal var catPollingTask: Task<Void, Never>?
     /// Set to true while applying a radio-polled frequency update to suppress re-sending it back
     internal var isCatPollingUpdate = false
     /// Timestamp of the last frequency we sent to the radio (used to suppress polling echo)
@@ -382,7 +385,6 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         
         super.init()
         
-        self.selectedBandRaw = selectedBand.rawValue
         self.selectedBand = FT8Message.Band(rawValue: savedBandRaw) ?? .band10m
         self.isFT4 = storedIsFT4
         // Note: lastReceivedSNR is now a computed property delegating to qsoManager
@@ -403,11 +405,13 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         if !hasLoadedLogbook {
             do {
                 self.qsoList = try logbookManager.loadEntries()
+                self.adifURL = logbookManager.saveInternalLog(self.qsoList) ?? logbookManager.getEmptyADIFURL()
             } catch {
                 self.logbookLoadError = "Your logbook could not be read. It may be corrupted. (\(error.localizedDescription))"
                 appLogger.error("setupLogbook: failed to load entries: \(error.localizedDescription)")
+                // Do NOT overwrite the corrupted file — preserve it for potential manual recovery
+                self.adifURL = logbookManager.getEmptyADIFURL()
             }
-            self.adifURL = logbookManager.saveInternalLog(self.qsoList) ?? logbookManager.getEmptyADIFURL()
             hasLoadedLogbook = true
         }
 
@@ -540,6 +544,25 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         qsoList.removeAll()
         logbookManager.clearLogbook()
         adifURL = logbookManager.saveInternalLog([])
+    }
+
+    @MainActor
+    func clearLogbookAfterError() {
+        logbookLoadError = nil
+        clearLogbookConfirmed()
+    }
+
+    @MainActor
+    func restoreLogbookFromBackup() {
+        do {
+            let restored = try logbookManager.restoreFromBackup()
+            qsoList = restored
+            adifURL = logbookManager.getEmptyADIFURL()
+            logbookLoadError = nil
+            appLogger.info("Logbook restored from backup: \(restored.count) entries")
+        } catch {
+            logbookLoadError = "Could not restore backup: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Location Manager Setup
