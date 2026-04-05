@@ -75,10 +75,17 @@ struct CQModifierView: View {
     @AppStorage("mySotaRef") var mySotaRef: String = ""
     @AppStorage("myWwffRef") var myWwffRef: String = ""
     @AppStorage("myIotaRef") var myIotaRef: String = ""
+    @AppStorage("autoCQReplyEnabled") private var autoCQReplyEnabled: Bool = false
+    @AppStorage("autoQSOLogging") private var autoQSOLogging: Bool = true
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var showingActivationModeAlert = false
     
     private var cqModifier: CQModifier {
         CQModifier(rawValue: cqModifierRaw) ?? .none
+    }
+
+    private var isActivationModifier: Bool {
+        cqModifier.group == .activations
     }
     
     var body: some View {
@@ -104,6 +111,23 @@ struct CQModifierView: View {
             .buttonStyle(.plain)
             
             referenceFieldView
+
+            if isActivationModifier {
+                Button("Apply Activation Mode") {
+                    showingActivationModeAlert = true
+                }
+                .font(.subheadline)
+                .padding(.top, 4)
+                .alert("Apply Activation Mode?", isPresented: $showingActivationModeAlert) {
+                    Button("Apply") {
+                        autoCQReplyEnabled = true
+                        autoQSOLogging = true
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will enable Auto CQ Reply and Auto QSO Logging.")
+                }
+            }
         }
         .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
         .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)

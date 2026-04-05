@@ -37,6 +37,8 @@ struct ExportOptionsView: View {
     @State private var selectedOption: ExportOption = .all
     @State private var startDate: Date = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
     @State private var endDate: Date = Date()
+    @State private var startTime: Date = Calendar(identifier: .gregorian).startOfDay(for: Date())
+    @State private var endTime: Date = Date()
     @State private var showingShareSheet = false
     @State private var exportURL: URL?
     
@@ -89,17 +91,31 @@ struct ExportOptionsView: View {
                             in: ...endDate,
                             displayedComponents: .date
                         )
-                        
+
                         DatePicker(
                             "End Date",
                             selection: $endDate,
                             in: startDate...Date(),
                             displayedComponents: .date
                         )
+
+                        DatePicker(
+                            "Start Time (UTC)",
+                            selection: $startTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+
+                        DatePicker(
+                            "End Time (UTC)",
+                            selection: $endTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
                     } header: {
-                        Text("Date Range (UTC)")
+                        Text("Date & Time Range (UTC)")
                     } footer: {
-                        Text("All QSOs between the selected dates will be exported")
+                        Text("Only QSOs within the selected dates and UTC time window will be exported")
                     }
                 }
                 
@@ -150,11 +166,24 @@ struct ExportOptionsView: View {
         case .all:
             return viewModel.qsoList
         case .dateRange:
-            return viewModel.logbookManager.filterEntries(
+            var filtered = viewModel.logbookManager.filterEntries(
                 viewModel.qsoList,
                 from: startDate,
                 to: endDate
             )
+            // Apply UTC time-of-day window
+            let utc = TimeZone(secondsFromGMT: 0)!
+            let cal = Calendar(identifier: .gregorian)
+            let startComps = cal.dateComponents(in: utc, from: startTime)
+            let endComps = cal.dateComponents(in: utc, from: endTime)
+            let startSec = (startComps.hour ?? 0) * 3600 + (startComps.minute ?? 0) * 60
+            let endSec = (endComps.hour ?? 23) * 3600 + (endComps.minute ?? 59) * 60
+            filtered = filtered.filter { entry in
+                let c = cal.dateComponents(in: utc, from: entry.date)
+                let s = (c.hour ?? 0) * 3600 + (c.minute ?? 0) * 60
+                return s >= startSec && s <= endSec
+            }
+            return filtered
         case .recent:
             let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
             return viewModel.logbookManager.filterEntries(

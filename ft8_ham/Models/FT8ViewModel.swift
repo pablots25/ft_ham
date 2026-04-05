@@ -102,6 +102,11 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     // MARK: - CAT (uses protocol-based dependency injection)
     internal let catController = PremiumFeatures.catController
     internal var catFrequencyUpdateWorkItem: DispatchWorkItem?
+    internal var catPollingTimer: Timer?
+    /// Set to true while applying a radio-polled frequency update to suppress re-sending it back
+    internal var isCatPollingUpdate = false
+    /// Timestamp of the last frequency we sent to the radio (used to suppress polling echo)
+    internal var lastCatSendDate: Date?
     
     // MARK: - Published Properties
     @Published var decodedMessage: FT8Message?
@@ -202,11 +207,31 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
 
-    @AppStorage("catEnabled") var catEnabled = false
+    @AppStorage("catEnabled") var catEnabled = false {
+        didSet {
+            if catEnabled {
+                connectCatController()
+                if catSyncFrequency {
+                    startCatFrequencyPolling()
+                }
+            } else {
+                stopCatFrequencyPolling()
+                catController.disconnect()
+            }
+        }
+    }
     @AppStorage("catHost") var catHost = "127.0.0.1"
     @AppStorage("catPort") var catPort = 4532
     @AppStorage("catPTTEnabled") var catPTTEnabled = true
-    @AppStorage("catSyncFrequency") var catSyncFrequency = true
+    @AppStorage("catSyncFrequency") var catSyncFrequency = true {
+        didSet {
+            if catEnabled && catSyncFrequency {
+                startCatFrequencyPolling()
+            } else {
+                stopCatFrequencyPolling()
+            }
+        }
+    }
     @AppStorage("catApplyAudioOffset") var catApplyAudioOffset = false
 
     @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
@@ -272,6 +297,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         get { FT8Message.Band(rawValue: selectedBandRaw) ?? .band10m }
         set {
             selectedBandRaw = newValue.rawValue
+            guard !isCatPollingUpdate else { return }
             scheduleCatFrequencyUpdate(reason: "band change")
         }
     }
@@ -366,6 +392,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         setupMessageRefreshSubscriptions()
         setupPreviewData()
         configureLocationManager()
+        startCatFrequencyPollingIfNeeded()
         
         refreshMessagesIfNeeded(reason: "initial load")
     }
@@ -393,15 +420,20 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @MainActor
     private func setupPreviewData() {
         if isPreview {
-            receivedMessages = PreviewMocks.rxMessages
-            transmittedMessages = PreviewMocks.txMessages
-            
-            extractWorkedLocators(from: PreviewMocks.rxMessages)
-            extractWorkedCountryPairs(from: PreviewMocks.rxMessages)
-            
-            qsoList = PreviewMocks.qsoList
+            loadMockData()
         }
     }
+
+    #if DEBUG
+    @MainActor
+    func loadMockData() {
+        receivedMessages = PreviewMocks.rxMessages
+        transmittedMessages = PreviewMocks.txMessages
+        extractWorkedLocators(from: PreviewMocks.rxMessages)
+        extractWorkedCountryPairs(from: PreviewMocks.rxMessages)
+        qsoList = PreviewMocks.qsoList
+    }
+    #endif
     
     @MainActor
     private func setupMessageRefreshSubscriptions() {

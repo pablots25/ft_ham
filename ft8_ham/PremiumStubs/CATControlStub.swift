@@ -14,6 +14,10 @@ public final class CATControlStub: CATControlProtocol {
     public static let shared = CATControlStub()
     
     private init() {}
+
+    public func connect(host: String, port: UInt16) {}
+
+    public func disconnect() {}
     
     public func setPTT(enabled: Bool, host: String, port: UInt16) async -> CatRigResponse {
         return CatRigResponse(

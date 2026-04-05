@@ -54,6 +54,12 @@ public enum CatRigError: LocalizedError {
 /// Premium implementation provides real rigctld integration
 /// Stub implementation provides NO-OP methods for public-only builds
 public protocol CATControlProtocol: Sendable {
+    /// Open a persistent connection to rigctld
+    func connect(host: String, port: UInt16)
+
+    /// Close the persistent connection
+    func disconnect()
+
     /// Set PTT (Push To Talk) state
     func setPTT(enabled: Bool, host: String, port: UInt16) async -> CatRigResponse
     

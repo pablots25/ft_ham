@@ -21,6 +21,14 @@ private final class CATControlAdapter: CATControlProtocol {
     init(controller: FTHamPremium.CatRigController) {
         self.controller = controller
     }
+
+    func connect(host: String, port: UInt16) {
+        controller.connect(host: host, port: port)
+    }
+
+    func disconnect() {
+        controller.disconnect()
+    }
     
     func setPTT(enabled: Bool, host: String, port: UInt16) async -> CatRigResponse {
         let result = await controller.setPTT(enabled: enabled, host: host, port: port)

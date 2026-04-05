@@ -17,6 +17,10 @@ final class CatRigController: CATControlProtocol {
 
     private init() {}
 
+    func connect(host: String, port: UInt16) {}
+
+    func disconnect() {}
+
     func setPTT(enabled: Bool, host: String, port: UInt16) async -> CatRigResponse {
         let command = "T \(enabled ? 1 : 0)"
         return await sendCommand(command, host: host, port: port)

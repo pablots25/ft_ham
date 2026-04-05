@@ -20,7 +20,8 @@ final class FeatureFlagManager: ObservableObject {
     @Published private(set) var values: [FeatureFlag: Bool]
 
 #if DEBUG
-    private var newConfigViewOverride: Bool? = nil
+    private static let newConfigViewOverrideKey = "debug.newConfigViewOverride"
+    private var newConfigViewOverride: Bool? = UserDefaults.standard.object(forKey: newConfigViewOverrideKey) as? Bool
 #endif
     
     private init(provider: FeatureFlagProvider = RemoteConfigProvider()) {
@@ -86,6 +87,7 @@ final class FeatureFlagManager: ObservableObject {
         guard flag == .newConfigView else { return }
         newConfigViewOverride = value
         values[flag] = value
+        UserDefaults.standard.set(value, forKey: Self.newConfigViewOverrideKey)
         logger.info("[DEBUG] Feature flag '\(flag.rawValue)' overridden to: \(value)")
     }
 #endif

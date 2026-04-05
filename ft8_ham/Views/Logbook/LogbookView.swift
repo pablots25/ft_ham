@@ -13,6 +13,7 @@ struct LogbookView: View {
     @EnvironmentObject var viewModel: FT8ViewModel
 
     @AppStorage("logbookTimeDisplayLocal") private var displayLocalTime: Bool = false
+    @State private var showingImportSheet = false
 
     var body: some View {
         List {
@@ -149,6 +150,19 @@ struct LogbookView: View {
                     : "Display time in UTC"
                 )
             }
+
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    showingImportSheet = true
+                } label: {
+                    Label("Import ADIF", systemImage: "square.and.arrow.down")
+                }
+                .accessibilityLabel("Import QSOs from ADIF file")
+            }
+        }
+        .sheet(isPresented: $showingImportSheet) {
+            LogbookImportView()
+                .environmentObject(viewModel)
         }
         .onAppear {
             sortQSOsByDate()

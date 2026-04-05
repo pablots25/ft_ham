@@ -144,6 +144,7 @@ protocol LogbookManaging {
     func saveInternalLog(_ qsoList: [LogEntry]) -> URL?
     func saveToADIF(_ qsoList: [LogEntry]) -> URL?
     func exportToADIF(_ qsoList: [LogEntry]) -> URL?
+    func importFromADIF(url: URL, existingEntries: [LogEntry]) -> ImportResult
     func clearLogbook()
     func getEmptyADIFURL() -> URL
     func filterEntries(_ entries: [LogEntry], from startDate: Date?, to endDate: Date?) -> [LogEntry]

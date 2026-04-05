@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(FTHamPremium)
+import FTHamPremium
+#endif
 
 #if DEBUG
 struct DebugSettingsView: View {
@@ -14,6 +17,7 @@ struct DebugSettingsView: View {
     @State private var showWhatsNew = false
     @State private var showPaywall = false
     @EnvironmentObject private var premiumManager: PremiumManager
+    @State private var showMockDataLoaded = false
 
     var body: some View {
         SettingsScrollContainer(title: "Debug", alignment: .leading, spacing: 20) {
@@ -31,6 +35,15 @@ struct DebugSettingsView: View {
                     set: { premiumManager.setDebugPremium(enabled: $0) }
                 )) {
                     Label("Premium Enabled", systemImage: "star.fill")
+                }
+
+                Divider()
+
+                Button {
+                    viewModel.loadMockData()
+                    showMockDataLoaded = true
+                } label: {
+                    Label("Load Mock Data", systemImage: "tray.and.arrow.down.fill")
                 }
 
                 Divider()
@@ -90,12 +103,28 @@ struct DebugSettingsView: View {
                 #else
                 PSKReporterDebugViewStub()
                 #endif
+
+                Divider()
+
+                Text("CAT Control")
+                    .font(.headline)
+
+                #if canImport(FTHamPremium)
+                CatDebugView()
+                #else
+                CatDebugViewStub()
+                #endif
         }
         .sheet(isPresented: $showWhatsNew) {
             WhatsNewView()
         }
         .sheet(isPresented: $showPaywall) {
             PremiumPaywallView(source: "debug")
+        }
+        .alert("Mock Data Loaded", isPresented: $showMockDataLoaded) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("RX messages, TX messages, and QSO log have been populated with sample data.")
         }
     }
 }

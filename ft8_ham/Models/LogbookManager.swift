@@ -21,6 +21,13 @@ enum LogSyncStatus: String, Codable, Sendable {
     case rejected      // Remote service rejected with a permanent error
 }
 
+// MARK: - ImportResult
+
+struct ImportResult {
+    let imported: Int
+    let skipped: Int
+}
+
 // MARK: - LogEntry
 
 struct LogEntry: Identifiable {
@@ -183,6 +190,7 @@ final class LogbookManager: LogbookManaging {
         let qsoDateRaw = extractField(record, field: "QSO_DATE")
         let timeOnRaw = extractField(record, field: "TIME_ON")
         let freqRaw = extractField(record, field: "FREQ")
+        let modeRaw = extractField(record, field: "MODE").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
         let qsoDate = qsoDateRaw.trimmingCharacters(in: .whitespacesAndNewlines)
         let timeOnClean = timeOnRaw
@@ -222,12 +230,14 @@ final class LogbookManager: LogbookManaging {
             return mhz * 1_000_000
         }()
 
+        let mode = ["FT8", "FT4"].contains(modeRaw) ? modeRaw : "FT8"
+
         return LogEntry(
             callsign: call,
             grid: grid,
             date: parsedDate ?? Date(timeIntervalSince1970: 0),
             frequencyHz: parsedFrequencyHz,
-            mode: "FT8",
+            mode: mode,
             band: band,
             rstSent: rSent,
             rstRcvd: rRcvd,
@@ -239,6 +249,48 @@ final class LogbookManager: LogbookManaging {
         )
     }
 
+
+    // MARK: - Import from external ADIF file
+    func importFromADIF(url: URL, existingEntries: [LogEntry]) -> ImportResult {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            appLogger.error("importFromADIF: failed to read file at \(url.lastPathComponent)")
+            return ImportResult(imported: 0, skipped: 0)
+        }
+
+        // Normalise <EOR> tag casing before splitting
+        let normalised = content.replacingOccurrences(of: "<eor>", with: "<EOR>", options: .caseInsensitive)
+        let rawRecords = normalised.components(separatedBy: "<EOR>")
+
+        var newEntries: [LogEntry] = []
+        var skipped = 0
+
+        for record in rawRecords where record.lowercased().contains("<call") {
+            let entry = parseRecord(record)
+            if isDuplicate(entry, in: existingEntries) {
+                skipped += 1
+            } else {
+                newEntries.append(entry)
+            }
+        }
+
+        if !newEntries.isEmpty {
+            _ = saveToADIF(existingEntries + newEntries)
+        }
+
+        appLogger.info("importFromADIF: \(newEntries.count) imported, \(skipped) skipped")
+        return ImportResult(imported: newEntries.count, skipped: skipped)
+    }
+
+    private func isDuplicate(_ entry: LogEntry, in existing: [LogEntry]) -> Bool {
+        existing.contains { e in
+            e.callsign == entry.callsign &&
+            e.band == entry.band &&
+            abs(e.date.timeIntervalSince(entry.date)) < 120
+        }
+    }
 
     // MARK: - Save QSO list to ADIF (UTC)
     func saveToADIF(_ qsoList: [LogEntry]) -> URL? {
