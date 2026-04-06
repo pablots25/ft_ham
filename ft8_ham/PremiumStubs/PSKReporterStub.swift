@@ -11,7 +11,8 @@ import Combine
 
 /// Stub PSK Reporter that does nothing
 /// Used when premium package is not available
-public final class PSKReporterStub: PSKReporterProtocol {
+@MainActor
+public final class PSKReporterStub: @preconcurrency PSKReporterProtocol {
     public static let shared = PSKReporterStub()
     
     @Published public private(set) var stats = PSKReporterStats()
@@ -21,7 +22,7 @@ public final class PSKReporterStub: PSKReporterProtocol {
     @Published public var lastReport: PSKReporterReport?
     @Published public var isTestMode: Bool = false
     
-    private init() {}
+    nonisolated private init() {}
     
     public func report(_ report: PSKReporterReport, testMode: Bool = false) {
         // NO-OP - premium feature not available

@@ -19,7 +19,7 @@ private let performanceLog = OSLog(subsystem: "com.ft8ham.app", category: "Perfo
 
 // MARK: - ViewModel
 @MainActor
-final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLLocationManagerDelegate {
+final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @preconcurrency CLLocationManagerDelegate {
     
     // MARK: - Location Manager
     private let locationManager = CLLocationManager()
@@ -331,6 +331,11 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     var settingsLoaded: Bool {
         !callsign.isEmpty && isValidCallsign(callsign) &&
         !locator.isEmpty && isValidLocator(locator)
+    }
+
+    /// QSOs sorted by date descending. The view reads this instead of mutating qsoList.
+    var sortedQSOList: [LogEntry] {
+        qsoList.sorted { $0.date > $1.date }
     }
     
     // MARK: - Initialization

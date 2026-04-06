@@ -306,7 +306,7 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         return config
       }
         
-        let jsonString = remoteConfig["prompt_config"].stringValue ?? defaultPromptConfigJSON()
+        let jsonString = remoteConfig["prompt_config"].stringValue
         let decoder = JSONDecoder()
         
         do {
@@ -332,7 +332,7 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         return config
       }
         
-        let jsonString = remoteConfig["whats_new_config"].stringValue ?? defaultWhatsNewConfigJSON()
+        let jsonString = remoteConfig["whats_new_config"].stringValue
         let decoder = JSONDecoder()
         
         do {

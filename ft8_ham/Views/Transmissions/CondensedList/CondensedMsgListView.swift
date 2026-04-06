@@ -73,6 +73,7 @@ struct CondensedMsgListView: View {
                                         .contentShape(Rectangle())
                                         .onTapGesture {
                                             guard allowReply && msg.allowsReply else { return }
+                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                             viewModel.reply(to: msg)
                                         }
                                         .swipeToReply(

@@ -13,52 +13,122 @@ struct LogbookImportView: View {
     @Environment(\.dismiss) private var dismiss
     /// Set by the caller to receive the result when the sheet is dismissed.
     @Binding var lastImportResult: ImportResult?
+
     @State private var showingFilePicker = false
-    @State private var isImporting = false
-    @State private var importResult: ImportResult?
-    @State private var importError: String?
+    @State private var isParsing = false
+    @State private var isCommitting = false
+    @State private var parseError: String?
+
+    // Preview state — populated after parsing, before committing
+    @State private var previewEntries: [LogEntry] = []
+    @State private var previewSkipped: Int = 0
+    @State private var fileName: String = ""
+
+    private var isPreviewing: Bool { !previewEntries.isEmpty || previewSkipped > 0 }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Text("Import QSOs from an ADIF file (.adi / .adif). Duplicate entries are automatically skipped based on callsign, band, and time (±2 min).")
-                        .foregroundStyle(.secondary)
-                        .font(.subheadline)
+                // MARK: Instructions
+                if !isPreviewing {
+                    Section {
+                        Text("Select an ADIF file (.adi / .adif). You'll see a preview before anything is imported. Duplicate entries are skipped based on callsign, band, and time (±2 min).")
+                            .foregroundStyle(.secondary)
+                            .font(.subheadline)
+                    }
                 }
 
+                // MARK: File picker button
                 Section {
                     Button {
                         showingFilePicker = true
                     } label: {
-                        Label("Choose ADIF File…", systemImage: "square.and.arrow.down")
+                        Label(
+                            isPreviewing ? "Choose a Different File…" : "Choose ADIF File…",
+                            systemImage: "square.and.arrow.down"
+                        )
                     }
-                    .disabled(isImporting)
+                    .disabled(isParsing || isCommitting)
                 }
 
-                if isImporting {
+                // MARK: Parsing progress
+                if isParsing {
                     Section {
                         HStack(spacing: 12) {
                             ProgressView()
-                            Text("Importing…")
+                            Text("Reading file…")
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
 
-                if let result = importResult {
-                    Section {
-                        LabeledContent("Imported", value: "\(result.imported)")
-                        LabeledContent("Skipped (duplicates)", value: "\(result.skipped)")
-                    } header: {
-                        Text("Result")
-                    }
-                }
-
-                if let error = importError {
+                // MARK: Parse error
+                if let error = parseError {
                     Section {
                         Text(error)
                             .foregroundStyle(.red)
+                    }
+                }
+
+                // MARK: Preview
+                if isPreviewing {
+                    Section {
+                        if !fileName.isEmpty {
+                            LabeledContent("File", value: fileName)
+                                .foregroundStyle(.secondary)
+                        }
+                        LabeledContent("New QSOs to import", value: "\(previewEntries.count)")
+                        LabeledContent("Duplicates (skipped)", value: "\(previewSkipped)")
+                    } header: {
+                        Text("Preview")
+                    } footer: {
+                        if previewEntries.isEmpty {
+                            Text("Nothing new to import — all records are duplicates.")
+                        }
+                    }
+
+                    // Sample of first 5 callsigns
+                    if !previewEntries.isEmpty {
+                        Section {
+                            ForEach(previewEntries.prefix(5), id: \.id) { entry in
+                                HStack {
+                                    if let flag = entry.flag { Text(flag) }
+                                    Text(entry.callsign).fontWeight(.medium)
+                                    Spacer()
+                                    Text(entry.band).foregroundStyle(.secondary).font(.caption)
+                                    Text(entry.mode).foregroundStyle(.secondary).font(.caption)
+                                }
+                            }
+                            if previewEntries.count > 5 {
+                                Text("… and \(previewEntries.count - 5) more")
+                                    .foregroundStyle(.secondary)
+                                    .font(.caption)
+                            }
+                        } header: {
+                            Text("Sample")
+                        }
+                    }
+
+                    // MARK: Import button
+                    if !previewEntries.isEmpty {
+                        Section {
+                            Button {
+                                commitImport()
+                            } label: {
+                                if isCommitting {
+                                    HStack(spacing: 10) {
+                                        ProgressView()
+                                        Text("Importing…")
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                } else {
+                                    Text("Import \(previewEntries.count) QSO\(previewEntries.count == 1 ? "" : "s")")
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                            .disabled(isCommitting)
+                        }
                     }
                 }
             }
@@ -81,41 +151,63 @@ struct LogbookImportView: View {
                 switch result {
                 case .success(let urls):
                     guard let url = urls.first else { return }
-                    runImport(url: url)
+                    runPreview(url: url)
                 case .failure(let error):
-                    importError = error.localizedDescription
+                    parseError = error.localizedDescription
                 }
             }
         }
     }
 
-    private func runImport(url: URL) {
-        isImporting = true
-        importResult = nil
-        importError = nil
+    // MARK: - Parse (preview only, no write)
+
+    private func runPreview(url: URL) {
+        isParsing = true
+        parseError = nil
+        previewEntries = []
+        previewSkipped = 0
+        fileName = url.lastPathComponent
 
         let existingEntries = viewModel.qsoList
         let manager = viewModel.logbookManager
 
         Task {
-            let result = await Task.detached(priority: .userInitiated) {
-                manager.importFromADIF(url: url, existingEntries: existingEntries)
+            let (newEntries, skipped, error) = await Task.detached(priority: .userInitiated) {
+                manager.previewADIF(url: url, existingEntries: existingEntries)
             }.value
 
-            if let error = result.error {
-                importError = error
+            if let error {
+                parseError = error
             } else {
-                do {
-                    viewModel.qsoList = try manager.loadEntries()
-                } catch {
-                    importError = "Could not reload logbook after import: \(error.localizedDescription)"
-                }
+                previewEntries = newEntries
+                previewSkipped = skipped
             }
-            importResult = result
-            if result.error == nil {
-                lastImportResult = result
+            isParsing = false
+        }
+    }
+
+    // MARK: - Commit (write + dismiss)
+
+    private func commitImport() {
+        isCommitting = true
+        let entriesToWrite = previewEntries
+        let existingEntries = viewModel.qsoList
+        let manager = viewModel.logbookManager
+
+        Task {
+            await Task.detached(priority: .userInitiated) {
+                manager.commitImport(newEntries: entriesToWrite, existingEntries: existingEntries)
+            }.value
+
+            do {
+                viewModel.qsoList = try manager.loadEntries()
+            } catch {
+                // Non-fatal — entries are on disk; the reload will happen next launch
             }
-            isImporting = false
+
+            lastImportResult = ImportResult(imported: entriesToWrite.count, skipped: previewSkipped)
+            isCommitting = false
+            dismiss()
         }
     }
 }

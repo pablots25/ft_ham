@@ -68,9 +68,7 @@ func isSignalReport(_ token: Substring) -> Bool {
 
     // Handle optional leading 'R' (ack) e.g. R+12, R-8
     var text = raw
-    var hasRPrefix = false
     if text.hasPrefix("R") {
-        hasRPrefix = true
         text = String(text.dropFirst())
     }
 

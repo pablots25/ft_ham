@@ -15,7 +15,7 @@ struct CloseButton: View {
         Button {
             dismiss()
         } label: {
-            Image(systemName: "xmark.circle.fill")
+            Image(systemName: "xmark")
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
                 .font(.title3)

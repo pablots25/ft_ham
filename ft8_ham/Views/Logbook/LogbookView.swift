@@ -15,156 +15,60 @@ struct LogbookView: View {
     @AppStorage("logbookTimeDisplayLocal") private var displayLocalTime: Bool = false
     @State private var showingImportSheet = false
     @State private var searchText = ""
-    @State private var editingEntry: LogEntry? = nil
-    @State private var lastImportResult: ImportResult? = nil
+    @State private var filteredQSOs: [LogEntry] = []
+    @State private var editingEntry: LogEntry?
+    @State private var lastImportResult: ImportResult?
     @State private var showImportResultAlert = false
+    @State private var expandedIDs: Set<UUID> = []
 
-    // MARK: - Filtered QSOs
+    // MARK: - Filtering
 
-    private var filteredQSOs: [LogEntry] {
-        guard !searchText.isEmpty else { return viewModel.qsoList }
-        let q = searchText.lowercased()
-        return viewModel.qsoList.filter {
-            $0.callsign.lowercased().contains(q)
-            || $0.grid.lowercased().contains(q)
-            || ($0.country?.lowercased().contains(q) ?? false)
-            || $0.mode.lowercased().contains(q)
-            || $0.band.lowercased().contains(q)
+    private func applyFilter() {
+        let source = viewModel.sortedQSOList
+        guard !searchText.isEmpty else {
+            filteredQSOs = source
+            return
         }
+        let q = searchText.lowercased()
+        filteredQSOs = source.filter { matches($0, query: q) }
+    }
+
+    private func matches(_ entry: LogEntry, query q: String) -> Bool {
+        if entry.callsign.lowercased().contains(q) { return true }
+        if entry.grid.lowercased().contains(q) { return true }
+        if entry.country?.lowercased().contains(q) == true { return true }
+        if entry.mode.lowercased().contains(q) { return true }
+        if entry.band.lowercased().contains(q) { return true }
+        return false
     }
 
     var body: some View {
         List {
-            ForEach(filteredQSOs, id: \.id) { entry in
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(entry.callsign)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .minimumScaleFactor(0.85)
-
-                            if let flag = entry.flag {
-                                Text(flag)
-                                    .font(.headline)
-                            }
-
-                            if let country = entry.country, !country.isEmpty {
-                                Text(country)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-
-                        Text(entry.grid)
-                            .foregroundStyle(.primary)
-
-                        if let station = entry.stationCallsign, !station.isEmpty {
-                            Text("Station: \(station)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let hz = entry.frequencyHz {
-                            Text(String(format: "%.3f MHz", hz / 1_000_000))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let cqModifier = entry.cqModifier, !cqModifier.isEmpty {
-                            if let sigInfo = entry.mySigInfo, !sigInfo.isEmpty {
-                                Text("\(cqModifier): \(sigInfo)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+            ForEach(filteredQSOs) { entry in
+                LogbookRowCell(
+                    entry: entry,
+                    isExpanded: expandedIDs.contains(entry.id),
+                    displayLocalTime: displayLocalTime,
+                    onTap: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            if expandedIDs.contains(entry.id) {
+                                expandedIDs.remove(entry.id)
                             } else {
-                                Text("\(cqModifier)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                expandedIDs.insert(entry.id)
                             }
                         }
-                    }
-
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        HStack(spacing: 2) {
-                            Text("SNR:")
-                                .font(.caption)
-                                .foregroundStyle(.primary)
-
-                            Text("\(entry.rstSent)")
-                                .font(.caption)
-                                .foregroundStyle(.primary)
-                            Text("(TX)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            Text("/")
-                                .font(.caption)
-                                .foregroundStyle(.primary)
-
-                            Text("\(entry.rstRcvd)")
-                                .font(.caption)
-                                .foregroundStyle(.primary)
-                            Text("(RX)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .lineLimit(1)
-
-                        Text(dateFormatter.string(from: entry.date))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        HStack(spacing: 1) {
-                            Text(timeFormatter.string(from: entry.date))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            if displayLocalTime {
-                                Text("(Local)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-
-                    VStack(alignment: .trailing, spacing: 4) {
-                        if !entry.mode.isEmpty {
-                            Text(entry.mode)
-                                .font(.caption)
-                                .foregroundStyle(.primary)
-                                .padding(6)
-                                .background(modeColor(entry.mode).opacity(0.2))
-                                .cornerRadius(6)
-                        }
-                        if entry.band != "Unknown" && !entry.band.isEmpty {
-                            Text(entry.band)
-                                .font(.caption)
-                                .foregroundStyle(.primary)
-                                .padding(6)
-                                .background(bandColor(entry.band).opacity(0.2))
-                                .cornerRadius(6)
-                        }
-                    }
-                }
-                .listRowBackground(Color.clear)
-                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                    Button {
-                        editingEntry = entry
-                    } label: {
-                        Label("Edit", systemImage: "pencil")
-                    }
-                    .tint(.blue)
-                }
+                    },
+                    onEdit: { editingEntry = entry }
+                )
             }
             .onDelete(perform: deleteQSOs)
         }
         .listStyle(.plain)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Callsign, grid, country…")
+        .searchable(text: $searchText, prompt: "Callsign, grid, country, mode, band…")
+        .onChange(of: searchText) { _ in applyFilter() }
+        .onChange(of: viewModel.qsoList.count) { _ in applyFilter() }
+        .onChange(of: viewModel.qsoList.first?.id) { _ in applyFilter() }
+        .onAppear { applyFilter() }
         .overlay {
             if viewModel.qsoList.isEmpty {
                 VStack {
@@ -177,7 +81,7 @@ struct LogbookView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .automatic) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     displayLocalTime.toggle()
                 } label: {
@@ -193,7 +97,7 @@ struct LogbookView: View {
                 )
             }
 
-            ToolbarItem(placement: .automatic) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingImportSheet = true
                 } label: {
@@ -202,12 +106,14 @@ struct LogbookView: View {
                 .accessibilityLabel("Import QSOs from ADIF file")
             }
         }
-        .sheet(isPresented: $showingImportSheet, onDismiss: {
-            if lastImportResult != nil { showImportResultAlert = true }
-        }) {
-            LogbookImportView(lastImportResult: $lastImportResult)
-                .environmentObject(viewModel)
-        }
+        .sheet(
+            isPresented: $showingImportSheet,
+            onDismiss: { if lastImportResult != nil { showImportResultAlert = true } },
+            content: {
+                LogbookImportView(lastImportResult: $lastImportResult)
+                    .environmentObject(viewModel)
+            }
+        )
         .sheet(item: $editingEntry) { entry in
             QSOEditView(entry: entry) { updated in
                 if let idx = viewModel.qsoList.firstIndex(where: { $0.id == updated.id }) {
@@ -234,49 +140,6 @@ struct LogbookView: View {
         } message: {
             Text(viewModel.logbookLoadError ?? "")
         }
-        .onAppear {
-            sortQSOsByDate()
-        }
-        .onChange(of: viewModel.qsoList.count) { _ in
-            sortQSOsByDate()
-        }
-    }
-
-    // MARK: - Badge Colors
-
-    private func modeColor(_ mode: String) -> Color {
-        switch mode.uppercased() {
-        case "FT8":  return .green
-        case "FT4":  return .blue
-        default:     return .gray
-        }
-    }
-
-    private func bandColor(_ band: String) -> Color {
-        switch band {
-        case "160m":    return .purple
-        case "80m":     return Color(red: 0.5, green: 0.0, blue: 0.5)  // dark purple
-        case "60m":     return .indigo
-        case "40m":     return .blue
-        case "30m":     return .teal
-        case "20m":     return .green
-        case "17m":     return .cyan
-        case "15m":     return .yellow
-        case "12m":     return .orange
-        case "CB/11m":  return .gray
-        case "10m":     return .red
-        case "6m":      return .pink
-        case "Custom":  return .mint
-        default:        return .blue
-        }
-    }
-
-    // MARK: - Sorting
-
-    private func sortQSOsByDate() {
-        viewModel.qsoList.sort { lhs, rhs in
-            lhs.date > rhs.date
-        }
     }
 
     // MARK: - Delete Handler
@@ -294,31 +157,6 @@ struct LogbookView: View {
         }
     }
 
-    // MARK: - Date / Time Formatters (UI only)
-
-    private var activeTimeZone: TimeZone {
-        displayLocalTime ? .current : TimeZone(secondsFromGMT: 0)!
-    }
-
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = activeTimeZone
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }
-
-    private var timeFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = activeTimeZone
-        formatter.dateFormat = displayLocalTime
-            ? "HH:mm:ss"
-            : "HH:mm:ss 'UTC'"
-        return formatter
-    }
 }
 
 // MARK: - Preview

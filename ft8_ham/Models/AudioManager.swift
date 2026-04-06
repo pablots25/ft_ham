@@ -105,7 +105,7 @@ final class AudioManager: NSObject, AudioManaging {
     /// `.categoryChange` / `.override` route-change notifications that would
     /// re-enter the same reconfiguration path.
     /// `internal(set)` so unit tests can seed the flag.
-    internal(set) var isReconfiguring = false
+    var isReconfiguring = false
 
     /// Minimum interval between successive reconfigurations to debounce
     /// rapid-fire route change notifications from the OS.
@@ -327,24 +327,17 @@ final class AudioManager: NSObject, AudioManaging {
         micSampleRate = hwFormat.sampleRate
         audioLogger.log(.info, "Mic format validated: \(micSampleRate) Hz")
 
-        do {
-            try installInputTap(on: inputNode, format: hwFormat)
-            isListening = true
-            audioLogger.log(.info, "Mic input tap installed successfully")
-        } catch {
-            audioLogger.log(.error, "Failed to install input tap: \(error.localizedDescription)")
-            audioErrorPublisher.send("Failed to start microphone: \(error.localizedDescription)")
-            isListening = false
-        }
+        installInputTap(on: inputNode, format: hwFormat)
+        isListening = true
+        audioLogger.log(.info, "Mic input tap installed successfully")
     }
 
-    private func installInputTap(on inputNode: AVAudioInputNode, format: AVAudioFormat) throws {
-        do {
-            try inputNode.installTap(
-                onBus: 0,
-                bufferSize: AVAudioFrameCount(waterfallFFTSize),
-                format: format
-            ) { [weak self] buffer, _ in
+    private func installInputTap(on inputNode: AVAudioInputNode, format: AVAudioFormat) {
+        inputNode.installTap(
+            onBus: 0,
+            bufferSize: AVAudioFrameCount(waterfallFFTSize),
+            format: format
+        ) { [weak self] buffer, _ in
                 guard
                     let self,
                     let ptr = buffer.floatChannelData
@@ -385,9 +378,6 @@ final class AudioManager: NSObject, AudioManaging {
 
                 self.audioSamplesPublisher.send(output)
             }
-        } catch {
-            throw AudioManagerError.tapInstallationFailed(underlying: error)
-        }
     }
 
     @MainActor
@@ -437,7 +427,7 @@ final class AudioManager: NSObject, AudioManaging {
 
         buffer.frameLength = AVAudioFrameCount(nSamples)
 
-        audioData.withUnsafeBytes {
+        _ = audioData.withUnsafeBytes {
             memcpy(buffer.floatChannelData![0], $0.baseAddress!, audioData.count)
         }
 
@@ -586,12 +576,7 @@ final class AudioManager: NSObject, AudioManaging {
         }
         micSampleRate = hwFormat.sampleRate
         audioLogger.log(.info, "Reinstalling mic tap after route change: \(micSampleRate) Hz")
-        do {
-            try installInputTap(on: inputNode, format: hwFormat)
-        } catch {
-            audioLogger.log(.error, "Failed to reinstall mic tap after route change: \(error.localizedDescription)")
-            audioErrorPublisher.send(error.localizedDescription)
-        }
+        installInputTap(on: inputNode, format: hwFormat)
     }
 
     // MARK: - Engine Configuration Change Recovery

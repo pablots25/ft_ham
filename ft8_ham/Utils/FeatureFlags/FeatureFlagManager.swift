@@ -49,7 +49,7 @@ final class FeatureFlagManager: ObservableObject {
         
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            self?.refresh()
+            Task { @MainActor [weak self] in self?.refresh() }
         }
     }
     

@@ -57,7 +57,7 @@ public protocol eQSLServiceProtocol: ObservableObject {
 /// No-op eQSL service used when premium package is not available.
 @MainActor
 public final class eQSLServiceStub: eQSLServiceProtocol {
-    public static let shared = eQSLServiceStub()
+    nonisolated(unsafe) public static let shared = eQSLServiceStub()
     public nonisolated let objectWillChange = ObservableObjectPublisher()
 
     public var pendingCount: Int { 0 }
@@ -65,7 +65,7 @@ public final class eQSLServiceStub: eQSLServiceProtocol {
     public var isSyncing: Bool { false }
     public var hasCredentials: Bool { false }
 
-    private init() {}
+    nonisolated private init() {}
 
     public func uploadADIF(_ adif: String) async -> eQSLUploadResult {
         eQSLUploadResult(success: false, errorMessage: "eQSL integration requires Premium")

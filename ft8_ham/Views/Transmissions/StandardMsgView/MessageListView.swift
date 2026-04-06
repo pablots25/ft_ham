@@ -68,6 +68,7 @@ struct MessageListView: View {
                                     .contentShape(Rectangle())
                                     .onTapGesture {
                                         guard msg.allowsReply && allowReply else { return }
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                         viewModel.reply(to: msg)
                                     }
                                     .swipeActionsIfNeeded(allowReply: msg.allowsReply && allowReply) {

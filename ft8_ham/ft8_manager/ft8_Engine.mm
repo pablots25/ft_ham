@@ -243,11 +243,14 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
   // AVAudioSession setup
   NSError *sessionError = nil;
   AVAudioSession *session = [AVAudioSession sharedInstance];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   [session setCategory:AVAudioSessionCategoryPlayAndRecord
            withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker |
                        AVAudioSessionCategoryOptionAllowBluetooth |
                        AVAudioSessionCategoryOptionAllowBluetoothA2DP
                  error:&sessionError];
+#pragma clang diagnostic pop
   [session setMode:AVAudioSessionModeMeasurement error:&sessionError];
   [session setPreferredSampleRate:12000 error:&sessionError];
   [session setActive:YES error:&sessionError];

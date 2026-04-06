@@ -183,7 +183,6 @@ extension FT8ViewModel {
         for message in reportableMessages {
             guard let senderCallsign = message.callsign, !senderCallsign.isEmpty else { continue }
             
-            let band = selectedBand.rawValue
             let frequencyHz = selectedBand.frequency(for: isFT4 ? .ft4 : .ft8) ?? 0
             let offsetHz = UInt64(message.frequency)
             let totalFreq = UInt64(frequencyHz) + offsetHz
@@ -237,7 +236,7 @@ extension FT8ViewModel {
                 await tryImmediateTXIfPossible()
             }
             
-        case .sendReport(let dxCall, let report):
+        case .sendReport(let dxCall, _):
             appLogger.info("Applying action: sendReport for \(dxCall)")
             invalidatePendingTX(reason: "RX action: sendReport")
             selectedMessageIndex = 2
@@ -256,7 +255,7 @@ extension FT8ViewModel {
                 await tryImmediateTXIfPossible()
             }
             
-        case .sendRReport(let dxCall, let report):
+        case .sendRReport(let dxCall, _):
             appLogger.info("Applying action: sendRReport for \(dxCall)")
             invalidatePendingTX(reason: "RX action: sendRReport")
             selectedMessageIndex = 3
@@ -382,8 +381,6 @@ extension FT8ViewModel {
             isReadyForTX = true
             
         case .ignore:
-            break
-        default:
             break
         }
     }

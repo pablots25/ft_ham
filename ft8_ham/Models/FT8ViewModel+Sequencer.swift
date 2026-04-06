@@ -119,7 +119,8 @@ extension FT8ViewModel {
                         let capturedLogger = self.rxLogger
                         self.isHarvestingRX = true
                         Task.detached(priority: .userInitiated) { [weak self] in
-                            defer { Task { await MainActor.run { self?.isHarvestingRX = false } } }
+                            let weakSelf = self
+                            defer { Task { await MainActor.run { weakSelf?.isHarvestingRX = false } } }
 
                             let msgs = capturedEngine.decodeAudioBuffer(
                                 audioToDecode,
@@ -128,7 +129,7 @@ extension FT8ViewModel {
                             )
 
                             capturedLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
-                            await self?.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
+                            await weakSelf?.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
                         }
                     } else {
                         if sampleCount < minSamples {

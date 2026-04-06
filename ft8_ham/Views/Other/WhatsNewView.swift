@@ -86,7 +86,7 @@ struct WhatsNewView: View {
                         AppVersionManager.shared.markWhatsNewAsViewed()
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
+                        Image(systemName: "xmark")
                             .foregroundColor(.secondary)
                     }
                 }

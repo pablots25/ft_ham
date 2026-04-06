@@ -122,10 +122,9 @@ final class QSOStatusManager: ObservableObject {
     init() {}
 
     // MARK: - Start a QSO (Run mode)
+    @discardableResult
     @MainActor
     func startReply(to message: FT8Message, myCallsign: String, myLocator: String) -> QSOAction {
-        let reportToSend: Int
-        
         guard let dx = message.callsign else {
             appLogger.debug("startReply: No callsign in message, ignoring.")
             return .ignore
@@ -177,8 +176,7 @@ final class QSOStatusManager: ObservableObject {
 
         let myCallUpper = myCallsign.uppercased()
         let dxCallUpper = dx.uppercased()
-        let was = qsoState
-        
+
         // --- IGNORE MESSAGES WHEN QSO IS COMPLETED/TIMEOUT (except courtesy) ---
         // Check if we're in a terminal state before processing further
         if case .completed = qsoState, !courtesyListeningEnabled {

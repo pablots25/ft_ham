@@ -104,7 +104,7 @@ extension FT8ViewModel {
         stopCatFrequencyPolling()
         guard catEnabled, catSyncFrequency else { return }
         catPollingTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.pollCatFrequency()
+            Task { @MainActor [weak self] in self?.pollCatFrequency() }
         }
         appLogger.debug("CAT frequency polling started (2s interval)")
     }

@@ -605,7 +605,7 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
         FT8Message:
           text: "\(text)"
           mode: \(mode.rawValue)
-          band: \(band.rawValue) (\(band.frequency(for: mode)) Hz)
+          band: \(band.rawValue) (\(band.frequency(for: mode) ?? 0) Hz)
           timestamp: \(timestamp)
           cycle: \(cycle.rawValue)
           isRealtime: \(isRealtime)

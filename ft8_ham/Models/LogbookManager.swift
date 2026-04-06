@@ -315,7 +315,7 @@ final class LogbookManager: LogbookManaging {
 
 
     // MARK: - Import from external ADIF file
-    func importFromADIF(url: URL, existingEntries: [LogEntry]) -> ImportResult {
+    func previewADIF(url: URL, existingEntries: [LogEntry]) -> (newEntries: [LogEntry], skipped: Int, error: String?) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
@@ -324,11 +324,10 @@ final class LogbookManager: LogbookManaging {
             content = try String(contentsOf: url, encoding: .utf8)
         } catch {
             let message = "Could not read the ADIF file: \(error.localizedDescription)"
-            appLogger.error("importFromADIF: failed to read file at \(url.lastPathComponent): \(error.localizedDescription)")
-            return ImportResult(imported: 0, skipped: 0, error: message)
+            appLogger.error("previewADIF: failed to read file at \(url.lastPathComponent): \(error.localizedDescription)")
+            return ([], 0, message)
         }
 
-        // Normalise <EOR> tag casing before splitting
         let normalised = content.replacingOccurrences(of: "<eor>", with: "<EOR>", options: .caseInsensitive)
         let rawRecords = normalised.components(separatedBy: "<EOR>")
 
@@ -344,10 +343,19 @@ final class LogbookManager: LogbookManaging {
             }
         }
 
-        if !newEntries.isEmpty {
-            _ = saveToADIF(existingEntries + newEntries)
-        }
+        return (newEntries, skipped, nil)
+    }
 
+    func commitImport(newEntries: [LogEntry], existingEntries: [LogEntry]) {
+        guard !newEntries.isEmpty else { return }
+        _ = saveToADIF(existingEntries + newEntries)
+        appLogger.info("commitImport: \(newEntries.count) entries written")
+    }
+
+    func importFromADIF(url: URL, existingEntries: [LogEntry]) -> ImportResult {
+        let (newEntries, skipped, error) = previewADIF(url: url, existingEntries: existingEntries)
+        if let error { return ImportResult(imported: 0, skipped: skipped, error: error) }
+        commitImport(newEntries: newEntries, existingEntries: existingEntries)
         appLogger.info("importFromADIF: \(newEntries.count) imported, \(skipped) skipped")
         return ImportResult(imported: newEntries.count, skipped: skipped)
     }

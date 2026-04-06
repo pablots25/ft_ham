@@ -53,16 +53,15 @@ private extension AppDelegate {
     func configureCrashlytics() {
         #if DEBUG
         Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(false)
-        return
         #else
         Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(true)
-        #endif
 
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
 
         Crashlytics.crashlytics().setCustomValue("\(version) (\(build))", forKey: "app_version")
         Crashlytics.crashlytics().setCustomValue(UIDevice.current.systemVersion, forKey: "ios_version")
+        #endif
     }
 
     func configureRemoteConfig() {
@@ -130,7 +129,7 @@ struct ft8_hamApp: App {
                 .task {
 #if canImport(TipKit)
                     if #available(iOS 17.0, *) {
-                        try? await Tips.configure()
+                        try? Tips.configure()
                     }
 #endif
                 }
