@@ -53,7 +53,7 @@ enum LogbookError: Error, LocalizedError {
 // MARK: - LogEntry
 
 struct LogEntry: Identifiable {
-    let id = UUID()
+    let id: UUID
     let callsign: String
     let grid: String
     let date: Date              // Always UTC instant
@@ -73,6 +73,7 @@ struct LogEntry: Identifiable {
     var lotwStatus: LogSyncStatus
 
     init(
+        id: UUID = UUID(),
         callsign: String,
         grid: String,
         date: Date,
@@ -89,6 +90,7 @@ struct LogEntry: Identifiable {
         qrzStatus: LogSyncStatus = .notUploaded,
         lotwStatus: LogSyncStatus = .notUploaded
     ) {
+        self.id = id
         self.callsign = callsign
         self.grid = grid
         self.date = date

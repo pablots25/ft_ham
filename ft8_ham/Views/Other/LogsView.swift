@@ -14,6 +14,7 @@ struct LogsView: View {
     @State private var showingShareSheet = false
     @State private var logFileURL: URL?
     @State private var selectedFilter: LogLevelFilter = .all
+    @State private var searchText: String = ""
     @State private var cachedFilteredLogs: [String] = []
     
     // States for loading and error management
@@ -25,18 +26,23 @@ struct LogsView: View {
         case all = "All"
         case info = "INFO"
         case debug = "DEBUG"
+        case warning = "WARNING"
         case error = "ERROR"
 
         var id: String { rawValue }
     }
 
     var filteredLogs: [String] {
+        let levelFiltered: [String]
         switch selectedFilter {
-        case .all: return store.logs
-        case .info: return store.logs.filter { $0.contains("[INFO]") }
-        case .debug: return store.logs.filter { $0.contains("[DEBUG]") }
-        case .error: return store.logs.filter { $0.contains("[ERROR]") }
+        case .all:     levelFiltered = store.logs
+        case .info:    levelFiltered = store.logs.filter { $0.contains("[INFO]") }
+        case .debug:   levelFiltered = store.logs.filter { $0.contains("[DEBUG]") }
+        case .warning: levelFiltered = store.logs.filter { $0.contains("[WARNING]") }
+        case .error:   levelFiltered = store.logs.filter { $0.contains("[ERROR]") }
         }
+        guard !searchText.isEmpty else { return levelFiltered }
+        return levelFiltered.filter { $0.localizedCaseInsensitiveContains(searchText) }
     }
 
     var body: some View {
@@ -94,6 +100,7 @@ struct LogsView: View {
                 .transition(.opacity)
             }
         }
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Filter logs…")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Clear") { store.clear() }
@@ -120,6 +127,9 @@ struct LogsView: View {
             cachedFilteredLogs = filteredLogs
         }
         .onChange(of: selectedFilter) { _ in
+            cachedFilteredLogs = filteredLogs
+        }
+        .onChange(of: searchText) { _ in
             cachedFilteredLogs = filteredLogs
         }
         .onChange(of: store.logs) { _ in
@@ -157,6 +167,8 @@ struct LogsView: View {
     private func color(for logLine: String) -> Color {
         if logLine.contains("[ERROR]") {
             return .red
+        } else if logLine.contains("[WARNING]") {
+            return .orange
         } else if logLine.contains("[DEBUG]") {
             return .gray
         } else {

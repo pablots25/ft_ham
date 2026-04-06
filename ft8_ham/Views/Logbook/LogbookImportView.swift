@@ -11,7 +11,8 @@ import UniformTypeIdentifiers
 struct LogbookImportView: View {
     @EnvironmentObject var viewModel: FT8ViewModel
     @Environment(\.dismiss) private var dismiss
-
+    /// Set by the caller to receive the result when the sheet is dismissed.
+    @Binding var lastImportResult: ImportResult?
     @State private var showingFilePicker = false
     @State private var isImporting = false
     @State private var importResult: ImportResult?
@@ -64,8 +65,8 @@ struct LogbookImportView: View {
             .navigationTitle("Import ADIF")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    CloseButton()
                 }
             }
             .fileImporter(
@@ -111,6 +112,9 @@ struct LogbookImportView: View {
                 }
             }
             importResult = result
+            if result.error == nil {
+                lastImportResult = result
+            }
             isImporting = false
         }
     }

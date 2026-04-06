@@ -17,6 +17,8 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @StateObject private var locationRequester = LocationPermissionRequester()
     @State private var permissionInProgress = false
+    @State private var showTermsSafari = false
+    @State private var showPrivacySafari = false
     
     private let contentPageCount = 10
     // After content pages: 1 terms page + permission pages + 1 finish page
@@ -177,14 +179,18 @@ struct OnboardingView: View {
                         .font(.headline)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        if let termsURL = URL(string: "https://ftham.turrion.dev/terms") {
-                            Link("Terms of Use", destination: termsURL)
-                        }
-                        if let privacyURL = URL(string: "https://ftham.turrion.dev/privacy") {
-                            Link("Privacy Policy", destination: privacyURL)
-                        }
+                        Button("Terms of Use") { showTermsSafari = true }
+                        Button("Privacy Policy") { showPrivacySafari = true }
                     }
                     .foregroundStyle(.blue)
+                    .sheet(isPresented: $showTermsSafari) {
+                        SafariView(url: URL(string: "https://ftham.turrion.dev/terms")!)
+                            .ignoresSafeArea()
+                    }
+                    .sheet(isPresented: $showPrivacySafari) {
+                        SafariView(url: URL(string: "https://ftham.turrion.dev/privacy")!)
+                            .ignoresSafeArea()
+                    }
 
                     Divider()
 

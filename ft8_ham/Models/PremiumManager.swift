@@ -28,6 +28,13 @@ final class PremiumManager: ObservableObject {
     @Published private(set) var premiumProduct: Product?
     @Published private(set) var isLoading: Bool = false
 
+    /// Whether the user's purchases include a donation transaction.
+    /// Checked asynchronously at launch; use alongside `isPremiumUnlocked`.
+    @Published private(set) var isDonor: Bool = false
+
+    /// Prevents the one-time "donors now have premium" prompt from showing more than once.
+    @AppStorage("didShowDonationPremiumPrompt") var didShowDonationPremiumPrompt: Bool = false
+
     #if DEBUG
     /// Debug-only override: when true, premium is treated as unlocked regardless of purchases.
     @Published private(set) var debugPremiumEnabled: Bool = UserDefaults.standard.bool(forKey: "debug_premium_enabled")
@@ -82,6 +89,7 @@ final class PremiumManager: ObservableObject {
         // 2. Check Keychain for persisted donation grant (survives device restores)
         if Self.hasDonationKeychainFlag() {
             logger.info("Premium unlocked via persisted donation flag (Keychain)")
+            isDonor = true
             isPremiumUnlocked = true
             return
         }
@@ -92,6 +100,7 @@ final class PremiumManager: ObservableObject {
                Self.donationProductIDs.contains(transaction.productID) {
                 logger.info("Premium unlocked via donation: \(transaction.productID)")
                 Self.setDonationKeychainFlag()
+                isDonor = true
                 isPremiumUnlocked = true
                 return
             }

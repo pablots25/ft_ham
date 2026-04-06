@@ -151,7 +151,7 @@ struct BehaviorSettingsContent: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { showPaywall = false }
+                            CloseButton()
                         }
                     }
             }

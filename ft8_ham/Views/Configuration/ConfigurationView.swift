@@ -204,7 +204,7 @@ struct ConfigurationView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { showSupport = false }
+                            CloseButton()
                         }
                     }
             }
@@ -217,7 +217,7 @@ struct ConfigurationView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { showPremium = false }
+                            CloseButton()
                         }
                     }
             }

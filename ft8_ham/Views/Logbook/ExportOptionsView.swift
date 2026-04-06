@@ -42,6 +42,8 @@ struct ExportOptionsView: View {
     @State private var showingShareSheet = false
     @State private var exportURL: URL?
     @State private var showExportError = false
+    @State private var showExportSuccess = false
+    @State private var exportedCount = 0
     
     private var lastExportDate: Date? {
         guard lastExportTimestamp > 0 else { return nil }
@@ -137,9 +139,7 @@ struct ExportOptionsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+                    CloseButton()
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
@@ -149,10 +149,17 @@ struct ExportOptionsView: View {
                     .disabled(filteredQSOCount() == 0)
                 }
             }
-            .sheet(isPresented: $showingShareSheet) {
+            .sheet(isPresented: $showingShareSheet, onDismiss: {
+                showExportSuccess = true
+            }) {
                 if let url = exportURL {
                     ActivityViewController(activityItems: [url])
                 }
+            }
+            .alert("Export Complete", isPresented: $showExportSuccess) {
+                Button("OK") {}
+            } message: {
+                Text("\(exportedCount) QSO(s) exported successfully.")
             }
             .alert("Export Failed", isPresented: $showExportError) {
                 Button("OK") {}
@@ -212,6 +219,7 @@ struct ExportOptionsView: View {
         
         if let url = viewModel.logbookManager.exportToADIF(filtered) {
             exportURL = url
+            exportedCount = filtered.count
             showingShareSheet = true
             
             // Save timestamp of successful export

@@ -14,16 +14,37 @@ struct LogbookView: View {
 
     @AppStorage("logbookTimeDisplayLocal") private var displayLocalTime: Bool = false
     @State private var showingImportSheet = false
+    @State private var searchText = ""
+    @State private var editingEntry: LogEntry? = nil
+    @State private var lastImportResult: ImportResult? = nil
+    @State private var showImportResultAlert = false
+
+    // MARK: - Filtered QSOs
+
+    private var filteredQSOs: [LogEntry] {
+        guard !searchText.isEmpty else { return viewModel.qsoList }
+        let q = searchText.lowercased()
+        return viewModel.qsoList.filter {
+            $0.callsign.lowercased().contains(q)
+            || $0.grid.lowercased().contains(q)
+            || ($0.country?.lowercased().contains(q) ?? false)
+            || $0.mode.lowercased().contains(q)
+            || $0.band.lowercased().contains(q)
+        }
+    }
 
     var body: some View {
         List {
-            ForEach($viewModel.qsoList) { $entry in
+            ForEach(filteredQSOs, id: \.id) { entry in
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
                             Text(entry.callsign)
                                 .font(.headline)
                                 .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .minimumScaleFactor(0.85)
 
                             if let flag = entry.flag {
                                 Text(flag)
@@ -131,10 +152,19 @@ struct LogbookView: View {
                     }
                 }
                 .listRowBackground(Color.clear)
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    Button {
+                        editingEntry = entry
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    .tint(.blue)
+                }
             }
             .onDelete(perform: deleteQSOs)
         }
         .listStyle(.plain)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Callsign, grid, country…")
         .overlay {
             if viewModel.qsoList.isEmpty {
                 VStack {
@@ -172,9 +202,25 @@ struct LogbookView: View {
                 .accessibilityLabel("Import QSOs from ADIF file")
             }
         }
-        .sheet(isPresented: $showingImportSheet) {
-            LogbookImportView()
+        .sheet(isPresented: $showingImportSheet, onDismiss: {
+            if lastImportResult != nil { showImportResultAlert = true }
+        }) {
+            LogbookImportView(lastImportResult: $lastImportResult)
                 .environmentObject(viewModel)
+        }
+        .sheet(item: $editingEntry) { entry in
+            QSOEditView(entry: entry) { updated in
+                if let idx = viewModel.qsoList.firstIndex(where: { $0.id == updated.id }) {
+                    viewModel.qsoList[idx] = updated
+                }
+            }
+        }
+        .alert("Import Complete", isPresented: $showImportResultAlert) {
+            Button("OK") { lastImportResult = nil }
+        } message: {
+            if let result = lastImportResult {
+                Text("\(result.imported) QSO(s) imported, \(result.skipped) skipped (duplicates).")
+            }
         }
         .alert("Logbook Error", isPresented: Binding(
             get: { viewModel.logbookLoadError != nil },
@@ -236,14 +282,16 @@ struct LogbookView: View {
     // MARK: - Delete Handler
 
     private func deleteQSOs(at offsets: IndexSet) {
-        offsets.forEach { index in
-            let removed = viewModel.qsoList[index]
-            viewModel.appLogger.log(
-                .info,
-                "Deleted QSO: \(removed.callsign) \(removed.grid)"
-            )
+        let idsToDelete = offsets.map { filteredQSOs[$0].id }
+        idsToDelete.forEach { id in
+            if let idx = viewModel.qsoList.firstIndex(where: { $0.id == id }) {
+                viewModel.appLogger.log(
+                    .info,
+                    "Deleted QSO: \(viewModel.qsoList[idx].callsign) \(viewModel.qsoList[idx].grid)"
+                )
+                viewModel.qsoList.remove(at: idx)
+            }
         }
-        viewModel.qsoList.remove(atOffsets: offsets)
     }
 
     // MARK: - Date / Time Formatters (UI only)

@@ -32,6 +32,7 @@ struct ContentView: View {
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
     @State private var isPresentingWhatsNew = false
+    @State private var isPresentingDonationPrompt = false
 
     var body: some View {
         mainLayout
@@ -52,6 +53,12 @@ struct ContentView: View {
             .fullScreenCover(isPresented: $isPresentingWhatsNew) {
                 WhatsNewView()
                     .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
+            }
+            // 4) Donation → Premium upgrade prompt (shown once)
+            .sheet(isPresented: $isPresentingDonationPrompt) {
+                DonationPremiumPromptView()
+                    .environmentObject(PremiumManager.shared)
+                    .interactiveDismissDisabled(true)
             }
             .task {
                 // Set initial tab: 4 if first launch, otherwise last used tab
@@ -76,6 +83,8 @@ struct ContentView: View {
                         isPresentingLicense = true
                     } else if AppVersionManager.shared.shouldShowWhatsNew {
                         isPresentingWhatsNew = true
+                    } else if PremiumManager.shared.isDonor && !PremiumManager.shared.didShowDonationPremiumPrompt {
+                        isPresentingDonationPrompt = true
                     } else if !viewModel.settingsLoaded {
                         showConfigAlert = true
                         shouldNavigateToConfiguration = true
@@ -112,8 +121,12 @@ struct ContentView: View {
             }
             .onChange(of: isPresentingWhatsNew) { isPresented in
                 if !isPresented {
-                    scheduleSettingsCheckIfNeeded()
-                    evaluateAutoRX()
+                    if PremiumManager.shared.isDonor && !PremiumManager.shared.didShowDonationPremiumPrompt {
+                        isPresentingDonationPrompt = true
+                    } else {
+                        scheduleSettingsCheckIfNeeded()
+                        evaluateAutoRX()
+                    }
                 }
             }
             .onChange(of: autoRXAtStart) { enabled in
@@ -517,7 +530,9 @@ struct ContentView: View {
 struct TermsSheet: View {
     @Binding var hasAcceptedTerms: Bool
     @Environment(\.dismiss) private var dismiss
-    
+    @State private var showTermsSafari = false
+    @State private var showPrivacySafari = false
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
@@ -533,8 +548,8 @@ struct TermsSheet: View {
                         .font(.headline)
                     
                     VStack(alignment: .leading, spacing: 10) {
-                        Link("Terms of Use", destination: URL(string: "https://ftham.turrion.dev/terms")!)
-                        Link("Privacy Policy", destination: URL(string: "https://ftham.turrion.dev/privacy")!)
+                        Button("Terms of Use") { showTermsSafari = true }
+                        Button("Privacy Policy") { showPrivacySafari = true }
                     }
                     .font(.body)
                         .foregroundStyle(.blue)
@@ -565,6 +580,14 @@ struct TermsSheet: View {
             }
             .padding()
             .navigationBarTitle("Terms & Privacy", displayMode: .inline)
+            .sheet(isPresented: $showTermsSafari) {
+                SafariView(url: URL(string: "https://ftham.turrion.dev/terms")!)
+                    .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showPrivacySafari) {
+                SafariView(url: URL(string: "https://ftham.turrion.dev/privacy")!)
+                    .ignoresSafeArea()
+            }
         }
     }
 }
