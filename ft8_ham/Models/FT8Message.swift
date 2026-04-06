@@ -55,7 +55,7 @@ struct CountryPair: Hashable {
 
 
 // -----------------------------------------------------
-struct FT8Message: Identifiable, Codable, CustomStringConvertible {
+struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
     static let appLogger = AppLogger(category: "MSG")
     
     let id: UUID

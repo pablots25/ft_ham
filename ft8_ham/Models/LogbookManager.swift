@@ -28,6 +28,9 @@ struct ImportResult {
     let skipped: Int
     let error: String?
 
+    /// Number of entries skipped because they were duplicates of existing entries.
+    var duplicates: Int { skipped }
+
     init(imported: Int, skipped: Int, error: String? = nil) {
         self.imported = imported
         self.skipped = skipped
