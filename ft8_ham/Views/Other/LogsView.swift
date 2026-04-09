@@ -103,7 +103,9 @@ struct LogsView: View {
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Filter logs…")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Clear") { store.clear() }
+                Button { store.clear() } label: {
+                    Image(systemName: "trash")
+                }
                 .disabled(isExporting)
             }
             ToolbarItem(placement: .navigationBarTrailing) {

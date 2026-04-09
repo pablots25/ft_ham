@@ -93,6 +93,7 @@ final class FlagUtility {
         "Cambodia": "🇰🇭",
         "Laos": "🇱🇦",
         "Brunei Darussalam": "🇧🇳",
+        "Timor - Leste": "🇹🇱",
         
         // Asia - South
         "India": "🇮🇳",
@@ -183,6 +184,7 @@ final class FlagUtility {
         "Eritrea": "🇪🇷",
         "Rwanda": "🇷🇼",
         "Burundi": "🇧🇮",
+        "South Sudan": "🇸🇸",
         
         // Africa - Southern
         "South Africa": "🇿🇦",
@@ -190,6 +192,7 @@ final class FlagUtility {
         "Zambia": "🇿🇲",
         "Mozambique": "🇲🇿",
         "Botswana": "🇧🇼",
+        "Eswatini": "🇸🇿",
         "Namibia": "🇳🇦",
         "Angola": "🇦🇴",
         "Malawi": "🇲🇼",
@@ -272,6 +275,9 @@ final class FlagUtility {
         "Saint Helena": "🇸🇭",
         "Ascension Island": "🇦🇨",
         "Tristan da Cunha": "🇹🇦",
+        "Falkland Islands": "🇫🇰",
+        "South Georgia Island": "🇬🇸",
+        "Bouvet": "🇧🇻",
         
         // Pacific Islands
         "Hawaii": "🇺🇸",
@@ -297,17 +303,32 @@ final class FlagUtility {
         "Malta": "🇲🇹",
         "Cyprus": "🇨🇾",
         "Aland Islands": "🇦🇽",
+        "Ceuta & Melilla": "🇪🇦",
+        "Heard Island": "🇭🇲",
     ]
     
     // MARK: - CTY Country Name Aliases
     /// Maps CTY country names to the canonical names in countryToFlag.
     /// This handles cases where CTY and the flag map use different official names.
     private static let ctyAliases: [String: String] = [
+        // CTY uses formal/historical names that differ from our canonical flag map keys
         "Republic of Korea": "South Korea",
         "DPR of Korea": "North Korea",
         "Cote d'Ivoire": "Ivory Coast",
         "Czech": "Czech Republic",
         "Russian Federation": "Russia",
+        "Fed. Rep. of Germany": "Germany",
+        "Dem. Rep. of the Congo": "Democratic Republic of the Congo",
+        "Kingdom of Eswatini": "Eswatini",
+        "Republic of South Sudan": "South Sudan",
+        // Island territories — map to the sovereign state
+        "Rodriguez Island": "Mauritius",
+        "Agalega & St. Brandon": "Mauritius",
+        "Annobon Island": "Equatorial Guinea",
+        "Conway Reef": "Fiji",
+        "Rotuma Island": "Fiji",
+        "San Felix & San Ambrosio": "Chile",
+        "Peter 1 Island": "Norway",
     ]
     
     /// Get flag emoji for a country name

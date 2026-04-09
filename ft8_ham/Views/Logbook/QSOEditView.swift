@@ -26,6 +26,7 @@ struct QSOEditView: View {
     @State private var stationCallsign: String
     @State private var cqModifier: String
     @State private var mySigInfo: String
+    @State private var showDiscardAlert = false
 
     private let modes = ["FT8", "FT4"]
     private let bands: [String] = FT8Message.Band.allCases
@@ -51,12 +52,50 @@ struct QSOEditView: View {
         _mySigInfo      = State(initialValue: entry.mySigInfo ?? "")
     }
 
+    // MARK: - Validation
+
+    private var gridValidationMessage: String? {
+        let trimmed = grid.trimmingCharacters(in: .whitespaces).uppercased()
+        guard !trimmed.isEmpty else { return nil }
+        let pattern = #"^[A-R]{2}\d{2}([A-X]{2}(\d{2})?)?$"#
+        if trimmed.range(of: pattern, options: .regularExpression) == nil {
+            return "Invalid Maidenhead grid (e.g. EM72 or EM72ab)"
+        }
+        return nil
+    }
+
+    private var bandFrequencyMismatch: String? {
+        let clean = frequencyMHz.trimmingCharacters(in: .whitespaces)
+        guard !clean.isEmpty, let mhz = Double(clean), mhz > 0 else { return nil }
+        let detectedBand = FT8Message.Band.fromFrequency(mhz * 1_000_000)
+        guard detectedBand != .unknown else { return nil }
+        if let selectedBand = FT8Message.Band(rawValue: band),
+           selectedBand != detectedBand {
+            return "Frequency corresponds to \(detectedBand.rawValue), not \(band)"
+        }
+        return nil
+    }
+
+    private var hasChanges: Bool {
+        callsign != entry.callsign ||
+        grid != entry.grid ||
+        date != entry.date ||
+        frequencyMHz != (entry.frequencyHz.map { String(format: "%.6f", $0 / 1_000_000) } ?? "") ||
+        mode != (entry.mode.isEmpty ? "FT8" : entry.mode) ||
+        band != entry.band ||
+        rstSent != entry.rstSent ||
+        rstRcvd != entry.rstRcvd ||
+        stationCallsign != (entry.stationCallsign ?? "") ||
+        cqModifier != (entry.cqModifier ?? "") ||
+        mySigInfo != (entry.mySigInfo ?? "")
+    }
+
     // MARK: - Body
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Station") {
+                Section {
                     LabeledContent("Callsign") {
                         TextField("e.g. W1ABC", text: $callsign)
                             .textInputAutocapitalization(.characters)
@@ -71,17 +110,23 @@ struct QSOEditView: View {
                             .autocorrectionDisabled()
                     }
 
-                    if !stationCallsign.isEmpty || entry.stationCallsign != nil {
-                        LabeledContent("Station Callsign") {
-                            TextField("Optional", text: $stationCallsign)
-                                .textInputAutocapitalization(.characters)
-                                .multilineTextAlignment(.trailing)
-                                .autocorrectionDisabled()
-                        }
+                    LabeledContent("Station Callsign") {
+                        TextField("Optional", text: $stationCallsign)
+                            .textInputAutocapitalization(.characters)
+                            .multilineTextAlignment(.trailing)
+                            .autocorrectionDisabled()
+                    }
+                } header: {
+                    Text("Station")
+                } footer: {
+                    if let msg = gridValidationMessage {
+                        Label(msg, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                            .font(.caption)
                     }
                 }
 
-                Section("QSO") {
+                Section {
                     DatePicker("Date & Time (UTC)", selection: $date, displayedComponents: [.date, .hourAndMinute])
                         .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
 
@@ -97,6 +142,14 @@ struct QSOEditView: View {
                         TextField("e.g. 14.074000", text: $frequencyMHz)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                    }
+                } header: {
+                    Text("QSO")
+                } footer: {
+                    if let msg = bandFrequencyMismatch {
+                        Label(msg, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.caption)
                     }
                 }
 
@@ -114,21 +167,19 @@ struct QSOEditView: View {
                     }
                 }
 
-                if !cqModifier.isEmpty || !mySigInfo.isEmpty {
-                    Section("Activation") {
-                        LabeledContent("CQ Modifier") {
-                            TextField("e.g. POTA", text: $cqModifier)
-                                .textInputAutocapitalization(.characters)
-                                .multilineTextAlignment(.trailing)
-                                .autocorrectionDisabled()
-                        }
+                Section("Activation") {
+                    LabeledContent("CQ Modifier") {
+                        TextField("e.g. POTA", text: $cqModifier)
+                            .textInputAutocapitalization(.characters)
+                            .multilineTextAlignment(.trailing)
+                            .autocorrectionDisabled()
+                    }
 
-                        LabeledContent("Reference") {
-                            TextField("e.g. K-1234", text: $mySigInfo)
-                                .textInputAutocapitalization(.characters)
-                                .multilineTextAlignment(.trailing)
-                                .autocorrectionDisabled()
-                        }
+                    LabeledContent("Reference") {
+                        TextField("e.g. K-1234", text: $mySigInfo)
+                            .textInputAutocapitalization(.characters)
+                            .multilineTextAlignment(.trailing)
+                            .autocorrectionDisabled()
                     }
                 }
             }
@@ -136,14 +187,45 @@ struct QSOEditView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    CloseButton()
+                    Button {
+                        if hasChanges {
+                            showDiscardAlert = true
+                        } else {
+                            dismiss()
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.secondary)
+                            .font(.title3)
+                    }
+                    .accessibilityLabel("Close")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { saveAndDismiss() }
                         .disabled(callsign.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
+            .alert("Discard Changes?", isPresented: $showDiscardAlert) {
+                Button("Discard", role: .destructive) { dismiss() }
+                Button("Keep Editing", role: .cancel) { }
+            } message: {
+                Text("You have unsaved changes that will be lost.")
+            }
+            .onChange(of: band) { _ in autoFillFrequency() }
+            .onChange(of: mode) { _ in autoFillFrequency() }
         }
+    }
+
+    // MARK: - Auto-fill frequency from band + mode
+
+    private func autoFillFrequency() {
+        // Only auto-fill when the frequency field is empty
+        guard frequencyMHz.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        guard let selectedBand = FT8Message.Band(rawValue: band) else { return }
+        let ft8mode: FT8Message.FT8MessageMode = mode == "FT4" ? .ft4 : .ft8
+        guard let hz = selectedBand.frequency(for: ft8mode) else { return }
+        frequencyMHz = String(format: "%.6f", hz / 1_000_000)
     }
 
     // MARK: - Save
@@ -181,6 +263,7 @@ struct QSOEditView: View {
         )
 
         onSave(updated)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         dismiss()
     }
 }

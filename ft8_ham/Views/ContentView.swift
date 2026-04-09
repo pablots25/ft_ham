@@ -25,8 +25,6 @@ struct ContentView: View {
 
     @State private var selectedTab: Int = 0
     @State private var showConfigAlert = false
-    @State private var showClearLogbookAlert = false
-    @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
     @State private var shouldScrollToDonations = false
     @State private var isPresentingOnboarding = false
@@ -223,37 +221,6 @@ struct ContentView: View {
                     
                     NavigationStack {
                         LogbookView()
-                            .navigationTitle("Logbook")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .automatic) {
-                                    Button("Clear") {
-                                        showClearLogbookAlert = true
-                                    }
-                                    .disabled(viewModel.qsoList.isEmpty)
-                                }
-                                
-                                ToolbarItem(placement: .automatic) {
-                                    Button {
-                                        showExportOptions = true
-                                    } label: {
-                                        Image(systemName: "square.and.arrow.up")
-                                    }
-                                    .disabled(viewModel.qsoList.isEmpty)
-                                }
-                            }
-                            .sheet(isPresented: $showExportOptions) {
-                                ExportOptionsView()
-                                    .environmentObject(viewModel)
-                            }
-                            .alert("Clear logbook?", isPresented: $showClearLogbookAlert) {
-                                Button("Cancel", role: .cancel) {}
-                                Button("Clear", role: .destructive) {
-                                    viewModel.clearLogbookConfirmed()
-                                }
-                            } message: {
-                                Text("This will permanently delete all QSOs.")
-                            }
                             .onAppear {
                                 AnalyticsManager.shared.trackScreen(.logbook)
                             }

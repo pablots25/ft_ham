@@ -11,46 +11,43 @@ import SwiftUI
 
 struct LogbookCompactRow: View {
     let entry: LogEntry
+    let displayLocalTime: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(entry.callsign)
-                    .font(.headline)
-                    .lineLimit(1)
-                Text(entry.grid)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                if let flag = entry.flag {
-                    Text(flag).font(.subheadline)
-                }
-                if let country = entry.country, !country.isEmpty {
-                    Text(country)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(entry.callsign)
+                        .font(.headline)
                         .lineLimit(1)
-                        .truncationMode(.tail)
+                    Text(entry.grid)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let flag = entry.flag {
+                        Text(flag).font(.subheadline)
+                    }
+                    if let country = entry.country, !country.isEmpty {
+                        Text(country)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+                Spacer(minLength: 8)
+                HStack(spacing: 4) {
+                    if !entry.mode.isEmpty {
+                        LogbookBadge(text: entry.mode, color: LogbookBadgeColors.mode(entry.mode))
+                    }
+                    if entry.band != "Unknown" && !entry.band.isEmpty {
+                        LogbookBadge(text: entry.band, color: LogbookBadgeColors.band(entry.band))
+                    }
                 }
             }
-            Spacer(minLength: 8)
-            HStack(spacing: 4) {
-                if !entry.mode.isEmpty {
-                    Text(entry.mode)
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(LogbookBadgeColors.mode(entry.mode).opacity(0.2))
-                        .cornerRadius(5)
-                }
-                if entry.band != "Unknown" && !entry.band.isEmpty {
-                    Text(entry.band)
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(LogbookBadgeColors.band(entry.band).opacity(0.2))
-                        .cornerRadius(5)
-                }
-            }
+            Text(LogbookRowFormatters.dateString(from: entry.date, local: displayLocalTime))
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -118,32 +115,35 @@ struct LogbookExpandedRow: View {
                     }
                 }
 
-                // Row 4: cq modifier + date/time
-                if entry.cqModifier != nil || entry.frequencyHz != nil {
+                // Row 4: cq modifier (conditional)
+                if let cqModifier = entry.cqModifier, !cqModifier.isEmpty {
                     HStack {
-                        if let cqModifier = entry.cqModifier, !cqModifier.isEmpty {
-                            Group {
-                                if let sigInfo = entry.mySigInfo, !sigInfo.isEmpty {
-                                    Text("\(cqModifier): \(sigInfo)")
-                                } else {
-                                    Text(cqModifier)
-                                }
+                        Group {
+                            if let sigInfo = entry.mySigInfo, !sigInfo.isEmpty {
+                                Text("\(cqModifier): \(sigInfo)")
+                            } else {
+                                Text(cqModifier)
                             }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        }
-                        Spacer(minLength: 8)
-                        HStack(spacing: 4) {
-                            Text(LogbookRowFormatters.dateString(from: entry.date, local: displayLocalTime))
-                            Text(LogbookRowFormatters.timeString(from: entry.date, local: displayLocalTime))
-                            if displayLocalTime { Text("(Local)") }
                         }
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                        Spacer(minLength: 8)
                     }
+                }
+
+                // Row 5: date/time (always visible)
+                HStack {
+                    Spacer(minLength: 8)
+                    HStack(spacing: 4) {
+                        Text(LogbookRowFormatters.dateString(from: entry.date, local: displayLocalTime))
+                        Text(LogbookRowFormatters.timeString(from: entry.date, local: displayLocalTime))
+                        if displayLocalTime { Text("(Local)") }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 }
             }
 
@@ -151,26 +151,32 @@ struct LogbookExpandedRow: View {
             VStack(alignment: .trailing) {
                 Spacer(minLength: 0)
                 if !entry.mode.isEmpty {
-                    Text(entry.mode)
-                        .font(.caption)
-                        .frame(width: 36)
-                        .padding(.vertical, 4)
-                        .background(LogbookBadgeColors.mode(entry.mode).opacity(0.2))
-                        .cornerRadius(6)
+                    LogbookBadge(text: entry.mode, color: LogbookBadgeColors.mode(entry.mode))
                 }
                 Spacer(minLength: 0)
                 if entry.band != "Unknown" && !entry.band.isEmpty {
-                    Text(entry.band)
-                        .font(.caption)
-                        .frame(width: 36)
-                        .padding(.vertical, 4)
-                        .background(LogbookBadgeColors.band(entry.band).opacity(0.2))
-                        .cornerRadius(6)
+                    LogbookBadge(text: entry.band, color: LogbookBadgeColors.band(entry.band))
                 }
                 Spacer(minLength: 0)
             }
             .fixedSize(horizontal: true, vertical: false)
         }
+    }
+}
+
+// MARK: - Shared Badge Component
+
+struct LogbookBadge: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.2))
+            .clipShape(RoundedRectangle(cornerRadius: 5))
     }
 }
 
@@ -261,24 +267,61 @@ struct LogbookRowCell: View {
     let displayLocalTime: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
+    var onDelete: (() -> Void)? = nil
 
     var body: some View {
-        Group {
-            if isExpanded {
-                LogbookExpandedRow(entry: entry, displayLocalTime: displayLocalTime)
-            } else {
-                LogbookCompactRow(entry: entry)
+        HStack(alignment: .top) {
+            Group {
+                if isExpanded {
+                    LogbookExpandedRow(entry: entry, displayLocalTime: displayLocalTime)
+                        .transition(.opacity)
+                } else {
+                    LogbookCompactRow(entry: entry, displayLocalTime: displayLocalTime)
+                        .transition(.opacity)
+                }
             }
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.down")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .padding(.top, 4)
+                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                .animation(.easeInOut(duration: 0.25), value: isExpanded)
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
         .listRowBackground(Color.clear)
+        .contextMenu {
+            Button {
+                onEdit()
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            if let onDelete {
+                Divider()
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if let onDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button(action: onEdit) {
                 Label("Edit", systemImage: "pencil")
             }
             .tint(.blue)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(entry.callsign), \(entry.mode), \(entry.band)")
+        .accessibilityHint(isExpanded ? "Tap to collapse" : "Tap to expand. Long-press or swipe right to edit.")
     }
 }
 
@@ -286,7 +329,7 @@ struct LogbookRowCell: View {
 
 #Preview("Compact Row") {
     List {
-        LogbookCompactRow(entry: PreviewMocks.qsoList[0])
+        LogbookCompactRow(entry: PreviewMocks.qsoList[0], displayLocalTime: false)
     }
     .listStyle(.plain)
 }
