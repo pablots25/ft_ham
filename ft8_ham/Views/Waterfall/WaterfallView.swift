@@ -30,8 +30,11 @@ struct WaterfallView: View {
 
                     if viewModel.showOverlay {
                         WaterfallOverlayView(
-                            viewModel: viewModel,
+                            overlayState: viewModel.overlayState,
                             ft8ViewModel: ft8ViewModel,
+                            config: viewModel.config,
+                            timestampsForOverlay: { viewModel.timestampsForOverlay(height: $0) },
+                            verticalLabelsForOverlay: { viewModel.verticalLabelsForOverlay(height: $0) },
                             width: Int(geo.size.width),
                             height: Int(geo.size.height)
                         )
@@ -49,13 +52,18 @@ struct WaterfallView: View {
                 }
             }
             .onAppear {
-                // Ensure enough waterfall rows
-                let rows = max(Int(geo.size.height), 1) + 1
+                // Cap at 600 rows: full-screen on a large iPhone gives ~930 pts but
+                // you only need a few hundred rows of scroll history. Fewer rows = less
+                // pixel-copy work per render frame.
+                let rows = min(max(Int(geo.size.height), 1) + 1, 600)
                 viewModel.visibleRows = rows
                 viewModel.ensureBufferCanHold(visibleRows: rows)
             }
             .onChange(of: geo.size.height) { newHeight in
-                let rows = max(Int(newHeight), 1) + 1
+                let rows = min(max(Int(newHeight), 1) + 1, 600)
+                // Skip if the row count hasn't actually changed — avoids spurious
+                // ensureBufferCanHold calls during layout animation settling.
+                guard rows != viewModel.visibleRows else { return }
                 viewModel.visibleRows = rows
                 viewModel.ensureBufferCanHold(visibleRows: rows)
             }
@@ -82,8 +90,14 @@ struct WaterfallView: View {
 }
 
 struct WaterfallOverlayView: View {
-    @ObservedObject var viewModel: WaterfallViewModel
+    // Observe only the lightweight overlay state — changes to waterfallImage
+    // (on the parent WaterfallViewModel) will NOT trigger a Canvas redraw here.
+    @ObservedObject var overlayState: WaterfallOverlayState
     @ObservedObject var ft8ViewModel: FT8ViewModel
+    // These are read once at construction time from the parent; they don't change frequently.
+    let config: WaterfallViewModel.Config
+    let timestampsForOverlay: (Int) -> [TimestampOverlay]
+    let verticalLabelsForOverlay: (Int) -> [VerticalLabelOverlay]
 
     let width: Int
     let height: Int
@@ -96,11 +110,11 @@ struct WaterfallOverlayView: View {
             let h = size.height
             let bodyOffset = headerHeight
 
-            let maxFreq = Double(viewModel.config.maxDisplayFrequency) * 4.0
+            let maxFreq = Double(config.maxDisplayFrequency) * 4.0
             guard maxFreq > 0 else { return }
 
             // Frequency ticks
-            if viewModel.showFrequencyTicks {
+            if overlayState.showFrequencyTicks {
                 let stepHz = 500.0
                 for f in stride(from: 0.0, through: maxFreq, by: stepHz) {
                     let x = CGFloat(f / maxFreq) * w
@@ -122,7 +136,7 @@ struct WaterfallOverlayView: View {
             }
 
             // Horizontal timestamp lines
-            let timestamps = viewModel.timestampsForOverlay(height: Int(size.height))
+            let timestamps = timestampsForOverlay(Int(size.height))
             for overlay in timestamps {
                 let y = CGFloat(overlay.row) + bodyOffset
                 
@@ -143,7 +157,7 @@ struct WaterfallOverlayView: View {
                 )
             }
 
-            if viewModel.showFrequencyMarker {
+            if overlayState.showFrequencyMarker {
                 // TX frequency indicator
                 let txFreq = ft8ViewModel.frequency
                 let txX = CGFloat(txFreq / maxFreq) * w
@@ -181,7 +195,7 @@ struct WaterfallOverlayView: View {
             }
 
             // Vertical moving labels
-            let vLabels = viewModel.verticalLabelsForOverlay(height: Int(size.height))
+            let vLabels = verticalLabelsForOverlay(Int(size.height))
             for overlay in vLabels {
                 let x = CGFloat(overlay.frequency / maxFreq) * w
                 var tctx = ctx

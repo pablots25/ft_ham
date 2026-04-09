@@ -20,6 +20,21 @@ struct VerticalLabelOverlay {
     let frequency: Double
 }
 
+// MARK: - WaterfallOverlayState
+// Holds only the overlay data that the Canvas needs. Keeping it in a separate
+// ObservableObject means that `waterfallImage` changes (published by WaterfallViewModel)
+// do NOT trigger a Canvas redraw — only actual overlay data changes do.
+@MainActor
+final class WaterfallOverlayState: ObservableObject {
+    @Published var showOverlay: Bool = true
+    @Published var showTimestamps: Bool = true
+    @Published var showVerticalLabels: Bool = true
+    @Published var showFrequencyTicks: Bool = true
+    @Published var showFrequencyMarker: Bool = true
+    @Published var timestampItems: [TimestampOverlay] = []
+    @Published var verticalLabels: [VerticalLabelOverlay] = []
+}
+
 @MainActor
 final class WaterfallViewModel: ObservableObject {
 
@@ -27,11 +42,36 @@ final class WaterfallViewModel: ObservableObject {
     private var fft: RealtimeFFT?
     private lazy var magsBuffer: [Float] = [Float](repeating: 0, count: config.waterfallFFTSize / 2)
 
+    // Reused formatter — creating DateFormatter is expensive; keep one instance
+    private let utcFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeZone = TimeZone(abbreviation: "UTC")
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    // Pre-allocated render buffer — avoids ~3 MB heap allocation per render frame
+    private var renderBuffer: [UInt32] = []
+
+    // Background FFT helper — not actor-isolated, safe to call from any queue
+    private let backgroundFFT = BackgroundFFTProcessor()
+
     // MARK: - Background handling
     private var isInBackground: Bool = false
     private var showBlackWhenBackgrounded: Bool = true
 
-    /// New helper to handle FFT and update in one step
+    /// Called from a background audio queue. Runs the FFT there, then dispatches
+    /// only the lightweight magnitude array to @MainActor for the pixel-write step.
+    /// This keeps vDSP_fft_zip off the main thread entirely.
+    nonisolated func updateWaterfallFromSamplesAsync(_ samples: [Float]) {
+        guard !samples.isEmpty else { return }
+        let mags = backgroundFFT.computeMagnitudes(from: samples)
+        Task { @MainActor [weak self] in
+            self?.updateWaterfall(from: mags)
+        }
+    }
+
+    /// Legacy @MainActor path kept for backward compatibility.
     func updateWaterfallFromSamples(_ samples: [Float]) {
         guard !samples.isEmpty else { return }
 
@@ -94,16 +134,41 @@ final class WaterfallViewModel: ObservableObject {
     @Published var waterfallImage: Image? = nil
     @Published var visibleRows: Int = 0
 
-    // Overlay flags
-    @Published var showOverlay: Bool = true
-    @Published var showTimestamps: Bool = true
-    @Published var showVerticalLabels: Bool = true
-    @Published var showFrequencyTicks: Bool = true
-    @Published var showFrequencyMarker: Bool = true
+    // Dedicated object for overlay state — decoupled from waterfallImage so the
+    // Canvas in WaterfallOverlayView only invalidates when overlay data changes.
+    let overlayState = WaterfallOverlayState()
 
-    // Overlay data
-    @Published var timestampItems: [TimestampOverlay] = []
-    @Published var verticalLabels: [VerticalLabelOverlay] = []
+    // Overlay flags — forwarded to overlayState for backward-compatible access
+    var showOverlay: Bool {
+        get { overlayState.showOverlay }
+        set { overlayState.showOverlay = newValue }
+    }
+    var showTimestamps: Bool {
+        get { overlayState.showTimestamps }
+        set { overlayState.showTimestamps = newValue }
+    }
+    var showVerticalLabels: Bool {
+        get { overlayState.showVerticalLabels }
+        set { overlayState.showVerticalLabels = newValue }
+    }
+    var showFrequencyTicks: Bool {
+        get { overlayState.showFrequencyTicks }
+        set { overlayState.showFrequencyTicks = newValue }
+    }
+    var showFrequencyMarker: Bool {
+        get { overlayState.showFrequencyMarker }
+        set { overlayState.showFrequencyMarker = newValue }
+    }
+
+    // Overlay data — forwarded to overlayState
+    var timestampItems: [TimestampOverlay] {
+        get { overlayState.timestampItems }
+        set { overlayState.timestampItems = newValue }
+    }
+    var verticalLabels: [VerticalLabelOverlay] {
+        get { overlayState.verticalLabels }
+        set { overlayState.verticalLabels = newValue }
+    }
 
     private var timestampRows: [Int: String] = [:]
     private var verticalLabelRows: [Int: [(text: String, frequency: Double)]] = [:]
@@ -342,13 +407,10 @@ final class WaterfallViewModel: ObservableObject {
             }
         }
 
-        // Timestamp logic ALWAYS runs
+        // Timestamp logic ALWAYS runs — uses cached formatter (avoids per-call allocation)
         let now = Date()
         if now >= nextUTCMark {
-            let formatter = DateFormatter()
-            formatter.timeZone = TimeZone(abbreviation: "UTC")
-            formatter.dateFormat = "HH:mm:ss"
-            timestampRows[absoluteRowCounter] = formatter.string(from: nextUTCMark)
+            timestampRows[absoluteRowCounter] = utcFormatter.string(from: nextUTCMark)
             nextUTCMark = nextUTCMark.addingTimeInterval(config.timestampInterval)
         }
 
@@ -360,35 +422,43 @@ final class WaterfallViewModel: ObservableObject {
         timestampRows = timestampRows.filter { $0.key >= cutoff }
         verticalLabelRows = verticalLabelRows.filter { $0.key >= cutoff }
 
-        // Update overlay arrays independently of view
-        updateOverlayPositions()
-
+        // Overlay publishing is gated inside renderWaterfallIncremental so that
+        // @Published arrays are only mutated at render-rate (≤15 FPS) rather than
+        // at the audio-callback rate (~24 Hz), preventing spurious Canvas redraws.
         if visibleRows > 0 { renderWaterfallIncremental() }
     }
 
     @MainActor
     private func renderWaterfallIncremental() {
         guard frameLimiter.shouldRender(), let ctx = context, let rawPtr = ctx.data else { return }
-        
+
         let w = width
         let h = max(1, min(visibleRows, height))
         let pixelData = rawPtr.assumingMemoryBound(to: UInt32.self)
-        
-        var visiblePixels = [UInt32](repeating: 0, count: w * h)
+
+        // Reuse pre-allocated render buffer; only resize when dimensions change
+        let needed = w * h
+        if renderBuffer.count != needed {
+            renderBuffer = [UInt32](repeating: 0, count: needed)
+        }
+
         let currentWriteRow = writeIndex / w
-        
         for y in 0 ..< h {
             let srcRow = (currentWriteRow - h + y + height) % height
             let dstBase = (h - y - 1) * w
             let srcBase = srcRow * w
-            for x in 0 ..< w {
-                visiblePixels[dstBase + x] = pixelData[srcBase + x]
+            renderBuffer.withUnsafeMutableBufferPointer { dst in
+                let src = pixelData + srcBase
+                (dst.baseAddress! + dstBase).assign(from: src, count: w)
             }
         }
-        
-        if let cg = makeCGImageFromARGB(pixelData: visiblePixels, width: w, height: h) {
+
+        if let cg = makeCGImageFromARGB(pixelData: &renderBuffer, width: w, height: h) {
             waterfallImage = Image(uiImage: UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up))
         }
+
+        // Call here so @Published overlay arrays are only mutated at render-rate (≤15 FPS)
+        updateOverlayPositions()
     }
     // MARK: - Overlay toggles helpers
     
@@ -451,21 +521,20 @@ final class WaterfallViewModel: ObservableObject {
     }
     
     
-    private func makeCGImageFromARGB(pixelData: [UInt32], width: Int, height: Int) -> CGImage? {
+    private func makeCGImageFromARGB(pixelData: inout [UInt32], width: Int, height: Int) -> CGImage? {
         guard pixelData.count == width * height else { return nil }
         let bytesPerRow = width * 4
-        
+        let bitmapInfo = CGBitmapInfo(
+            rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue |
+            CGBitmapInfo.byteOrder32Little.rawValue
+        )
+        // withUnsafeBytes gives a zero-copy view; CGDataProvider copies the bytes once into
+        // the CGImage backing store — no intermediate Data allocation.
         return pixelData.withUnsafeBytes { rawBuffer -> CGImage? in
-            guard let provider = CGDataProvider(data: Data(
-                bytes: rawBuffer.baseAddress!,
-                count: rawBuffer.count
-            ) as CFData) else { return nil }
-            
-            let bitmapInfo = CGBitmapInfo(
-                rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue |
-                CGBitmapInfo.byteOrder32Little.rawValue
-            )
-            
+            guard
+                let base = rawBuffer.baseAddress,
+                let provider = CGDataProvider(data: CFDataCreate(nil, base.assumingMemoryBound(to: UInt8.self), rawBuffer.count))
+            else { return nil }
             return CGImage(
                 width: width,
                 height: height,
@@ -526,6 +595,46 @@ final class WaterfallViewModel: ObservableObject {
         nextUTCMark = aligned <= now ? aligned.addingTimeInterval(config.timestampInterval) : aligned
     }
     
+}
+
+// MARK: - BackgroundFFTProcessor
+// A thread-safe, non-actor FFT helper that can be called from any queue.
+// WaterfallViewModel holds one instance and calls computeMagnitudes() from
+// the background audio queue so vDSP work stays off @MainActor.
+private final class BackgroundFFTProcessor: @unchecked Sendable {
+    private var fft: RealtimeFFT?
+    private var magsBuffer: [Float] = []
+    private let lock = NSLock()
+
+    func computeMagnitudes(from samples: [Float]) -> [Float] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        // Lazily init FFT with the sample count as the FFT size (power-of-two)
+        let fftSize = samples.count.previousPowerOfTwo
+        if fft?.n != fftSize {
+            fft = RealtimeFFT(size: fftSize)
+            magsBuffer = [Float](repeating: 0, count: fftSize / 2)
+        }
+        guard let fft else { return [] }
+        if magsBuffer.count != fftSize / 2 {
+            magsBuffer = [Float](repeating: 0, count: fftSize / 2)
+        }
+        _ = samples.withUnsafeBufferPointer { ptr in
+            fft.magnitudesDirect(ptr.baseAddress!, output: &magsBuffer)
+        }
+        return magsBuffer
+    }
+}
+
+private extension Int {
+    /// Largest power of two ≤ self (minimum 2)
+    var previousPowerOfTwo: Int {
+        guard self >= 2 else { return 2 }
+        var n = self
+        n |= (n >> 1); n |= (n >> 2); n |= (n >> 4); n |= (n >> 8); n |= (n >> 16)
+        return n - (n >> 1)
+    }
 }
 
 // MARK: - FrameLimiter

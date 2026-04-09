@@ -30,10 +30,9 @@ extension FT8ViewModel {
                 self.rxSampleBuffer.append(data)
                 self.rxBufferLock.unlock()
                 
-                // Waterfall is independent
-                Task { @MainActor in
-                    self.waterfallVM.updateWaterfallFromSamples(samples)
-                }
+                // Run FFT on this background queue; only the magnitude array
+                // is dispatched to @MainActor for the pixel-write step.
+                self.waterfallVM.updateWaterfallFromSamplesAsync(samples)
             }
             .store(in: &cancellables)
 
