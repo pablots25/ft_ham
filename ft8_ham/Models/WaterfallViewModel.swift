@@ -53,6 +53,13 @@ final class WaterfallViewModel: ObservableObject {
     // Pre-allocated render buffer — avoids ~3 MB heap allocation per render frame
     private var renderBuffer: [UInt32] = []
 
+    // Scratch buffers for the vectorized pixel-color pipeline in updateWaterfall(from:)
+    private var scratchMags: [Float] = []   // gathered bin magnitudes (width elements)
+    private var scratchDB: [Float] = []     // reused through the vDSP/vForce chain
+    // Cached per-pixel bin-index map — recomputed only when width or maxBin changes
+    private var cachedBinIndices: [Int] = []
+    private var cachedMaxBin: Int = -1
+
     // Background FFT helper — not actor-isolated, safe to call from any queue
     private let backgroundFFT = BackgroundFFTProcessor()
 
@@ -393,17 +400,73 @@ final class WaterfallViewModel: ObservableObject {
             let nyquist = max(1.0, sampleRate / 2.0)
             let maxBin = min(max(Int(round((config.maxDisplayFrequency / nyquist) * Float(w))), 1), w)
 
-            for x in 0 ..< w {
-                let binIndex = Int(Float(x) / Float(w) * Float(maxBin)).clamped(to: 0 ... (maxBin - 1))
-                let mag = mags[binIndex]
-                waterfallBufferFlat[writeIndex + x] = mag
+            // Resize scratch buffers only when width changes (once per session)
+            if scratchMags.count != w {
+                scratchMags = [Float](repeating: 0, count: w)
+                scratchDB   = [Float](repeating: 0, count: w)
+            }
 
-                let db = 20 * log10(max(mag, 1e-12))
-                let scaled = ((db - config.waterfallMinDB) / (config.waterfallMaxDB - config.waterfallMinDB))
-                    .clamped(to: 0 ... 1)
-                let t = sqrt(scaled)
-                let idx = Int((t * 255).rounded()).clamped(to: 0 ... 255)
-                pixelData[row * w + x] = waterfallPalette[idx]
+            // Rebuild bin-index table only when the mapping changes
+            if cachedBinIndices.count != w || cachedMaxBin != maxBin {
+                cachedMaxBin = maxBin
+                cachedBinIndices = (0 ..< w).map {
+                    min(Int(Float($0) / Float(w) * Float(maxBin)), maxBin - 1)
+                }
+            }
+
+            // Gather magnitudes: mags[binIndex] → scratchMags
+            // Also write raw mags into the float waterfall buffer (unchanged semantics)
+            let rowBase = writeIndex
+            for x in 0 ..< w {
+                let mag = mags[cachedBinIndices[x]]
+                scratchMags[x] = mag
+                waterfallBufferFlat[rowBase + x] = mag
+            }
+
+            // --- Vectorized dB + scale + sqrt pipeline (vDSP / vForce) ---
+            var wInt = Int32(w)
+            var vLen = vDSP_Length(w)
+
+            // 1. Clamp to avoid log10(0): max(mag, 1e-12)
+            var logFloor: Float = 1e-12
+            var logCeil:  Float = .greatestFiniteMagnitude
+            vDSP_vclip(scratchMags, 1, &logFloor, &logCeil, &scratchDB, 1, vLen)
+
+            // 2. log10 (vectorized vForce)
+            vvlog10f(&scratchDB, scratchDB, &wInt)
+
+            // 3. ×20 → dB
+            var factor20: Float = 20.0
+            vDSP_vsmul(scratchDB, 1, &factor20, &scratchDB, 1, vLen)
+
+            // 4. Linear scale: (db − minDB) / (maxDB − minDB)  [in-place: D = A*a + b]
+            let range = config.waterfallMaxDB - config.waterfallMinDB
+            guard range != 0 else {
+                // degenerate config — write black row and bail
+                let rowOffset = row * w
+                for x in 0 ..< w { pixelData[rowOffset + x] = 0xFF000000 }
+                return
+            }
+            var scaleA: Float =  1.0 / range
+            var scaleB: Float = -config.waterfallMinDB / range
+            vDSP_vsmsa(scratchDB, 1, &scaleA, &scaleB, &scratchDB, 1, vLen)
+
+            // 5. Clamp to [0, 1]
+            var clampLo: Float = 0.0, clampHi: Float = 1.0
+            vDSP_vclip(scratchDB, 1, &clampLo, &clampHi, &scratchDB, 1, vLen)
+
+            // 6. Square root
+            vvsqrtf(&scratchDB, scratchDB, &wInt)
+
+            // 7. Scale to [0, 255]
+            var scale255: Float = 255.0
+            vDSP_vsmul(scratchDB, 1, &scale255, &scratchDB, 1, vLen)
+
+            // 8. Palette lookup — unavoidably scalar, but L1-cache-friendly (256-entry table)
+            let rowOffset = row * w
+            for x in 0 ..< w {
+                let idx = Int(scratchDB[x]).clamped(to: 0 ... 255)
+                pixelData[rowOffset + x] = waterfallPalette[idx]
             }
         }
 
