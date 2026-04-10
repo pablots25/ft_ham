@@ -1,0 +1,5 @@
+app_identifier("pts.ft8-ham")
+
+# App Store Connect API Key authentication (avoids 2FA issues on CI)
+# Set these as environment variables or GitHub Secrets
+api_key_path(ENV["APP_STORE_API_KEY_PATH"]) if ENV["APP_STORE_API_KEY_PATH"]
