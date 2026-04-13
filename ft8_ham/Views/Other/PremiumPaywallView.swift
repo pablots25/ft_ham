@@ -127,6 +127,12 @@ struct PremiumPaywallView: View {
                 description: "Control your radio over the internet with CAT via UDP - No USB yet"
             )
             FeatureRow(
+                icon: "chart.bar.xaxis",
+                iconColor: .indigo,
+                title: "Logbook Statistics",
+                description: "Charts, heatmaps and detailed analytics of your QSO activity"
+            )
+            FeatureRow(
                 icon: "envelope.circle.fill",
                 iconColor: .blue,
                 title: "Priority Support",

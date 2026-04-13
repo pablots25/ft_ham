@@ -15,6 +15,7 @@ enum PremiumFeature: String, CaseIterable {
     case lotwSync = "lotw_sync"
     case eqslSync = "eqsl_sync"
     case iPadDashboard = "ipad_dashboard"
+    case statistics = "statistics"
 
     var displayName: String {
         switch self {
@@ -24,6 +25,7 @@ enum PremiumFeature: String, CaseIterable {
         case .lotwSync: return "LoTW"
         case .eqslSync: return "eQSL"
         case .iPadDashboard: return "iPad Dashboard"
+        case .statistics: return "Statistics"
         }
     }
 
@@ -35,6 +37,7 @@ enum PremiumFeature: String, CaseIterable {
         case .lotwSync: return "checkmark.seal"
         case .eqslSync: return "envelope.badge.shield.half.filled"
         case .iPadDashboard: return "rectangle.split.3x1"
+        case .statistics: return "chart.bar.xaxis"
         }
     }
 

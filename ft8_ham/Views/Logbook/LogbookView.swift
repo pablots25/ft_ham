@@ -12,6 +12,7 @@ import SwiftUI
 struct LogbookView: View {
     @EnvironmentObject var viewModel: FT8ViewModel
     @EnvironmentObject private var flags: FeatureFlagManager
+    @EnvironmentObject private var premiumManager: PremiumManager
 
     @AppStorage("logbookTimeDisplayLocal") private var displayLocalTime: Bool = false
     @State private var showingImportSheet = false
@@ -50,8 +51,9 @@ struct LogbookView: View {
     // Activation filter
     @State private var activationFilter: String? = nil
 
-    // Statistics
+    // Statistics / Premium
     @State private var showStatistics = false
+    @State private var showPremiumPaywall = false
 
     // MARK: - Filtering
 
@@ -280,10 +282,14 @@ struct LogbookView: View {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .disabled(selectedIDs.isEmpty)
-                    } else if flags.isEnabled(.statisticsView) {
-                        NavigationLink(destination: StatisticsView(entries: viewModel.qsoList, myGrid: viewModel.locator)) {
-                            Image(systemName: "chart.bar.xaxis")
+                    } else {
+                        #if canImport(FTHamPremium)
+                        if premiumManager.isPremiumUnlocked {
+                            NavigationLink(destination: StatisticsView(entries: viewModel.qsoList, myGrid: viewModel.locator)) {
+                                Image(systemName: "chart.bar.xaxis")
+                            }
                         }
+                        #endif
                     }
                 }
 
@@ -374,6 +380,19 @@ struct LogbookView: View {
                                 }
                             }
 
+                            #if canImport(FTHamPremium)
+                            if !premiumManager.isPremiumUnlocked {
+                                Divider()
+
+                                Button {
+                                    showPremiumPaywall = true
+                                } label: {
+                                    Label("Statistics", systemImage: "chart.bar.xaxis")
+                                }
+                                .foregroundStyle(.secondary)
+                            }
+                            #endif
+
                             Divider()
 
                             Button(role: .destructive) {
@@ -461,6 +480,10 @@ struct LogbookView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This action cannot be undone.")
+        }
+        .sheet(isPresented: $showPremiumPaywall) {
+            PremiumPaywallView(source: PremiumFeature.statistics.analyticsSource)
+                .environmentObject(premiumManager)
         }
         .sheet(isPresented: $showExportOptions) {
             ExportOptionsView()
