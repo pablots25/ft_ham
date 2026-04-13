@@ -46,6 +46,9 @@ struct LogbookView: View {
     @State private var showSelectionExport = false
     @State private var showClearLogbookAlert = false
 
+    // Statistics
+    @State private var showStatistics = false
+
     // MARK: - Filtering
 
     private func applyFilter() {
@@ -206,6 +209,16 @@ struct LogbookView: View {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .disabled(selectedIDs.isEmpty)
+                    } else {
+                        NavigationLink(destination: StatisticsView(entries: viewModel.qsoList, myGrid: viewModel.locator)) {
+                            Image(systemName: "chart.bar.xaxis")
+                        }
+                    }
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    if isSelecting {
+                        EmptyView()
                     } else {
                         Button {
                             showExportOptions = true
