@@ -13,6 +13,7 @@ enum FeatureFlag: String, CaseIterable {
     case enableIpadDashboard
     case controlsSheet
     case newConfigView
+    case statisticsView
     
     var defaultValue: Bool {
         switch self {
@@ -26,6 +27,12 @@ enum FeatureFlag: String, CaseIterable {
         case .enableIpadDashboard: return false
         case .controlsSheet: return true
         case .newConfigView: return false
+        case .statisticsView:
+            #if DEBUG
+            return true
+            #else
+            return false
+            #endif
         }
     }
 }

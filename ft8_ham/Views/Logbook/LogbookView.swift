@@ -11,6 +11,7 @@ import SwiftUI
 
 struct LogbookView: View {
     @EnvironmentObject var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
 
     @AppStorage("logbookTimeDisplayLocal") private var displayLocalTime: Bool = false
     @State private var showingImportSheet = false
@@ -209,7 +210,7 @@ struct LogbookView: View {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .disabled(selectedIDs.isEmpty)
-                    } else {
+                    } else if flags.isEnabled(.statisticsView) {
                         NavigationLink(destination: StatisticsView(entries: viewModel.qsoList, myGrid: viewModel.locator)) {
                             Image(systemName: "chart.bar.xaxis")
                         }
