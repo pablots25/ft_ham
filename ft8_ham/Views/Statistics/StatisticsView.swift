@@ -10,8 +10,8 @@ import SwiftUI
 struct StatisticsView: View {
     @StateObject private var vm: StatisticsViewModel
 
-    init(entries: [LogEntry]) {
-        _vm = StateObject(wrappedValue: StatisticsViewModel(entries: entries))
+    init(entries: [LogEntry], myGrid: String = "") {
+        _vm = StateObject(wrappedValue: StatisticsViewModel(entries: entries, myGrid: myGrid))
     }
 
     var body: some View {
@@ -38,6 +38,11 @@ struct StatisticsView: View {
 
                 StatsSummarySection(summary: vm.summary)
 
+                StatsStreaksSection(
+                    longestStreak: vm.summary.longestStreak,
+                    currentStreak: vm.summary.currentStreak
+                )
+
                 StatsActivitySection(
                     series: vm.summary.activitySeries,
                     isDaily: StatisticsEngine.shouldUseDailyGranularity(vm.selectedPeriod)
@@ -47,14 +52,46 @@ struct StatisticsView: View {
 
                 StatsModeSection(data: vm.summary.qsosByMode)
 
+                StatsContinentSection(data: vm.summary.qsosByContinent)
+
                 StatsCountriesSection(data: vm.summary.qsosByCountry)
 
                 StatsTimeOfDaySection(data: vm.summary.qsosByHour)
+
+                StatsDayOfWeekSection(data: vm.summary.qsosByDayOfWeek)
+
+                StatsBandHourHeatmapSection(data: vm.summary.bandHourHeatmap)
+
+                StatsDistanceSection(
+                    distanceStats: vm.summary.distanceStats,
+                    bestDX: vm.summary.bestDX,
+                    distanceByBand: vm.summary.distanceByBand
+                )
+
+                StatsGrowthCurvesSection(
+                    countriesOverTime: vm.summary.countriesOverTime,
+                    gridsOverTime: vm.summary.gridsOverTime,
+                    callsignsOverTime: vm.summary.callsignsOverTime
+                )
+
+                StatsTopCallsignsSection(data: vm.summary.topCallsigns)
 
                 StatsSignalSection(
                     buckets: vm.summary.snrBuckets,
                     avgSnr: vm.summary.avgSnrReceived
                 )
+
+                StatsSnrScatterSection(data: vm.summary.snrScatter)
+
+                StatsRecordsSection(records: vm.summary.records)
+
+                StatsYearOverYearSection(data: vm.summary.yearOverYear)
+
+                StatsQSORateSection(data: vm.summary.qsoRate)
+
+                StatsCQModifierSection(data: vm.summary.qsosByCQModifier)
+
+                StatsGridHeatmapSection(data: vm.summary.gridFieldHeatmap)
             }
             .padding(.vertical)
         }

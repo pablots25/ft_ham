@@ -11,6 +11,7 @@ import Foundation
 final class StatisticsViewModel: ObservableObject {
 
     private let entries: [LogEntry]
+    private let myGrid: String
 
     @Published var selectedPeriod: StatsPeriod = .allTime {
         didSet { recompute() }
@@ -22,9 +23,10 @@ final class StatisticsViewModel: ObservableObject {
 
     @Published private(set) var summary: StatisticsSummary
 
-    init(entries: [LogEntry]) {
+    init(entries: [LogEntry], myGrid: String = "") {
         self.entries = entries
-        self.summary = StatisticsEngine.compute(entries: entries, period: .allTime)
+        self.myGrid = myGrid
+        self.summary = StatisticsEngine.compute(entries: entries, period: .allTime, myGrid: myGrid)
     }
 
     func applyCustomRange() {
@@ -33,7 +35,7 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private func recompute() {
-        summary = StatisticsEngine.compute(entries: entries, period: selectedPeriod)
+        summary = StatisticsEngine.compute(entries: entries, period: selectedPeriod, myGrid: myGrid)
     }
 
     /// Presets for the period picker (excluding custom).

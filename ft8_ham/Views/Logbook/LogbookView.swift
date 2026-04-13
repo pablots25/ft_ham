@@ -210,7 +210,7 @@ struct LogbookView: View {
                         }
                         .disabled(selectedIDs.isEmpty)
                     } else {
-                        NavigationLink(destination: StatisticsView(entries: viewModel.qsoList)) {
+                        NavigationLink(destination: StatisticsView(entries: viewModel.qsoList, myGrid: viewModel.locator)) {
                             Image(systemName: "chart.bar.xaxis")
                         }
                     }
