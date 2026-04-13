@@ -83,7 +83,10 @@ public protocol PSKReporterProtocol: ObservableObject, Sendable {
     
     /// Whether test mode is enabled
     var isTestMode: Bool { get }
-    
+
+    /// The software identifier string sent to PSK Reporter (e.g. "FT Ham v1.2.3").
+    var decoderSoftware: String { get }
+
     /// Report a contact to PSK Reporter
     func report(_ report: PSKReporterReport, testMode: Bool)
     

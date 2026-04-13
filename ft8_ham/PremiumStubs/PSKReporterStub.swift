@@ -21,7 +21,12 @@ public final class PSKReporterStub: @preconcurrency PSKReporterProtocol {
     @Published public var lastPacket: Data?
     @Published public var lastReport: PSKReporterReport?
     @Published public var isTestMode: Bool = false
-    
+
+    public var decoderSoftware: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        return "FT Ham v\(version)"
+    }
+
     nonisolated private init() {}
     
     public func report(_ report: PSKReporterReport, testMode: Bool = false) {

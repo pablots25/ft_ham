@@ -103,7 +103,11 @@ private final class PSKReporterAdapter: PSKReporterProtocol {
     var isTestMode: Bool {
         reporter.isTestMode
     }
-    
+
+    var decoderSoftware: String {
+        reporter.decoderSoftware
+    }
+
     init(reporter: FTHamPremium.PSKReporterReporter) {
         self.reporter = reporter
     }
