@@ -153,15 +153,39 @@ struct CQModifierView: View {
 
         if let label = cqModifier.referenceLabel,
            let placeholder = cqModifier.referencePlaceholder {
-            HStack {
-                Text(label)
-                TextField(
-                    placeholder,
-                    text: referenceBinding(for: cqModifier)
-                )
-                .textFieldStyle(.roundedBorder)
-                .textCase(.uppercase)
-                .autocapitalization(.allCharacters)
+            let binding = referenceBinding(for: cqModifier)
+            let isValid = cqModifier.isValidReference(binding.wrappedValue)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(label)
+                    TextField(
+                        placeholder,
+                        text: binding
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .textCase(.uppercase)
+                    .autocapitalization(.allCharacters)
+                    .onChange(of: binding.wrappedValue) { value in
+                        let sanitized = sanitizeActivationReference(value, for: cqModifier)
+                        if sanitized != value {
+                            binding.wrappedValue = sanitized
+                        }
+                    }
+
+                    if !binding.wrappedValue.isEmpty {
+                        Image(systemName: isValid ? "checkmark.circle" : "exclamationmark.circle")
+                            .foregroundStyle(isValid ? .green : .red)
+                            .animation(.easeInOut, value: isValid)
+                    }
+                }
+
+                if !binding.wrappedValue.isEmpty, !isValid, let hint = cqModifier.referenceFormatHint {
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .transition(.opacity)
+                }
             }
         }
     }
@@ -171,6 +195,13 @@ struct CQModifierView: View {
             let custom = sanitizeCustomModifier(cqModifierOther)
             return custom.isEmpty ? String(localized: "Others") : "\(String(localized: "Others")): \(custom)"
         }
+        // For activation modifiers, show the reference if set
+        if cqModifier.requiresReference {
+            let ref = referenceBinding(for: cqModifier).wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !ref.isEmpty {
+                return "\(cqModifier.rawValue): \(ref)"
+            }
+        }
         return cqModifier.displayName
     }
 
@@ -178,6 +209,19 @@ struct CQModifierView: View {
         let upper = value.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let filtered = upper.filter { $0.isLetter || $0.isNumber || $0 == "/" }
         return String(filtered.prefix(4))
+    }
+
+    /// Sanitizes activation references — allows letters, digits, hyphens, slashes and commas (for multiple POTA refs).
+    private func sanitizeActivationReference(_ value: String, for modifier: CQModifier) -> String {
+        let upper = value.uppercased()
+        switch modifier {
+        case .pota:
+            // Allow letters, digits, hyphen, comma, space (for multiple parks)
+            return upper.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "," || $0 == " " }
+        default:
+            // Allow letters, digits, hyphen, slash
+            return upper.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "/" }
+        }
     }
     
     private func referenceBinding(for modifier: CQModifier) -> Binding<String> {

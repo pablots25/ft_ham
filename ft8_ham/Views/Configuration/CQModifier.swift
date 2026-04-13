@@ -110,4 +110,45 @@ extension CQModifier {
     var requiresReference: Bool {
         referenceLabel != nil
     }
+
+    // MARK: - Reference Validation
+
+    /// Regex pattern to validate the activation reference format.
+    var referenceValidationPattern: String? {
+        switch self {
+        case .pota:
+            // One or more comma-separated park refs: "XX-NNNN" or "XX-NNNNN"
+            return #"^[A-Z0-9]+-[0-9]+(,\s*[A-Z0-9]+-[0-9]+)*$"#
+        case .sota:
+            // "Association/Region-NNN" e.g. "EA/MD-001", "W7W/HS-002"
+            return #"^[A-Z0-9]+/[A-Z]+-[0-9]+$"#
+        case .wwff:
+            // "XXXFF-NNNN" e.g. "EAFF-0456", "USFF-1234"
+            return #"^[A-Z]+-[0-9]+$"#
+        case .iota:
+            // "XX-NNN" e.g. "EU-005", "AS-101"
+            return #"^[A-Z]+-[0-9]+$"#
+        default:
+            return nil
+        }
+    }
+
+    /// Returns `true` when `reference` is either empty or matches the expected format.
+    func isValidReference(_ reference: String) -> Bool {
+        let trimmed = reference.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        guard let pattern = referenceValidationPattern else { return true }
+        return trimmed.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    /// Human-readable format hint shown below an invalid reference field.
+    var referenceFormatHint: String? {
+        switch self {
+        case .pota: return String(localized: "Expected format: XX-NNNN (e.g. EA-1234). Multiple parks: EA-1234,EA-5678")
+        case .sota: return String(localized: "Expected format: XX/YY-NNN (e.g. EA/MD-001)")
+        case .wwff: return String(localized: "Expected format: XXYY-NNNN (e.g. EAFF-0456)")
+        case .iota: return String(localized: "Expected format: XX-NNN (e.g. EU-005)")
+        default: return nil
+        }
+    }
 }

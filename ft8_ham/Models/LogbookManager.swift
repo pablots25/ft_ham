@@ -250,6 +250,11 @@ final class LogbookManager: LogbookManaging {
         let rRcvd = extractField(record, field: "RST_RCVD")
         let mySig = extractField(record, field: "MY_SIG")
         let mySigInfo = extractField(record, field: "MY_SIG_INFO")
+        // Dedicated activation fields (ADIF 3.1.5+) — used as fallback when MY_SIG_INFO absent
+        let potaRef = extractField(record, field: "MY_POTA_REF")
+        let sotaRef = extractField(record, field: "MY_SOTA_REF")
+        let wwffRef = extractField(record, field: "MY_WWFF_REF")
+        let iotaRef = extractField(record, field: "MY_IOTA_REF")
         let stationCall = extractField(record, field: "STATION_CALLSIGN")
         let qsoDateRaw = extractField(record, field: "QSO_DATE")
         let timeOnRaw = extractField(record, field: "TIME_ON")
@@ -296,6 +301,28 @@ final class LogbookManager: LogbookManaging {
 
         let mode = ["FT8", "FT4"].contains(modeRaw) ? modeRaw : "FT8"
 
+        // Resolve MY_SIG from dedicated fields when the generic MY_SIG tag is absent
+        let resolvedMySig: String = {
+            if !mySig.isEmpty { return mySig }
+            if !potaRef.isEmpty { return "POTA" }
+            if !sotaRef.isEmpty { return "SOTA" }
+            if !wwffRef.isEmpty { return "WWFF" }
+            if !iotaRef.isEmpty { return "IOTA" }
+            return ""
+        }()
+
+        // Resolve reference: prefer MY_SIG_INFO, then the specific dedicated field
+        let resolvedSigInfo: String = {
+            if !mySigInfo.isEmpty { return mySigInfo }
+            switch resolvedMySig {
+            case "POTA": return potaRef
+            case "SOTA": return sotaRef
+            case "WWFF": return wwffRef
+            case "IOTA": return iotaRef
+            default: return ""
+            }
+        }()
+
         return LogEntry(
             callsign: call,
             grid: grid,
@@ -306,8 +333,8 @@ final class LogbookManager: LogbookManaging {
             rstSent: rSent,
             rstRcvd: rRcvd,
             stationCallsign: stationCall.isEmpty ? nil : stationCall,
-            cqModifier: mySig.isEmpty ? nil : mySig,
-            mySigInfo: mySigInfo.isEmpty ? nil : mySigInfo,
+            cqModifier: resolvedMySig.isEmpty ? nil : resolvedMySig,
+            mySigInfo: resolvedSigInfo.isEmpty ? nil : resolvedSigInfo,
             country: CountryResolver.countryAndCoordinates(for: call).country,
             flag: FlagUtility.flag(for: CountryResolver.countryAndCoordinates(for: call).country)
         )
@@ -393,6 +420,15 @@ final class LogbookManager: LogbookManaging {
            let sigInfo = entry.mySigInfo?.trimmingCharacters(in: .whitespacesAndNewlines),
            !sigInfo.isEmpty {
             fields["MY_SIG_INFO"] = sigInfo
+
+            // Emit dedicated activation fields (ADIF 3.1.5+) for direct upload-tool compatibility
+            switch fields["MY_SIG"] {
+            case "POTA":  fields["MY_POTA_REF"] = sigInfo
+            case "SOTA":  fields["MY_SOTA_REF"] = sigInfo
+            case "WWFF":  fields["MY_WWFF_REF"] = sigInfo
+            case "IOTA":  fields["MY_IOTA_REF"] = sigInfo
+            default: break
+            }
         }
 
         return fields

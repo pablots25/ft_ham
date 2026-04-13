@@ -47,6 +47,9 @@ struct LogbookView: View {
     @State private var showSelectionExport = false
     @State private var showClearLogbookAlert = false
 
+    // Activation filter
+    @State private var activationFilter: String? = nil
+
     // Statistics
     @State private var showStatistics = false
 
@@ -64,12 +67,35 @@ struct LogbookView: View {
             source = source.filter { $0.date < endOfDay }
         }
 
+        // Activation filter
+        if let activation = activationFilter, !activation.isEmpty {
+            source = source.filter { entry in
+                guard let ref = entry.mySigInfo, !ref.isEmpty else { return false }
+                return ref.uppercased() == activation.uppercased()
+            }
+        }
+
         guard !searchText.isEmpty else {
             filteredQSOs = source
             return
         }
         let q = searchText.lowercased()
         filteredQSOs = source.filter { matches($0, query: q) }
+    }
+
+    /// All unique activation references present in the logbook, sorted alphabetically.
+    private var availableActivations: [(modifier: String, reference: String)] {
+        var seen = Set<String>()
+        var result: [(String, String)] = []
+        for entry in viewModel.qsoList {
+            guard let mod = entry.cqModifier, !mod.isEmpty,
+                  let ref = entry.mySigInfo, !ref.isEmpty else { continue }
+            let key = "\(mod):\(ref)"
+            if seen.insert(key).inserted {
+                result.append((mod, ref))
+            }
+        }
+        return result.sorted { $0.0 + $0.1 < $1.0 + $1.1 }
     }
 
     private func matches(_ entry: LogEntry, query q: String) -> Bool {
@@ -113,6 +139,26 @@ struct LogbookView: View {
                     .listRowBackground(Color.blue.opacity(0.08))
                 }
 
+                // Activation filter banner
+                if let filter = activationFilter {
+                    HStack {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .foregroundStyle(.orange)
+                        Text("Activation: \(filter)")
+                            .font(.caption)
+                        Spacer()
+                        Button {
+                            activationFilter = nil
+                            applyFilter()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .listRowBackground(Color.orange.opacity(0.08))
+                }
+
                 ForEach(filteredQSOs) { entry in
                     LogbookRowCell(
                         entry: entry,
@@ -131,6 +177,10 @@ struct LogbookView: View {
                         onEdit: { editingEntry = entry },
                         onDelete: {
                             confirmAndDeleteSingle(entry)
+                        },
+                        onActivationTap: { reference in
+                            activationFilter = activationFilter == reference ? nil : reference
+                            applyFilter()
                         }
                     )
                     .tag(entry.id)
@@ -152,7 +202,26 @@ struct LogbookView: View {
             .onChange(of: viewModel.qsoList.first?.id) { _ in applyFilter() }
             .onAppear { applyFilter() }
             .overlay {
-                if viewModel.qsoList.isEmpty {
+                if filteredQSOs.isEmpty {
+                    if activationFilter != nil, !viewModel.qsoList.isEmpty {
+                        VStack(spacing: 12) {
+                            Spacer()
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                            Text("No contacts for this activation")
+                                .font(.title3)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.secondary)
+                            Button("Clear Filter") {
+                                activationFilter = nil
+                                applyFilter()
+                            }
+                            .buttonStyle(.bordered)
+                            Spacer()
+                        }
+                        .padding()
+                    } else if viewModel.qsoList.isEmpty {
                     VStack(spacing: 16) {
                         Spacer()
                         Image(systemName: "book.closed")
@@ -175,6 +244,7 @@ struct LogbookView: View {
                         Spacer()
                     }
                     .padding()
+                    }
                 }
             }
             .navigationTitle(isSelecting ? selectionTitle : "Logbook")
@@ -274,6 +344,34 @@ struct LogbookView: View {
                                 showDateFilter = true
                             } label: {
                                 Label("Filter by Date", systemImage: "calendar")
+                            }
+
+                            if !availableActivations.isEmpty {
+                                Menu {
+                                    Button {
+                                        activationFilter = nil
+                                        applyFilter()
+                                    } label: {
+                                        Label("All contacts", systemImage: "list.bullet")
+                                    }
+                                    Divider()
+                                    ForEach(availableActivations, id: \.reference) { item in
+                                        Button {
+                                            activationFilter = item.reference
+                                            applyFilter()
+                                        } label: {
+                                            Label(
+                                                "\(item.modifier): \(item.reference)",
+                                                systemImage: activationFilter == item.reference ? "checkmark" : "antenna.radiowaves.left.and.right"
+                                            )
+                                        }
+                                    }
+                                } label: {
+                                    Label(
+                                        "Filter by Activation",
+                                        systemImage: activationFilter != nil ? "antenna.radiowaves.left.and.right.circle.fill" : "antenna.radiowaves.left.and.right.circle"
+                                    )
+                                }
                             }
 
                             Divider()

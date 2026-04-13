@@ -12,6 +12,7 @@ import SwiftUI
 struct LogbookCompactRow: View {
     let entry: LogEntry
     let displayLocalTime: Bool
+    var onActivationTap: ((String) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -57,6 +58,7 @@ struct LogbookCompactRow: View {
 struct LogbookExpandedRow: View {
     let entry: LogEntry
     let displayLocalTime: Bool
+    var onActivationTap: ((String) -> Void)? = nil
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -118,17 +120,24 @@ struct LogbookExpandedRow: View {
                 // Row 4: cq modifier (conditional)
                 if let cqModifier = entry.cqModifier, !cqModifier.isEmpty {
                     HStack {
-                        Group {
-                            if let sigInfo = entry.mySigInfo, !sigInfo.isEmpty {
+                        if let sigInfo = entry.mySigInfo, !sigInfo.isEmpty {
+                            Button {
+                                onActivationTap?(sigInfo)
+                            } label: {
                                 Text("\(cqModifier): \(sigInfo)")
-                            } else {
-                                Text(cqModifier)
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
                             }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text(cqModifier)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
                         }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
                         Spacer(minLength: 8)
                     }
                 }
@@ -268,15 +277,16 @@ struct LogbookRowCell: View {
     let onTap: () -> Void
     let onEdit: () -> Void
     var onDelete: (() -> Void)? = nil
+    var onActivationTap: ((String) -> Void)? = nil
 
     var body: some View {
         HStack(alignment: .top) {
             Group {
                 if isExpanded {
-                    LogbookExpandedRow(entry: entry, displayLocalTime: displayLocalTime)
+                    LogbookExpandedRow(entry: entry, displayLocalTime: displayLocalTime, onActivationTap: onActivationTap)
                         .transition(.opacity)
                 } else {
-                    LogbookCompactRow(entry: entry, displayLocalTime: displayLocalTime)
+                    LogbookCompactRow(entry: entry, displayLocalTime: displayLocalTime, onActivationTap: onActivationTap)
                         .transition(.opacity)
                 }
             }
