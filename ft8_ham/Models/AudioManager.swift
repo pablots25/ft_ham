@@ -435,13 +435,28 @@ final class AudioManager: NSObject, AudioManaging {
         vDSP_vsmul(buffer.floatChannelData![0], 1, &gain, buffer.floatChannelData![0], 1, vDSP_Length(nSamples))
 
         // Reactivate session before engine start — recovers from interruptions
-        // where the session became inactive between slots.
-        try? AVAudioSession.sharedInstance().setActive(true)
+        // where the session became inactive between slots. This fails while the
+        // app is backgrounded; in that case the engine has no IO cycle and
+        // -[AVAudioPlayerNode play] would throw, so abort instead of crashing.
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            audioLogger.log(.error, "Audio session activation failed, skipping playback: \(error.localizedDescription)")
+            audioErrorPublisher.send(error.localizedDescription)
+            return
+        }
 
         do {
             try startEngineIfNeeded()
         } catch {
             audioErrorPublisher.send(error.localizedDescription)
+            return
+        }
+
+        guard audioEngine.isRunning else {
+            let message = "Audio engine not running after start, skipping playback"
+            audioLogger.log(.error, message)
+            audioErrorPublisher.send(message)
             return
         }
 
@@ -454,9 +469,19 @@ final class AudioManager: NSObject, AudioManaging {
             }
         }
 
-        isPlaying = true
-        playerNode.play()
-        audioLogger.log(.info, "Playback started, isPlaying: \(isPlaying)")
+        // play() raises an NSException ("player did not see an IO cycle") when the
+        // engine is not actually rendering — e.g. started while backgrounded. Swift
+        // cannot catch NSExceptions, so route the call through ObjCExceptionCatcher.
+        do {
+            try ObjCExceptionCatcher.catchException { self.playerNode.play() }
+            isPlaying = true
+            audioLogger.log(.info, "Playback started, isPlaying: \(isPlaying)")
+        } catch {
+            playerNode.stop()
+            isPlaying = false
+            audioLogger.log(.error, "playerNode.play() threw: \(error.localizedDescription)")
+            audioErrorPublisher.send(error.localizedDescription)
+        }
     }
 
     func stopPlayback() {
