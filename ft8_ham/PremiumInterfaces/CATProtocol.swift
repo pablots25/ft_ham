@@ -29,6 +29,7 @@ public enum CatRigError: LocalizedError {
     case sendFailed(String)
     case receiveFailed(String)
     case invalidResponse
+    case cancelled
 
     public var errorDescription: String? {
         switch self {
@@ -44,6 +45,8 @@ public enum CatRigError: LocalizedError {
             return "CAT receive failed: \(message)"
         case .invalidResponse:
             return "CAT response was empty"
+        case .cancelled:
+            return "CAT command was cancelled"
         }
     }
 }

@@ -453,26 +453,28 @@ final class QSOStatusManager: ObservableObject {
     /// After maxRetrySlots attempts, returns abortQSO.
     @MainActor
     func handleQSOTimeout() -> QSOAction {
-        // Only trigger timeout if we're actually awaiting a response
-        guard isAwaitingResponse() else { return .ignore }
-        guard !lockedDXCallsign.isEmpty else { return .ignore }
-        
         // If we received a valid response this slot, don't timeout
         if responseReceivedThisSlot {
             appLogger.debug("Response received this slot, skipping timeout")
             return .ignore
         }
 
-        retryCounter += 1
-        
         // FT8 protocol: 73 is terminal — the sender does NOT retry.
         // Close the QSO immediately on any timeout while in sending73 state,
-        // regardless of retryCounter. The TX-confirmation path is also guarded
-        // by qsoAlreadyLogged, so a duplicate close is harmless.
+        // bypassing the retry counter (isAwaitingResponse() excludes sending73,
+        // so this must run before the awaiting-response guard). The
+        // TX-confirmation path is also guarded by qsoAlreadyLogged, so a
+        // duplicate close is harmless.
         if case .sending73(let dx) = qsoState {
             appLogger.debug("73 timeout — closing QSO for \(dx) per FT8 protocol (no retry)")
             return closeQSO(dxCallsign: dx, openCourtesyWindow: false)
         }
+
+        // Only trigger timeout if we're actually awaiting a response
+        guard isAwaitingResponse() else { return .ignore }
+        guard !lockedDXCallsign.isEmpty else { return .ignore }
+
+        retryCounter += 1
 
         if retryCounter <= maxRetrySlots {
             appLogger.debug("Slot timeout for \(lockedDXCallsign), attempt \(retryCounter)/\(maxRetrySlots)")

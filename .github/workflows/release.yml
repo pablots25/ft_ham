@@ -67,12 +67,26 @@ jobs:
     runs-on: macos-15
     env:
       VERSION: ${{ needs.validate.outputs.version }}
+    defaults:
+      run:
+        working-directory: ft_ham
 
     steps:
-      - name: Checkout
+      # The Xcode project references the premium package as a local sibling
+      # (XCLocalSwiftPackageReference "../ft_ham_premium"), so both repos are
+      # checked out side by side inside the workspace.
+      - name: Checkout ft_ham
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          path: ft_ham
+
+      - name: Checkout ft_ham_premium
+        uses: actions/checkout@v4
+        with:
+          repository: pablots25/ft_ham_premium
+          token: ${{ secrets.PREMIUM_REPO_TOKEN }}
+          path: ft_ham_premium
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
@@ -82,13 +96,14 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
+          working-directory: ft_ham
 
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
           path: |
             ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
-          key: spm-${{ hashFiles('ft8_ham.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          key: spm-${{ hashFiles('ft_ham/ft8_ham.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-
 
       - name: Run tests
@@ -101,12 +116,23 @@ jobs:
     runs-on: macos-15
     env:
       VERSION: ${{ needs.validate.outputs.version }}
+    defaults:
+      run:
+        working-directory: ft_ham
 
     steps:
-      - name: Checkout
+      - name: Checkout ft_ham
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          path: ft_ham
+
+      - name: Checkout ft_ham_premium
+        uses: actions/checkout@v4
+        with:
+          repository: pablots25/ft_ham_premium
+          token: ${{ secrets.PREMIUM_REPO_TOKEN }}
+          path: ft_ham_premium
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
@@ -116,13 +142,14 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
+          working-directory: ft_ham
 
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
           path: |
             ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
-          key: spm-${{ hashFiles('ft8_ham.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          key: spm-${{ hashFiles('ft_ham/ft8_ham.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-
 
       # ── Version bump ────────────────────────────────────────────────────────
@@ -214,7 +241,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ft8_ham-${{ env.VERSION }}-${{ github.run_number }}.ipa
-          path: build/ft8_ham.ipa
+          path: ft_ham/build/ft8_ham.ipa
           retention-days: 14
 
   # ── Job 4: Create GitHub Release ──────────────────────────────────────────

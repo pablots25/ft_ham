@@ -48,4 +48,12 @@ private extension LogEntry {
         )
     }
 }
+#else
+struct StatisticsView: View {
+    init(entries: [LogEntry], myGrid: String = "") {}
+
+    var body: some View {
+        StatisticsViewStub()
+    }
+}
 #endif

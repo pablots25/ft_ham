@@ -53,6 +53,8 @@ struct PremiumPaywallView: View {
                         Image(systemName: "xmark")
                             .foregroundColor(.secondary)
                     }
+                    .accessibilityLabel("Close")
+                    .accessibilityIdentifier("paywall_close")
                 }
             }
             .alert("Error", isPresented: $showError) {

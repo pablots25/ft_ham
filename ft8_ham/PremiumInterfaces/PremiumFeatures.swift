@@ -62,7 +62,7 @@ private final class CATControlAdapter: CATControlProtocol {
 private final class PSKReporterAdapter: PSKReporterProtocol {
     private let reporter: FTHamPremium.PSKReporterReporter
     
-    var objectWillChange: ObservableObjectPublisher {
+    nonisolated var objectWillChange: ObservableObjectPublisher {
         reporter.objectWillChange
     }
     
@@ -155,7 +155,7 @@ private final class QRZServiceAdapter: QRZServiceProtocol {
 
     func uploadADIF(_ adif: String) async -> QRZUploadResult {
         let result = await service.uploadADIF(adif)
-        return QRZUploadResult(success: result.success, errorMessage: result.errorMessage)
+        return QRZUploadResult(success: result.success, errorMessage: result.errorMessage, logID: result.logID)
     }
 
     func fetchConfirmations(since date: Date) async -> String? {

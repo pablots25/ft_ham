@@ -12,8 +12,6 @@ Build/
 .build/
 Assets.xcassets
 ft8_ham.xcodeproj/
-ft8_hamTests/
-ft8_hamUITests/
 
 # Sensitive Firebase/Configuration Files
 GoogleService-Info.plist
