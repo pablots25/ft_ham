@@ -83,15 +83,23 @@ struct MessageListView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                // Defer the scroll to the next runloop turn: scrolling synchronously
+                // while SwiftUI is still applying the List diff makes UIKit target a
+                // stale index and crash with NSInternalInconsistencyException
+                // ("Attempted to scroll ... out-of-bounds item").
                 .onChange(of: filteredMessages.last?.id) { lastId in
                     guard let lastId else { return }
-                    withAnimation {
-                        scrollProxy.scrollTo(lastId, anchor: .bottom)
+                    DispatchQueue.main.async {
+                        withAnimation {
+                            scrollProxy.scrollTo(lastId, anchor: .bottom)
+                        }
                     }
                 }
                 .onAppear {
                     if let lastId = filteredMessages.last?.id {
-                        scrollProxy.scrollTo(lastId, anchor: .bottom)
+                        DispatchQueue.main.async {
+                            scrollProxy.scrollTo(lastId, anchor: .bottom)
+                        }
                     }
                 }
             }

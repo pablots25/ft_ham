@@ -406,6 +406,14 @@ extension FT8ViewModel {
         // Clear isReadyForTX after successful TX preparation
         self.isReadyForTX = false
         
+        // The scenePhase handler stops the sequencer on backgrounding, but a TX
+        // task already in flight can reach this point afterwards. Starting audio
+        // in the background has no IO cycle and crashes AVAudioPlayerNode.
+        guard UIApplication.shared.applicationState != .background else {
+            txLogger.warning("TX skipped for slot \(slot.slotIndex): app is in background")
+            return
+        }
+
         AnalyticsManager.shared.startRadioActivity(.tx)
         sendCatFrequency(reason: "tx start")
         setCatPTT(true, reason: "tx start")

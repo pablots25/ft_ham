@@ -3,3 +3,4 @@
 //
 
 #import "ft8_Engine.h"
+#import "ObjCExceptionCatcher.h"
