@@ -401,7 +401,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         setupPreviewData()
         configureLocationManager()
         startCatFrequencyPollingIfNeeded()
-        
+        setupPremiumRevocationObserver()
+
         refreshMessagesIfNeeded(reason: "initial load")
     }
     
@@ -484,6 +485,19 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         .store(in: &cancellables)
     }
     
+    // MARK: - Premium Revocation
+
+    private func setupPremiumRevocationObserver() {
+        NotificationCenter.default.publisher(for: .premiumRevoked)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                if self.catEnabled { self.catEnabled = false }
+                if self.pskReporterEnabled { self.pskReporterEnabled = false }
+            }
+            .store(in: &cancellables)
+    }
+
     // MARK: - Private Helper for Message Refresh
     private func refreshMessagesIfNeeded(reason: String) {
         guard settingsLoaded else {

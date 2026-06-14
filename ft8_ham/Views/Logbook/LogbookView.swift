@@ -485,7 +485,7 @@ struct LogbookView: View {
             Text("This action cannot be undone.")
         }
         .sheet(isPresented: $showPremiumPaywall) {
-            PremiumPaywallView(source: PremiumFeature.statistics.analyticsSource)
+            PremiumPaywallView(source: .feature(.statistics))
                 .environmentObject(premiumManager)
         }
         .sheet(isPresented: $showExportOptions) {

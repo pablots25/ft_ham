@@ -146,7 +146,7 @@ struct BehaviorSettingsContent: View {
         }
         .sheet(isPresented: $showPaywall) {
             NavigationStack {
-                PremiumPaywallView(source: "behavior_settings")
+                PremiumPaywallView(source: .feature(.pskReporter))
                     .navigationTitle("Become Premium")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {

@@ -73,7 +73,7 @@ struct ConfigurationView: View {
         }
         .sheet(isPresented: $showPremium) {
             NavigationStack {
-                PremiumPaywallView(source: "configuration")
+                PremiumPaywallView(source: .screen("configuration"))
                     .navigationTitle("Become Premium")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
