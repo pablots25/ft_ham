@@ -70,7 +70,10 @@ final class LogSyncManager: ObservableObject {
 
     /// Creates an isolated instance for unit testing with injected services.
     /// Does **not** start the confirmation timer or load persisted pending IDs.
-    init(qrzService: any QRZServiceProtocol, lotwService: any LoTWServiceProtocol, eqslService: any eQSLServiceProtocol = eQSLServiceStub.shared) {
+    /// (No default argument for `eqslService`: default-argument expressions are
+    /// evaluated in the caller's nonisolated context, so referencing the
+    /// MainActor-isolated stub singleton there is an error in Swift 6.)
+    init(qrzService: any QRZServiceProtocol, lotwService: any LoTWServiceProtocol, eqslService: any eQSLServiceProtocol) {
         self.qrzService = qrzService
         self.lotwService = lotwService
         self.eqslService = eqslService

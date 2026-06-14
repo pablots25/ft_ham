@@ -137,6 +137,7 @@ struct LogbookView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Clear Filter"))
                     }
                     .listRowBackground(Color.blue.opacity(0.08))
                 }
@@ -157,6 +158,7 @@ struct LogbookView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Clear Filter"))
                     }
                     .listRowBackground(Color.orange.opacity(0.08))
                 }
@@ -282,6 +284,7 @@ struct LogbookView: View {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .disabled(selectedIDs.isEmpty)
+                        .accessibilityLabel(Text("Export Selection"))
                     } else {
                         #if canImport(FTHamPremium)
                         if premiumManager.isPremiumUnlocked {
