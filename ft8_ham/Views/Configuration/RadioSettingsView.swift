@@ -184,6 +184,7 @@ struct RadioSettingsContent: View {
                     Image(systemName: "chevron.left")
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityLabel(Text("Decrease audio frequency"))
 
                 Slider(value: $viewModel.frequency, in: 0.1...3000, step: 10)
 
@@ -193,6 +194,7 @@ struct RadioSettingsContent: View {
                     Image(systemName: "chevron.right")
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityLabel(Text("Increase audio frequency"))
             }
         }
     }
