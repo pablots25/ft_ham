@@ -97,6 +97,13 @@ final class QSOStatusManager: ObservableObject {
     var maxRetrySlots = 3
     var qsoAlreadyLogged = false
 
+    // Snapshot of the mode (FT4 vs FT8) at QSO start, so the log entry is
+    // correct even if the user switches mode while the QSO is in progress.
+    var qsoStartedAsFT4: Bool = false
+    // Set by the ViewModel before each QSO-start call so setupNewQSO() can
+    // snapshot it without requiring an API change on handleIncomingMessage.
+    var isFT4Mode: Bool = false
+
     // Explicit confirmation that DX has copied our report
     var dxHasConfirmedMyReport = false
 
@@ -127,6 +134,10 @@ final class QSOStatusManager: ObservableObject {
     func startReply(to message: FT8Message, myCallsign: String, myLocator: String) -> QSOAction {
         guard let dx = message.callsign else {
             appLogger.debug("startReply: No callsign in message, ignoring.")
+            return .ignore
+        }
+        guard dx.uppercased() != myCallsign.uppercased() else {
+            appLogger.warning("startReply: Ignoring own callsign: \(dx)")
             return .ignore
         }
 
@@ -221,7 +232,11 @@ final class QSOStatusManager: ObservableObject {
                     appLogger.warning("Ignoring CQ with invalid callsign: \(dxCallUpper)")
                     return .ignore
                 }
-                
+                guard dxCallUpper != myCallUpper else {
+                    appLogger.warning("Ignoring CQ from own callsign: \(dxCallUpper)")
+                    return .ignore
+                }
+
                 setupNewQSO(dx: dxCallUpper, locator: message.locator ?? "", initialSNR: message.measuredSNR, cqModifier: message.cqModifier)
                 qsoState = .sendingGrid(dxCallsign: dxCallUpper)
                 return .sendGrid(dxCallsign: dxCallUpper, dxLocator: lockedDXLocator)
@@ -234,7 +249,11 @@ final class QSOStatusManager: ObservableObject {
                     appLogger.warning("Ignoring grid exchange with invalid callsign: \(dxCallUpper)")
                     return .ignore
                 }
-                
+                guard dxCallUpper != myCallUpper else {
+                    appLogger.warning("Ignoring grid exchange from own callsign: \(dxCallUpper)")
+                    return .ignore
+                }
+
                 setupNewQSO(dx: dxCallUpper, locator: message.locator ?? "", initialSNR: message.measuredSNR, cqModifier: message.cqModifier)
                 qsoState = .sendingReport(dxCallsign: dxCallUpper)
                 guard lastSentSNR != invalidSNR else {
@@ -427,6 +446,7 @@ final class QSOStatusManager: ObservableObject {
     internal func setupNewQSO(dx: String, locator: String, initialSNR: Double?, cqModifier: String? = nil) {
         lockedDXCallsign = dx
         lockedDXLocator = locator
+        qsoStartedAsFT4 = isFT4Mode
         
         // Freeze RST_SENT at the instant the QSO begins - the one and only place
         // Valid FT8 SNR range is roughly -24 to +50 dB

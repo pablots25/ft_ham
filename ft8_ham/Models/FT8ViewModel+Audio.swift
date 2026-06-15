@@ -80,6 +80,8 @@ extension FT8ViewModel {
         
         // Reset response tracking for this slot before processing messages
         qsoManager.prepareForRXSlot()
+        // Keep the mode context current so setupNewQSO snapshots the right value.
+        qsoManager.isFT4Mode = isFT4
         
         // Track if this slot contained our TX - if so, we shouldn't expect a response yet
         let slotContainedOurTX = result.messages.contains { $0.isTX } ||
@@ -333,7 +335,7 @@ extension FT8ViewModel {
                 dxLocator: completedLocator,
                 qsoDate: .now,
                 band: effectiveBand,
-                isFT4: isFT4,
+                isFT4: qsoManager.qsoStartedAsFT4,
                 rstSent: qsoManager.lastSentSNR,
                 rstRcvd: qsoManager.lastReceivedSNR,
                 customFrequencyHz: selectedBand == .custom ? customDialFrequencyHz : nil
