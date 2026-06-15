@@ -15,7 +15,8 @@ extension FT8ViewModel {
         appLogger.info("Initializing reply to \(message.callsign ?? "unknown")")
         
         alignTXFrequencyForQSOStart(from: message)
-        
+
+        qsoManager.isFT4Mode = isFT4
         // Start the reply in QSOManager - state is synced via computed properties
         _ = qsoManager.startReply(to: message, myCallsign: callsign, myLocator: locator)
         
