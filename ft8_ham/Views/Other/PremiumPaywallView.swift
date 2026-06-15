@@ -8,12 +8,26 @@
 import StoreKit
 import SwiftUI
 
+/// Typed source for paywall analytics. Use `.feature` when a specific locked
+/// feature triggered the paywall; use `.screen` for navigation-level triggers.
+enum PaywallSource {
+    case feature(PremiumFeature)
+    case screen(String)
+
+    var analyticsValue: String {
+        switch self {
+        case .feature(let f): return f.analyticsSource
+        case .screen(let s): return s
+        }
+    }
+}
+
 /// Premium paywall modal view
 struct PremiumPaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var premiumManager: PremiumManager
 
-    let source: String // Track where the paywall was shown from
+    let source: PaywallSource
 
     @State private var isPurchasing = false
     @State private var isRestoring = false
@@ -77,7 +91,7 @@ struct PremiumPaywallView: View {
             await premiumManager.fetchPremiumProduct()
         }
         .onAppear {
-            AnalyticsManager.shared.logPremiumPaywallShown(source: source)
+            AnalyticsManager.shared.logPremiumPaywallShown(source: source.analyticsValue)
         }
     }
 
@@ -110,30 +124,14 @@ struct PremiumPaywallView: View {
 
     private var featuresView: some View {
         VStack(alignment: .leading, spacing: 16) {
-            FeatureRow(
-                icon: "rectangle.split.3x1",
-                iconColor: .blue,
-                title: "iPad Dashboard",
-                description: "Multitask with a layout optimized for iPad"
-            )
-            FeatureRow(
-                icon: "chart.bar.fill",
-                iconColor: .purple,
-                title: "PSK Reporter integration",
-                description: "Check in real-time where your signals are being received by others"
-            )
-            FeatureRow(
-                icon: "slider.horizontal.3",
-                iconColor: .orange,
-                title: "CAT Control",
-                description: "Control your radio over the internet with CAT via UDP - No USB yet"
-            )
-            FeatureRow(
-                icon: "chart.bar.xaxis",
-                iconColor: .indigo,
-                title: "Logbook Statistics",
-                description: "Charts, heatmaps and detailed analytics of your QSO activity"
-            )
+            ForEach(PremiumFeature.allCases, id: \.self) { feature in
+                FeatureRow(
+                    icon: feature.icon,
+                    iconColor: feature.paywallIconColor,
+                    title: feature.displayName,
+                    description: feature.paywallDescription
+                )
+            }
             FeatureRow(
                 icon: "envelope.circle.fill",
                 iconColor: .blue,
@@ -281,8 +279,6 @@ private struct FeatureRow: View {
 // MARK: - Preview
 
 #Preview("Premium Paywall") {
-    PremiumPaywallView(
-        source: "preview"
-    )
-    .environmentObject(PremiumManager.shared)
+    PremiumPaywallView(source: .screen("preview"))
+        .environmentObject(PremiumManager.shared)
 }

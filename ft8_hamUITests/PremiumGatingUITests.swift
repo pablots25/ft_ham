@@ -305,8 +305,8 @@ final class PremiumGatingUITests: XCTestCase {
         becomePremiumButton.tap()
 
         XCTAssertTrue(
-            app.staticTexts["PSK Reporter integration"].waitForExistence(timeout: 5),
-            "Paywall should list PSK Reporter integration as a premium feature"
+            app.staticTexts["PSK Reporter"].waitForExistence(timeout: 5),
+            "Paywall should list PSK Reporter as a premium feature"
         )
     }
 

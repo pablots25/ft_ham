@@ -127,7 +127,7 @@ struct DebugSettingsView: View {
             WhatsNewView()
         }
         .sheet(isPresented: $showPaywall) {
-            PremiumPaywallView(source: "debug")
+            PremiumPaywallView(source: .screen("debug"))
         }
         .alert("Mock Data Loaded", isPresented: $showMockDataLoaded) {
             Button("OK", role: .cancel) { }

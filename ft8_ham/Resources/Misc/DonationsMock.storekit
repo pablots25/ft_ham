@@ -14,7 +14,66 @@
 
   ],
   "products" : [
-
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "001",
+      "localizations" : [
+        {
+          "description" : "Support FT Ham development — small coffee",
+          "displayName" : "Small Coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "coffe_small",
+      "referenceName" : "Small Coffee",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "002",
+      "localizations" : [
+        {
+          "description" : "Support FT Ham development — medium coffee",
+          "displayName" : "Medium Coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "coffe_medium",
+      "referenceName" : "Medium Coffee",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "003",
+      "localizations" : [
+        {
+          "description" : "Support FT Ham development — large coffee",
+          "displayName" : "Large Coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "coffee_large",
+      "referenceName" : "Large Coffee",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : true,
+      "internalID" : "004",
+      "localizations" : [
+        {
+          "description" : "Unlock all premium features — one-time purchase",
+          "displayName" : "FT Ham Premium",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "ft_ham_premium",
+      "referenceName" : "FT Ham Premium",
+      "type" : "NonConsumable"
+    }
   ],
   "settings" : {
     "_applicationInternalID" : "6755367558",

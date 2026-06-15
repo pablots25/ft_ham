@@ -265,63 +265,81 @@ private final class eQSLServiceAdapter: eQSLServiceProtocol {
 
 #endif
 
-/// Factory for premium features
+/// Factory for premium features.
 /// Returns real implementations when FTHamPremium package is available,
-/// or stub implementations for public-only builds
+/// or stub implementations for public-only builds.
+/// Each property is backed by a private cache so adapters (and their Combine subscriptions)
+/// are created only once per app session.
 @MainActor
 public enum PremiumFeatures {
-    
-    /// Get CAT controller instance
-    /// Returns real implementation if premium package is linked, stub otherwise
+
+    private static var _catController: (any CATControlProtocol)?
     public static var catController: any CATControlProtocol {
-        #if canImport(FTHamPremium)
-        // Premium package available - use adapter for real implementation
-        return CATControlAdapter(controller: FTHamPremium.CatRigController.shared)
-        #else
-        // Premium package not available - use stub
-        return CATControlStub.shared
-        #endif
+        if let existing = _catController { return existing }
+        let instance: any CATControlProtocol = {
+            #if canImport(FTHamPremium)
+            return CATControlAdapter(controller: FTHamPremium.CatRigController.shared)
+            #else
+            return CATControlStub.shared
+            #endif
+        }()
+        _catController = instance
+        return instance
     }
-    
-    /// Get PSK Reporter instance
-    /// Returns real implementation if premium package is linked, stub otherwise
+
+    private static var _pskReporter: (any PSKReporterProtocol)?
     public static var pskReporter: any PSKReporterProtocol {
-        #if canImport(FTHamPremium)
-        // Premium package available - use adapter for real implementation
-        return PSKReporterAdapter(reporter: FTHamPremium.PSKReporterReporter.shared)
-        #else
-        // Premium package not available - use stub
-        return PSKReporterStub.shared
-        #endif
+        if let existing = _pskReporter { return existing }
+        let instance: any PSKReporterProtocol = {
+            #if canImport(FTHamPremium)
+            return PSKReporterAdapter(reporter: FTHamPremium.PSKReporterReporter.shared)
+            #else
+            return PSKReporterStub.shared
+            #endif
+        }()
+        _pskReporter = instance
+        return instance
     }
 
-    /// Get QRZ service instance
-    /// Returns real implementation if premium package is linked, stub otherwise
+    private static var _qrzService: (any QRZServiceProtocol)?
     public static var qrzService: any QRZServiceProtocol {
-        #if canImport(FTHamPremium)
-        return QRZServiceAdapter(service: FTHamPremium.QRZService.shared)
-        #else
-        return QRZServiceStub.shared
-        #endif
+        if let existing = _qrzService { return existing }
+        let instance: any QRZServiceProtocol = {
+            #if canImport(FTHamPremium)
+            return QRZServiceAdapter(service: FTHamPremium.QRZService.shared)
+            #else
+            return QRZServiceStub.shared
+            #endif
+        }()
+        _qrzService = instance
+        return instance
     }
 
-    /// Get LoTW service instance
-    /// Returns real implementation if premium package is linked, stub otherwise
+    private static var _lotwService: (any LoTWServiceProtocol)?
     public static var lotwService: any LoTWServiceProtocol {
-        #if canImport(FTHamPremium)
-        return LoTWServiceAdapter(service: FTHamPremium.LoTWService.shared)
-        #else
-        return LoTWServiceStub.shared
-        #endif
+        if let existing = _lotwService { return existing }
+        let instance: any LoTWServiceProtocol = {
+            #if canImport(FTHamPremium)
+            return LoTWServiceAdapter(service: FTHamPremium.LoTWService.shared)
+            #else
+            return LoTWServiceStub.shared
+            #endif
+        }()
+        _lotwService = instance
+        return instance
     }
 
-    /// Get eQSL service instance
-    /// Returns real implementation if premium package is linked, stub otherwise
+    private static var _eqslService: (any eQSLServiceProtocol)?
     public static var eqslService: any eQSLServiceProtocol {
-        #if canImport(FTHamPremium)
-        return eQSLServiceAdapter(service: FTHamPremium.eQSLService.shared)
-        #else
-        return eQSLServiceStub.shared
-        #endif
+        if let existing = _eqslService { return existing }
+        let instance: any eQSLServiceProtocol = {
+            #if canImport(FTHamPremium)
+            return eQSLServiceAdapter(service: FTHamPremium.eQSLService.shared)
+            #else
+            return eQSLServiceStub.shared
+            #endif
+        }()
+        _eqslService = instance
+        return instance
     }
 }

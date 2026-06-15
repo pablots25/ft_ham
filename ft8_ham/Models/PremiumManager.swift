@@ -76,6 +76,8 @@ final class PremiumManager: ObservableObject {
         logger.info("Debug override inactive - checking real purchases")
         #endif
 
+        let previouslyUnlocked = isPremiumUnlocked
+
         // 1. Check non-consumable premium product via entitlements
         for await result in Transaction.currentEntitlements {
             if case let .verified(transaction) = result,
@@ -108,14 +110,18 @@ final class PremiumManager: ObservableObject {
 
         logger.info("No qualifying purchase found — premium not unlocked")
         isPremiumUnlocked = false
-        UserDefaults.standard.set(false, forKey: "catEnabled")
-        UserDefaults.standard.set(false, forKey: "pskReporterEnabled")
+
+        // Notify owning models to clean up premium-gated settings only on actual revocation
+        if previouslyUnlocked {
+            NotificationCenter.default.post(name: .premiumRevoked, object: nil)
+        }
     }
 
     // MARK: - Fetch Product
 
     /// Load the premium product from App Store
     func fetchPremiumProduct() async {
+        guard premiumProduct == nil else { return }
         isLoading = true
         defer { isLoading = false }
 
@@ -207,7 +213,7 @@ final class PremiumManager: ObservableObject {
                             logger.info("Revoked transaction detected: \(transaction.productID)")
                             await transaction.finish()
                             await loadPremiumStatus()
-                            return
+                            continue
                         }
 
                         logger.info("Transaction update received: \(transaction.productID)")
@@ -236,25 +242,32 @@ final class PremiumManager: ObservableObject {
 
     // MARK: - Keychain Helpers
 
-    /// Persist donation grant in Keychain (survives device restores unlike Transaction.all for consumables)
+    /// Persist donation grant in Keychain, synced via iCloud Keychain so it transfers
+    /// to new devices and survives device restores.
     private static func setDonationKeychainFlag() {
-        let query: [CFString: Any] = [
+        let deleteQuery: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrAccount: donationKeychainKey,
-            kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            kSecAttrSynchronizable: kCFBooleanTrue!
         ]
-        SecItemDelete(query as CFDictionary)
+        SecItemDelete(deleteQuery as CFDictionary)
 
-        var attributes = query
-        attributes[kSecValueData] = Data("granted".utf8)
-        SecItemAdd(attributes as CFDictionary, nil)
+        let addQuery: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: donationKeychainKey,
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrSynchronizable: kCFBooleanTrue!,
+            kSecValueData: Data("granted".utf8)
+        ]
+        SecItemAdd(addQuery as CFDictionary, nil)
     }
 
-    /// Check if donation grant flag exists in Keychain
+    /// Check if donation grant flag exists in Keychain (local or iCloud-synced).
     private static func hasDonationKeychainFlag() -> Bool {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrAccount: donationKeychainKey,
+            kSecAttrSynchronizable: kSecAttrSynchronizableAny,
             kSecReturnData: false
         ]
         return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
@@ -270,6 +283,12 @@ final class PremiumManager: ObservableObject {
         Task { await loadPremiumStatus() }
     }
     #endif
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let premiumRevoked = Notification.Name("com.ea4iql.ftham.premiumRevoked")
 }
 
 // MARK: - Premium Errors

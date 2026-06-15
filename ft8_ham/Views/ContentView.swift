@@ -31,6 +31,7 @@ struct ContentView: View {
     @State private var isPresentingLicense = false
     @State private var isPresentingWhatsNew = false
     @State private var isPresentingDonationPrompt = false
+    @State private var isPresentingRevocationAlert = false
 
     var body: some View {
         mainLayout
@@ -57,6 +58,15 @@ struct ContentView: View {
                 DonationPremiumPromptView()
                     .environmentObject(PremiumManager.shared)
                     .interactiveDismissDisabled(true)
+            }
+            // 5) Premium revocation alert
+            .alert("Premium Access Removed", isPresented: $isPresentingRevocationAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your premium access has been removed. If this is unexpected, please contact Apple Support.")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .premiumRevoked)) { _ in
+                isPresentingRevocationAlert = true
             }
             .task {
                 // Set initial tab: 4 if first launch, otherwise last used tab
