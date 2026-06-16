@@ -435,9 +435,11 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     
     @MainActor
     private func setupPreviewData() {
+        #if DEBUG
         if isPreview {
             loadMockData()
         }
+        #endif
     }
 
     #if DEBUG
