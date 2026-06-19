@@ -18,7 +18,10 @@ final class PremiumManager: ObservableObject {
     private let logger = AppLogger(category: "PREMIUM")
 
     // MARK: - Product IDs
-    static let premiumProductID = "ft_ham_premium"
+    static let premiumProductID = "premium_ftham"
+
+    // Beta access granted via promo offer code FTHAMBETAUSER
+    static let betaProductID = "beta_users"
 
     // Donation (consumable) product IDs — any verified donation also grants premium
     static let donationProductIDs: Set<String> = ["coffe_small", "coffe_medium", "coffee_large"]
@@ -31,6 +34,9 @@ final class PremiumManager: ObservableObject {
     /// Whether the user's purchases include a donation transaction.
     /// Checked asynchronously at launch; use alongside `isPremiumUnlocked`.
     @Published private(set) var isDonor: Bool = false
+
+    /// Whether the user redeemed a beta access offer code.
+    @Published private(set) var isBetaUser: Bool = false
 
     /// Prevents the one-time "donors now have premium" prompt from showing more than once.
     @AppStorage("didShowDonationPremiumPrompt") var didShowDonationPremiumPrompt: Bool = false
@@ -78,13 +84,20 @@ final class PremiumManager: ObservableObject {
 
         let previouslyUnlocked = isPremiumUnlocked
 
-        // 1. Check non-consumable premium product via entitlements
+        // 1. Check non-consumable / subscription products via entitlements
         for await result in Transaction.currentEntitlements {
-            if case let .verified(transaction) = result,
-               transaction.productID == Self.premiumProductID {
-                logger.info("Premium unlocked via premium product: \(transaction.id)")
-                isPremiumUnlocked = true
-                return
+            if case let .verified(transaction) = result {
+                if transaction.productID == Self.premiumProductID {
+                    logger.info("Premium unlocked via premium product: \(transaction.id)")
+                    isPremiumUnlocked = true
+                    return
+                }
+                if transaction.productID == Self.betaProductID {
+                    logger.info("Premium unlocked via beta access: \(transaction.id)")
+                    isBetaUser = true
+                    isPremiumUnlocked = true
+                    return
+                }
             }
         }
 
@@ -110,6 +123,7 @@ final class PremiumManager: ObservableObject {
 
         logger.info("No qualifying purchase found — premium not unlocked")
         isPremiumUnlocked = false
+        isBetaUser = false
 
         // Notify owning models to clean up premium-gated settings only on actual revocation
         if previouslyUnlocked {
@@ -205,10 +219,11 @@ final class PremiumManager: ObservableObject {
             for await result in Transaction.updates {
                 if case let .verified(transaction) = result {
                     let isPremiumTx = transaction.productID == Self.premiumProductID
+                    let isBetaTx = transaction.productID == Self.betaProductID
                     let isDonationTx = Self.donationProductIDs.contains(transaction.productID)
 
-                    if isPremiumTx || isDonationTx {
-                        // Check for refund
+                    if isPremiumTx || isBetaTx || isDonationTx {
+                        // Check for refund / subscription expiry
                         if transaction.revocationDate != nil {
                             logger.info("Revoked transaction detected: \(transaction.productID)")
                             await transaction.finish()
@@ -219,6 +234,9 @@ final class PremiumManager: ObservableObject {
                         logger.info("Transaction update received: \(transaction.productID)")
                         if isDonationTx {
                             Self.setDonationKeychainFlag()
+                        }
+                        if isBetaTx {
+                            isBetaUser = true
                         }
                         isPremiumUnlocked = true
                         await transaction.finish()
