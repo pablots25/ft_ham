@@ -25,7 +25,9 @@ struct InterfaceSettingsContent: View {
                         }
                     )) {
                         ForEach(ViewMode.allCases) { mode in
-                            Text(mode.textKey).tag(mode)
+                            if !mode.isIPadOnly || UIDevice.current.userInterfaceIdiom == .pad {
+                                Text(mode.textKey).tag(mode)
+                            }
                         }
                     }
                     .pickerStyle(.segmented)
