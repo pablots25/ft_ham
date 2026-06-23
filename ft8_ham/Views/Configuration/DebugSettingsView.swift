@@ -28,6 +28,13 @@ struct DebugSettingsView: View {
                     Label("New Config View", systemImage: "rectangle.3.group")
                 }
 
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.donationsEnabled) },
+                    set: { flags.setOverride(.donationsEnabled, value: $0) }
+                )) {
+                    Label("Donations Enabled", systemImage: "heart")
+                }
+
                 Divider()
 
                 Toggle(isOn: Binding(
