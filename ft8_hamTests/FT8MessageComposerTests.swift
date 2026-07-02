@@ -3,7 +3,7 @@
 //
 // Tests for FT8MessageComposer.generateMessages(callsign:locator:dxCallsign:dxLocator:snrToSend:includeGrid:)
 // covering: message count, content at each index, SNR clamping, CQ modifiers,
-// grid-suppression flag, 18-char truncation, and empty-DX fallback.
+// grid-suppression flag, and empty-DX fallback.
 
 import XCTest
 @testable import ft8_ham
@@ -50,16 +50,16 @@ final class FT8MessageComposerAdditionalTests: XCTestCase {
         XCTAssertEqual(messages.count, 7)
     }
 
-    /// Every element must fit within FT8's 18-character message limit.
-    func test_generateMessages_allMessagesAtMost18Characters() {
+    /// Every element must fit within the ft8_lib's FTX_MAX_MESSAGE_LENGTH (35, including null terminator).
+    func test_generateMessages_allMessagesWithinProtocolLimit() {
         let messages = sut.generateMessages(
             callsign: callsign, locator: locator,
             dxCallsign: dxCall, dxLocator: dxLocator,
             snrToSend: snr
         )
         for (index, msg) in messages.enumerated() {
-            XCTAssertLessThanOrEqual(msg.count, 18,
-                "Message at index \(index) exceeds 18 chars: '\(msg)'")
+            XCTAssertLessThanOrEqual(msg.count, 34,
+                "Message at index \(index) exceeds protocol limit: '\(msg)'")
         }
     }
 
@@ -87,8 +87,8 @@ final class FT8MessageComposerAdditionalTests: XCTestCase {
                       "Expected 'CQ DX …', got '\(messages[0])'")
     }
 
-    /// When cqModifier = "POTA", the modifier must appear and the result must not exceed 18 chars.
-    func test_generateMessages_index0_potaModifier_doesNotExceed18Chars() {
+    /// When cqModifier = "POTA", the modifier must appear in the CQ message.
+    func test_generateMessages_index0_potaModifier_includesModifier() {
         UserDefaults.standard.set("POTA", forKey: "cqModifier")
         let messages = sut.generateMessages(
             callsign: callsign, locator: locator,
@@ -97,7 +97,6 @@ final class FT8MessageComposerAdditionalTests: XCTestCase {
         )
         XCTAssertTrue(messages[0].hasPrefix("CQ POTA "),
                       "Expected 'CQ POTA …', got '\(messages[0])'")
-        XCTAssertLessThanOrEqual(messages[0].count, 18)
     }
 
     /// When cqModifier = "NONE", no modifier token appears in the CQ message.
@@ -272,19 +271,16 @@ final class FT8MessageComposerAdditionalTests: XCTestCase {
         }
     }
 
-    // MARK: - Truncation to 18 chars
+    // MARK: - SOTA regression
 
-    /// With a very long callsign, every message must still be ≤ 18 chars.
-    func test_generateMessages_longCallsign_truncatesTo18Chars() {
-        let longCall = "VK2ABCDE"   // 8 chars — still ITU-valid but makes long messages
+    /// Regression: "CQ SOTA VE7ZAX CN88" is 19 chars and must not be truncated.
+    func test_generateMessages_index0_sotaModifierWithFullGrid_notTruncated() {
+        UserDefaults.standard.set("SOTA", forKey: "cqModifier")
         let messages = sut.generateMessages(
-            callsign: longCall, locator: "QF22",
-            dxCallsign: "VK3XYZAB", dxLocator: "QF12",
-            snrToSend: -7.0
+            callsign: "VE7ZAX", locator: "CN88",
+            dxCallsign: "K1ABC", dxLocator: "FN20",
+            snrToSend: snr
         )
-        for (index, msg) in messages.enumerated() {
-            XCTAssertLessThanOrEqual(msg.count, 18,
-                "Message at index \(index) exceeds 18 chars: '\(msg)'")
-        }
+        XCTAssertEqual(messages[0], "CQ SOTA VE7ZAX CN88")
     }
 }

@@ -15,10 +15,6 @@ final class FT8MessageComposerNaNTests: XCTestCase {
     private let testDXCallsign = "K1ABC"
     private let testDXLocator = "FN20"
 
-    private func truncatedFT8(_ text: String) -> String {
-        String(text.prefix(18))
-    }
-
     override func setUp() {
         super.setUp()
         UserDefaults.standard.removeObject(forKey: "cqModifier")
@@ -272,7 +268,7 @@ final class FT8MessageComposerNaNTests: XCTestCase {
             snrToSend: -10
         )
 
-        XCTAssertEqual(messages.first, truncatedFT8("CQ POTA \(testCallsign) IN70"))
+        XCTAssertEqual(messages.first, "CQ POTA \(testCallsign) IN70")
     }
 
     func testCQMessage_UsesRawTokenForWWFF() {
@@ -286,7 +282,7 @@ final class FT8MessageComposerNaNTests: XCTestCase {
             snrToSend: -10
         )
 
-        XCTAssertEqual(messages.first, truncatedFT8("CQ WWFF \(testCallsign) IN70"))
+        XCTAssertEqual(messages.first, "CQ WWFF \(testCallsign) IN70")
     }
 
     func testCQMessage_UsesThreeCharacterTokenForWWA() {
@@ -300,7 +296,7 @@ final class FT8MessageComposerNaNTests: XCTestCase {
             snrToSend: -10
         )
 
-        XCTAssertEqual(messages.first, truncatedFT8("CQ WWA \(testCallsign) IN70"))
+        XCTAssertEqual(messages.first, "CQ WWA \(testCallsign) IN70")
     }
 
     func testCQMessage_UsesOtherCustomModifier() {
@@ -315,7 +311,7 @@ final class FT8MessageComposerNaNTests: XCTestCase {
             snrToSend: -10
         )
 
-        XCTAssertEqual(messages.first, truncatedFT8("CQ WWA \(testCallsign) IN70"))
+        XCTAssertEqual(messages.first, "CQ WWA \(testCallsign) IN70")
     }
 
     func testCQMessage_WithModifierAndIncludeGridDisabled_OmitsGrid() {
