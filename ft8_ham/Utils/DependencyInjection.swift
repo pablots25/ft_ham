@@ -124,6 +124,8 @@ protocol AudioManaging: AnyObject {
     func stopPlayback()
     func setInputGain(_ newValue: Double)
     func getCurrentInputGain() -> Double
+    func setOutputGain(_ newValue: Double)
+    func getCurrentOutputGain() -> Double
     func cleanup()
 }
 
