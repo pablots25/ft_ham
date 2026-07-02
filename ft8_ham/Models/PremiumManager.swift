@@ -177,7 +177,11 @@ final class PremiumManager: ObservableObject {
             await transaction.finish()
 
             logger.info("Purchase successful! Premium unlocked.")
-            AnalyticsManager.shared.logPremiumPurchase(price: product.price, currency: product.priceFormatStyle.currencyCode)
+            AnalyticsManager.shared.logPurchaseCompleted(
+                productID: product.id,
+                value: NSDecimalNumber(decimal: product.price).doubleValue,
+                currency: product.priceFormatStyle.currencyCode
+            )
 
         case .userCancelled:
             logger.info("Purchase cancelled by user")
@@ -239,10 +243,33 @@ final class PremiumManager: ObservableObject {
                             isBetaUser = true
                         }
                         isPremiumUnlocked = true
+
+                        // Log revenue for purchases completing outside the direct purchase() call
+                        // (Ask to Buy approval, family sharing, cross-device sync). Excludes beta
+                        // access, which is a promotional grant rather than a paid transaction.
+                        if isPremiumTx || isDonationTx {
+                            logExternalPurchase(transaction)
+                        }
+
                         await transaction.finish()
                     }
                 }
             }
+        }
+    }
+
+    /// Logs purchase revenue for a transaction we didn't originate via a direct purchase() call.
+    /// `Transaction.price`/`currency` reflect what was actually paid (unlike `Product.price`,
+    /// which is the catalog price and would misreport promo/offer-code discounts).
+    private func logExternalPurchase(_ transaction: StoreKit.Transaction) {
+        if #available(iOS 17.0, *) {
+            AnalyticsManager.shared.logPurchaseCompleted(
+                productID: transaction.productID,
+                value: transaction.price.map { NSDecimalNumber(decimal: $0).doubleValue },
+                currency: transaction.currency?.identifier
+            )
+        } else {
+            AnalyticsManager.shared.logPurchaseCompleted(productID: transaction.productID)
         }
     }
 
@@ -340,13 +367,6 @@ enum PremiumError: LocalizedError {
 // MARK: - Analytics Extension
 
 extension AnalyticsManager {
-    func logPremiumPurchase(price: Decimal, currency: String?) {
-        logEvent("premium_purchased", parameters: [
-            "price": NSDecimalNumber(decimal: price),
-            "currency": currency ?? "USD"
-        ])
-    }
-
     func logPremiumRestore() {
         logEvent("premium_restored")
     }

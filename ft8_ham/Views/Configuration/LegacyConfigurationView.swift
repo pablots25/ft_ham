@@ -10,6 +10,7 @@ import SwiftUI
 struct LegacyConfigurationView: View {
 	@EnvironmentObject private var viewModel: FT8ViewModel
 	@EnvironmentObject private var premiumManager: PremiumManager
+	@EnvironmentObject private var flags: FeatureFlagManager
 	@Binding var shouldScrollToDonations: Bool
 
 	@State private var showHelp = false
@@ -172,10 +173,12 @@ struct LegacyConfigurationView: View {
 						Label("Become Premium", systemImage: "star")
 					}
 
-					Button {
-						showSupport = true
-					} label: {
-						Label("Support FT HAM", systemImage: "heart")
+					if flags.isEnabled(.donationsEnabled) {
+						Button {
+							showSupport = true
+						} label: {
+							Label("Support FT HAM", systemImage: "heart")
+						}
 					}
 
 					Button {

@@ -66,9 +66,6 @@ struct FT8MessageComposer {
             "\(dx) \(de) RR73"             // [6] Tx6 Final sign-off quick
         ]
         
-        return messages.map { msg in
-            // Ensure message fits FT8 18-character limit
-            msg.count > 18 ? String(msg.prefix(18)) : msg
-        }
+        return messages
     }
 }
