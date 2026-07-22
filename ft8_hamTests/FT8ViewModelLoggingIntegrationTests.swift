@@ -127,4 +127,49 @@ final class FT8ViewModelLoggingIntegrationTests: XCTestCase {
         XCTAssertEqual(qso.rstSent, "10")
         XCTAssertEqual(qso.rstRcvd, "-10")
     }
+
+    // MARK: - Manual force-log
+
+    /// Force-logging an in-progress QSO always prompts for confirmation (even
+    /// when auto-logging is on), ends the QSO, and appends on confirm using the
+    /// QSO-start band/mode snapshot.
+    func testForceLogCurrentQSO_promptsThenLogs() {
+        viewModel.autoQSOLogging = true
+
+        viewModel.qsoManager.currentBand = .band20m
+        viewModel.qsoManager.currentCustomFrequencyHz = nil
+        viewModel.qsoManager.setupNewQSO(dx: "EA2ABC", locator: "FN31", initialSNR: -12)
+        viewModel.qsoManager.lastReceivedSNR = -7
+        viewModel.qsoManager.qsoState = .listeningRRR(dxCallsign: "EA2ABC")
+        XCTAssertTrue(viewModel.qsoManager.isQSOOngoing())
+
+        viewModel.forceLogCurrentQSO()
+
+        // Always confirm, even with auto-logging on; QSO is ended immediately.
+        XCTAssertTrue(viewModel.showConfirmQSOAlert)
+        XCTAssertTrue(viewModel.pendingQSOIsUnconfirmed)
+        XCTAssertEqual(viewModel.qsoList.count, 0, "Nothing logged until confirmed")
+        XCTAssertFalse(viewModel.qsoManager.isQSOOngoing(), "QSO must end after force-log")
+
+        viewModel.confirmLogging()
+
+        XCTAssertEqual(viewModel.qsoList.count, 1)
+        let qso = viewModel.qsoList.first!
+        XCTAssertEqual(qso.callsign, "EA2ABC")
+        XCTAssertEqual(qso.band, "20m")
+        XCTAssertEqual(qso.mode, "FT8")
+        XCTAssertEqual(qso.rstSent, "-12")
+        XCTAssertEqual(qso.rstRcvd, "-7")
+    }
+
+    /// Force-log is a no-op when there is no QSO in progress.
+    func testForceLogCurrentQSO_noQSO_isNoOp() {
+        viewModel.resetQSOState()
+        XCTAssertFalse(viewModel.qsoManager.isQSOOngoing())
+
+        viewModel.forceLogCurrentQSO()
+
+        XCTAssertFalse(viewModel.showConfirmQSOAlert)
+        XCTAssertEqual(viewModel.qsoList.count, 0)
+    }
 }
