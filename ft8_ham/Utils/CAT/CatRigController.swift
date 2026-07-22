@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import Network
 
 final class CatRigController: CATControlProtocol {
@@ -16,6 +17,14 @@ final class CatRigController: CATControlProtocol {
     private let logger = AppLogger(category: "CAT")
 
     private init() {}
+
+    // This reference implementation is connectionless (each command opens its
+    // own connection), so it does not maintain a persistent-connection state.
+    var isConnected: Bool { false }
+
+    var connectionStatePublisher: AnyPublisher<Bool, Never> {
+        Just(false).eraseToAnyPublisher()
+    }
 
     func connect(host: String, port: UInt16) {}
 

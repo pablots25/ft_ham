@@ -22,6 +22,12 @@ private final class CATControlAdapter: CATControlProtocol {
         self.controller = controller
     }
 
+    var isConnected: Bool { controller.isConnected }
+
+    var connectionStatePublisher: AnyPublisher<Bool, Never> {
+        controller.$isConnected.eraseToAnyPublisher()
+    }
+
     func connect(host: String, port: UInt16) {
         controller.connect(host: host, port: port)
     }

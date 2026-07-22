@@ -6,8 +6,49 @@
 //
 
 import Foundation
+import Combine
 
 extension FT8ViewModel {
+
+    // MARK: - CAT Status Observation
+
+    /// Subscribes to the CAT controller's connection-state stream so the UI can
+    /// show a live status indicator. Safe to call for the stub build (emits false).
+    @MainActor
+    func setupCatStatusObserver() {
+        catConnected = catController.isConnected
+        catController.connectionStatePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] connected in
+                self?.catConnected = connected
+                // A restored connection clears a stale error state.
+                if connected { self?.catStatusOK = true }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Records a CAT failure for the status UI. On a PTT failure it also raises a
+    /// one-time banner (until the next successful key) so the operator is told to
+    /// check rigctld / rely on VOX, without spamming a banner every TX slot.
+    @MainActor
+    private func recordCatFailure(_ message: String, isPTT: Bool) {
+        catStatusOK = false
+        catLastError = message
+        catConnected = catController.isConnected
+        if isPTT, !catPTTFailureNotified {
+            catPTTFailureNotified = true
+            toast = .warning(String(localized: "cat_ptt_failed_toast"))
+        }
+    }
+
+    /// Clears CAT error state after a successful operation.
+    @MainActor
+    private func recordCatSuccess(isPTT: Bool) {
+        catStatusOK = true
+        catLastError = nil
+        catConnected = catController.isConnected
+        if isPTT { catPTTFailureNotified = false }
+    }
 
     @MainActor
     func setCatPTT(_ enabled: Bool, reason: String) {
@@ -15,10 +56,14 @@ extension FT8ViewModel {
         let host = catHost.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         guard let port = catPortValue(), !host.isEmpty else { return }
 
-        Task {
+        Task { @MainActor in
             let response = await catController.setPTT(enabled: enabled, host: host, port: port)
-            if !response.success {
-                appLogger.warning("CAT PTT failed (\(reason)): \(response.errorMessage ?? "unknown")")
+            if response.success {
+                recordCatSuccess(isPTT: true)
+            } else {
+                let message = response.errorMessage ?? "unknown"
+                appLogger.warning("CAT PTT failed (\(reason)): \(message)")
+                recordCatFailure(message, isPTT: true)
             }
         }
     }
@@ -31,10 +76,14 @@ extension FT8ViewModel {
         guard let dialHz = catDialFrequencyHz() else { return }
         // Record send time before the async call so polling is suppressed immediately
         lastCatSendDate = Date()
-        Task {
+        Task { @MainActor in
             let response = await catController.setFrequency(frequency: dialHz, host: host, port: port)
-            if !response.success {
-                appLogger.warning("CAT frequency failed (\(reason)): \(response.errorMessage ?? "unknown")")
+            if response.success {
+                recordCatSuccess(isPTT: false)
+            } else {
+                let message = response.errorMessage ?? "unknown"
+                appLogger.warning("CAT frequency failed (\(reason)): \(message)")
+                recordCatFailure(message, isPTT: false)
             }
         }
     }
@@ -128,11 +177,21 @@ extension FT8ViewModel {
         catPollingTask?.cancel()
         catPollingTask = Task {
             let response = await catController.getFrequency(host: host, port: port)
-            guard !Task.isCancelled,
-                  response.success,
-                  let polledHz = Int64(response.response.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
+            guard !Task.isCancelled else { return }
             await MainActor.run { [weak self] in
-                self?.applyPolledFrequency(polledHz)
+                guard let self else { return }
+                // Keep the status indicator current from the poll result.
+                self.catConnected = self.catController.isConnected
+                if !response.success {
+                    self.catStatusOK = false
+                    self.catLastError = response.errorMessage ?? "unknown"
+                    return
+                }
+                self.catStatusOK = true
+                self.catLastError = nil
+                if let polledHz = Int64(response.response.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                    self.applyPolledFrequency(polledHz)
+                }
             }
         }
     }

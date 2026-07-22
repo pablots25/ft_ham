@@ -29,6 +29,12 @@ public struct CatSettingsViewStub: View {
             Text("CAT (Computer Aided Transceiver) control requires premium features.")
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
+                .padding(.horizontal)
+
+            Text("cat_setup_requirement_note")
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
                 .padding()
         }
         .padding()

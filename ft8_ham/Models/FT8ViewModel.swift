@@ -110,7 +110,19 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     internal var isCatPollingUpdate = false
     /// Timestamp of the last frequency we sent to the radio (used to suppress polling echo)
     internal var lastCatSendDate: Date?
-    
+
+    // MARK: - CAT status (surfaced in the UI)
+    /// Live rigctld connection state, mirrored from the CAT controller.
+    @Published var catConnected: Bool = false
+    /// Most recent CAT error message (PTT/frequency/poll), nil when healthy.
+    @Published var catLastError: String?
+    /// False once a CAT operation has failed; cleared on the next success.
+    @Published var catStatusOK: Bool = true
+    /// Guards the one-time PTT-failure toast so it fires at most once until PTT
+    /// keying next succeeds (a later break re-notifies), not on every TX slot.
+    internal var catPTTFailureNotified: Bool = false
+
+
     // MARK: - Published Properties
     @Published var decodedMessage: FT8Message?
     @Published var receivedMessages: [FT8Message] = []
@@ -414,6 +426,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         setupMessageRefreshSubscriptions()
         setupPreviewData()
         configureLocationManager()
+        setupCatStatusObserver()
         startCatFrequencyPollingIfNeeded()
         setupPremiumRevocationObserver()
 
