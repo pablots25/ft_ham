@@ -15,7 +15,9 @@ struct QSOLogConfirmationModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .alert(
-                "Confirm QSO logging",
+                manager.pendingQSOIsUnconfirmed
+                    ? "Log incomplete QSO?"
+                    : "Confirm QSO logging",
                 isPresented: $manager.showConfirmQSOAlert,
                 presenting: manager.pendingQSOToLog
             ) { qso in
@@ -27,7 +29,11 @@ struct QSOLogConfirmationModifier: ViewModifier {
                     manager.cancelLogging()
                 }
             } message: { qso in
-                Text("Do you want to log the QSO with \(qso.callsign)?")
+                if manager.pendingQSOIsUnconfirmed {
+                    Text("The QSO with \(qso.callsign) timed out before the final 73, but both signal reports were exchanged. Log it anyway?")
+                } else {
+                    Text("Do you want to log the QSO with \(qso.callsign)?")
+                }
             }
     }
 }

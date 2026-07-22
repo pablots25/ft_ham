@@ -437,4 +437,96 @@ final class RetryMechanismTests: XCTestCase {
         XCTAssertEqual(qsoManager.retryCounter, 0,
                        "Retry counter must remain 0 — 73 close bypasses retry logic")
     }
+
+    // MARK: - Log-on-Timeout Tests
+
+    /// Runs handleQSOTimeout until the retry budget is exhausted, returning the
+    /// final (resolving) action. Stops as soon as the QSO leaves the ongoing
+    /// states so the resolving action isn't consumed by an extra call.
+    @discardableResult
+    private func runTimeoutUntilResolved() -> QSOAction {
+        var action: QSOAction = .ignore
+        for _ in 0...qsoManager.maxRetrySlots {
+            qsoManager.responseReceivedThisSlot = false
+            action = qsoManager.handleQSOTimeout()
+            if !qsoManager.isQSOOngoing() { break }
+        }
+        return action
+    }
+
+    /// A confirmed-complete QSO (both reports valid + DX acknowledged ours) that
+    /// times out waiting for the final 73 must be logged, not dropped.
+    func testTimeoutLogsConfirmedQSO() {
+        setupNewQSO()                          // freezes lastSentSNR = -13
+        qsoManager.lastReceivedSNR = -7
+        qsoManager.dxHasConfirmedMyReport = true
+        qsoManager.qsoState = .listeningRRR(dxCallsign: "EA1TER")
+
+        var action: QSOAction = .ignore
+        for i in 1...(qsoManager.maxRetrySlots + 1) {
+            qsoManager.responseReceivedThisSlot = false
+            action = qsoManager.handleQSOTimeout()
+            if i <= qsoManager.maxRetrySlots {
+                XCTAssertEqual(action, .sendRRR(dxCallsign: "EA1TER"),
+                               "Should resend RRR while within the retry budget")
+            }
+        }
+
+        XCTAssertEqual(action, .completeQSO(dxCallsign: "EA1TER"),
+                       "A confirmed QSO must be logged on timeout, not aborted")
+        XCTAssertTrue(qsoManager.qsoAlreadyLogged,
+                      "closeQSO must mark the QSO as logged for idempotency")
+    }
+
+    /// A minimally-complete QSO (both reports valid, DX never acknowledged ours)
+    /// that times out must be offered for manual logging, never silently dropped.
+    func testTimeoutOffersUnconfirmedQSO() {
+        setupNewQSO()
+        qsoManager.lastReceivedSNR = -10
+        qsoManager.dxHasConfirmedMyReport = false
+        qsoManager.qsoState = .listeningRReport(dxCallsign: "EA1TER")
+
+        let action = runTimeoutUntilResolved()
+
+        XCTAssertEqual(action, .offerLogQSO(dxCallsign: "EA1TER"),
+                       "Reports were exchanged but unconfirmed — offer manual log")
+        XCTAssertTrue(qsoManager.qsoAlreadyLogged,
+                      "Offer path must guard against a late RRR double-logging")
+        XCTAssertEqual(qsoManager.lastCompletedDXCallsign, "EA1TER",
+                       "DX callsign must be preserved for the log entry")
+    }
+
+    /// A QSO with no received report (only our grid/report sent) is not a valid
+    /// contact and must still abort on timeout — unchanged behaviour.
+    func testTimeoutAbortsIncompleteQSO() {
+        setupNewQSO()                          // lastReceivedSNR stays invalid
+        qsoManager.qsoState = .listeningReport(dxCallsign: "EA1TER")
+
+        let action = runTimeoutUntilResolved()
+
+        XCTAssertEqual(action, .abortQSO,
+                       "No received report means no valid QSO — must abort")
+    }
+
+    /// After a confirmed QSO is force-closed on timeout, a late final 73 arriving
+    /// must be ignored (idempotency), not logged a second time.
+    func testLateFinal73AfterForcedCloseIsIgnored() {
+        setupNewQSO()
+        qsoManager.lastReceivedSNR = -7
+        qsoManager.dxHasConfirmedMyReport = true
+        qsoManager.qsoState = .listeningRRR(dxCallsign: "EA1TER")
+
+        var closeAction: QSOAction = .ignore
+        for _ in 1...(qsoManager.maxRetrySlots + 1) {
+            qsoManager.responseReceivedThisSlot = false
+            closeAction = qsoManager.handleQSOTimeout()
+        }
+        XCTAssertEqual(closeAction, .completeQSO(dxCallsign: "EA1TER"))
+
+        // closeQSO returns state to .idle, so a late 73 would be evaluated from
+        // idle and produce no duplicate completion.
+        let lateAction = qsoManager.closeQSO(dxCallsign: "EA1TER", openCourtesyWindow: false)
+        XCTAssertEqual(lateAction, .ignore,
+                       "A second close for an already-logged QSO must be ignored")
+    }
 }

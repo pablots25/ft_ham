@@ -198,6 +198,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     internal var logAction: ((LogEntry) -> Void)?
     @Published internal var showConfirmQSOAlert: Bool = false
     @Published internal var pendingQSOToLog: LogEntry?
+    /// True when the pending confirmation is for a QSO that timed out before the
+    /// final handshake (reports exchanged but unconfirmed). Drives a distinct
+    /// confirmation message so the operator knows it wasn't a clean completion.
+    @Published internal var pendingQSOIsUnconfirmed: Bool = false
     
     
     // MARK: - AppStorage Properties

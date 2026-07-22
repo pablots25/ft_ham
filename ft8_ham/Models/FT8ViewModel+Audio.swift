@@ -357,6 +357,40 @@ extension FT8ViewModel {
             handleQSOLogging(qso: logEntry)
 
 
+        case .offerLogQSO:
+            appLogger.info("Applying action: offerLogQSO for \(dxCallsign)")
+
+            invalidatePendingTX(reason: "QSO timed out with reports exchanged")
+
+            let completedCallsign = dxCallsign.isEmpty
+            ? (qsoManager.lastCompletedDXCallsign ?? "")
+            : dxCallsign
+            let completedLocator = dxLocator.isEmpty
+            ? (qsoManager.lastCompletedDXLocator ?? "")
+            : dxLocator
+
+            let logEntry = qsoManager.createLogEntry(
+                dxCallsign: completedCallsign,
+                dxLocator: completedLocator,
+                qsoDate: .now,
+                band: effectiveBand,
+                isFT4: qsoManager.qsoStartedAsFT4,
+                rstSent: qsoManager.lastSentSNR,
+                rstRcvd: qsoManager.lastReceivedSNR,
+                customFrequencyHz: selectedBand == .custom ? customDialFrequencyHz : nil
+            )
+
+            // Clear DX info and return to CQ before showing the prompt.
+            dxCallsign = ""
+            dxLocator = ""
+            selectedMessageIndex = 0
+            resetQSOState()
+
+            // An unconfirmed contact is never auto-logged: always ask, even when
+            // autoQSOLogging is on, so the operator can vet the doubtful QSO.
+            offerLogging(qso: logEntry, unconfirmed: true)
+
+
         case .abortQSO:
             appLogger.warning("QSO aborted for \(dxCallsign)")
             invalidatePendingTX(reason: "RX action: abortQSO")
