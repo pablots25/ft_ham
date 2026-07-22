@@ -182,4 +182,75 @@ final class CATBandBugTests: XCTestCase {
 
         viewModel.stopCatFrequencyPolling()
     }
+
+    // MARK: - FT8/FT4 log mismatch: band & frequency snapshot at QSO start
+
+    /// Switching mode/band mid-QSO must not corrupt the logged band/frequency:
+    /// they are snapshotted at QSO start alongside the mode.
+    func testLogSnapshot_survivesMidQSOModeAndBandSwitch() {
+        let qso = viewModel.qsoManager
+
+        // QSO starts on 20m FT8.
+        qso.isFT4Mode = false
+        qso.currentBand = .band20m
+        qso.currentCustomFrequencyHz = nil
+        qso.setupNewQSO(dx: "EA1TER", locator: "IN80", initialSNR: -12)
+        qso.lastReceivedSNR = -8
+
+        // User switches to 40m FT4 mid-QSO.
+        qso.isFT4Mode = true
+        qso.currentBand = .band40m
+        qso.currentCustomFrequencyHz = nil
+
+        XCTAssertEqual(qso.qsoStartBand, .band20m, "Band snapshot must be frozen at QSO start")
+        XCTAssertFalse(qso.qsoStartedAsFT4, "Mode snapshot must be frozen at QSO start")
+
+        let entry = qso.createLogEntry(
+            dxCallsign: "EA1TER",
+            dxLocator: "IN80",
+            qsoDate: .now,
+            band: qso.qsoStartBand ?? .unknown,
+            isFT4: qso.qsoStartedAsFT4,
+            rstSent: qso.lastSentSNR,
+            rstRcvd: qso.lastReceivedSNR,
+            customFrequencyHz: qso.qsoStartBand != nil ? qso.qsoStartCustomFrequencyHz : nil
+        )
+
+        XCTAssertEqual(entry.band, "20m")
+        XCTAssertEqual(entry.mode, "FT8")
+        XCTAssertEqual(entry.frequencyHz, 14_074_000,
+                       "Frequency must be 20m FT8, not the 40m/FT4 value selected later")
+    }
+
+    /// For a Custom-band QSO, the dial frequency logged must be the one in effect
+    /// at QSO start, even if the operator edits the custom dial mid-QSO.
+    func testLogSnapshot_customDialFrozenAtStart() {
+        let qso = viewModel.qsoManager
+
+        qso.isFT4Mode = false
+        qso.currentBand = .band20m
+        qso.currentCustomFrequencyHz = 14_074_000
+        qso.setupNewQSO(dx: "EA1TER", locator: "IN80", initialSNR: -12)
+        qso.lastReceivedSNR = -8
+
+        // Operator retunes the custom dial mid-QSO.
+        qso.currentBand = .band40m
+        qso.currentCustomFrequencyHz = 7_040_000
+
+        XCTAssertEqual(qso.qsoStartCustomFrequencyHz, 14_074_000)
+
+        let entry = qso.createLogEntry(
+            dxCallsign: "EA1TER",
+            dxLocator: "IN80",
+            qsoDate: .now,
+            band: qso.qsoStartBand ?? .unknown,
+            isFT4: qso.qsoStartedAsFT4,
+            rstSent: qso.lastSentSNR,
+            rstRcvd: qso.lastReceivedSNR,
+            customFrequencyHz: qso.qsoStartBand != nil ? qso.qsoStartCustomFrequencyHz : nil
+        )
+
+        XCTAssertEqual(entry.frequencyHz, 14_074_000,
+                       "Logged custom dial must be frozen at QSO start")
+    }
 }
