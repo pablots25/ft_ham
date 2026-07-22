@@ -62,6 +62,10 @@ enum QSOAction: Equatable {
     case sendRR73(dxCallsign: String)
     case send73(dxCallsign: String)
     case completeQSO(dxCallsign: String)
+    /// The QSO timed out before the final handshake, but both signal reports
+    /// were exchanged. The contact is plausible but unconfirmed, so it should be
+    /// offered to the operator for manual logging rather than dropped silently.
+    case offerLogQSO(dxCallsign: String)
     case abortQSO
     case ignore
 }
@@ -528,10 +532,31 @@ final class QSOStatusManager: ObservableObject {
         }
 
         let dx = lockedDXCallsign
+
+        // Retries are exhausted. Before dropping the QSO, decide whether it is
+        // complete enough to log — otherwise a missing final 73/RR73 silently
+        // loses a real contact from the logbook (the "auto logbook not working"
+        // reports). See closeQSO for the idempotency guard against a late 73.
+        if isQSOConfirmedComplete {
+            appLogger.debug("Max retries exceeded for \(dx) but reports confirmed — logging QSO")
+            return closeQSO(dxCallsign: dx, openCourtesyWindow: false)
+        }
+
         let oldState = qsoState
         appLogger.debug("Max retries exceeded for \(dx), marking timeout")
         qsoState = .timeout(dxCallsign: dx)
         logTransition(oldState: oldState, newState: qsoState, dx: dx)
+
+        if isQSOMinimallyComplete {
+            appLogger.debug("Max retries exceeded for \(dx); reports exchanged — offering manual log")
+            // Preserve DX/SNR state so the ViewModel can build the log entry.
+            // qsoAlreadyLogged guards against a duplicate if a late RRR arrives.
+            qsoAlreadyLogged = true
+            lastCompletedDXCallsign = dx
+            lastCompletedDXLocator = lockedDXLocator
+            return .offerLogQSO(dxCallsign: dx)
+        }
+
         resetQSO()
         return .abortQSO
     }
@@ -573,6 +598,27 @@ final class QSOStatusManager: ObservableObject {
         currentCQModifier = nil
         lastCompletedDXCallsign = nil
         lastCompletedDXLocator = nil
+    }
+
+    /// True when the DX has explicitly acknowledged our report (via an R-report,
+    /// RRR or RR73) and both signal reports are valid. A QSO that reaches this
+    /// point is a confirmed contact and should be logged even if the final 73
+    /// never arrives — this mirrors WSJT-X, which logs once the reports are
+    /// confirmed rather than waiting on the courtesy 73.
+    var isQSOConfirmedComplete: Bool {
+        !lockedDXCallsign.isEmpty
+            && lastSentSNR != invalidSNR
+            && lastReceivedSNR != invalidSNR
+            && dxHasConfirmedMyReport
+    }
+
+    /// True when both signal reports were exchanged but the DX never explicitly
+    /// acknowledged ours. The contact is plausible but unconfirmed, so it should
+    /// be offered to the operator for manual logging rather than auto-logged.
+    var isQSOMinimallyComplete: Bool {
+        !lockedDXCallsign.isEmpty
+            && lastSentSNR != invalidSNR
+            && lastReceivedSNR != invalidSNR
     }
 
     /// Returns true if the QSO state is awaiting a response from DX

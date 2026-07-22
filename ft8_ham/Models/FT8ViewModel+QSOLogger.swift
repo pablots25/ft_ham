@@ -16,20 +16,34 @@ extension FT8ViewModel  {
 
     func cancelLogging() {
         pendingQSOToLog = nil
+        pendingQSOIsUnconfirmed = false
         logAction = nil
         showConfirmQSOAlert = false
     }
-    
+
     func handleQSOLogging(qso: LogEntry) {
         if autoQSOLogging {
              appLogger.info("Automatic log for \(dxCallsign)")
             logQSO(qso: qso)
         } else {
+            pendingQSOIsUnconfirmed = false
             pendingQSOToLog = qso
             logAction = logQSO
             showConfirmQSOAlert = true
             appLogger.info("Awaiting manual log confirmation for \(qso.callsign)")
         }
+    }
+
+    /// Always prompts the operator to confirm logging, regardless of the
+    /// autoQSOLogging setting. Used for QSOs that timed out before the final
+    /// handshake — the reports were exchanged but the contact is unconfirmed,
+    /// so it should never be logged silently.
+    func offerLogging(qso: LogEntry, unconfirmed: Bool) {
+        pendingQSOIsUnconfirmed = unconfirmed
+        pendingQSOToLog = qso
+        logAction = logQSO
+        showConfirmQSOAlert = true
+        appLogger.info("Offering manual log for \(qso.callsign) (unconfirmed: \(unconfirmed))")
     }
     
     private func finalizeLogging() {
@@ -101,6 +115,7 @@ extension FT8ViewModel  {
         appLogger.info("Finalizing QSO after logging")
 
         pendingQSOToLog = nil
+        pendingQSOIsUnconfirmed = false
         logAction = nil
         showConfirmQSOAlert = false
     }
