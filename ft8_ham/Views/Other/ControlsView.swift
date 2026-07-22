@@ -468,11 +468,21 @@ struct QSOStatusView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            Button("Stop QSO") {
-                viewModel.resetQSOState()
+            VStack(spacing: 4) {
+                Button("Stop QSO") {
+                    viewModel.resetQSOState()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!viewModel.qsoManager.isQSOOngoing())
+
+                Button("Log QSO") {
+                    viewModel.forceLogCurrentQSO()
+                }
+                .font(.footnote)
+                .buttonStyle(.bordered)
+                .disabled(!viewModel.qsoManager.isQSOOngoing())
+                .accessibilityIdentifier("button_forceLogQSO")
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(!viewModel.qsoManager.isQSOOngoing())
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 5)

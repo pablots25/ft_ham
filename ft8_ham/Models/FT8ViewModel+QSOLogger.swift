@@ -21,6 +21,43 @@ extension FT8ViewModel  {
         showConfirmQSOAlert = false
     }
 
+    /// Manually logs the QSO currently in progress, for when the operator is
+    /// confident it completed but the other station never sent the closing
+    /// RR73/73 (so auto-sequencing is still retrying or waiting). Builds the
+    /// entry from the live QSO state — missing signal reports are recorded as
+    /// "Invalid" — routes it through the confirmation prompt, then ends the QSO.
+    @MainActor
+    func forceLogCurrentQSO() {
+        guard !qsoManager.lockedDXCallsign.isEmpty else {
+            appLogger.warning("forceLogCurrentQSO: no QSO in progress")
+            return
+        }
+
+        let entry = qsoManager.createLogEntry(
+            dxCallsign: qsoManager.lockedDXCallsign,
+            dxLocator: qsoManager.lockedDXLocator,
+            qsoDate: .now,
+            band: qsoManager.qsoStartBand ?? effectiveBand,
+            isFT4: qsoManager.qsoStartedAsFT4,
+            rstSent: qsoManager.lastSentSNR,
+            rstRcvd: qsoManager.lastReceivedSNR,
+            customFrequencyHz: qsoManager.qsoStartBand != nil
+                ? qsoManager.qsoStartCustomFrequencyHz
+                : (selectedBand == .custom ? customDialFrequencyHz : nil)
+        )
+
+        // Stop auto-sequencing from also logging/continuing this QSO, then end it.
+        qsoManager.qsoAlreadyLogged = true
+        invalidatePendingTX(reason: "manual force-log")
+        dxCallsign = ""
+        dxLocator = ""
+        selectedMessageIndex = 0
+        resetQSOState()
+
+        // Always confirm a manually forced log (it is, by definition, incomplete).
+        offerLogging(qso: entry, unconfirmed: true)
+    }
+
     func handleQSOLogging(qso: LogEntry) {
         if autoQSOLogging {
              appLogger.info("Automatic log for \(dxCallsign)")
