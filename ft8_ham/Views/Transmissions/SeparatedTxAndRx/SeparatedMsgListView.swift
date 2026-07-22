@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import UIKit
 
 // MARK: - SeparatedMsgListView
 
@@ -73,21 +72,17 @@ struct SeparatedMsgListView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 4)
                                         .background(backgroundColor(for: msg))
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            guard allowReply && msg.allowsReply else { return }
-                                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                            viewModel.reply(to: msg)
-                                        }
                                         .swipeToReply(
                                             allowReply: allowReply && msg.allowsReply,
                                             messageID: msg.id,
                                             dragOffset: $dragOffset,
                                             didTriggerHaptic: $didTriggerHaptic,
-                                            userDragging: $userDragging
+                                            userDragging: $userDragging,
+                                            onTap: { viewModel.reply(to: msg) }
                                         ) {
                                             viewModel.reply(to: msg)
                                         }
+                                        .accessibilityIdentifier("decodeRow_\(msg.callsign ?? "")")
                                         .id(msg.id)
                                 }
                             }

@@ -14,6 +14,13 @@ struct SwipeToReplyModifier: ViewModifier {
     let allowReply: Bool
     let messageID: UUID
     let onReply: () -> Void
+    /// Tap-to-reply handler. Kept in this modifier (rather than a separate
+    /// .onTapGesture at the call site) so the tap and the swipe drag share the
+    /// same view level and coordinate space. Previously the call-site tap sat
+    /// on the un-offset inner content while this modifier applied .offset and
+    /// .clipped() around it, which shifted the tap's hit-test region on wider
+    /// iPad layouts and let the drag recognizer swallow pointer/trackpad clicks.
+    let onTap: () -> Void
     @Binding var dragOffset: [UUID: CGFloat]
     @Binding var didTriggerHaptic: [UUID: Bool]
     @Binding var userDragging: Bool
@@ -21,6 +28,11 @@ struct SwipeToReplyModifier: ViewModifier {
     private let triggerThreshold: CGFloat = -60
     private let maxDrag: CGFloat = -90         // clamp so the row doesn't slide too far
     private let dampingFactor: CGFloat = 0.4   // resistance past trigger threshold
+    // Pointer/trackpad "clicks" on iPad carry small incidental movement. A larger
+    // activation distance keeps those from being claimed as a drag (which would
+    // swallow the tap); the onChanged handler additionally requires the motion to
+    // be horizontal-dominant before it moves the row.
+    private let dragActivation: CGFloat = 25
 
     func body(content: Content) -> some View {
         ZStack(alignment: .trailing) {
@@ -39,10 +51,16 @@ struct SwipeToReplyModifier: ViewModifier {
             }
 
             content
+                .contentShape(Rectangle())
                 .offset(x: dragOffset[messageID] ?? 0)
+                .onTapGesture {
+                    guard allowReply else { return }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onTap()
+                }
                 // simultaneousGesture lets the parent ScrollView still scroll vertically
                 .simultaneousGesture(
-                    DragGesture(minimumDistance: 15)
+                    DragGesture(minimumDistance: dragActivation)
                         .onChanged { value in
                             guard allowReply else { return }
                             // Ignore if movement is more vertical than horizontal
@@ -92,12 +110,14 @@ extension View {
         dragOffset: Binding<[UUID: CGFloat]>,
         didTriggerHaptic: Binding<[UUID: Bool]>,
         userDragging: Binding<Bool>,
+        onTap: @escaping () -> Void,
         onReply: @escaping () -> Void
     ) -> some View {
         self.modifier(SwipeToReplyModifier(
             allowReply: allowReply,
             messageID: messageID,
             onReply: onReply,
+            onTap: onTap,
             dragOffset: dragOffset,
             didTriggerHaptic: didTriggerHaptic,
             userDragging: userDragging
