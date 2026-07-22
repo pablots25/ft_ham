@@ -389,6 +389,33 @@ struct QSOStatusView: View {
     private var shouldShowRetry: Bool {
         viewModel.qsoManager.retryCounter > 0 && viewModel.qsoManager.isAwaitingResponse()
     }
+
+    // MARK: - CAT status indicator
+    private var catStatusColor: Color {
+        if !viewModel.catStatusOK { return .red }
+        return viewModel.catConnected ? .green : .orange
+    }
+
+    private var catStatusHelp: String {
+        if let error = viewModel.catLastError, !viewModel.catStatusOK {
+            return "CAT error: \(error)"
+        }
+        return viewModel.catConnected ? "CAT connected" : "CAT not connected — check rigctld host/port"
+    }
+
+    @ViewBuilder
+    private var catStatusChip: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.caption2)
+            Text("CAT")
+                .font(.caption2)
+        }
+        .foregroundStyle(catStatusColor)
+        .fixedSize(horizontal: true, vertical: false)
+        .help(catStatusHelp)
+        .accessibilityLabel(catStatusHelp)
+    }
     
     private var displayedRetryCount: Int {
         min(viewModel.qsoManager.retryCounter, viewModel.qsoManager.maxRetrySlots)
@@ -412,8 +439,12 @@ struct QSOStatusView: View {
                             .foregroundStyle(.orange)
                             .fixedSize(horizontal: true, vertical: false)
                     }
-                    
+
                     Spacer(minLength: 0)
+
+                    if viewModel.catEnabled {
+                        catStatusChip
+                    }
                 }
                 
                 // Callsign + Locator

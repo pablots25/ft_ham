@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 
 // MARK: - Data Structures
 
@@ -57,6 +58,14 @@ public enum CatRigError: LocalizedError {
 /// Premium implementation provides real rigctld integration
 /// Stub implementation provides NO-OP methods for public-only builds
 public protocol CATControlProtocol: Sendable {
+    /// Whether a persistent rigctld TCP connection is currently established.
+    /// Always false for the stub (no premium) build.
+    var isConnected: Bool { get }
+
+    /// Publishes connection-state changes so the UI can show a live CAT status
+    /// indicator. Emits on the main actor.
+    var connectionStatePublisher: AnyPublisher<Bool, Never> { get }
+
     /// Open a persistent connection to rigctld
     func connect(host: String, port: UInt16)
 

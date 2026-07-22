@@ -9,6 +9,7 @@
 //
 
 import XCTest
+import Combine
 @testable import ft8_ham
 
 @MainActor
@@ -252,5 +253,30 @@ final class CATBandBugTests: XCTestCase {
 
         XCTAssertEqual(entry.frequencyHz, 14_074_000,
                        "Logged custom dial must be frozen at QSO start")
+    }
+
+    // MARK: - CAT status visibility (Bug 1)
+
+    /// The stub controller reports a disconnected state and publishes it, so the
+    /// UI status indicator has something to bind to in non-premium builds.
+    func testCATStub_reportsDisconnectedState() {
+        let stub = CATControlStub.shared
+        XCTAssertFalse(stub.isConnected, "Stub CAT controller is never connected")
+
+        let exp = expectation(description: "connection state published")
+        var received: Bool?
+        let c = stub.connectionStatePublisher.sink { received = $0; exp.fulfill() }
+        wait(for: [exp], timeout: 1.0)
+        c.cancel()
+        XCTAssertEqual(received, false, "Stub must publish a disconnected state")
+    }
+
+    /// A freshly created ViewModel starts with a healthy CAT status (no error)
+    /// and mirrors the controller's initial disconnected state.
+    func testViewModel_initialCatStatusIsHealthy() {
+        XCTAssertTrue(viewModel.catStatusOK, "CAT status should start healthy")
+        XCTAssertNil(viewModel.catLastError, "There should be no CAT error at startup")
+        XCTAssertEqual(viewModel.catConnected, viewModel.catController.isConnected,
+                       "catConnected must mirror the controller's initial state")
     }
 }

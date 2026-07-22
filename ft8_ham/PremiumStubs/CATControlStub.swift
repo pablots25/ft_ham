@@ -7,13 +7,20 @@
 //
 
 import Foundation
+import Combine
 
 /// Stub CAT controller that does nothing
 /// Used when premium package is not available
 public final class CATControlStub: CATControlProtocol {
     public static let shared = CATControlStub()
-    
+
     private init() {}
+
+    public var isConnected: Bool { false }
+
+    public var connectionStatePublisher: AnyPublisher<Bool, Never> {
+        Just(false).eraseToAnyPublisher()
+    }
 
     public func connect(host: String, port: UInt16) {}
 
