@@ -8,6 +8,25 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Reply Tap Gesture Setting
+
+/// How a tap on a decoded row initiates a reply. Single- and double-tap are
+/// mutually exclusive: attaching both would delay the single tap ~0.35s while
+/// SwiftUI waits for a possible second tap, which hurts the time-critical FT8
+/// cycle. Double-tap also helps operators who trigger accidental replies.
+enum ReplyTapGesture: String, CaseIterable, Identifiable {
+    case single
+    case double
+
+    var id: String { rawValue }
+
+    var tapCount: Int { self == .double ? 2 : 1 }
+
+    var label: LocalizedStringKey {
+        self == .double ? "Double tap" : "Single tap"
+    }
+}
+
 // MARK: - SwipeToReplyModifier
 
 struct SwipeToReplyModifier: ViewModifier {
@@ -24,6 +43,8 @@ struct SwipeToReplyModifier: ViewModifier {
     @Binding var dragOffset: [UUID: CGFloat]
     @Binding var didTriggerHaptic: [UUID: Bool]
     @Binding var userDragging: Bool
+
+    @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
 
     private let triggerThreshold: CGFloat = -60
     private let maxDrag: CGFloat = -90         // clamp so the row doesn't slide too far
@@ -53,7 +74,7 @@ struct SwipeToReplyModifier: ViewModifier {
             content
                 .contentShape(Rectangle())
                 .offset(x: dragOffset[messageID] ?? 0)
-                .onTapGesture {
+                .onTapGesture(count: replyTapGesture.tapCount) {
                     guard allowReply else { return }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     onTap()

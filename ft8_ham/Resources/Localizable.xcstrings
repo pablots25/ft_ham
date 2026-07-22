@@ -12038,6 +12038,146 @@
         }
       }
     },
+    "Double tap" : {
+      "comment" : "Reply-gesture picker option: double tap a caller to reply.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doppeltippen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double tap"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doble toque"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double appui"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doppio tocco"
+          }
+        }
+      }
+    },
+    "How tapping a decoded caller starts a reply. Double tap helps avoid accidental replies." : {
+      "comment" : "Footnote under the reply-gesture picker.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie das Antippen eines dekodierten Anrufers eine Antwort startet. Doppeltippen hilft, versehentliche Antworten zu vermeiden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How tapping a decoded caller starts a reply. Double tap helps avoid accidental replies."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cómo iniciar una respuesta al tocar una estación decodificada. El doble toque ayuda a evitar respuestas accidentales."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comment un appui sur un appelant décodé démarre une réponse. Le double appui évite les réponses accidentelles."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Come un tocco su un chiamante decodificato avvia una risposta. Il doppio tocco aiuta a evitare risposte accidentali."
+          }
+        }
+      }
+    },
+    "Reply gesture" : {
+      "comment" : "Label for the picker that chooses single- vs double-tap to reply.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antwortgeste"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reply gesture"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesto de respuesta"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geste de réponse"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesto di risposta"
+          }
+        }
+      }
+    },
+    "Single tap" : {
+      "comment" : "Reply-gesture picker option: single tap a caller to reply.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einfaches Tippen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single tap"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toque simple"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appui simple"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocco singolo"
+          }
+        }
+      }
+    },
     "Reply to CQ received" : {
       "extractionState" : "manual",
       "localizations" : {
