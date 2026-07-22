@@ -54,17 +54,34 @@ extension FT8ViewModel{
             return false
         }
 
+        // "Worked ever" is an O(1) Set lookup; only the band/mode-specific
+        // variant needs to scan the log.
+        if !matchBandModeOnly {
+            return workedCallsigns.contains(callsign.uppercased())
+        }
+
         return qsoList.contains { entry in
             guard entry.callsign.caseInsensitiveCompare(callsign) == .orderedSame else {
                 return false
             }
-
-            if matchBandModeOnly {
-                return entry.band == band && entry.mode == mode
-            }
-
-            return true
+            return entry.band == band && entry.mode == mode
         }
+    }
+
+    /// True when a callsign is not yet in the logbook (any band/mode).
+    internal func isNewCallsign(_ callsign: String?) -> Bool {
+        guard let callsign = callsign?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !callsign.isEmpty else {
+            return false
+        }
+        return !workedCallsigns.contains(callsign.uppercased())
+    }
+
+    /// True when a decoded row should get the "new callsign" highlight: an
+    /// incoming CQ from a station not yet worked, when the setting is enabled.
+    internal func isNewCQCallsign(_ msg: FT8Message) -> Bool {
+        guard highlightNewCallsigns, msg.msgType == .cq, !msg.isTX else { return false }
+        return isNewCallsign(msg.callsign)
     }
 
     func generateMessages() -> [String] {

@@ -78,7 +78,7 @@ struct MessageListView: View {
                                         viewModel.reply(to: msg)
                                     }
                                     .listRowInsets(EdgeInsets())
-                                    .listRowBackground(backgroundColor(for: msg))
+                                    .listRowBackground(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg)))
                                     .id(msg.id)
                             }
                         }

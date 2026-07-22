@@ -172,4 +172,46 @@ final class FT8ViewModelLoggingIntegrationTests: XCTestCase {
         XCTAssertFalse(viewModel.showConfirmQSOAlert)
         XCTAssertEqual(viewModel.qsoList.count, 0)
     }
+
+    // MARK: - New-callsign highlighting
+
+    private func logEntry(callsign: String) -> LogEntry {
+        viewModel.qsoManager.createLogEntry(
+            dxCallsign: callsign,
+            dxLocator: "FN31",
+            qsoDate: .now,
+            band: .band20m,
+            isFT4: false,
+            rstSent: -10,
+            rstRcvd: -8
+        )
+    }
+
+    /// The worked-callsign set is rebuilt from qsoList (case-insensitively) and a
+    /// station in the log is no longer "new".
+    func testWorkedCallsigns_rebuildAndCaseInsensitivity() {
+        viewModel.qsoList = [logEntry(callsign: "EA2ABC")]
+
+        XCTAssertTrue(viewModel.workedCallsigns.contains("EA2ABC"))
+        XCTAssertFalse(viewModel.isNewCallsign("ea2abc"), "Lookup must be case-insensitive")
+        XCTAssertTrue(viewModel.isNewCallsign("DL1XYZ"), "Unworked call is new")
+    }
+
+    /// A CQ from an unworked station highlights only while the setting is on;
+    /// a CQ from a worked station never highlights.
+    func testIsNewCQCallsign_respectsSettingAndLog() {
+        viewModel.qsoList = [logEntry(callsign: "EA2ABC")]
+        viewModel.highlightNewCallsigns = true
+
+        let newCQ = FT8Message(text: "CQ DL1XYZ JO31", mode: .ft8, isRealtime: false,
+                               timestamp: Date(), measuredSNR: 5, frequency: 14_074_000, band: .band20m)
+        let workedCQ = FT8Message(text: "CQ EA2ABC IN80", mode: .ft8, isRealtime: false,
+                                  timestamp: Date(), measuredSNR: 5, frequency: 14_074_000, band: .band20m)
+
+        XCTAssertTrue(viewModel.isNewCQCallsign(newCQ))
+        XCTAssertFalse(viewModel.isNewCQCallsign(workedCQ), "Already worked → not highlighted")
+
+        viewModel.highlightNewCallsigns = false
+        XCTAssertFalse(viewModel.isNewCQCallsign(newCQ), "Setting off → never highlighted")
+    }
 }
