@@ -30,7 +30,8 @@ final class MockAudioManager: AudioManaging {
     var stopPlaybackCallCount = 0
     var lastPlayedAudioData: Data?
     var inputGain: Double = 0.3
-    
+    var outputGain: Double = 1.0
+
     // MARK: - Methods
     @MainActor
     func startMicInput() {
@@ -62,9 +63,17 @@ final class MockAudioManager: AudioManaging {
     func setInputGain(_ newValue: Double) {
         inputGain = newValue
     }
-    
+
     func getCurrentInputGain() -> Double {
         return inputGain
+    }
+
+    func setOutputGain(_ newValue: Double) {
+        outputGain = newValue
+    }
+
+    func getCurrentOutputGain() -> Double {
+        return outputGain
     }
     
     func cleanup() {

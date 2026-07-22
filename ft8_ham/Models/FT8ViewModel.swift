@@ -326,6 +326,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
             audioManager.setInputGain(gainToSet)
         }
     }
+
+    @AppStorage("txOutputGain") var txOutputGain = 1.0 {
+        didSet {
+            let clamped = min(max(txOutputGain, 0.1), 2.0)
+            if clamped != txOutputGain { txOutputGain = clamped }
+            audioManager.setOutputGain(clamped)
+        }
+    }
     
     // MARK: - Computed Properties
     var settingsLoaded: Bool {
@@ -364,14 +372,16 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         self.slotManager = SlotManager()
         self.messageProcessor = MessageProcessor()
         
-        let savedGain = UserDefaults.standard.value(forKey: "inputGain") as? Double ?? 0.3
-        
+        let savedGain = UserDefaults.standard.value(forKey: "inputGain") as? Double ?? 1.0
+        let savedOutputGain = UserDefaults.standard.value(forKey: "txOutputGain") as? Double ?? 1.0
+
         // Inject or create default dependencies
         // For AudioManager, if not injected, create one with test mode enabled for unit tests
         self.audioManager = audioManager ?? AudioManager(
             waterfallFFTSize: Constants.waterfallFFTSize,
             sampleRate: Constants.sampleRate,
             initialGain: savedGain,
+            initialOutputGain: savedOutputGain,
             isTestMode: environment.isUnitTest
         )
         

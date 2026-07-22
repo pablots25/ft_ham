@@ -15,6 +15,7 @@ struct RadioSettingsContent: View {
     @FocusState private var frequencyFocused: Bool
     @State private var frequencyText: String = ""
     @State private var sliderTempValue: Float = 1.0
+    @State private var txSliderTempValue: Float = 1.0
     @State private var activeHelp: HelpTip?
 
     private let minGain: Float = 0.1
@@ -56,14 +57,16 @@ struct RadioSettingsContent: View {
             )
 
             Divider()
-            Text("Frequency offset and input gain")
+            Text("Frequency offset and audio levels")
                 .font(.headline)
 
             frequencyView
 
             inputGainView
 
-            Text("Adjust microphone input gain for optimal decoding.")
+            txOutputGainView
+
+            Text("RX Gain: adjust microphone sensitivity for decoding. TX Output: raise if your radio's VOX won't activate (also ensure phone volume is at maximum).")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -72,6 +75,7 @@ struct RadioSettingsContent: View {
                 from: NSNumber(value: viewModel.frequency / 1000)
             ) ?? ""
             sliderTempValue = Float(viewModel.inputGain)
+            txSliderTempValue = Float(viewModel.txOutputGain)
             activeHelp = nil
         }
         .onChange(of: viewModel.frequency) { newValue in
@@ -227,6 +231,39 @@ struct RadioSettingsContent: View {
                 in: Float(minGain)...Float(maxGain),
                 onEditingChanged: { isEditing in
                     if !isEditing { viewModel.inputGain = Double(sliderTempValue) }
+                }
+            )
+        }
+    }
+
+    // MARK: - TX output gain
+
+    private var txOutputGainView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("TX Output Gain:")
+
+                Spacer()
+                Text(String(format: "%.2f×", txSliderTempValue))
+                    .foregroundStyle(.secondary)
+                HelpIconButton(helpHint: HelpTip.txOutputGain.accessibilityHint) {
+                    activeHelp = (activeHelp == .txOutputGain) ? nil : .txOutputGain
+                }
+            }
+
+            if activeHelp == .txOutputGain {
+                HelpBubble(text: HelpTip.txOutputGain.text)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
+            }
+
+            Slider(
+                value: $txSliderTempValue,
+                in: Float(minGain)...Float(maxGain),
+                onEditingChanged: { isEditing in
+                    if !isEditing { viewModel.txOutputGain = Double(txSliderTempValue) }
                 }
             )
         }

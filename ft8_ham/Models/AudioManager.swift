@@ -83,6 +83,13 @@ final class AudioManager: NSObject, AudioManaging {
     private let minGain: Double = 0.1
     private let maxGain: Double = 2.0
 
+    // MARK: - TX output gain (Thread Safe)
+
+    private let outputGainState: OSAllocatedUnfairLock<Double>
+
+    private let minOutputGain: Double = 0.1
+    private let maxOutputGain: Double = 2.0
+
     // MARK: - Publishers
 
     let audioSamplesPublisher = PassthroughSubject<[Float], Never>()
@@ -142,12 +149,16 @@ final class AudioManager: NSObject, AudioManaging {
     init(waterfallFFTSize: Int = 1024,
          sampleRate: Double = 12000,
          initialGain: Double = 0.3,
+         initialOutputGain: Double = 1.0,
          isTestMode: Bool = false) {
 
         self.sampleRate = sampleRate
         self.waterfallFFTSize = waterfallFFTSize
         self.gainState = OSAllocatedUnfairLock(
             initialState: min(max(initialGain, minGain), maxGain)
+        )
+        self.outputGainState = OSAllocatedUnfairLock(
+            initialState: min(max(initialOutputGain, minOutputGain), maxOutputGain)
         )
         
         // Pre-allocate mic buffer (always, to satisfy Swift init requirements)
@@ -406,6 +417,16 @@ final class AudioManager: NSObject, AudioManaging {
         gainState.withLock { $0 }
     }
 
+    func setOutputGain(_ newValue: Double) {
+        let clamped = min(max(newValue, minOutputGain), maxOutputGain)
+        outputGainState.withLock { $0 = clamped }
+        audioLogger.log(.info, "TX output gain updated to \(clamped)")
+    }
+
+    func getCurrentOutputGain() -> Double {
+        outputGainState.withLock { $0 }
+    }
+
 // MARK: - Playback
 
     /// Play raw Float audioData. Audio data must be floats in native-endian IEEE754 order
@@ -431,7 +452,7 @@ final class AudioManager: NSObject, AudioManaging {
             memcpy(buffer.floatChannelData![0], $0.baseAddress!, audioData.count)
         }
 
-        var gain = Float(gainState.withLock { min(max($0, minGain), maxGain) })
+        var gain = Float(outputGainState.withLock { min(max($0, minOutputGain), maxOutputGain) })
         vDSP_vsmul(buffer.floatChannelData![0], 1, &gain, buffer.floatChannelData![0], 1, vDSP_Length(nSamples))
 
         // Reactivate session before engine start — recovers from interruptions

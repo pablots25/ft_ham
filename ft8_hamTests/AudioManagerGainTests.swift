@@ -105,6 +105,110 @@ final class AudioManagerGainClampingTests: XCTestCase {
 
 // MARK: -
 
+/// Tests for `AudioManager.setOutputGain(_:)` clamping behaviour in test mode.
+/// Mirrors AudioManagerGainClampingTests but exercises the TX output gain path.
+final class AudioManagerOutputGainClampingTests: XCTestCase {
+
+    private var sut: AudioManager!
+
+    override func setUp() {
+        super.setUp()
+        sut = AudioManager(
+            waterfallFFTSize: 512,
+            sampleRate: 12000,
+            initialGain: 1.0,
+            initialOutputGain: 1.0,
+            isTestMode: true
+        )
+    }
+
+    override func tearDown() {
+        sut = nil
+        super.tearDown()
+    }
+
+    // MARK: - Clamping — below minimum
+
+    func test_setOutputGain_belowMinimum_isClampedTo0_1() {
+        sut.setOutputGain(0.05)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 0.1, accuracy: 1e-9)
+    }
+
+    func test_setOutputGain_zero_isClampedTo0_1() {
+        sut.setOutputGain(0.0)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 0.1, accuracy: 1e-9)
+    }
+
+    func test_setOutputGain_negative_isClampedTo0_1() {
+        sut.setOutputGain(-5.0)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 0.1, accuracy: 1e-9)
+    }
+
+    // MARK: - Clamping — above maximum
+
+    func test_setOutputGain_aboveMaximum_isClampedTo2_0() {
+        sut.setOutputGain(3.0)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 2.0, accuracy: 1e-9)
+    }
+
+    func test_setOutputGain_largeValue_isClampedTo2_0() {
+        sut.setOutputGain(100.0)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 2.0, accuracy: 1e-9)
+    }
+
+    // MARK: - Valid range passthrough
+
+    func test_setOutputGain_minimum_isPreserved() {
+        sut.setOutputGain(0.1)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 0.1, accuracy: 1e-9)
+    }
+
+    func test_setOutputGain_maximum_isPreserved() {
+        sut.setOutputGain(2.0)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 2.0, accuracy: 1e-9)
+    }
+
+    func test_setOutputGain_midRange_isPreserved() {
+        sut.setOutputGain(1.0)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 1.0, accuracy: 1e-9)
+    }
+
+    // MARK: - initialOutputGain respects clamping
+
+    func test_init_initialOutputGainBelowMinimum_isClampedTo0_1() {
+        let mgr = AudioManager(waterfallFFTSize: 512, sampleRate: 12000, initialOutputGain: 0.0, isTestMode: true)
+        XCTAssertEqual(mgr.getCurrentOutputGain(), 0.1, accuracy: 1e-9)
+    }
+
+    func test_init_initialOutputGainAboveMaximum_isClampedTo2_0() {
+        let mgr = AudioManager(waterfallFFTSize: 512, sampleRate: 12000, initialOutputGain: 5.0, isTestMode: true)
+        XCTAssertEqual(mgr.getCurrentOutputGain(), 2.0, accuracy: 1e-9)
+    }
+
+    func test_init_initialOutputGainInRange_isPreserved() {
+        let mgr = AudioManager(waterfallFFTSize: 512, sampleRate: 12000, initialOutputGain: 0.7, isTestMode: true)
+        XCTAssertEqual(mgr.getCurrentOutputGain(), 0.7, accuracy: 1e-9)
+    }
+
+    // MARK: - Independence from input gain
+
+    func test_setOutputGain_doesNotAffectInputGain() {
+        sut.setInputGain(0.5)
+        sut.setOutputGain(2.0)
+        XCTAssertEqual(sut.getCurrentInputGain(), 0.5, accuracy: 1e-9,
+                       "Output gain change must not affect RX input gain")
+    }
+
+    func test_setInputGain_doesNotAffectOutputGain() {
+        sut.setOutputGain(0.5)
+        sut.setInputGain(2.0)
+        XCTAssertEqual(sut.getCurrentOutputGain(), 0.5, accuracy: 1e-9,
+                       "Input gain change must not affect TX output gain")
+    }
+}
+
+// MARK: -
+
 /// Tests for `MockAudioManager` — verifies publisher behaviour and call-count tracking
 /// used by tests that inject mocks into FT8ViewModel or other components.
 final class MockAudioManagerTests: XCTestCase {

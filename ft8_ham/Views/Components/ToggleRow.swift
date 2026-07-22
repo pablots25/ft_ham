@@ -25,6 +25,7 @@ enum HelpTip: Identifiable {
     case dtExplained
     case audioFrequencyHz
     case audioGain
+    case txOutputGain
 
     var id: Self { self }
 
@@ -60,6 +61,8 @@ enum HelpTip: Identifiable {
             return String(localized: "Audio Frequency help")
         case .audioGain:
             return String(localized: "Audio Gain help")
+        case .txOutputGain:
+            return String(localized: "TX Output Gain help")
         }
     }
 
