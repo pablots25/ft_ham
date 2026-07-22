@@ -17,6 +17,8 @@ extension FT8ViewModel {
         alignTXFrequencyForQSOStart(from: message)
 
         qsoManager.isFT4Mode = isFT4
+        qsoManager.currentBand = effectiveBand
+        qsoManager.currentCustomFrequencyHz = selectedBand == .custom ? customDialFrequencyHz : nil
         // Start the reply in QSOManager - state is synced via computed properties
         _ = qsoManager.startReply(to: message, myCallsign: callsign, myLocator: locator)
         

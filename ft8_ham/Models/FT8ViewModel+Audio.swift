@@ -80,8 +80,11 @@ extension FT8ViewModel {
         
         // Reset response tracking for this slot before processing messages
         qsoManager.prepareForRXSlot()
-        // Keep the mode context current so setupNewQSO snapshots the right value.
+        // Keep the mode/band context current so setupNewQSO snapshots the right
+        // values even if the user switches mode/band mid-QSO.
         qsoManager.isFT4Mode = isFT4
+        qsoManager.currentBand = effectiveBand
+        qsoManager.currentCustomFrequencyHz = selectedBand == .custom ? customDialFrequencyHz : nil
         
         // Track if this slot contained our TX - if so, we shouldn't expect a response yet
         let slotContainedOurTX = result.messages.contains { $0.isTX } ||
@@ -334,11 +337,13 @@ extension FT8ViewModel {
                 dxCallsign: completedCallsign,
                 dxLocator: completedLocator,
                 qsoDate: .now,
-                band: effectiveBand,
+                band: qsoManager.qsoStartBand ?? effectiveBand,
                 isFT4: qsoManager.qsoStartedAsFT4,
                 rstSent: qsoManager.lastSentSNR,
                 rstRcvd: qsoManager.lastReceivedSNR,
-                customFrequencyHz: selectedBand == .custom ? customDialFrequencyHz : nil
+                customFrequencyHz: qsoManager.qsoStartBand != nil
+                    ? qsoManager.qsoStartCustomFrequencyHz
+                    : (selectedBand == .custom ? customDialFrequencyHz : nil)
             )
 
             qsoManager.resetRadioStateAfterCompletion()
@@ -373,11 +378,13 @@ extension FT8ViewModel {
                 dxCallsign: completedCallsign,
                 dxLocator: completedLocator,
                 qsoDate: .now,
-                band: effectiveBand,
+                band: qsoManager.qsoStartBand ?? effectiveBand,
                 isFT4: qsoManager.qsoStartedAsFT4,
                 rstSent: qsoManager.lastSentSNR,
                 rstRcvd: qsoManager.lastReceivedSNR,
-                customFrequencyHz: selectedBand == .custom ? customDialFrequencyHz : nil
+                customFrequencyHz: qsoManager.qsoStartBand != nil
+                    ? qsoManager.qsoStartCustomFrequencyHz
+                    : (selectedBand == .custom ? customDialFrequencyHz : nil)
             )
 
             // Clear DX info and return to CQ before showing the prompt.

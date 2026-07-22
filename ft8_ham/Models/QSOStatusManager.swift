@@ -108,6 +108,18 @@ final class QSOStatusManager: ObservableObject {
     // snapshot it without requiring an API change on handleIncomingMessage.
     var isFT4Mode: Bool = false
 
+    // Band / custom dial frequency, fed by the ViewModel before each QSO-start
+    // call (same mechanism as isFT4Mode). currentCustomFrequencyHz is non-nil
+    // only when the Custom band is selected.
+    var currentBand: FT8Message.Band = .band10m
+    var currentCustomFrequencyHz: Double? = nil
+    // Snapshots taken at QSO start so the logged band/frequency stay consistent
+    // with the mode snapshot even if the user switches band/mode mid-QSO
+    // (the FT8/FT4 log-mismatch fix). qsoStartBand != nil signals a valid
+    // snapshot; qsoStartCustomFrequencyHz may legitimately be nil (non-custom).
+    var qsoStartBand: FT8Message.Band? = nil
+    var qsoStartCustomFrequencyHz: Double? = nil
+
     // Explicit confirmation that DX has copied our report
     var dxHasConfirmedMyReport = false
 
@@ -451,6 +463,8 @@ final class QSOStatusManager: ObservableObject {
         lockedDXCallsign = dx
         lockedDXLocator = locator
         qsoStartedAsFT4 = isFT4Mode
+        qsoStartBand = currentBand
+        qsoStartCustomFrequencyHz = currentCustomFrequencyHz
         
         // Freeze RST_SENT at the instant the QSO begins - the one and only place
         // Valid FT8 SNR range is roughly -24 to +50 dB
@@ -581,8 +595,10 @@ final class QSOStatusManager: ObservableObject {
         courtesy73SentAfterQSO = false
         qsoAlreadyLogged = false
         currentCQModifier = nil
+        qsoStartBand = nil
+        qsoStartCustomFrequencyHz = nil
     }
-    
+
     @MainActor
     func resetRadioStateAfterCompletion() {
         appLogger.debug("Reset radio state after QSO completion")
@@ -598,6 +614,8 @@ final class QSOStatusManager: ObservableObject {
         currentCQModifier = nil
         lastCompletedDXCallsign = nil
         lastCompletedDXLocator = nil
+        qsoStartBand = nil
+        qsoStartCustomFrequencyHz = nil
     }
 
     /// True when the DX has explicitly acknowledged our report (via an R-report,
