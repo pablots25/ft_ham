@@ -97,6 +97,14 @@ struct BehaviorSettingsContent: View {
                         .foregroundStyle(.secondary)
                 }
 
+                ToggleRow(
+                    labelKey: "Highlight new callsigns",
+                    helpTip: .highlightNewCallsigns,
+                    isOn: $viewModel.highlightNewCallsigns,
+                    activeHelp: $activeHelp
+                )
+                .accessibilityIdentifier("toggle_highlightNewCallsigns")
+
                 Divider()
 
                 Text("QSO Automation")

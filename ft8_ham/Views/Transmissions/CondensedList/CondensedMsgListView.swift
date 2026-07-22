@@ -68,7 +68,7 @@ struct CondensedMsgListView: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 4)
-                                        .background(backgroundColor(for: msg))
+                                        .background(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg)))
                                         .swipeToReply(
                                             allowReply: allowReply && msg.allowsReply,
                                             messageID: msg.id,

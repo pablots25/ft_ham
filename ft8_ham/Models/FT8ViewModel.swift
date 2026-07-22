@@ -151,10 +151,15 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     }
     
     internal var workedCountryPairsSet: Set<CountryPair> = []
-    
+
     @Published var workedCountryPairs: [CountryPair] = [] {
         didSet { workedCountryPairsSet = Set(workedCountryPairs) }
     }
+
+    /// Uppercased set of every callsign in the logbook, rebuilt from qsoList.
+    /// Backs O(1) "have I worked this station?" lookups for new-callsign
+    /// highlighting and the auto-CQ-reply check.
+    @Published var workedCallsigns: Set<String> = []
     
     
     // MARK: - QSO State (delegated to QSOStatusManager - single source of truth)
@@ -226,6 +231,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
+    /// Highlight CQ calls from stations not yet in the logbook (green tint).
+    @AppStorage("highlightNewCallsigns") var highlightNewCallsigns: Bool = true
 
     @AppStorage("catEnabled") var catEnabled = false {
         didSet {
@@ -456,7 +463,17 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
                 _ = self.logbookManager.saveInternalLog(list)
             }
             .store(in: &cancellables)
-        
+
+        // Keep the worked-callsign set current (no debounce so a just-logged
+        // call is reflected immediately in new-callsign highlighting).
+        $qsoList
+            .sink { [weak self] list in
+                self?.workedCallsigns = Set(
+                    list.map { $0.callsign.uppercased() }
+                )
+            }
+            .store(in: &cancellables)
+
         workedLocators = []
     }
     

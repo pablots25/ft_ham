@@ -6620,6 +6620,76 @@
         }
       }
     },
+    "Highlight new callsigns" : {
+      "comment" : "Toggle label: give CQ calls from stations not yet in the log a green tint.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Rufzeichen hervorheben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Highlight new callsigns"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resaltar indicativos nuevos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surligner les nouveaux indicatifs"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Evidenzia nuovi nominativi"
+          }
+        }
+      }
+    },
+    "Highlight new callsigns help" : {
+      "comment" : "Help text for the Highlight new callsigns toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt CQ-Rufe von Stationen, die noch nicht in deinem Logbuch stehen, mit grünem Hintergrund an."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows CQ calls from stations that are not yet in your logbook with a green background."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra con fondo verde las llamadas CQ de estaciones que aún no están en tu cuaderno."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiche sur fond vert les appels CQ des stations qui ne sont pas encore dans votre journal."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra con sfondo verde le chiamate CQ di stazioni non ancora presenti nel tuo registro."
+          }
+        }
+      }
+    },
     "Hold TX frequency" : {
       "extractionState" : "manual",
       "localizations" : {
