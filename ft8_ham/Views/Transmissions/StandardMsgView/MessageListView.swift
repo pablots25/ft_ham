@@ -14,6 +14,8 @@ struct MessageListView: View {
     let messages: [FT8Message]
     let allowReply: Bool
 
+    @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
+
     @Binding var filterMode: Int
 
     private var filteredMessages: [FT8Message] {
@@ -66,11 +68,12 @@ struct MessageListView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                                     .frame(maxWidth: .infinity, minHeight: 0, alignment: .center)
                                     .contentShape(Rectangle())
-                                    .onTapGesture {
+                                    .onTapGesture(count: replyTapGesture.tapCount) {
                                         guard msg.allowsReply && allowReply else { return }
                                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                         viewModel.reply(to: msg)
                                     }
+                                    .accessibilityIdentifier("decodeRow_\(msg.callsign ?? "")")
                                     .swipeActionsIfNeeded(allowReply: msg.allowsReply && allowReply) {
                                         viewModel.reply(to: msg)
                                     }

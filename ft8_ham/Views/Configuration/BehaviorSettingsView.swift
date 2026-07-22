@@ -13,6 +13,7 @@ struct BehaviorSettingsContent: View {
     @State private var activeHelp: HelpTip?
     @State private var showPSKReporter = false
     @State private var showPaywall = false
+    @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
 
     private var pskReporterURL: URL {
         var components = URLComponents()
@@ -79,6 +80,22 @@ struct BehaviorSettingsContent: View {
                     activeHelp: $activeHelp
                 )
                 .accessibilityIdentifier("toggle_holdTXFrequency")
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Reply gesture")
+                    Picker("Reply gesture", selection: $replyTapGesture) {
+                        ForEach(ReplyTapGesture.allCases) { gesture in
+                            Text(gesture.label).tag(gesture)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .accessibilityIdentifier("picker_replyTapGesture")
+
+                    Text("How tapping a decoded caller starts a reply. Double tap helps avoid accidental replies.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
 
                 Divider()
 
