@@ -9,12 +9,12 @@ import Accelerate
 import SwiftUI
 import UIKit
 
-struct TimestampOverlay {
+struct TimestampOverlay: Equatable {
     let text: String
     var row: Int
 }
 
-struct VerticalLabelOverlay {
+struct VerticalLabelOverlay: Equatable {
     let text: String
     var row: Int
     let frequency: Double
@@ -31,8 +31,6 @@ final class WaterfallOverlayState: ObservableObject {
     @Published var showVerticalLabels: Bool = true
     @Published var showFrequencyTicks: Bool = true
     @Published var showFrequencyMarker: Bool = true
-    @Published var timestampItems: [TimestampOverlay] = []
-    @Published var verticalLabels: [VerticalLabelOverlay] = []
 }
 
 @MainActor
@@ -70,12 +68,43 @@ final class WaterfallViewModel: ObservableObject {
     /// Called from a background audio queue. Runs the FFT there, then dispatches
     /// only the lightweight magnitude array to @MainActor for the pixel-write step.
     /// This keeps vDSP_fft_zip off the main thread entirely.
-    nonisolated func updateWaterfallFromSamplesAsync(_ samples: [Float]) {
+    /// - Parameter sampleRate: the rate of `samples`. The frequency axis is
+    ///   derived from it, so it must be the real capture rate (the microphone
+    ///   runs at the hardware rate, not at the 12 kHz decode/playback rate).
+    nonisolated func updateWaterfallFromSamplesAsync(_ samples: [Float], sampleRate: Double? = nil) {
         guard !samples.isEmpty else { return }
         let mags = backgroundFFT.computeMagnitudes(from: samples)
         Task { @MainActor [weak self] in
-            self?.updateWaterfall(from: mags)
+            guard let self else { return }
+            if let sampleRate, sampleRate > 0, self.sampleRate != Float(sampleRate) {
+                self.sampleRate = Float(sampleRate)
+            }
+            self.updateWaterfall(from: mags)
         }
+    }
+
+    // MARK: - Visibility
+
+    /// Views currently showing this waterfall, with the rows each one needs.
+    /// Rendering (CGImage creation + publish) only happens while at least one
+    /// view is on screen; the pixel buffer keeps scrolling regardless so the
+    /// history is right when a view comes back.
+    private var viewerRows: [UUID: Int] = [:]
+
+    func viewerAppeared(_ id: UUID, rows: Int) {
+        viewerRows[id] = max(1, rows)
+        recomputeVisibleRows()
+    }
+
+    func viewerDisappeared(_ id: UUID) {
+        viewerRows[id] = nil
+        recomputeVisibleRows()
+    }
+
+    private func recomputeVisibleRows() {
+        let rows = viewerRows.values.max() ?? 0
+        if visibleRows != rows { visibleRows = rows }
+        if rows > 0 { ensureBufferCanHold(visibleRows: rows) }
     }
 
     /// Legacy @MainActor path kept for backward compatibility.
@@ -165,16 +194,6 @@ final class WaterfallViewModel: ObservableObject {
     var showFrequencyMarker: Bool {
         get { overlayState.showFrequencyMarker }
         set { overlayState.showFrequencyMarker = newValue }
-    }
-
-    // Overlay data — forwarded to overlayState
-    var timestampItems: [TimestampOverlay] {
-        get { overlayState.timestampItems }
-        set { overlayState.timestampItems = newValue }
-    }
-    var verticalLabels: [VerticalLabelOverlay] {
-        get { overlayState.verticalLabels }
-        set { overlayState.verticalLabels = newValue }
     }
 
     private var timestampRows: [Int: String] = [:]
@@ -341,38 +360,6 @@ final class WaterfallViewModel: ObservableObject {
         verticalLabelRows[absoluteRowCounter, default: []].append(contentsOf: labels)
     }
     
-    @MainActor
-    func updateOverlayPositions() {
-        guard showOverlay else { return }
-        
-        // Shift rows down
-        if showTimestamps {
-            timestampItems = timestampItems.map { TimestampOverlay(text: $0.text, row: $0.row + 1) }
-        }
-        if showVerticalLabels {
-            verticalLabels = verticalLabels.map { VerticalLabelOverlay(text: $0.text, row: $0.row + 1, frequency: $0.frequency) }
-        }
-        
-        // Remove old rows
-        let maxRows = max(1, visibleRows)
-        if showTimestamps {
-            timestampItems = timestampItems.filter { $0.row < maxRows }
-        }
-        if showVerticalLabels {
-            verticalLabels = verticalLabels.filter { $0.row < maxRows }
-        }
-        
-        // Add new overlays for current row
-        if showTimestamps, let ts = timestampRows[absoluteRowCounter] {
-            timestampItems.append(TimestampOverlay(text: ts, row: 0))
-        }
-        if showVerticalLabels, let labels = verticalLabelRows[absoluteRowCounter] {
-            for label in labels {
-                verticalLabels.append(VerticalLabelOverlay(text: label.text, row: 0, frequency: label.frequency))
-            }
-        }
-    }
-    
     func xPosition(for frequency: Double, in width: CGFloat) -> CGFloat {
         let maxFreq = Double(config.maxDisplayFrequency) * 4.0
         return CGFloat(frequency / maxFreq) * width
@@ -480,14 +467,17 @@ final class WaterfallViewModel: ObservableObject {
         writeIndex = (writeIndex + w) % waterfallBufferFlat.count
         absoluteRowCounter += 1
 
-        // Remove old timestamps and labels beyond visible rows
-        let cutoff = absoluteRowCounter - max(1, visibleRows)
-        timestampRows = timestampRows.filter { $0.key >= cutoff }
-        verticalLabelRows = verticalLabelRows.filter { $0.key >= cutoff }
+        // Prune timestamps/labels that scrolled out of the (maximum) visible
+        // range. Done every 64 rows rather than on every audio buffer: the
+        // overlay accessors already clip to the visible height, so pruning is
+        // only about keeping the dictionaries small.
+        if absoluteRowCounter % 64 == 0 {
+            let cutoff = absoluteRowCounter - Config.absoluteMaxRows
+            timestampRows = timestampRows.filter { $0.key >= cutoff }
+            verticalLabelRows = verticalLabelRows.filter { $0.key >= cutoff }
+        }
 
-        // Overlay publishing is gated inside renderWaterfallIncremental so that
-        // @Published arrays are only mutated at render-rate (≤15 FPS) rather than
-        // at the audio-callback rate (~24 Hz), preventing spurious Canvas redraws.
+        // Render (CGImage + publish) only while a view is on screen.
         if visibleRows > 0 { renderWaterfallIncremental() }
     }
 
@@ -519,9 +509,6 @@ final class WaterfallViewModel: ObservableObject {
         if let cg = makeCGImageFromARGB(pixelData: &renderBuffer, width: w, height: h) {
             waterfallImage = Image(uiImage: UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up))
         }
-
-        // Call here so @Published overlay arrays are only mutated at render-rate (≤15 FPS)
-        updateOverlayPositions()
     }
     // MARK: - Overlay toggles helpers
     

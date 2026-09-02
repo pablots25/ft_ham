@@ -31,8 +31,12 @@ extension FT8ViewModel {
                 self.rxBufferLock.unlock()
                 
                 // Run FFT on this background queue; only the magnitude array
-                // is dispatched to @MainActor for the pixel-write step.
-                self.waterfallVM.updateWaterfallFromSamplesAsync(samples)
+                // is dispatched to @MainActor for the pixel-write step. Pass the
+                // real capture rate so the frequency axis is correct.
+                self.waterfallVM.updateWaterfallFromSamplesAsync(
+                    samples,
+                    sampleRate: self.audioManager.micSampleRate
+                )
             }
             .store(in: &cancellables)
 

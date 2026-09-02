@@ -15,6 +15,16 @@ struct WaterfallView: View {
 
     @State private var cursorX: CGFloat? = nil
     @State private var cursorFrequency: Double = 0
+    /// Identifies this view in the view model's viewer registry, so rendering
+    /// stops when no waterfall is on screen (other tab, dashboard hidden...).
+    @State private var viewerID = UUID()
+
+    private static func rows(for height: CGFloat) -> Int {
+        // Cap at 600 rows: full-screen on a large iPhone gives ~930 pts but
+        // you only need a few hundred rows of scroll history. Fewer rows = less
+        // pixel-copy work per render frame.
+        min(max(Int(height), 1) + 1, 600)
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -28,17 +38,19 @@ struct WaterfallView: View {
                         .frame(width: w, height: h, alignment: .bottom)
                         .clipped()
 
-                    if viewModel.showOverlay {
-                        WaterfallOverlayView(
-                            overlayState: viewModel.overlayState,
-                            ft8ViewModel: ft8ViewModel,
-                            config: viewModel.config,
-                            timestampsForOverlay: { viewModel.timestampsForOverlay(height: $0) },
-                            verticalLabelsForOverlay: { viewModel.verticalLabelsForOverlay(height: $0) },
-                            width: Int(geo.size.width),
-                            height: Int(geo.size.height)
-                        )
-                    }
+                    // Overlay data is passed as plain values (Equatable) so the
+                    // Canvas below only redraws when something it draws changed.
+                    let overlayHeight = Int(geo.size.height)
+                    WaterfallOverlayView(
+                        overlayState: viewModel.overlayState,
+                        config: viewModel.config,
+                        timestamps: viewModel.timestampsForOverlay(height: overlayHeight),
+                        verticalLabels: viewModel.verticalLabelsForOverlay(height: overlayHeight),
+                        txFrequency: ft8ViewModel.frequency,
+                        isFT4: ft8ViewModel.isFT4,
+                        width: Int(geo.size.width),
+                        height: overlayHeight
+                    )
                 } else {
                     Text("Waiting for audio data...")
                         .foregroundColor(.gray)
@@ -52,20 +64,13 @@ struct WaterfallView: View {
                 }
             }
             .onAppear {
-                // Cap at 600 rows: full-screen on a large iPhone gives ~930 pts but
-                // you only need a few hundred rows of scroll history. Fewer rows = less
-                // pixel-copy work per render frame.
-                let rows = min(max(Int(geo.size.height), 1) + 1, 600)
-                viewModel.visibleRows = rows
-                viewModel.ensureBufferCanHold(visibleRows: rows)
+                viewModel.viewerAppeared(viewerID, rows: Self.rows(for: geo.size.height))
             }
             .onChange(of: geo.size.height) { newHeight in
-                let rows = min(max(Int(newHeight), 1) + 1, 600)
-                // Skip if the row count hasn't actually changed — avoids spurious
-                // ensureBufferCanHold calls during layout animation settling.
-                guard rows != viewModel.visibleRows else { return }
-                viewModel.visibleRows = rows
-                viewModel.ensureBufferCanHold(visibleRows: rows)
+                viewModel.viewerAppeared(viewerID, rows: Self.rows(for: newHeight))
+            }
+            .onDisappear {
+                viewModel.viewerDisappeared(viewerID)
             }
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -90,14 +95,15 @@ struct WaterfallView: View {
 }
 
 struct WaterfallOverlayView: View {
-    // Observe only the lightweight overlay state — changes to waterfallImage
-    // (on the parent WaterfallViewModel) will NOT trigger a Canvas redraw here.
+    // Observe only the lightweight overlay toggles. Everything else comes in
+    // as values so this Canvas is not redrawn on every FT8ViewModel publish
+    // (which is what observing the view model here used to cause).
     @ObservedObject var overlayState: WaterfallOverlayState
-    @ObservedObject var ft8ViewModel: FT8ViewModel
-    // These are read once at construction time from the parent; they don't change frequently.
     let config: WaterfallViewModel.Config
-    let timestampsForOverlay: (Int) -> [TimestampOverlay]
-    let verticalLabelsForOverlay: (Int) -> [VerticalLabelOverlay]
+    let timestamps: [TimestampOverlay]
+    let verticalLabels: [VerticalLabelOverlay]
+    let txFrequency: Double
+    let isFT4: Bool
 
     let width: Int
     let height: Int
@@ -105,7 +111,7 @@ struct WaterfallOverlayView: View {
 
     var body: some View {
         Canvas { ctx, size in
-            guard size.width > 1, size.height > 1 else { return }
+            guard overlayState.showOverlay, size.width > 1, size.height > 1 else { return }
             let w = size.width
             let h = size.height
             let bodyOffset = headerHeight
@@ -136,7 +142,6 @@ struct WaterfallOverlayView: View {
             }
 
             // Horizontal timestamp lines
-            let timestamps = timestampsForOverlay(Int(size.height))
             for overlay in timestamps {
                 let y = CGFloat(overlay.row) + bodyOffset
                 
@@ -159,7 +164,7 @@ struct WaterfallOverlayView: View {
 
             if overlayState.showFrequencyMarker {
                 // TX frequency indicator
-                let txFreq = ft8ViewModel.frequency
+                let txFreq = txFrequency
                 let txX = CGFloat(txFreq / maxFreq) * w
                 guard txX.isFinite else { return }
                 
@@ -183,7 +188,7 @@ struct WaterfallOverlayView: View {
                     anchor: .center
                 )
                 
-                let bandwidthHz = (ft8ViewModel.isFT4 ? 90.0 : 50.0) * 2
+                let bandwidthHz = (isFT4 ? 90.0 : 50.0) * 2
                 for freq in [txFreq, txFreq + bandwidthHz] {
                     let x = CGFloat(freq / maxFreq) * w
                     let path = Path { path in
@@ -195,8 +200,7 @@ struct WaterfallOverlayView: View {
             }
 
             // Vertical moving labels
-            let vLabels = verticalLabelsForOverlay(Int(size.height))
-            for overlay in vLabels {
+            for overlay in verticalLabels {
                 let x = CGFloat(overlay.frequency / maxFreq) * w
                 var tctx = ctx
                 let text = overlay.text
