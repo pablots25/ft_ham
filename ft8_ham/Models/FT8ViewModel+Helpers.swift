@@ -20,6 +20,12 @@ extension FT8ViewModel{
     }
     
     
+    /// Adds the operator's own grid (from the map's location updates) once.
+    func addUserLocator(_ locator: String) {
+        guard !workedLocatorsSet.contains(locator) else { return }
+        workedLocators.append(locator)
+    }
+
     internal func addNewLocators(from newLocators: [String]) {
         for loc in newLocators where !workedLocatorsSet.contains(loc) {
             workedLocators.append(loc)

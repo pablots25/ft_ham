@@ -11,7 +11,6 @@ import SwiftUI
 
 struct LogbookView: View {
     @EnvironmentObject var viewModel: FT8ViewModel
-    @EnvironmentObject private var flags: FeatureFlagManager
     @EnvironmentObject private var premiumManager: PremiumManager
 
     @AppStorage("logbookTimeDisplayLocal") private var displayLocalTime: Bool = false

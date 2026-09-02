@@ -14,7 +14,9 @@ struct TransmissionButtonsBar: View {
     @State private var containerWidth: CGFloat = 0
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        // Evaluated once per body (it validates callsign/locator).
+        let settingsLoaded = viewModel.settingsLoaded
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
             Button(viewModel.transmitLoopActive ? "Stop Auto TX" : "Start Auto TX") {
                 viewModel.toggleTransmit()
@@ -24,7 +26,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(viewModel.transmitLoopActive ? .red : .blue)
             .buttonStyle(.borderedProminent)
-            .disabled(!viewModel.settingsLoaded)
+            .disabled(!settingsLoaded)
 
             Button("Stop TX") {
                 viewModel.stopCurrentTX()
@@ -34,7 +36,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(viewModel.isTransmitting ? .red : .blue)
             .buttonStyle(.borderedProminent)
-            .disabled(!viewModel.settingsLoaded || !viewModel.isTransmitting)
+            .disabled(!settingsLoaded || !viewModel.isTransmitting)
 
             Button(viewModel.isListening ? "Stop RX" : "Start RX") {
                 if viewModel.isListening {
@@ -50,7 +52,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(viewModel.isListening ? .red : .green)
             .buttonStyle(.borderedProminent)
-            .disabled(!viewModel.settingsLoaded)
+            .disabled(!settingsLoaded)
 
             Button("Stop all") {
                 viewModel.stopCurrentTX()
@@ -63,7 +65,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(.red)
             .buttonStyle(.borderedProminent)
-            .disabled(!viewModel.settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive))
+            .disabled(!settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive))
             }
             .padding(.horizontal)
             .frame(minWidth: containerWidth, alignment: .center)
@@ -312,8 +314,6 @@ struct StatusView: View {
 // MARK: - Clock View
 
 struct ClockView: View {
-    @EnvironmentObject private var viewModel: FT8ViewModel
-
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0)) { context in
             let currentUTC = DateFormatter.utcFormatterClock.string(from: context.date)

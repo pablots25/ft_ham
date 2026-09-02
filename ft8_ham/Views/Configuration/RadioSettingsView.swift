@@ -14,6 +14,9 @@ struct RadioSettingsContent: View {
 
     @FocusState private var frequencyFocused: Bool
     @State private var frequencyText: String = ""
+    /// Local slider value; committed to the view model on release so a drag does
+    /// not write UserDefaults (and publish the whole view model) on every tick.
+    @State private var frequencySliderValue: Double = 1500
     @State private var sliderTempValue: Float = 1.0
     @State private var txSliderTempValue: Float = 1.0
     @State private var activeHelp: HelpTip?
@@ -76,9 +79,11 @@ struct RadioSettingsContent: View {
             ) ?? ""
             sliderTempValue = Float(viewModel.inputGain)
             txSliderTempValue = Float(viewModel.txOutputGain)
+            frequencySliderValue = viewModel.frequency
             activeHelp = nil
         }
         .onChange(of: viewModel.frequency) { newValue in
+            if frequencySliderValue != newValue { frequencySliderValue = newValue }
             if !frequencyFocused {
                 let newText = Self.frequencyFormatter.string(
                     from: NSNumber(value: newValue / 1000)
@@ -190,7 +195,14 @@ struct RadioSettingsContent: View {
                 .buttonStyle(.borderedProminent)
                 .accessibilityLabel(Text("Decrease audio frequency"))
 
-                Slider(value: $viewModel.frequency, in: 0.1...3000, step: 10)
+                Slider(
+                    value: $frequencySliderValue,
+                    in: 0.1...3000,
+                    step: 10,
+                    onEditingChanged: { isEditing in
+                        if !isEditing { viewModel.frequency = frequencySliderValue }
+                    }
+                )
 
                 Button {
                     viewModel.frequency = min(3000, viewModel.frequency + 10)

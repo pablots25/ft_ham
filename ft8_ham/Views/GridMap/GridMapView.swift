@@ -23,7 +23,7 @@ struct MapVisibility: Hashable {
 struct GridMapView: UIViewRepresentable {
 
     /// Maidenhead locators to be displayed (including user grid)
-    @Binding var locators: [String]
+    var locators: [String]
 
     /// Optional list of country pairs
     var countries: [CountryPair] = []
@@ -36,9 +36,12 @@ struct GridMapView: UIViewRepresentable {
     var showGeodesics: Bool = true
     var showAnnotations: Bool = true
     @Binding var userTrackingMode: MKUserTrackingMode
+    /// Invoked (on the main actor) when the device location resolves to a grid
+    /// square that is not yet in `locators`.
+    var onUserLocator: ((String) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(locators: $locators, trackingMode: $userTrackingMode)
+        Coordinator(onUserLocator: onUserLocator, trackingMode: $userTrackingMode)
     }
 
     func makeUIView(context: Context) -> MKMapView {
@@ -94,9 +97,10 @@ struct GridMapView: UIViewRepresentable {
 
     final class Coordinator: NSObject, MKMapViewDelegate, CLLocationManagerDelegate {
 
-        // Bindings
-        private let locatorsBinding: Binding<[String]>
+        // Callbacks / bindings
+        private let onUserLocator: ((String) -> Void)?
         private let trackingModeBinding: Binding<MKUserTrackingMode>
+        private var knownLocators: [String] = []
 
         // Location
         private let locationManager = CLLocationManager()
@@ -110,8 +114,8 @@ struct GridMapView: UIViewRepresentable {
         private var hasEverFitRegion = false
         private var lastHash: Int = 0
 
-        init(locators: Binding<[String]>, trackingMode: Binding<MKUserTrackingMode>) {
-            self.locatorsBinding = locators
+        init(onUserLocator: ((String) -> Void)?, trackingMode: Binding<MKUserTrackingMode>) {
+            self.onUserLocator = onUserLocator
             self.trackingModeBinding = trackingMode
             super.init()
             locationManager.delegate = self
@@ -179,8 +183,8 @@ struct GridMapView: UIViewRepresentable {
             lastUserLocator = locator
 
             Task { @MainActor in
-                if !self.locatorsBinding.wrappedValue.contains(locator) {
-                    self.locatorsBinding.wrappedValue.append(locator)
+                if !self.knownLocators.contains(locator) {
+                    self.onUserLocator?(locator)
                 }
 
                 if let mapView = self.mapView,
@@ -194,6 +198,7 @@ struct GridMapView: UIViewRepresentable {
 
         @MainActor
         func updateMap(_ mapView: MKMapView, locators: [String], countries: [CountryPair], visibility: MapVisibility) {
+            knownLocators = locators
             let currentHash = makeHash(locators: locators, countries: countries, visibility: visibility)
             guard currentHash != lastHash else { return }
             lastHash = currentHash
@@ -219,7 +224,13 @@ struct GridMapView: UIViewRepresentable {
         // MARK: - Helper Methods
 
         private func makeHash(locators: [String], countries: [CountryPair], visibility: MapVisibility) -> Int {
-            locators.hashValue ^ countries.count.hashValue ^ visibility.hashValue
+            // Hash the *content* of countries, not just its count, so a changed
+            // set with the same size is not mistaken for "no change".
+            var hasher = Hasher()
+            hasher.combine(locators)
+            hasher.combine(countries)
+            hasher.combine(visibility)
+            return hasher.finalize()
         }
 
         private func addGridOverlays(locators: [String], visibility: MapVisibility,

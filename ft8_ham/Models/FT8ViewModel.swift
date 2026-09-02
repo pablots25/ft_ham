@@ -66,6 +66,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     internal let timeProvider: TimeProviding
     
     let waterfallVM: WaterfallViewModel
+
+    /// Lightweight state observed by the app root / `ContentView` so they do not
+    /// have to observe this whole object. See `RootUIState`.
+    let rootState = RootUIState()
+    /// State for the QSO-log confirmation alert (observed by the root modifier).
+    let logPrompt = QSOLogPrompt()
     
     // MARK: - State Management
     internal var cancellables = Set<AnyCancellable>()
@@ -135,7 +141,11 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @Published var isListening = false
     @Published var isTransmitting = false
     @Published var transmitLoopActive = false
-    @Published var toast: ToastMessage?
+    /// Forwarded to `rootState` so only the root toast host observes it.
+    var toast: ToastMessage? {
+        get { rootState.toast }
+        set { rootState.toast = newValue }
+    }
     var wasSequencerRunningBeforeBackground = false
     @Published var wavURL: URL?
     
@@ -213,12 +223,24 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
 
     // MARK: - QSO Logger
     internal var logAction: ((LogEntry) -> Void)?
-    @Published internal var showConfirmQSOAlert: Bool = false
-    @Published internal var pendingQSOToLog: LogEntry?
+    // The three properties below are stored on `logPrompt` (a small
+    // ObservableObject) so that the alert modifier at the app root does not have
+    // to observe the whole view model. Kept as forwarders for call sites/tests.
+    internal var showConfirmQSOAlert: Bool {
+        get { logPrompt.showConfirmQSOAlert }
+        set { logPrompt.showConfirmQSOAlert = newValue }
+    }
+    internal var pendingQSOToLog: LogEntry? {
+        get { logPrompt.pendingQSOToLog }
+        set { logPrompt.pendingQSOToLog = newValue }
+    }
     /// True when the pending confirmation is for a QSO that timed out before the
     /// final handshake (reports exchanged but unconfirmed). Drives a distinct
     /// confirmation message so the operator knows it wasn't a clean completion.
-    @Published internal var pendingQSOIsUnconfirmed: Bool = false
+    internal var pendingQSOIsUnconfirmed: Bool {
+        get { logPrompt.pendingQSOIsUnconfirmed }
+        set { logPrompt.pendingQSOIsUnconfirmed = newValue }
+    }
     
     
     // MARK: - AppStorage Properties
@@ -275,8 +297,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     // MARK: - Log Sync Strategy (Premium)
     @AppStorage("logSyncStrategy") var logSyncStrategyRaw: String = LogSyncStrategy.either.rawValue
 
-    @AppStorage("callsign") var callsign = ""
-    @AppStorage("locator") var locator = ""
+    @AppStorage("callsign") var callsign = "" {
+        didSet { syncSettingsLoaded() }
+    }
+    @AppStorage("locator") var locator = "" {
+        didSet { syncSettingsLoaded() }
+    }
     @AppStorage("autoLocatorFromGPS") var autoLocatorFromGPS: Bool = true
 
     @AppStorage("frequency") private var _frequency = 1500.0
@@ -304,6 +330,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     
     @AppStorage("isFT4") var isFT4 = false {
         didSet {
+            if rootState.isFT4 != isFT4 { rootState.isFT4 = isFT4 }
             waterfallVM.mode = isFT4 ? .ft4 : .ft8
             restartLoopsForModeChange()
             scheduleCatFrequencyUpdate(reason: "mode change")
@@ -362,6 +389,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     var settingsLoaded: Bool {
         !callsign.isEmpty && isValidCallsign(callsign) &&
         !locator.isEmpty && isValidLocator(locator)
+    }
+
+    /// Mirrors `settingsLoaded` into `rootState` (only when it changes).
+    private func syncSettingsLoaded() {
+        let loaded = settingsLoaded
+        if rootState.settingsLoaded != loaded { rootState.settingsLoaded = loaded }
     }
 
     /// QSOs sorted by date descending. The view reads this instead of mutating qsoList.
@@ -425,6 +458,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         
         self.selectedBand = FT8Message.Band(rawValue: savedBandRaw) ?? .band10m
         self.isFT4 = storedIsFT4
+        syncSettingsLoaded()
         // Note: lastReceivedSNR is now a computed property delegating to qsoManager
         
         setupLogbook()

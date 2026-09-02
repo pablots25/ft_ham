@@ -20,9 +20,10 @@ extension FT8ViewModel {
         catController.connectionStatePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] connected in
-                self?.catConnected = connected
+                guard let self else { return }
+                if self.catConnected != connected { self.catConnected = connected }
                 // A restored connection clears a stale error state.
-                if connected { self?.catStatusOK = true }
+                if connected, !self.catStatusOK { self.catStatusOK = true }
             }
             .store(in: &cancellables)
     }
@@ -158,6 +159,15 @@ extension FT8ViewModel {
         appLogger.debug("CAT frequency polling started (2s interval)")
     }
 
+    /// Writes the three CAT status properties only when they actually change,
+    /// so the periodic poll does not publish `objectWillChange` needlessly.
+    @MainActor
+    internal func setCatStatus(connected: Bool, ok: Bool, error: String?) {
+        if catConnected != connected { catConnected = connected }
+        if catStatusOK != ok { catStatusOK = ok }
+        if catLastError != error { catLastError = error }
+    }
+
     @MainActor
     func stopCatFrequencyPolling() {
         catPollingTimer?.invalidate()
@@ -180,15 +190,15 @@ extension FT8ViewModel {
             guard !Task.isCancelled else { return }
             await MainActor.run { [weak self] in
                 guard let self else { return }
-                // Keep the status indicator current from the poll result.
-                self.catConnected = self.catController.isConnected
-                if !response.success {
-                    self.catStatusOK = false
-                    self.catLastError = response.errorMessage ?? "unknown"
-                    return
-                }
-                self.catStatusOK = true
-                self.catLastError = nil
+                // Keep the status indicator current from the poll result. Only
+                // write when the value changes: this runs every 2 s and each
+                // @Published write invalidates every view observing the VM.
+                self.setCatStatus(
+                    connected: self.catController.isConnected,
+                    ok: response.success,
+                    error: response.success ? nil : (response.errorMessage ?? "unknown")
+                )
+                if !response.success { return }
                 if let polledHz = Int64(response.response.trimmingCharacters(in: .whitespacesAndNewlines)) {
                     self.applyPolledFrequency(polledHz)
                 }

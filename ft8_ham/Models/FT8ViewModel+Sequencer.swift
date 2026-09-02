@@ -307,16 +307,16 @@ extension FT8ViewModel {
     @MainActor
     internal func executeTX(slot: SlotInfo) async {
         txLogger.info("Starting transmission for slot \(slot.slotIndex)")
-        self.isListening = true
-        self.isTransmitting = true
+        if !isListening { isListening = true }
+        if !isTransmitting { isTransmitting = true }
         await self.performTransmission(slot: slot)
     }
     
     @MainActor
     internal func executeRX(slot: SlotInfo) async {
         rxLogger.debug("Starting reception and monitor for slot \(slot.slotIndex)")
-        self.isListening = true
-        self.isTransmitting = false
+        if !isListening { isListening = true }
+        if isTransmitting { isTransmitting = false }
         
     }
     

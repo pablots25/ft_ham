@@ -11,11 +11,21 @@ import Combine
 // MARK: - Main view
 
 struct ContentView: View {
-    @EnvironmentObject private var viewModel: FT8ViewModel
+    /// Deliberately NOT observed: this view hosts all five tabs, so observing
+    /// the whole view model would re-evaluate the entire app on every publish
+    /// (each decoded message, each settings write, each CAT poll...). The few
+    /// values it needs are read from `viewModel.rootState` instead.
+    let viewModel: FT8ViewModel
+    @ObservedObject private var root: RootUIState
     @EnvironmentObject private var flags: FeatureFlagManager
     @StateObject private var progressVM = ProgressViewModel()
     @ObservedObject private var prompts = InAppPrompts.shared
-    @ObservedObject private var mapSettings = MapSettingsModel.shared
+    private let mapSettings = MapSettingsModel.shared
+
+    init(viewModel: FT8ViewModel) {
+        self.viewModel = viewModel
+        self._root = ObservedObject(wrappedValue: viewModel.rootState)
+    }
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("hasCompletedInitialPermissionFlow") private var hasCompletedInitialPermissionFlow: Bool = false
@@ -35,7 +45,7 @@ struct ContentView: View {
 
     var body: some View {
         mainLayout
-            .toast($viewModel.toast)
+            .toast($root.toast)
             // 1) Onboarding first
             .fullScreenCover(isPresented: $isPresentingOnboarding) {
                 OnboardingView()
@@ -93,7 +103,7 @@ struct ContentView: View {
                         isPresentingWhatsNew = true
                     } else if PremiumManager.shared.isDonor && !PremiumManager.shared.didShowDonationPremiumPrompt {
                         isPresentingDonationPrompt = true
-                    } else if !viewModel.settingsLoaded {
+                    } else if !root.settingsLoaded {
                         showConfigAlert = true
                         shouldNavigateToConfiguration = true
                     }
@@ -150,7 +160,7 @@ struct ContentView: View {
             .onChange(of: selectedTab) { newTab in
                 lastSelectedTab = newTab
             }
-            .onChange(of: viewModel.settingsLoaded) { loaded in
+            .onChange(of: root.settingsLoaded) { loaded in
                 if loaded && autoRXAtStart {
                     evaluateAutoRX()
                 }
@@ -215,14 +225,7 @@ struct ContentView: View {
                         .onAppear {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
-                    GridMapViewWrapper(
-                        locators: $viewModel.workedLocators,
-                        countries: $viewModel.workedCountryPairs,
-                        showGrids: $mapSettings.showGrids,
-                        showCountryCircles: $mapSettings.showCountryCircles,
-                        showGeodesics: $mapSettings.showGeodesics,
-                        showAnnotations: $mapSettings.showAnnotations
-                    )
+                    MapTabView()
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
                     }
@@ -267,7 +270,7 @@ struct ContentView: View {
                 Text("Please fill in your callsign and locator in the Configuration tab to start using the app")
             }
             .onAppear {
-                if hasCompletedOnboarding && hasAcceptedTerms && hasCompletedInitialPermissionFlow && viewModel.settingsLoaded {
+                if hasCompletedOnboarding && hasAcceptedTerms && hasCompletedInitialPermissionFlow && root.settingsLoaded {
                     InAppPrompts.shared.checkPrompts()
                 }
             }
@@ -280,7 +283,7 @@ struct ContentView: View {
         guard !isPresentingOnboarding,
               !isPresentingLicense,
               !isPresentingWhatsNew else { return }
-        if !viewModel.settingsLoaded {
+        if !root.settingsLoaded {
             showConfigAlert = true
             shouldNavigateToConfiguration = true
         }
@@ -292,7 +295,7 @@ struct ContentView: View {
         guard hasCompletedOnboarding,
               hasAcceptedTerms,
               hasCompletedInitialPermissionFlow,
-              viewModel.settingsLoaded,
+              root.settingsLoaded,
               autoRXAtStart else {
             return
         }
@@ -306,9 +309,25 @@ struct ContentView: View {
         viewModel.startSequencer()
     }
     
+    /// Map tab. Observes the view model here (not in `ContentView`) so only
+    /// this subtree is re-evaluated when worked locators/countries change.
+    struct MapTabView: View {
+        @EnvironmentObject private var viewModel: FT8ViewModel
+
+        var body: some View {
+            GridMapViewWrapper(
+                locators: viewModel.workedLocators,
+                countries: viewModel.workedCountryPairs,
+                mapSettings: MapSettingsModel.shared,
+                onUserLocator: { [weak viewModel] locator in
+                    viewModel?.addUserLocator(locator)
+                }
+            )
+        }
+    }
+
     struct TransmissionRootView: View {
         @EnvironmentObject private var viewModel: FT8ViewModel
-        @EnvironmentObject private var mapSettings: MapSettingsModel
 
         var body: some View {
             transmissionContent
@@ -339,7 +358,6 @@ struct ContentView: View {
     }
     
     struct DashboardRootView: View {
-        @EnvironmentObject private var viewModel: FT8ViewModel
         @EnvironmentObject private var mapSettings: MapSettingsModel
         @EnvironmentObject private var flags: FeatureFlagManager
         
@@ -434,8 +452,8 @@ struct ContentView: View {
 
     private var progressBar: some View {
         TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-            let cycleLength = ProgressViewModel.cycleLengthForMode(isFT4: viewModel.isFT4)
-            let progress = progressVM.cycleProgress(isFT4: viewModel.isFT4)
+            let cycleLength = ProgressViewModel.cycleLengthForMode(isFT4: root.isFT4)
+            let progress = progressVM.cycleProgress(isFT4: root.isFT4)
             let seconds = min(Int(progress * cycleLength), Int(cycleLength))
 
             HStack {
@@ -580,7 +598,7 @@ struct TermsSheet: View {
     viewModel.callsign = "EA4IQL"
     viewModel.locator = "IN80"
     
-    return ContentView()
+    return ContentView(viewModel: viewModel)
             .environmentObject(viewModel)
             .environmentObject(FeatureFlagManager.shared)
             .environmentObject(PremiumManager.shared)
@@ -596,7 +614,7 @@ struct TermsSheet: View {
     viewModel.callsign = "EA4IQL"
     viewModel.locator = "IN80"
     
-    return ContentView()
+    return ContentView(viewModel: viewModel)
         .environmentObject(viewModel)
         .environmentObject(FeatureFlagManager.shared)
         .environmentObject(PremiumManager.shared)

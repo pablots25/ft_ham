@@ -66,12 +66,12 @@ struct IpadDashboardView: View {
 
     private var mapContent: some View {
         GridMapViewWrapper(
-            locators: $viewModel.workedLocators,
-            countries: $viewModel.workedCountryPairs,
-            showGrids: $mapSettings.showGrids,
-            showCountryCircles: $mapSettings.showCountryCircles,
-            showGeodesics: $mapSettings.showGeodesics,
-            showAnnotations: $mapSettings.showAnnotations
+            locators: viewModel.workedLocators,
+            countries: viewModel.workedCountryPairs,
+            mapSettings: mapSettings,
+            onUserLocator: { [weak viewModel] locator in
+                viewModel?.addUserLocator(locator)
+            }
         )
         .clipShape(RoundedRectangle(cornerRadius: LayoutConstants.standardCornerRadius, style: .continuous))
     }

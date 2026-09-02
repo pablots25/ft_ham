@@ -10,7 +10,9 @@ import SwiftUI
 // MARK: - Settings Search Support
 
 private struct SettingsSearchItem: Identifiable {
-    let id = UUID()
+    // Stable identity: the item list is rebuilt on each body pass, and a fresh
+    // UUID per pass would make SwiftUI recreate every search-result row.
+    var id: String { title }
     let title: String
     let systemImage: String
     let section: String
@@ -39,7 +41,6 @@ private enum SettingsDestination {
 
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
-    @EnvironmentObject private var flags: FeatureFlagManager
     @EnvironmentObject private var premiumManager: PremiumManager
     @Binding var shouldScrollToDonations: Bool
 

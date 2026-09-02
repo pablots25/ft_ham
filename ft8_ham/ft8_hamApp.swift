@@ -114,13 +114,15 @@ struct ft8_hamApp: App {
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var viewModel = FT8ViewModel()
-    @ObservedObject private var featureFlags = FeatureFlagManager.shared
-    @ObservedObject private var premiumManager = PremiumManager.shared
+    // Injected as environment objects only; observing them here would
+    // re-evaluate the whole WindowGroup on every publish.
+    private let featureFlags = FeatureFlagManager.shared
+    private let premiumManager = PremiumManager.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(viewModel: viewModel)
                 .environmentObject(viewModel)
                 .environmentObject(featureFlags)
                 .environmentObject(premiumManager)

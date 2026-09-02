@@ -5,7 +5,21 @@
 //  Created by Pablo Turrion on 16/11/25.
 //
 
+import Foundation
+
 // MARK: Validators
+
+// Compiled once. `String.range(of:options:.regularExpression)` re-parses the
+// pattern on every call, and these validators run on every view body that
+// reads `settingsLoaded`.
+private let locatorRegex = try! NSRegularExpression(pattern: #"^[A-R]{2}\d{2}$"#)
+private let callsignRegex = try! NSRegularExpression(
+    pattern: #"^[A-Z0-9]{1,3}\d[A-Z]{1,3}(/[A-Z0-9]+)?$"#
+)
+
+private func wholeMatch(_ regex: NSRegularExpression, _ text: String) -> Bool {
+    regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+}
 
 func isValidLocator(_ text: String) -> Bool {
     let upper = text.uppercased()
@@ -15,8 +29,7 @@ func isValidLocator(_ text: String) -> Bool {
     }
 
     // Maidenhead 4-character locator
-    let pattern = #"^[A-R]{2}\d{2}$"#
-    return upper.range(of: pattern, options: .regularExpression) != nil
+    return wholeMatch(locatorRegex, upper)
 }
 
 func isValidCallsign(_ text: String) -> Bool {
@@ -51,9 +64,7 @@ func isValidCallsign(_ text: String) -> Bool {
     // 1–3 trailing letters
     // Optional: slash followed by any alphanumeric suffix (P, MM, QRP, 1, /ABC, etc.)
     // Multiple suffixes are NOT allowed
-    let pattern = #"^[A-Z0-9]{1,3}\d[A-Z]{1,3}(/[A-Z0-9]+)?$"#
-
-    return upper.range(of: pattern, options: .regularExpression) != nil
+    return wholeMatch(callsignRegex, upper)
 }
 
 

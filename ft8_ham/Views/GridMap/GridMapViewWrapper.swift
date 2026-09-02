@@ -10,13 +10,14 @@ import SwiftUI
 import CoreLocation
 
 struct GridMapViewWrapper: View {
-    @Binding var locators: [String]
-    @Binding var countries: [CountryPair]
+    // Plain values (not bindings) so SwiftUI can compare them and skip this
+    // body when nothing map-related changed.
+    let locators: [String]
+    let countries: [CountryPair]
     var routePoints: [CLLocationCoordinate2D] = []
-    @Binding var showGrids: Bool
-    @Binding var showCountryCircles: Bool
-    @Binding var showGeodesics: Bool
-    @Binding var showAnnotations: Bool
+    @ObservedObject var mapSettings: MapSettingsModel
+    /// Called when the device location resolves to a grid square not yet shown.
+    var onUserLocator: ((String) -> Void)? = nil
     @State private var userTrackingMode: MKUserTrackingMode = .none
     @State private var isControlsExpanded: Bool = false
     @State private var showMapLegend: Bool = false
@@ -35,14 +36,15 @@ struct GridMapViewWrapper: View {
     private var mapContent: some View {
         ZStack(alignment: .topTrailing) {
             GridMapView(
-                locators: $locators,
+                locators: locators,
                 countries: countries,
                 routePoints: routePoints,
-                showGrids: showGrids,
-                showCountryCircles: showCountryCircles,
-                showGeodesics: showGeodesics,
-                showAnnotations: showAnnotations,
-                userTrackingMode: $userTrackingMode
+                showGrids: mapSettings.showGrids,
+                showCountryCircles: mapSettings.showCountryCircles,
+                showGeodesics: mapSettings.showGeodesics,
+                showAnnotations: mapSettings.showAnnotations,
+                userTrackingMode: $userTrackingMode,
+                onUserLocator: onUserLocator
             )
             .modifier(MapSafeAreaModifier())
 
@@ -78,44 +80,44 @@ struct GridMapViewWrapper: View {
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        showGrids.toggle()
+                        mapSettings.showGrids.toggle()
                     }
                 } label: {
-                    Image(systemName: showGrids ? "square.grid.3x3.fill" : "square.grid.3x3")
-                        .foregroundStyle(showGrids ? .blue : .primary)
+                    Image(systemName: mapSettings.showGrids ? "square.grid.3x3.fill" : "square.grid.3x3")
+                        .foregroundStyle(mapSettings.showGrids ? .blue : .primary)
                 }
 
                 Divider()
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        showCountryCircles.toggle()
+                        mapSettings.showCountryCircles.toggle()
                     }
                 } label: {
-                    Image(systemName: showCountryCircles ? "circle.dotted" : "circle")
-                        .foregroundStyle(showCountryCircles ? .blue : .primary)
+                    Image(systemName: mapSettings.showCountryCircles ? "circle.dotted" : "circle")
+                        .foregroundStyle(mapSettings.showCountryCircles ? .blue : .primary)
                 }
 
                 Divider()
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        showGeodesics.toggle()
+                        mapSettings.showGeodesics.toggle()
                     }
                 } label: {
-                    Image(systemName: showGeodesics ? "point.bottomleft.forward.to.point.topright.scurvepath.fill" : "point.bottomleft.forward.to.point.topright.scurvepath")
-                        .foregroundStyle(showGeodesics ? .blue : .primary)
+                    Image(systemName: mapSettings.showGeodesics ? "point.bottomleft.forward.to.point.topright.scurvepath.fill" : "point.bottomleft.forward.to.point.topright.scurvepath")
+                        .foregroundStyle(mapSettings.showGeodesics ? .blue : .primary)
                 }
 
                 Divider()
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        showAnnotations.toggle()
+                        mapSettings.showAnnotations.toggle()
                     }
                 } label: {
-                    Image(systemName: showAnnotations ? "tag.fill" : "tag")
-                        .foregroundStyle(showAnnotations ? .blue : .primary)
+                    Image(systemName: mapSettings.showAnnotations ? "tag.fill" : "tag")
+                        .foregroundStyle(mapSettings.showAnnotations ? .blue : .primary)
                 }
             }
 

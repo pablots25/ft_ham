@@ -70,15 +70,20 @@ final class FeatureFlagManager: ObservableObject {
             }
             
             Task { @MainActor in
-                self.values = newValues
 #if DEBUG
                 // Re-apply any debug overrides on top of remote values
                 for flag in FeatureFlag.allCases {
                     if let override = self.override(for: flag) {
-                        self.values[flag] = override
+                        newValues[flag] = override
                     }
                 }
 #endif
+                // Assign once, and only when something actually changed: this
+                // object is observed near the root of the view tree, so an
+                // unconditional write every 30 s would invalidate most of the app.
+                if self.values != newValues {
+                    self.values = newValues
+                }
                 self.logChanges(from: oldValues, to: newValues)
             }
         }
