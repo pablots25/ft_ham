@@ -111,8 +111,11 @@ extension FT8ViewModel{
     /// True when a decoded row should get the "new callsign" highlight: an
     /// incoming CQ from a station not yet worked, when the setting is enabled.
     internal func isNewCQCallsign(_ msg: FT8Message) -> Bool {
-        guard highlightNewCallsigns, msg.msgType == .cq, !msg.isTX else { return false }
-        return isNewCallsign(msg.callsign)
+        guard highlightNewCallsigns, msg.msgType == .cq, !msg.isTX,
+              let call = msg.callsign, !call.isEmpty else { return false }
+        // Decoded callsigns are already uppercased and whitespace-free
+        // (`FT8Message.splitParts`), so no per-row String allocations here.
+        return !workedCallsigns.contains(call)
     }
 
     func generateMessages() -> [String] {

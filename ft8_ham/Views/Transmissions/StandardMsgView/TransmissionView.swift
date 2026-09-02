@@ -137,32 +137,17 @@ private extension TransmissionView {
     
     var messagesSection: some View {
         HStack(alignment: .top, spacing: 12) {
-            let receivedFiltered: [FT8Message] = {
-                switch filterMode {
-                case 1: return viewModel.receivedMessages.filter { $0.forMe || $0.isTX }
-                case 2: return viewModel.receivedMessages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
-                default: return viewModel.receivedMessages
-                }
-            }()
-
-            let txFiltered: [FT8Message] = {
-                switch filterMode {
-                case 1: return viewModel.transmittedMessages.filter { $0.forMe || $0.isTX }
-                case 2: return viewModel.transmittedMessages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
-                default: return viewModel.transmittedMessages
-                }
-            }()
-            
+            // Filtering by `filterMode` happens once, inside the list views.
             messagesColumn(
                 section: .received,
-                messages: receivedFiltered,
+                messages: viewModel.receivedMessages,
                 clearAction: viewModel.clearReceived,
                 allowReply: true
             )
             Divider()
             messagesColumn(
                 section: .transmitted,
-                messages: txFiltered,
+                messages: viewModel.transmittedMessages,
                 clearAction: viewModel.clearTransmitted
             )
         }

@@ -27,7 +27,9 @@ struct MessageListView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        // Filter once per body pass (this used to be evaluated three times).
+        let filtered = filteredMessages
+        return VStack(spacing: 0) {
             // MARK: - Header
 
             MessageListHeaderView(
@@ -39,7 +41,7 @@ struct MessageListView: View {
 
             ScrollViewReader { scrollProxy in
                 List {
-                    if filteredMessages.isEmpty {
+                    if filtered.isEmpty {
                         Text("No messages")
                             .foregroundStyle(.gray)
                             .frame(maxWidth: .infinity, minHeight: 30)
@@ -47,7 +49,7 @@ struct MessageListView: View {
                             .listRowSeparator(.hidden)
                             .id("empty")
                     } else {
-                        ForEach(filteredMessages) { msg in
+                        ForEach(filtered) { msg in
                             if msg.msgType == .internalTimestamp {
                                 MessageView(msg: msg)
                                     .font(.caption2)
@@ -90,7 +92,7 @@ struct MessageListView: View {
                 // while SwiftUI is still applying the List diff makes UIKit target a
                 // stale index and crash with NSInternalInconsistencyException
                 // ("Attempted to scroll ... out-of-bounds item").
-                .onChange(of: filteredMessages.last?.id) { lastId in
+                .onChange(of: filtered.last?.id) { lastId in
                     guard let lastId else { return }
                     DispatchQueue.main.async {
                         withAnimation {
@@ -99,7 +101,7 @@ struct MessageListView: View {
                     }
                 }
                 .onAppear {
-                    if let lastId = filteredMessages.last?.id {
+                    if let lastId = filtered.last?.id {
                         DispatchQueue.main.async {
                             scrollProxy.scrollTo(lastId, anchor: .bottom)
                         }

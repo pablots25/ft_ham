@@ -17,35 +17,48 @@ func rowTint(_ color: Color) -> Color {
     })
 }
 
+/// The row tints, created once. `rowTint` builds a dynamic UIColor provider and
+/// bridges `UIColor(Color)` on every call; doing that per row per body pass was
+/// one of the main per-row costs of the message lists.
+private enum RowTints {
+    static let yellow = rowTint(.yellow)
+    static let green = rowTint(.green)
+    static let purple = rowTint(.purple)
+    static let blue = rowTint(.blue)
+    static let orange = rowTint(.orange)
+    static let gray = rowTint(.gray)
+    static let systemBackground = Color(UIColor.systemBackground)
+}
+
 // Color selector based on FT8 message type with adaptive colors for dark mode.
 // `isNewCallsign` highlights an incoming CQ from a station not yet worked.
 func backgroundColor(for msg: FT8Message, isNewCallsign: Bool = false) -> Color {
     switch msg.msgType {
     case .internalTimestamp:
-        Color(UIColor.systemBackground)
+        RowTints.systemBackground
     case .cq:
         if msg.isTX {
-            rowTint(.yellow)
+            RowTints.yellow
         } else if isNewCallsign {
-            rowTint(.green) // new (unworked) callsign
+            RowTints.green // new (unworked) callsign
         } else {
-            rowTint(.purple)
+            RowTints.purple
         }
     case .gridExchange:
         if msg.forMe {
-            rowTint(.blue)
+            RowTints.blue
         } else {
-            Color(UIColor.systemBackground)
+            RowTints.systemBackground
         }
     case .standardSignalReport, .rSignalReport:
         if msg.forMe {
-            rowTint(.orange)
+            RowTints.orange
         } else {
-            Color(UIColor.systemBackground)
+            RowTints.systemBackground
         }
     case .rr73, .rrr, .final73:
-        rowTint(.purple)
+        RowTints.purple
     case .unknown:
-        rowTint(.gray)
+        RowTints.gray
     }
 }

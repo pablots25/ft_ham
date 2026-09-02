@@ -136,20 +136,13 @@ struct SeparatedTransmissionView: View {
 
     private var messagesSection: some View {
         HStack(alignment: .top, spacing: 12) {
+            // Filtering by `filterMode` happens once, inside the list view.
             let baseMessages = allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages
-            let filtered: [FT8Message] = {
-                switch filterMode {
-                case 1: return baseMessages.filter { $0.forMe || $0.isTX }
-                case 2: return baseMessages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
-                default: return baseMessages
-                }
-            }()
-            
             let clearAction = allowReply ? viewModel.clearReceived : viewModel.clearTransmitted
             
             messagesColumn(
                 section: section,
-                messages: filtered,
+                messages: baseMessages,
                 clearAction: clearAction,
                 allowReply: allowReply
             )
