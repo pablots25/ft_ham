@@ -26,9 +26,30 @@ extension FT8ViewModel{
         workedLocators.append(locator)
     }
 
+    /// Appends the locators not yet known, in a single assignment so
+    /// `workedLocators` publishes (and rebuilds its mirror Set) once.
     internal func addNewLocators(from newLocators: [String]) {
-        for loc in newLocators where !workedLocatorsSet.contains(loc) {
-            workedLocators.append(loc)
+        var seen = workedLocatorsSet
+        var additions: [String] = []
+        for loc in newLocators where !seen.contains(loc) {
+            seen.insert(loc)
+            additions.append(loc)
+        }
+        guard !additions.isEmpty else { return }
+        workedLocators.append(contentsOf: additions)
+    }
+
+    /// Replaces the displayed country pairs (deduplicated, order preserved),
+    /// publishing only when the result differs from what is already shown.
+    internal func setWorkedCountryPairs(_ pairs: [CountryPair]) {
+        var seen = Set<CountryPair>()
+        var unique: [CountryPair] = []
+        for pair in pairs where !seen.contains(pair) {
+            seen.insert(pair)
+            unique.append(pair)
+        }
+        if unique != workedCountryPairs {
+            workedCountryPairs = unique
         }
     }
 
@@ -43,10 +64,14 @@ extension FT8ViewModel{
     }
 
     internal func addNewCountryPairs(from newPairs: [CountryPair]) {
-        for pair in newPairs where !workedCountryPairsSet.contains(pair) {
-            workedCountryPairs.append(pair)
-            workedCountryPairsSet.insert(pair)
+        var seen = workedCountryPairsSet
+        var additions: [CountryPair] = []
+        for pair in newPairs where !seen.contains(pair) {
+            seen.insert(pair)
+            additions.append(pair)
         }
+        guard !additions.isEmpty else { return }
+        workedCountryPairs.append(contentsOf: additions)
     }
 
     internal func hasConfirmedQSO(

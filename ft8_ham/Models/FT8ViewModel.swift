@@ -31,6 +31,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         static let waterfallFFTSize = 2048
         static let waterfallRows = 1200
         static let throttleInterval = 150
+        /// Upper bound for the decoded-message list. Without it the list grows
+        /// ~40 rows per FT8 slot for the whole session and every filter/body
+        /// pass over it gets slower; the oldest rows are dropped past this.
+        static let maxReceivedMessages = 2000
         static let modeTransitionDelay: UInt64 = 200_000_000
         static let driftThreshold = 0.01
         

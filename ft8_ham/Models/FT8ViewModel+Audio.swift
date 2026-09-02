@@ -90,13 +90,19 @@ extension FT8ViewModel {
         let slotContainedOurTX = result.messages.contains { $0.isTX } ||
         (slotIndex != nil && lastTransmittedSlotIndex == slotIndex)
         
+        // Publish the decoded rows once per slot (one objectWillChange), not
+        // once per message, and keep the list bounded.
+        let showSelfTX = decodeSelfTXMessages
+        let newRows = result.messages.filter { !$0.isTX || showSelfTX }
+        if !newRows.isEmpty {
+            var updated = receivedMessages
+            updated.append(contentsOf: newRows)
+            let overflow = updated.count - Constants.maxReceivedMessages
+            if overflow > 0 { updated.removeFirst(overflow) }
+            receivedMessages = updated
+        }
+
         for message in result.messages {
-            if !message.isTX {
-                receivedMessages.append(message)
-            } else if self.decodeSelfTXMessages {
-                receivedMessages.append(message)
-            }
-            
             if message.isTX {
                 continue
             } else if message.msgType != .internalTimestamp && message.msgType != .unknown {
@@ -147,17 +153,18 @@ extension FT8ViewModel {
         
         waterfallVM.addVerticalLabels(result.labels)
         
-        if !result.waterfallSamples.isEmpty {
-            waterfallVM.updateWaterfall(from: result.waterfallSamples)
-        }
-        
+        // Note: `result.waterfallSamples` is never populated by the engine (no
+        // "audioSamples" key), and `updateWaterfall(from:)` expects FFT
+        // magnitudes, not samples — so that path was dead and is gone.
+
         if !result.newLocators.isEmpty {
             addNewLocators(from: result.newLocators)
         }
         
-        workedCountryPairs.removeAll()
-        workedCountryPairsSet.removeAll()
-        addNewCountryPairs(from: result.workedCountries)
+        // The map shows the country pairs of the current slot. Replace the
+        // array in one assignment (one publish) instead of removeAll + N appends
+        // (N+1 publishes and an O(n²) Set rebuild through `didSet`).
+        setWorkedCountryPairs(result.workedCountries)
         
         if result.shouldResetFirstLoop {
             firstLoopRX = false

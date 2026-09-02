@@ -526,11 +526,9 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
         let components = text.components(separatedBy: " - ")
         guard components.count == 2 else { return false }
         
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(abbreviation: "UTC")
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        
-        return formatter.date(from: components[0]) != nil
+        // Shared formatter (same "yyyy-MM-dd HH:mm:ss" UTC format); creating a
+        // DateFormatter per decoded message is expensive.
+        return DateFormatter.utcFormatterMessage.date(from: components[0]) != nil
     }
     
     // MARK: - Is for me?
