@@ -242,6 +242,12 @@ final class LogbookManager: LogbookManaging {
 
     // MARK: - ADIF Parsing (UTC)
     private func parseRecord(_ record: String) -> LogEntry {
+        // One linear scan of the record; the previous implementation compiled
+        // a regular expression per field (14 per record) on every load.
+        let fields = Self.parseFields(record)
+        func extractField(_ record: String, field: String) -> String {
+            fields[field] ?? ""
+        }
 
         let call = extractField(record, field: "CALL")
         let grid = extractField(record, field: "GRID")
@@ -300,6 +306,7 @@ final class LogbookManager: LogbookManaging {
         }()
 
         let mode = ["FT8", "FT4"].contains(modeRaw) ? modeRaw : "FT8"
+        let countryInfo = CountryResolver.countryAndCoordinates(for: call)
 
         // Resolve MY_SIG from dedicated fields when the generic MY_SIG tag is absent
         let resolvedMySig: String = {
@@ -335,9 +342,36 @@ final class LogbookManager: LogbookManaging {
             stationCallsign: stationCall.isEmpty ? nil : stationCall,
             cqModifier: resolvedMySig.isEmpty ? nil : resolvedMySig,
             mySigInfo: resolvedSigInfo.isEmpty ? nil : resolvedSigInfo,
-            country: CountryResolver.countryAndCoordinates(for: call).country,
-            flag: FlagUtility.flag(for: CountryResolver.countryAndCoordinates(for: call).country)
+            country: countryInfo.country,
+            flag: FlagUtility.flag(for: countryInfo.country)
         )
+    }
+
+    /// Splits an ADIF record into `TAG → value` (first occurrence wins, tags
+    /// uppercased, values trimmed). Values run from the end of the tag to the
+    /// next `<`, matching the previous regex-based extractor.
+    static func parseFields(_ record: String) -> [String: String] {
+        var fields: [String: String] = [:]
+        var cursor = record.startIndex
+        let end = record.endIndex
+        while cursor < end, let open = record[cursor...].firstIndex(of: "<") {
+            guard let close = record[open...].firstIndex(of: ">") else { break }
+            let tag = record[record.index(after: open)..<close]
+            // Only "<NAME:len[:type]>" tags carry a value; skip <EOH>, <EOR>...
+            if let colon = tag.firstIndex(of: ":") {
+                let name = tag[..<colon].uppercased()
+                let valueStart = record.index(after: close)
+                let valueEnd = record[valueStart...].firstIndex(of: "<") ?? end
+                if fields[name] == nil {
+                    fields[name] = record[valueStart..<valueEnd]
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                cursor = valueEnd
+            } else {
+                cursor = record.index(after: close)
+            }
+        }
+        return fields
     }
 
 
@@ -543,27 +577,6 @@ final class LogbookManager: LogbookManaging {
         return url
     }
 
-    private func extractField(_ text: String, field: String) -> String {
-        guard let tagRange = text.range(
-            of: "<\(field):[^>]+>",
-            options: .regularExpression
-        ) else {
-            return ""
-        }
-
-        let valueStart = tagRange.upperBound
-        let remaining = text[valueStart...]
-
-        let value: Substring
-        if let nextTag = remaining.firstIndex(of: "<") {
-            value = remaining[..<nextTag]
-        } else {
-            value = remaining
-        }
-
-        return value
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
 
 
     // MARK: - UTC DateFormatters (Single Source of Truth)

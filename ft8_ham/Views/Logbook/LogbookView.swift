@@ -49,6 +49,9 @@ struct LogbookView: View {
 
     // Activation filter
     @State private var activationFilter: String? = nil
+    /// `availableActivations` scans the whole logbook; cache it and refresh it
+    /// together with the filtered list instead of computing it in `body`.
+    @State private var cachedActivations: [(modifier: String, reference: String)] = []
 
     // Statistics / Premium
     @State private var showStatistics = false
@@ -57,6 +60,7 @@ struct LogbookView: View {
     // MARK: - Filtering
 
     private func applyFilter() {
+        cachedActivations = availableActivations
         var source = viewModel.sortedQSOList
 
         // Date range filter
@@ -354,7 +358,7 @@ struct LogbookView: View {
                                 Label("Filter by Date", systemImage: "calendar")
                             }
 
-                            if !availableActivations.isEmpty {
+                            if !cachedActivations.isEmpty {
                                 Menu {
                                     Button {
                                         activationFilter = nil
@@ -363,7 +367,7 @@ struct LogbookView: View {
                                         Label("All contacts", systemImage: "list.bullet")
                                     }
                                     Divider()
-                                    ForEach(availableActivations, id: \.reference) { item in
+                                    ForEach(cachedActivations, id: \.reference) { item in
                                         Button {
                                             activationFilter = item.reference
                                             applyFilter()

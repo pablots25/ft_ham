@@ -43,8 +43,17 @@ final class CountryResolver {
             // We decode it directly into [String: CTYEntry]
             let table = try PropertyListDecoder().decode([String: CTYEntry].self, from: data)
             
-            // Normalize keys to uppercase just in case
+            // Normalize keys to uppercase just in case — but only rebuild the
+            // (~29k entry) dictionary if some key actually has lowercase ASCII.
+            let needsNormalization = table.keys.contains { key in
+                key.utf8.contains { $0 >= 0x61 && $0 <= 0x7A }
+            }
+            guard needsNormalization else {
+                appLogger.debug("Loaded CTY table with \(table.count) entries")
+                return table
+            }
             var normalizedTable: [String: CTYEntry] = [:]
+            normalizedTable.reserveCapacity(table.count)
             for (key, value) in table {
                 normalizedTable[key.uppercased()] = value
             }
@@ -59,11 +68,47 @@ final class CountryResolver {
     }()
     
     // -----------------------------------------------------
+    // MARK: - Lookup cache
+    // -----------------------------------------------------
+    // The same callsigns are resolved over and over (every decode of a station,
+    // twice per logbook record...). Cache results; bound the size so a very long
+    // session cannot grow it without limit.
+    private static let cacheLock = NSLock()
+    private static var cache: [String: CountryInfo] = [:]
+    private static var reportedMisses: Set<String> = []
+    private static let maxCacheEntries = 4096
+
+    /// Warms the CTY table off the calling thread (e.g. at launch), so the first
+    /// real lookup does not pay the plist decode on the main thread.
+    static func preload() {
+        DispatchQueue.global(qos: .utility).async {
+            _ = ctyTableFromFile
+        }
+    }
+
+    // -----------------------------------------------------
     // MARK: - Static Lookup Function
     // -----------------------------------------------------
 static func countryAndCoordinates(for callsign: String) -> CountryInfo {
     let upperCall = callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-    
+
+    cacheLock.lock()
+    if let cached = cache[upperCall] {
+        cacheLock.unlock()
+        return cached
+    }
+    cacheLock.unlock()
+
+    let info = resolve(upperCall, original: callsign)
+
+    cacheLock.lock()
+    if cache.count >= maxCacheEntries { cache.removeAll(keepingCapacity: true) }
+    cache[upperCall] = info
+    cacheLock.unlock()
+    return info
+}
+
+private static func resolve(_ upperCall: String, original callsign: String) -> CountryInfo {
     guard let table = ctyTableFromFile else {
         return CountryInfo(country: nil, coordinates: nil)
     }
@@ -91,8 +136,16 @@ static func countryAndCoordinates(for callsign: String) -> CountryInfo {
         searchString.removeLast()
     }
 
-    appLogger.error("Country not found for callsign: \(callsign)")
-    AnalyticsManager.shared.logCountryNotFound(callsign: callsign)
+    // Report each unknown prefix once per session: this used to log an error
+    // (two regex sanitisations + a Crashlytics non-fatal in release) and a
+    // Firebase event on every decode of every unresolved callsign.
+    cacheLock.lock()
+    let firstTime = reportedMisses.insert(upperCall).inserted
+    cacheLock.unlock()
+    if firstTime {
+        appLogger.warning("Country not found for callsign: \(callsign)")
+        AnalyticsManager.shared.logCountryNotFound(callsign: callsign)
+    }
     return CountryInfo(country: nil, coordinates: nil)
 }
 

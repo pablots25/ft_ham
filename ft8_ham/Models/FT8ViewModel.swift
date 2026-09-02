@@ -483,7 +483,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         if !hasLoadedLogbook {
             do {
                 self.qsoList = try logbookManager.loadEntries()
-                self.adifURL = logbookManager.saveInternalLog(self.qsoList) ?? logbookManager.getEmptyADIFURL()
+                // Just resolve the file URL (creating an empty log if needed).
+                // Rewriting the whole file plus a backup copy right after
+                // reading it added nothing and ran on the main thread at launch.
+                self.adifURL = logbookManager.getEmptyADIFURL()
             } catch {
                 self.logbookLoadError = "Your logbook could not be read. It may be corrupted. (\(error.localizedDescription))"
                 appLogger.error("setupLogbook: failed to load entries: \(error.localizedDescription)")
@@ -493,12 +496,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
             hasLoadedLogbook = true
         }
 
+        // Persist off the main thread: this rewrites the whole ADIF file and
+        // copies a backup of it, which is not something to do on the UI thread.
+        let manager = logbookManager
         $qsoList
             .dropFirst()
-            .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
-            .sink { [weak self] list in
-                guard let self else { return }
-                _ = self.logbookManager.saveInternalLog(list)
+            .debounce(for: .seconds(1), scheduler: DispatchQueue.global(qos: .utility))
+            .sink { list in
+                _ = manager.saveInternalLog(list)
             }
             .store(in: &cancellables)
 

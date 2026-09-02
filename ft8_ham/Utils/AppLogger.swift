@@ -175,23 +175,49 @@ final class LogStore: ObservableObject {
     
     @Published private(set) var logs: [String] = []
     private let maxEntries = 1000
-    private let queue = DispatchQueue(label: "com.ft8-ham.logstore", attributes: .concurrent)
+    /// Lines are staged on this serial queue and flushed to the main thread in
+    /// batches: one main-queue hop and one `@Published` write per flush window
+    /// instead of one per log line (the app logs several lines per decode).
+    private let queue = DispatchQueue(label: "com.ft8-ham.logstore")
+    private let flushInterval: TimeInterval = 0.25
+    private var pending: [String] = []
+    private var flushScheduled = false
     
     private init() {}
     
     func append(_ message: String) {
-        queue.async(flags: .barrier) {
-            DispatchQueue.main.async {
-                self.logs.append(message)
-                if self.logs.count > self.maxEntries {
-                    self.logs.removeFirst()
-                }
+        queue.async {
+            self.pending.append(message)
+            if self.pending.count > self.maxEntries {
+                self.pending.removeFirst(self.pending.count - self.maxEntries)
+            }
+            guard !self.flushScheduled else { return }
+            self.flushScheduled = true
+            self.queue.asyncAfter(deadline: .now() + self.flushInterval) {
+                self.flush()
             }
         }
     }
     
+    /// Runs on `queue`.
+    private func flush() {
+        let batch = pending
+        pending.removeAll(keepingCapacity: true)
+        flushScheduled = false
+        guard !batch.isEmpty else { return }
+        DispatchQueue.main.async {
+            var logs = self.logs
+            logs.append(contentsOf: batch)
+            if logs.count > self.maxEntries {
+                logs.removeFirst(logs.count - self.maxEntries)
+            }
+            self.logs = logs
+        }
+    }
+    
     func clear() {
-        queue.async(flags: .barrier) {
+        queue.async {
+            self.pending.removeAll()
             DispatchQueue.main.async {
                 self.logs.removeAll()
             }

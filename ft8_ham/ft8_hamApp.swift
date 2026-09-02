@@ -103,6 +103,10 @@ extension AppDelegate {
 struct ft8_hamApp: App {
 
     init() {
+        // Decode the (large) CTY prefix table off the main thread before the
+        // first decoded message or logbook record needs it.
+        CountryResolver.preload()
+
         guard AppEnvironment.current.isProduction else { return }
 
         AnalyticsManager.applyConsentBeforeConfigure()
