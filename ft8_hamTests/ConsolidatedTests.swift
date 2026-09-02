@@ -571,13 +571,9 @@ final class GridMapViewRenderingTests: XCTestCase {
 
     func testGridMapViewAddsPolygonAndAnnotation() {
         let mapView = MKMapView()
-        let locatorsBinding = Binding<[String]>(
-            get: { ["IN80"] },
-            set: { _ in }
-        )
         var trackingMode: MKUserTrackingMode = .none
         let trackingModeBinding = Binding<MKUserTrackingMode>(get: { trackingMode }, set: { trackingMode = $0 })
-        let coordinator = GridMapView.Coordinator(locators: locatorsBinding, trackingMode: trackingModeBinding)
+        let coordinator = GridMapView.Coordinator(onUserLocator: nil, trackingMode: trackingModeBinding)
 
         let locators = ["IO91"]
         let countries: [CountryPair] = []
@@ -597,13 +593,9 @@ final class GridMapViewRenderingTests: XCTestCase {
     }
 
     func testRendererForPolygonCircleAndGeodesic() {
-        let locatorsBinding = Binding<[String]>(
-            get: { [] },
-            set: { _ in }
-        )
         var trackingMode: MKUserTrackingMode = .none
         let trackingModeBinding = Binding<MKUserTrackingMode>(get: { trackingMode }, set: { trackingMode = $0 })
-        let coordinator = GridMapView.Coordinator(locators: locatorsBinding, trackingMode: trackingModeBinding)
+        let coordinator = GridMapView.Coordinator(onUserLocator: nil, trackingMode: trackingModeBinding)
         let mapView = MKMapView()
 
         let polygon = MKPolygon(coordinates: [
@@ -632,13 +624,9 @@ final class GridMapViewRenderingTests: XCTestCase {
 
     func testCoordinatorDoesNotRedrawIfHashUnchanged() {
         let mapView = MKMapView()
-        let locatorsBinding = Binding<[String]>(
-            get: { ["IN80"] },
-            set: { _ in }
-        )
         var trackingMode: MKUserTrackingMode = .none
         let trackingModeBinding = Binding<MKUserTrackingMode>(get: { trackingMode }, set: { trackingMode = $0 })
-        let coordinator = GridMapView.Coordinator(locators: locatorsBinding, trackingMode: trackingModeBinding)
+        let coordinator = GridMapView.Coordinator(onUserLocator: nil, trackingMode: trackingModeBinding)
 
         let locators = ["IO91"]
         let visibility = MapVisibility(grids: true, countryCircles: true, geodesics: true, annotations: true)
@@ -652,13 +640,9 @@ final class GridMapViewRenderingTests: XCTestCase {
 
     func testFitAllSetsVisibleMapRect() {
         let mapView = MKMapView()
-        let locatorsBinding = Binding<[String]>(
-            get: { ["IO91", "IN80"] },
-            set: { _ in }
-        )
         var trackingMode: MKUserTrackingMode = .none
         let trackingModeBinding = Binding<MKUserTrackingMode>(get: { trackingMode }, set: { trackingMode = $0 })
-        let coordinator = GridMapView.Coordinator(locators: locatorsBinding, trackingMode: trackingModeBinding)
+        let coordinator = GridMapView.Coordinator(onUserLocator: nil, trackingMode: trackingModeBinding)
 
         let locators = ["IO91", "IN80"]
         let visibility = MapVisibility(grids: true, countryCircles: true, geodesics: true, annotations: true)
