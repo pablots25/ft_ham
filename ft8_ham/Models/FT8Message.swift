@@ -381,6 +381,17 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
         text.uppercased().split(separator: " ")
     }
 
+    /// Reads one decoded token as a callsign, or returns `nil` when it is not one.
+    ///
+    /// A station using a compound callsign is referred to by a hash once its
+    /// call has been sent in plain text, and the decoder prints that hash in
+    /// angle brackets: `<VE6XAD>` when it knows the call, `<...>` when it does
+    /// not. The brackets are stripped so the rest of the app sees a plain
+    /// callsign, and an unresolved hash reads as no callsign at all.
+    static func callsign(from token: Substring) -> String? {
+        CompoundCallsign.fromDecodedToken(token)?.text
+    }
+
     // MARK: - Internal CQ grammar parser
     private static func parseCQStructure(_ parts: [Substring]) -> (
         modifier: String?,
@@ -392,24 +403,24 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
         }
 
         // CQ CALL [GRID]
-        if isValidCallsign(String(parts[1])) {
+        if let call = callsign(from: parts[1]) {
             let locator = (parts.count >= 3 && isValidLocator(String(parts[2])))
                 ? String(parts[2])
                 : nil
 
-            return (nil, String(parts[1]), locator)
+            return (nil, call, locator)
         }
 
           // CQ TOKEN CALL [GRID]
         if parts.count >= 3,
               isPlausibleCQModifier(parts[1]),
-           isValidCallsign(String(parts[2])) {
+           let call = callsign(from: parts[2]) {
 
             let locator = (parts.count >= 4 && isValidLocator(String(parts[3])))
                 ? String(parts[3])
                 : nil
 
-            return (String(parts[1]), String(parts[2]), locator)
+            return (String(parts[1]), call, locator)
         }
 
         return nil
@@ -438,13 +449,16 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
         }
 
         // <receiver> <sender> <xxx>
-        guard isValidCallsign(String(parts[0])),
-              isValidCallsign(String(parts[1])) else {
+        guard let receiverCall = callsign(from: parts[0]),
+              let senderCall = callsign(from: parts[1]) else {
             // Partial decode: the called-callsign field was not decoded, but the
             // calling callsign is valid. Extract sender info so that the message
             // type can still be inferred from the remaining fields (grid, signal
             // report, RR73, etc.) using the standard detection logic.
-            guard isValidCallsign(String(parts[1])) else {
+            //
+            // This also covers a station calling someone whose compound call the
+            // decoder has not yet heard spelled out, which arrives as "<...>".
+            guard let senderCall = callsign(from: parts[1]) else {
                 return (nil, nil, nil, nil)
             }
             var senderLocator: String? = nil
@@ -452,15 +466,12 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
                 senderLocator = String(parts[2])
             }
             return (
-                senderCallsign: String(parts[1]),
+                senderCallsign: senderCall,
                 senderLocator: senderLocator,
                 receiverCallsign: nil,
                 receiverLocator: nil
             )
         }
-
-        let receiverCall = String(parts[0])
-        let senderCall = String(parts[1])
 
         var senderLocator: String? = nil
         if parts.count >= 3, isValidLocator(String(parts[2])) {
@@ -504,6 +515,15 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
             if parts.count == 3,
                let locator = p.senderLocator,
                isValidLocator(locator) {
+                return .gridExchange
+            }
+
+            // "K1ABC I/VE6XAD" — one station calling another with no exchange
+            // field. This is how a compound callsign answers a CQ, because the
+            // message type that spells the call out has no room for a grid. It
+            // opens a QSO exactly like a grid exchange does, only without the
+            // grid, which the QSO flow already treats as optional.
+            if parts.count == 2, p.receiverCallsign != nil {
                 return .gridExchange
             }
             

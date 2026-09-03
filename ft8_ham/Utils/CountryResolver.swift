@@ -61,9 +61,19 @@ final class CountryResolver {
     // -----------------------------------------------------
     // MARK: - Static Lookup Function
     // -----------------------------------------------------
+/// Resolves the DXCC entity a callsign is operating from.
+///
+/// Compound callsigns are resolved from their modifier, not their base call:
+/// "I/VE6XAD" is Italy and "W1AW/VE3" is Canada, while operating suffixes such
+/// as "/P" or "/MM" and district digits such as "/1" leave the entity alone.
 static func countryAndCoordinates(for callsign: String) -> CountryInfo {
-    let upperCall = callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-    
+    let trimmed = callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+
+    // A compound call is looked up through its modifier; anything the parser
+    // does not recognise (a partially decoded call, say) falls back to the
+    // raw text so behaviour is unchanged for those.
+    let upperCall = CompoundCallsign.fromDecodedToken(trimmed)?.countryLookupToken ?? trimmed
+
     guard let table = ctyTableFromFile else {
         return CountryInfo(country: nil, coordinates: nil)
     }

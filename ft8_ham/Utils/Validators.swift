@@ -5,6 +5,8 @@
 //  Created by Pablo Turrion on 16/11/25.
 //
 
+import Foundation
+
 // MARK: Validators
 
 func isValidLocator(_ text: String) -> Bool {
@@ -19,41 +21,13 @@ func isValidLocator(_ text: String) -> Bool {
     return upper.range(of: pattern, options: .regularExpression) != nil
 }
 
+/// True when `text` is a callsign the app can work with.
+///
+/// Accepts plain calls ("VE6XAD"), calls carrying a foreign prefix
+/// ("I/VE6XAD") and calls carrying a suffix ("VE6XAD/P", "W1AW/VE3").
+/// See `CompoundCallsign` for the exact grammar.
 func isValidCallsign(_ text: String) -> Bool {
-    let upper = text.uppercased()
-
-    // protocol tokens that are NOT callsigns
-    let forbiddenTokens: Set<String> = [
-        "CQ",
-        "QRZ",
-        "DE",
-        "RR73",
-        "73"
-    ]
-
-    if forbiddenTokens.contains(upper) {
-        return false
-    }
-
-    // Excludes anything that looks like a locator or a signal report
-    if isValidLocator(upper) {
-        return false
-    }
-
-    if isSignalReport(Substring(upper)) {
-        return false
-    }
-
-    // FT8/FT4 callsign validation: 
-    // In FT8, any callsign with "/" is valid - there's no closed list of modifiers
-    // 1–3 alphanumeric prefix characters
-    // Exactly one digit  
-    // 1–3 trailing letters
-    // Optional: slash followed by any alphanumeric suffix (P, MM, QRP, 1, /ABC, etc.)
-    // Multiple suffixes are NOT allowed
-    let pattern = #"^[A-Z0-9]{1,3}\d[A-Z]{1,3}(/[A-Z0-9]+)?$"#
-
-    return upper.range(of: pattern, options: .regularExpression) != nil
+    CompoundCallsign.parse(text) != nil
 }
 
 

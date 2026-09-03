@@ -14,6 +14,22 @@ struct CallsignFieldView: View {
     @Binding var validCallsign: Bool
     var onCommit: () -> Void
 
+    @FocusState private var isFocused: Bool
+
+    /// Shown under the field while the text is not a usable callsign. Being told
+    /// which rule was broken matters most for compound calls, where the limit is
+    /// what the protocol can carry rather than anything about the call itself.
+    private var errorMessage: LocalizedStringKey {
+        let text = callsignText.uppercased()
+        if text.count > CompoundCallsign.maxLength {
+            return "A callsign can be at most 11 characters, modifier included"
+        }
+        if text.filter({ $0 == "/" }).count > 1 {
+            return "Only one modifier is allowed (e.g. I/VE6XAD or VE6XAD/P)"
+        }
+        return "Enter a valid callsign (e.g. EA4IQL)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -24,10 +40,24 @@ struct CallsignFieldView: View {
                     .multilineTextAlignment(.center)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
+                    .keyboardType(.asciiCapable)
                     .lineLimit(1)
+                    .focused($isFocused)
                     .accessibilityLabel(Text("Callsign"))
                     .onChange(of: callsignText) { newValue in
-                        validCallsign = isValidCallsign(newValue.uppercased())
+                        // Keep the field to characters a callsign can contain, so
+                        // a stray space or a lowercase keyboard does not read as
+                        // an invalid callsign.
+                        let cleaned = newValue.uppercased().filter {
+                            $0.isLetter || $0.isNumber || $0 == "/"
+                        }
+                        if cleaned != newValue { callsignText = cleaned }
+                        validCallsign = isValidCallsign(cleaned)
+                    }
+                    .onChange(of: isFocused) { focused in
+                        // Commit when the field is left, not only when Return is
+                        // pressed: tapping elsewhere used to discard the entry.
+                        if !focused { onCommit() }
                     }
                     .onSubmit { onCommit() }
                     .overlay(
@@ -36,11 +66,11 @@ struct CallsignFieldView: View {
                     )
             }
             if !validCallsign && !callsignText.isEmpty {
-                Text("Enter a valid callsign (e.g. EA4IQL)")
+                Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
             } else {
-                Text("Callsign modifiers are allowed")
+                Text("Travelling? Add a modifier: I/VE6XAD or VE6XAD/P")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
