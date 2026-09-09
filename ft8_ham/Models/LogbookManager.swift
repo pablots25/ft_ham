@@ -537,8 +537,10 @@ final class LogbookManager: LogbookManaging {
             if let frequency = adifFrequencyString(fromHz: entry.frequencyHz) {
                 adifContent += "<FREQ:\(frequency.count)>\(frequency) "
             }
-            if entry.band != "Unknown" && !entry.band.isEmpty {
-                adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
+            // adifBand already returns nil for an empty or unknown band, so there is
+            // nothing left to filter out here.
+            if let band = FT8Message.Band.adifBand(frequencyHz: entry.frequencyHz, storedBand: entry.band) {
+                adifContent += "<BAND:\(band.count)>\(band) "
             }
             adifContent += "<MODE:3>\(entry.mode) "
             adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "

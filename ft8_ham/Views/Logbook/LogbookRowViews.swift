@@ -214,6 +214,11 @@ enum LogbookBadgeColors {
         case "CB/11m": return .gray
         case "10m":    return .red
         case "6m":     return .pink
+        case "2m":     return Color(red: 0.0, green: 0.45, blue: 0.45)
+        case "1.25m":  return Color(red: 0.6, green: 0.4, blue: 0.2)
+        case "70cm":   return Color(red: 0.85, green: 0.35, blue: 0.6)
+        case "33cm":   return Color(red: 0.4, green: 0.3, blue: 0.7)
+        case "23cm":   return Color(red: 0.2, green: 0.55, blue: 0.75)
         case "Custom": return .mint
         default:       return .blue
         }
