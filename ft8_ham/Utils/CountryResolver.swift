@@ -89,6 +89,11 @@ final class CountryResolver {
     // -----------------------------------------------------
     // MARK: - Static Lookup Function
     // -----------------------------------------------------
+/// Resolves the DXCC entity a callsign is operating from.
+///
+/// Compound callsigns are resolved from their modifier, not their base call:
+/// "I/VE6XAD" is Italy and "W1AW/VE3" is Canada, while operating suffixes such
+/// as "/P" or "/MM" and district digits such as "/1" leave the entity alone.
 static func countryAndCoordinates(for callsign: String) -> CountryInfo {
     let upperCall = callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
@@ -113,9 +118,14 @@ private static func resolve(_ upperCall: String, original callsign: String) -> C
         return CountryInfo(country: nil, coordinates: nil)
     }
 
+    // A compound call is looked up through its modifier: "I/VE6XAD" is worked
+    // as Italy, not Canada. Anything the parser does not recognise (a partially
+    // decoded call, say) falls back to the raw text, unchanged from before.
+    let lookupCall = CompoundCallsign.fromDecodedToken(upperCall)?.countryLookupToken ?? upperCall
+
     // Longest prefix matching algorithm
     // 1. Start with the full callsign (in case it's an ExactCallsign)
-    var searchString = upperCall
+    var searchString = lookupCall
     
     // 2. Trim the callsign character by character from the end
     // Example: "EA1ABC" -> "EA1AB" -> "EA1A" -> "EA1" -> "EA" -> "E"
@@ -123,7 +133,7 @@ private static func resolve(_ upperCall: String, original callsign: String) -> C
         if let entry = table[searchString] {
             // If the entry is marked as 'ExactCallsign', only accept it if the full callsign matches
             if entry.exactCallsign == true {
-                if searchString == upperCall {
+                if searchString == lookupCall {
                     return mapToCountryInfo(entry)
                 }
                 // Not a complete match, skip and keep searching

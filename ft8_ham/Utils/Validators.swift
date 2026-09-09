@@ -11,11 +11,9 @@ import Foundation
 
 // Compiled once. `String.range(of:options:.regularExpression)` re-parses the
 // pattern on every call, and these validators run on every view body that
-// reads `settingsLoaded`.
+// reads `settingsLoaded`. The callsign pattern is compiled the same way inside
+// `CompoundCallsign`, which owns callsign parsing.
 private let locatorRegex = try! NSRegularExpression(pattern: #"^[A-R]{2}\d{2}$"#)
-private let callsignRegex = try! NSRegularExpression(
-    pattern: #"^[A-Z0-9]{1,3}\d[A-Z]{1,3}(/[A-Z0-9]+)?$"#
-)
 
 private func wholeMatch(_ regex: NSRegularExpression, _ text: String) -> Bool {
     regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
@@ -32,39 +30,13 @@ func isValidLocator(_ text: String) -> Bool {
     return wholeMatch(locatorRegex, upper)
 }
 
+/// True when `text` is a callsign the app can work with.
+///
+/// Accepts plain calls ("VE6XAD"), calls carrying a foreign prefix
+/// ("I/VE6XAD") and calls carrying a suffix ("VE6XAD/P", "W1AW/VE3").
+/// See `CompoundCallsign` for the exact grammar.
 func isValidCallsign(_ text: String) -> Bool {
-    let upper = text.uppercased()
-
-    // protocol tokens that are NOT callsigns
-    let forbiddenTokens: Set<String> = [
-        "CQ",
-        "QRZ",
-        "DE",
-        "RR73",
-        "73"
-    ]
-
-    if forbiddenTokens.contains(upper) {
-        return false
-    }
-
-    // Excludes anything that looks like a locator or a signal report
-    if isValidLocator(upper) {
-        return false
-    }
-
-    if isSignalReport(Substring(upper)) {
-        return false
-    }
-
-    // FT8/FT4 callsign validation: 
-    // In FT8, any callsign with "/" is valid - there's no closed list of modifiers
-    // 1–3 alphanumeric prefix characters
-    // Exactly one digit  
-    // 1–3 trailing letters
-    // Optional: slash followed by any alphanumeric suffix (P, MM, QRP, 1, /ABC, etc.)
-    // Multiple suffixes are NOT allowed
-    return wholeMatch(callsignRegex, upper)
+    CompoundCallsign.parse(text) != nil
 }
 
 
