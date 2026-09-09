@@ -153,6 +153,92 @@ final class CompoundCallsignTests: XCTestCase {
     }
 }
 
+// MARK: - 11 m / CB callsigns
+
+final class ElevenMeterCallsignTests: XCTestCase {
+
+    func test_parse_elevenMeterForms_areRecognised() {
+        for call in ["26TE231", "26/TE231", "1AT001", "163AT100"] {
+            let parsed = CompoundCallsign.parse(call)
+            XCTAssertNotNil(parsed, "\(call) should parse")
+            XCTAssertEqual(parsed?.kind, .elevenMeter, "\(call) should be an 11 m call")
+            XCTAssertTrue(parsed?.isElevenMeter ?? false)
+            XCTAssertFalse(parsed?.isCompound ?? true, "\(call) has no modifier")
+        }
+    }
+
+    func test_parse_normalisesElevenMeterCall() {
+        XCTAssertEqual(CompoundCallsign.parse("26te231")?.text, "26TE231")
+    }
+
+    /// An amateur call must never be mistaken for an 11 m call: amateur calls end
+    /// in letters, 11 m calls end in digits.
+    func test_amateurCallsStayStandard() {
+        for call in ["EA4IQL", "VE6XAD", "4X4AA", "3DA0/G3ABC", "K1ABC/1"] {
+            XCTAssertEqual(CompoundCallsign.parse(call)?.kind, .standard, "\(call) should stay standard")
+        }
+        XCTAssertFalse(CompoundCallsign.isElevenMeterFormat("EA4IQL"))
+    }
+
+    /// An 11 m call cannot use the 28-bit field; it always goes out as type-4.
+    func test_elevenMeterCall_isNotStandardPackable() {
+        XCTAssertFalse(CompoundCallsign.parse("26TE231")!.isStandardPackable)
+    }
+
+    /// The grammar authority accepts 11 m calls so the whole pipeline works, but
+    /// the station field only accepts them when the operator opts in.
+    func test_stationCallsign_gatesElevenMeterOnOptIn() {
+        XCTAssertFalse(isValidStationCallsign("26TE231", allowElevenMeter: false))
+        XCTAssertTrue(isValidStationCallsign("26TE231", allowElevenMeter: true))
+        // Amateur calls are unaffected by the flag.
+        XCTAssertTrue(isValidStationCallsign("EA4IQL", allowElevenMeter: false))
+        XCTAssertTrue(isValidStationCallsign("EA4IQL", allowElevenMeter: true))
+    }
+
+    func test_isValidCallsign_acceptsElevenMeter() {
+        XCTAssertTrue(isValidCallsign("26TE231"))
+        XCTAssertTrue(isValidCallsign("26/TE231"))
+    }
+}
+
+// MARK: - Composing and transmitting an 11 m callsign
+
+final class ElevenMeterCallsignComposerTests: XCTestCase {
+
+    /// An 11 m call travels spelled out with no grid, exactly like a compound
+    /// call, because it is a non-standard callsign.
+    func test_cqFromElevenMeterCallsign_omitsGrid() {
+        let sut = FT8MessageComposer()
+        let messages = sut.generateMessages(
+            callsign: "26TE231",
+            locator: "IN76",
+            dxCallsign: "K1ABC",
+            dxLocator: "FN20",
+            snrToSend: -10
+        )
+        XCTAssertEqual(messages[0], "CQ 26TE231")
+        XCTAssertEqual(messages[1], "K1ABC 26TE231")
+    }
+
+    /// The point of the feature: a CQ from an 11 m call has to survive the air
+    /// with the call spelled out rather than replaced by an unresolvable hash.
+    func test_cqFromElevenMeterCallsign_survivesTheAir() throws {
+        let engine = ft8_Engine()
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("roundtrip-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let message = "CQ 26TE231"
+        let audio = engine.generateFT8(message, frequency: 1400, isFT4: false, toFile: url)
+        XCTAssertNotNil(audio, "No audio generated for '\(message)'")
+
+        let decoded = engine.decode(url, isFT4: false)
+            .compactMap { $0["text"] as? String }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        XCTAssertTrue(decoded.contains(message), "'\(message)' decoded as \(decoded)")
+    }
+}
+
 // MARK: - Decoding messages that carry a compound callsign
 
 final class CompoundCallsignMessageTests: XCTestCase {

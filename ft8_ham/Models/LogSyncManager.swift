@@ -209,7 +209,9 @@ final class LogSyncManager: ObservableObject {
         adif += adifField("QSO_DATE", dateFormatter.string(from: entry.date))
         adif += adifField("TIME_ON", timeFormatter.string(from: entry.date))
         adif += adifField("MODE", entry.mode)
-        adif += adifField("BAND", entry.band)
+        if let band = FT8Message.Band.adifBand(frequencyHz: entry.frequencyHz, storedBand: entry.band) {
+            adif += adifField("BAND", band)
+        }
         adif += adifField("RST_SENT", entry.rstSent)
         adif += adifField("RST_RCVD", entry.rstRcvd)
         if !entry.grid.isEmpty {

@@ -256,6 +256,11 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
         case band11m  = "CB/11m"
         case band10m  = "10m"
         case band6m   = "6m"
+        case band2m   = "2m"
+        case band125m = "1.25m"
+        case band70cm = "70cm"
+        case band33cm = "33cm"
+        case band23cm = "23cm"
         case custom   = "Custom"
         case unknown  = "Unknown"
 
@@ -277,6 +282,11 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
                 case .band11m:  return 27_245_000
                 case .band10m:  return 28_074_000
                 case .band6m:   return 50_313_000
+                case .band2m:   return 144_174_000
+                case .band125m: return 222_174_000
+                case .band70cm: return 432_174_000
+                case .band33cm: return 902_174_000
+                case .band23cm: return 1_296_174_000
                 case .custom:   return nil
                 case .unknown:  return nil
                 }
@@ -295,6 +305,11 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
                 case .band11m:  return 27_245_000         // No standard FT4 frequency
                 case .band10m:  return 28_180_000
                 case .band6m:   return 50_318_000
+                case .band2m:   return 144_170_000
+                case .band125m: return 222_170_000
+                case .band70cm: return 432_170_000
+                case .band33cm: return 902_170_000
+                case .band23cm: return 1_296_170_000
                 case .custom:   return nil
                 case .unknown:  return nil
                 }
@@ -323,8 +338,45 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
             case 26.96..<27.41:    return .band11m
             case 28.0..<29.7:      return .band10m
             case 50.0..<54.0:      return .band6m
+            case 144.0..<148.0:    return .band2m
+            case 222.0..<225.0:    return .band125m
+            case 420.0..<450.0:    return .band70cm
+            case 902.0..<928.0:    return .band33cm
+            case 1240.0..<1300.0:  return .band23cm
             default:               return .unknown
             }
+        }
+
+        // MARK: - ADIF band name
+        // The name ADIF expects for this band, which is not always the label we
+        // show in the picker: "CB/11m" reads better in the UI but ADIF only
+        // knows "11m". Returns nil for bands that have no ADIF name at all
+        // (.custom carries no band of its own, .unknown is not a band).
+        var adifName: String? {
+            switch self {
+            case .band11m:            return "11m"
+            case .custom, .unknown:   return nil
+            default:                  return rawValue
+            }
+        }
+
+        // MARK: - ADIF BAND for a logged QSO
+        // Resolves the BAND to export for a QSO. The dial frequency wins when we
+        // have one and it lands in a known band: the stored band is whatever the
+        // operator picked by hand and can disagree with where the radio actually
+        // was. Falls back to the stored band, and passes an unrecognised stored
+        // value through untouched so imported logs keep their original BAND.
+        // Returns nil when no band can be established, so the caller omits the field.
+        static func adifBand(frequencyHz: Double?, storedBand: String) -> String? {
+            if let hz = frequencyHz {
+                let detected = fromFrequency(hz)
+                if detected != .unknown { return detected.adifName }
+            }
+
+            let trimmed = storedBand.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { return nil }
+            if let known = Band(rawValue: trimmed) { return known.adifName }
+            return trimmed
         }
     }
 

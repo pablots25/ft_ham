@@ -39,6 +39,18 @@ func isValidCallsign(_ text: String) -> Bool {
     CompoundCallsign.parse(text) != nil
 }
 
+/// Validates the operator's own station callsign.
+///
+/// An 11 m / CB call (e.g. "26TE231") is not a standard amateur callsign, so it
+/// is accepted only when the operator has explicitly opted in via
+/// `allowElevenMeter`. Amateur calls are unaffected by the flag.
+func isValidStationCallsign(_ text: String, allowElevenMeter: Bool) -> Bool {
+    if CompoundCallsign.isElevenMeterFormat(text) {
+        return allowElevenMeter && isValidCallsign(text)
+    }
+    return isValidCallsign(text)
+}
+
 
 func isSignalReport(_ token: Substring) -> Bool {
     let raw = String(token).trimmingCharacters(in: .whitespacesAndNewlines).uppercased()

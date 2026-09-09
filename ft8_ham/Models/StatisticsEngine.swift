@@ -392,7 +392,8 @@ enum StatisticsEngine {
         var utcCalendar = Calendar(identifier: .gregorian)
         utcCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
 
-        let bandOrder = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m"]
+        let bandOrder = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m",
+                         "CB/11m", "10m", "6m", "2m", "1.25m", "70cm", "33cm", "23cm"]
         var counts = [String: Int]()
         for entry in entries {
             let hour = utcCalendar.component(.hour, from: entry.date)

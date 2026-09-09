@@ -62,6 +62,26 @@ final class BandFrequencyTests: XCTestCase {
         XCTAssertEqual(FT8Message.Band.band6m.frequency(for: .ft8), 50_313_000)
     }
 
+    func test_ft8_2m() {
+        XCTAssertEqual(FT8Message.Band.band2m.frequency(for: .ft8), 144_174_000)
+    }
+
+    func test_ft8_125m() {
+        XCTAssertEqual(FT8Message.Band.band125m.frequency(for: .ft8), 222_174_000)
+    }
+
+    func test_ft8_70cm() {
+        XCTAssertEqual(FT8Message.Band.band70cm.frequency(for: .ft8), 432_174_000)
+    }
+
+    func test_ft8_33cm() {
+        XCTAssertEqual(FT8Message.Band.band33cm.frequency(for: .ft8), 902_174_000)
+    }
+
+    func test_ft8_23cm() {
+        XCTAssertEqual(FT8Message.Band.band23cm.frequency(for: .ft8), 1_296_174_000)
+    }
+
     func test_frequency_ft8_custom_isNil() {
         XCTAssertNil(FT8Message.Band.custom.frequency(for: .ft8))
     }
@@ -113,6 +133,26 @@ final class BandFrequencyTests: XCTestCase {
         XCTAssertEqual(FT8Message.Band.band6m.frequency(for: .ft4), 50_318_000)
     }
 
+    func test_ft4_2m() {
+        XCTAssertEqual(FT8Message.Band.band2m.frequency(for: .ft4), 144_170_000)
+    }
+
+    func test_ft4_125m() {
+        XCTAssertEqual(FT8Message.Band.band125m.frequency(for: .ft4), 222_170_000)
+    }
+
+    func test_ft4_70cm() {
+        XCTAssertEqual(FT8Message.Band.band70cm.frequency(for: .ft4), 432_170_000)
+    }
+
+    func test_ft4_33cm() {
+        XCTAssertEqual(FT8Message.Band.band33cm.frequency(for: .ft4), 902_170_000)
+    }
+
+    func test_ft4_23cm() {
+        XCTAssertEqual(FT8Message.Band.band23cm.frequency(for: .ft4), 1_296_170_000)
+    }
+
     func test_frequency_ft4_custom_isNil() {
         XCTAssertNil(FT8Message.Band.custom.frequency(for: .ft4))
     }
@@ -131,15 +171,16 @@ final class BandFrequencyTests: XCTestCase {
         XCTAssertTrue(FT8Message.Band.validBands.contains(.custom))
     }
 
-    func test_validBands_count_is13() {
-        // 12 standard amateur bands + custom = 13; unknown is excluded
-        XCTAssertEqual(FT8Message.Band.validBands.count, 13)
+    func test_validBands_count_is18() {
+        // 17 standard bands (HF + CB/11m + VHF/UHF) + custom = 18; unknown is excluded
+        XCTAssertEqual(FT8Message.Band.validBands.count, 18)
     }
 
     func test_validBands_containsAllStandardBands() {
         let standard: [FT8Message.Band] = [
             .band160m, .band80m, .band60m, .band40m, .band30m, .band20m,
-            .band17m, .band15m, .band12m, .band11m, .band10m, .band6m
+            .band17m, .band15m, .band12m, .band11m, .band10m, .band6m,
+            .band2m, .band125m, .band70cm, .band33cm, .band23cm
         ]
         for band in standard {
             XCTAssertTrue(FT8Message.Band.validBands.contains(band), "\(band) missing from validBands")
@@ -155,7 +196,8 @@ final class BandFrequencyTests: XCTestCase {
         // 11m (CB) is included since 27.245 MHz falls in the 26.96–27.41 range
         let standardBands: [FT8Message.Band] = [
             .band160m, .band80m, .band60m, .band40m, .band30m, .band20m,
-            .band17m, .band15m, .band12m, .band11m, .band10m, .band6m
+            .band17m, .band15m, .band12m, .band11m, .band10m, .band6m,
+            .band2m, .band125m, .band70cm, .band33cm, .band23cm
         ]
 
         for band in standardBands {
@@ -173,7 +215,8 @@ final class BandFrequencyTests: XCTestCase {
     func test_roundTrip_ft4DialFrequency_returnsOriginalBand() {
         let bandsWithDistinctFT4: [FT8Message.Band] = [
             .band80m, .band40m, .band30m, .band20m, .band17m,
-            .band15m, .band12m, .band10m, .band6m
+            .band15m, .band12m, .band10m, .band6m,
+            .band2m, .band125m, .band70cm, .band33cm, .band23cm
         ]
 
         for band in bandsWithDistinctFT4 {
@@ -182,5 +225,103 @@ final class BandFrequencyTests: XCTestCase {
             XCTAssertEqual(detected, band,
                            "FT4 round-trip failed for \(band.rawValue): \(hz) Hz → \(detected.rawValue)")
         }
+    }
+}
+
+// Tests for FT8Message.Band.adifName and Band.adifBand(frequencyHz:storedBand:),
+// which decide the BAND field that goes out in an ADIF export (and therefore to QRZ).
+final class ADIFBandTests: XCTestCase {
+
+    // MARK: - adifName
+
+    func test_adifName_usesRawValueForOrdinaryBands() {
+        XCTAssertEqual(FT8Message.Band.band20m.adifName, "20m")
+        XCTAssertEqual(FT8Message.Band.band2m.adifName, "2m")
+        XCTAssertEqual(FT8Message.Band.band70cm.adifName, "70cm")
+    }
+
+    /// The picker shows "CB/11m", but ADIF only knows "11m".
+    func test_adifName_elevenMeter_dropsTheCBLabel() {
+        XCTAssertEqual(FT8Message.Band.band11m.adifName, "11m")
+    }
+
+    func test_adifName_customAndUnknown_areNil() {
+        XCTAssertNil(FT8Message.Band.custom.adifName)
+        XCTAssertNil(FT8Message.Band.unknown.adifName)
+    }
+
+    // MARK: - adifBand
+
+    /// The case EA3CSE reported: operating on 2m with the band picker still on 6m.
+    /// The dial frequency is the truth, so the export must say 2m.
+    func test_adifBand_frequencyOverridesAMismatchedStoredBand() {
+        XCTAssertEqual(
+            FT8Message.Band.adifBand(frequencyHz: 144_174_000, storedBand: "6m"),
+            "2m"
+        )
+    }
+
+    func test_adifBand_customBand_resolvesFromTheDialFrequency() {
+        XCTAssertEqual(
+            FT8Message.Band.adifBand(frequencyHz: 144_174_000, storedBand: "Custom"),
+            "2m"
+        )
+    }
+
+    func test_adifBand_customBandWithoutFrequency_isNil() {
+        XCTAssertNil(FT8Message.Band.adifBand(frequencyHz: nil, storedBand: "Custom"))
+    }
+
+    func test_adifBand_elevenMeter_exportsAsADIFName() {
+        XCTAssertEqual(
+            FT8Message.Band.adifBand(frequencyHz: 27_245_000, storedBand: "CB/11m"),
+            "11m"
+        )
+    }
+
+    func test_adifBand_withoutFrequency_fallsBackToStoredBand() {
+        XCTAssertEqual(FT8Message.Band.adifBand(frequencyHz: nil, storedBand: "20m"), "20m")
+    }
+
+    /// A frequency outside every known ham band tells us nothing, so the stored band stands.
+    func test_adifBand_outOfBandFrequency_fallsBackToStoredBand() {
+        XCTAssertEqual(FT8Message.Band.adifBand(frequencyHz: 100_000_000, storedBand: "20m"), "20m")
+    }
+
+    /// Imported logs may carry bands this app has no case for; they pass through untouched.
+    func test_adifBand_unrecognisedStoredBand_passesThrough() {
+        XCTAssertEqual(FT8Message.Band.adifBand(frequencyHz: nil, storedBand: "4m"), "4m")
+    }
+
+    func test_adifBand_noFrequencyAndNoStoredBand_isNil() {
+        XCTAssertNil(FT8Message.Band.adifBand(frequencyHz: nil, storedBand: ""))
+        XCTAssertNil(FT8Message.Band.adifBand(frequencyHz: nil, storedBand: "   "))
+    }
+}
+
+// Tests for QSOEditView.isStandardDialFrequency, which decides whether the frequency
+// field in the QSO editor may be re-filled when the operator changes the band.
+final class StandardDialFrequencyTests: XCTestCase {
+
+    func test_standardFT8DialFrequencies_areRecognised() {
+        XCTAssertTrue(QSOEditView.isStandardDialFrequency("14.074000"))
+        XCTAssertTrue(QSOEditView.isStandardDialFrequency("50.313000"))
+        XCTAssertTrue(QSOEditView.isStandardDialFrequency("144.174000"))
+    }
+
+    func test_standardFT4DialFrequencies_areRecognised() {
+        XCTAssertTrue(QSOEditView.isStandardDialFrequency("14.080000"))
+        XCTAssertTrue(QSOEditView.isStandardDialFrequency("144.170000"))
+    }
+
+    /// A hand-entered off-standard frequency must be left alone by the auto-fill.
+    func test_offStandardFrequency_isNotRecognised() {
+        XCTAssertFalse(QSOEditView.isStandardDialFrequency("14.075500"))
+        XCTAssertFalse(QSOEditView.isStandardDialFrequency("144.200000"))
+    }
+
+    func test_nonNumericInput_isNotRecognised() {
+        XCTAssertFalse(QSOEditView.isStandardDialFrequency(""))
+        XCTAssertFalse(QSOEditView.isStandardDialFrequency("abc"))
     }
 }

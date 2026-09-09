@@ -219,13 +219,38 @@ struct QSOEditView: View {
 
     // MARK: - Auto-fill frequency from band + mode
 
+    /// Fills the frequency from the selected band and mode whenever the field holds
+    /// nothing the operator typed themselves: either it is empty, or it still carries
+    /// a standard dial frequency, which means the app put it there. A hand-entered
+    /// off-standard frequency is left alone — it is the better record of where the
+    /// QSO actually happened, and the mismatch warning will point at the disagreement.
+    ///
+    /// Keeping the pair in step matters because the ADIF export resolves BAND from
+    /// the frequency, so a band corrected here without its frequency would be ignored.
     private func autoFillFrequency() {
-        // Only auto-fill when the frequency field is empty
-        guard frequencyMHz.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         guard let selectedBand = FT8Message.Band(rawValue: band) else { return }
         let ft8mode: FT8Message.FT8MessageMode = mode == "FT4" ? .ft4 : .ft8
         guard let hz = selectedBand.frequency(for: ft8mode) else { return }
+
+        let current = frequencyMHz.trimmingCharacters(in: .whitespaces)
+        guard current.isEmpty || Self.isStandardDialFrequency(current) else { return }
+
         frequencyMHz = String(format: "%.6f", hz / 1_000_000)
+    }
+
+    /// Whether a frequency in MHz is the standard FT8 or FT4 dial frequency of some
+    /// band — i.e. a value the app would have filled in rather than one typed by hand.
+    static func isStandardDialFrequency(_ mhzText: String) -> Bool {
+        guard let mhz = Double(mhzText) else { return false }
+        let hz = mhz * 1_000_000
+        for candidate in FT8Message.Band.validBands {
+            for candidateMode in [FT8Message.FT8MessageMode.ft8, .ft4] {
+                if let standard = candidate.frequency(for: candidateMode), abs(standard - hz) < 1 {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     // MARK: - Save
