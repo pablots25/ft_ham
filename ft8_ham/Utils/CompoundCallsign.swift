@@ -34,6 +34,17 @@ struct CompoundCallsign: Equatable {
         }
     }
 
+    /// What kind of call this is.
+    enum Kind: Equatable {
+        /// A standard ITU amateur call, plain or compound.
+        case standard
+        /// An 11 m / CB "freeband" call such as "26TE231". Not an amateur call:
+        /// it can only travel as a non-standard callsign and never maps to a
+        /// DXCC entity. FT8/FT4 is an amateur mode, so using it on 11 m is not
+        /// standard practice and may not be permitted in every jurisdiction.
+        case elevenMeter
+    }
+
     /// The plain callsign without its modifier, e.g. "VE6XAD" in "I/VE6XAD".
     let baseCall: String
 
@@ -43,7 +54,12 @@ struct CompoundCallsign: Equatable {
     /// The full normalised callsign, e.g. "I/VE6XAD".
     let text: String
 
+    /// Whether this is a standard amateur call or an 11 m / CB call.
+    let kind: Kind
+
     var isCompound: Bool { modifier != nil }
+
+    var isElevenMeter: Bool { kind == .elevenMeter }
 
     // MARK: - Protocol limits
 
@@ -96,12 +112,26 @@ struct CompoundCallsign: Equatable {
             return nil
         }
 
+        if let amateur = parseAmateur(upper) { return amateur }
+
+        // An 11 m / CB "freeband" call, e.g. "26TE231" or "26/TE231". It never
+        // matches the amateur grammar above (an amateur base call ends in
+        // letters, an 11 m call ends in digits), so it is only reached here.
+        if isElevenMeterFormat(upper) {
+            return CompoundCallsign(baseCall: upper, modifier: nil, text: upper, kind: .elevenMeter)
+        }
+
+        return nil
+    }
+
+    /// Parses the ITU amateur forms — plain, prefixed and suffixed calls.
+    private static func parseAmateur(_ upper: String) -> CompoundCallsign? {
         let parts = upper.split(separator: "/", omittingEmptySubsequences: false)
 
         switch parts.count {
         case 1:
             guard isStandardBaseCall(upper) else { return nil }
-            return CompoundCallsign(baseCall: upper, modifier: nil, text: upper)
+            return CompoundCallsign(baseCall: upper, modifier: nil, text: upper, kind: .standard)
 
         case 2:
             let first = String(parts[0])
@@ -115,12 +145,12 @@ struct CompoundCallsign: Equatable {
             // tie-breaker when both halves look like a base call, matching the
             // usual "my call, then where I am" reading.
             if firstIsBase, isValidSuffix(second) {
-                return CompoundCallsign(baseCall: first, modifier: .suffix(second), text: upper)
+                return CompoundCallsign(baseCall: first, modifier: .suffix(second), text: upper, kind: .standard)
             }
 
             // "I/VE6XAD" — DXCC prefix first, base call last.
             if secondIsBase, isValidPrefix(first) {
-                return CompoundCallsign(baseCall: second, modifier: .prefix(first), text: upper)
+                return CompoundCallsign(baseCall: second, modifier: .prefix(first), text: upper, kind: .standard)
             }
 
             return nil
@@ -129,6 +159,17 @@ struct CompoundCallsign: Equatable {
             // More than one modifier ("EA4IQL/P/MM") cannot be transmitted.
             return nil
         }
+    }
+
+    /// True when `text` has the shape of an 11 m / CB "freeband" call: a numeric
+    /// division, an optional separating slash, a short letter group and a serial
+    /// number, e.g. "26TE231", "26/TE231", "1AT001". These are not amateur
+    /// callsigns and are only accepted when the operator opts in.
+    static func isElevenMeterFormat(_ text: String) -> Bool {
+        var upper = text.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        upper.removeAll(where: { $0.isWhitespace })
+        guard upper.count <= maxLength else { return false }
+        return wholeMatch(elevenMeterRegex, upper)
     }
 
     /// True when `text` is a plain ITU-format callsign with no modifier.
@@ -185,6 +226,9 @@ struct CompoundCallsign: Equatable {
     /// a type-4 (non-standard) message, where it is sent as plain text once and
     /// referred to by a hash afterwards.
     var isStandardPackable: Bool {
+        // An 11 m call has no ITU structure the 28-bit field can hold; it always
+        // travels as a non-standard (type-4) message.
+        guard kind == .standard else { return false }
         switch modifier {
         case .prefix:
             return false
@@ -220,6 +264,14 @@ struct CompoundCallsign: Equatable {
 // keystroke in the settings fields.
 private let baseCallRegex = try! NSRegularExpression(
     pattern: #"^[A-Z0-9]{1,3}\d[A-Z]{1,3}$"#
+)
+
+// 11 m / CB "freeband" call: 1–3 division digits, an optional separating slash,
+// a 1–3 letter group and a 1–4 digit serial, e.g. "26TE231" or "26/TE231".
+// Unlike an amateur call it ends in digits, so it can never collide with the
+// base-call pattern above.
+private let elevenMeterRegex = try! NSRegularExpression(
+    pattern: #"^\d{1,3}/?[A-Z]{1,3}\d{1,4}$"#
 )
 
 private func wholeMatch(_ regex: NSRegularExpression, _ text: String) -> Bool {

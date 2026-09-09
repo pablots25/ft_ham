@@ -10,6 +10,8 @@ import SwiftUI
 struct StationSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
 
+    @AppStorage("stationCallsignIsElevenMeter") private var isElevenMeter = false
+
     @State private var callsignText: String = ""
     @State private var locatorText: String = ""
     @State private var validCallsign = false
@@ -24,13 +26,26 @@ struct StationSettingsContent: View {
             CallsignFieldView(
                 callsignText: $callsignText,
                 validCallsign: $validCallsign,
+                isElevenMeterEnabled: isElevenMeter,
                 onCommit: {
                     let text = callsignText.uppercased()
                     callsignText = text
-                    validCallsign = isValidCallsign(text)
+                    validCallsign = isValidStationCallsign(text, allowElevenMeter: isElevenMeter)
                     if validCallsign { viewModel.callsign = text }
                 }
             )
+
+            Toggle(isOn: $isElevenMeter) {
+                Text("11 m / CB callsign")
+                    .font(.body)
+            }
+            .onChange(of: isElevenMeter) { enabled in
+                // Re-validate the current entry under the new rule and store it
+                // if the operator has just made an 11 m call acceptable.
+                let text = callsignText.uppercased()
+                validCallsign = isValidStationCallsign(text, allowElevenMeter: enabled)
+                if validCallsign { viewModel.callsign = text }
+            }
 
             Divider()
 
@@ -77,13 +92,13 @@ struct StationSettingsContent: View {
         .onAppear {
             callsignText = viewModel.callsign
             locatorText = viewModel.locator
-            validCallsign = isValidCallsign(viewModel.callsign)
+            validCallsign = isValidStationCallsign(viewModel.callsign, allowElevenMeter: isElevenMeter)
             validLocator = isValidLocator(viewModel.locator)
             activeHelp = nil
         }
         .onChange(of: viewModel.callsign) { newValue in
             callsignText = newValue
-            let isValid = isValidCallsign(newValue)
+            let isValid = isValidStationCallsign(newValue, allowElevenMeter: isElevenMeter)
             if validCallsign != isValid { validCallsign = isValid }
             if isValid && !newValue.isEmpty {
                 AnalyticsManager.shared.logConfigurationSaved()
