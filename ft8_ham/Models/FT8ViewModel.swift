@@ -374,7 +374,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     
     @AppStorage("inputGain") var inputGain = 1.0 {
         didSet {
-            let clamped = min(max(inputGain, 0.1), 2.0)
+            let clamped = min(max(inputGain, AudioGainLimits.minInput), AudioGainLimits.maxInput)
             let gainToSet = clamped != inputGain ? clamped : inputGain
             if gainToSet != inputGain { inputGain = gainToSet }
             audioManager.setInputGain(gainToSet)
@@ -383,7 +383,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
 
     @AppStorage("txOutputGain") var txOutputGain = 1.0 {
         didSet {
-            let clamped = min(max(txOutputGain, 0.1), 2.0)
+            let clamped = min(max(txOutputGain, AudioGainLimits.minOutput), AudioGainLimits.maxOutput)
             if clamped != txOutputGain { txOutputGain = clamped }
             audioManager.setOutputGain(clamped)
         }

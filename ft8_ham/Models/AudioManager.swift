@@ -11,6 +11,21 @@ import Foundation
 import Accelerate
 import os.lock
 
+// MARK: - Gain limits
+
+/// Bounds shared by `AudioManager`, `FT8ViewModel` and the settings sliders so
+/// the clamp is defined once.
+enum AudioGainLimits {
+    /// RX floor is −40 dB. An external USB/line sound card feeds the input far
+    /// hotter than the built-in mic, and the previous −20 dB floor was not
+    /// enough attenuation to keep it out of clipping.
+    static let minInput: Double = 0.01
+    static let maxInput: Double = 2.0
+
+    static let minOutput: Double = 0.1
+    static let maxOutput: Double = 2.0
+}
+
 // MARK: - Audio Manager Errors
 
 enum AudioManagerError: LocalizedError {
@@ -80,15 +95,15 @@ final class AudioManager: NSObject, AudioManaging {
 
     private let gainState: OSAllocatedUnfairLock<Double>
 
-    private let minGain: Double = 0.1
-    private let maxGain: Double = 2.0
+    private let minGain: Double = AudioGainLimits.minInput
+    private let maxGain: Double = AudioGainLimits.maxInput
 
     // MARK: - TX output gain (Thread Safe)
 
     private let outputGainState: OSAllocatedUnfairLock<Double>
 
-    private let minOutputGain: Double = 0.1
-    private let maxOutputGain: Double = 2.0
+    private let minOutputGain: Double = AudioGainLimits.minOutput
+    private let maxOutputGain: Double = AudioGainLimits.maxOutput
 
     // MARK: - Publishers
 
