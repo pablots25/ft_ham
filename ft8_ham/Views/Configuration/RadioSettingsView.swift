@@ -17,12 +17,32 @@ struct RadioSettingsContent: View {
     /// Local slider value; committed to the view model on release so a drag does
     /// not write UserDefaults (and publish the whole view model) on every tick.
     @State private var frequencySliderValue: Double = 1500
-    @State private var sliderTempValue: Float = 1.0
+    /// RX gain slider position, in dB. The slider works in dB (not in the raw
+    /// linear multiplier) so the attenuation end gets as much travel as the
+    /// boost end: an external sound card feeds line level straight in and needs
+    /// to be pulled down by tens of dB, which on a linear 0.01…2.0 scale would
+    /// all be squeezed into the first few points of the track.
+    @State private var inputGainDb: Float = 0
     @State private var txSliderTempValue: Float = 1.0
     @State private var activeHelp: HelpTip?
 
-    private let minGain: Float = 0.1
-    private let maxGain: Float = 2.0
+    private let minInputGain = Float(AudioGainLimits.minInput)
+    private let maxInputGain = Float(AudioGainLimits.maxInput)
+    private let minOutputGain = Float(AudioGainLimits.minOutput)
+    private let maxOutputGain = Float(AudioGainLimits.maxOutput)
+
+    private var minInputGainDb: Float { Self.decibels(from: minInputGain) }
+    private var maxInputGainDb: Float { Self.decibels(from: maxInputGain) }
+
+    /// Linear multiplier -> dB.
+    private static func decibels(from gain: Float) -> Float {
+        20 * log10(max(gain, 0.0001))
+    }
+
+    /// dB -> linear multiplier.
+    private static func linearGain(from decibels: Float) -> Float {
+        pow(10, decibels / 20)
+    }
 
     private static let frequencyFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -77,7 +97,7 @@ struct RadioSettingsContent: View {
             frequencyText = Self.frequencyFormatter.string(
                 from: NSNumber(value: viewModel.frequency / 1000)
             ) ?? ""
-            sliderTempValue = Float(viewModel.inputGain)
+            inputGainDb = Self.decibels(from: Float(viewModel.inputGain))
             txSliderTempValue = Float(viewModel.txOutputGain)
             frequencySliderValue = viewModel.frequency
             activeHelp = nil
@@ -223,8 +243,11 @@ struct RadioSettingsContent: View {
                 Text("Input Gain:")
 
                 Spacer()
-                Text(String(format: "%.2f×", sliderTempValue))
+                Text(String(format: "%+.0f dB (%.2f×)",
+                            inputGainDb,
+                            Self.linearGain(from: inputGainDb)))
                     .foregroundStyle(.secondary)
+                    .monospacedDigit()
                 HelpIconButton(helpHint: HelpTip.audioGain.accessibilityHint) {
                     activeHelp = (activeHelp == .audioGain) ? nil : .audioGain
                 }
@@ -239,10 +262,15 @@ struct RadioSettingsContent: View {
             }
 
             Slider(
-                value: $sliderTempValue,
-                in: Float(minGain)...Float(maxGain),
+                value: $inputGainDb,
+                in: minInputGainDb...maxInputGainDb,
+                step: 1,
                 onEditingChanged: { isEditing in
-                    if !isEditing { viewModel.inputGain = Double(sliderTempValue) }
+                    guard !isEditing else { return }
+                    let linear = Self.linearGain(from: inputGainDb)
+                    viewModel.inputGain = Double(
+                        min(max(linear, minInputGain), maxInputGain)
+                    )
                 }
             )
         }
@@ -273,7 +301,7 @@ struct RadioSettingsContent: View {
 
             Slider(
                 value: $txSliderTempValue,
-                in: Float(minGain)...Float(maxGain),
+                in: minOutputGain...maxOutputGain,
                 onEditingChanged: { isEditing in
                     if !isEditing { viewModel.txOutputGain = Double(txSliderTempValue) }
                 }
