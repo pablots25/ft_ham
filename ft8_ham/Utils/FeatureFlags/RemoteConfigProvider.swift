@@ -91,25 +91,33 @@ struct WhatsNewConfig: Decodable {
 
 final class RemoteConfigProvider: FeatureFlagProvider {
 
-    private let remoteConfig: RemoteConfig?
     private var lastFetchDate: Date?
     private var cachedPromptConfig: PromptConfig?
     private var cachedWhatsNewConfig: WhatsNewConfig?
 
-    init() {
-        guard AppEnvironment.current.isProduction else {
-            remoteConfig = nil
-            return
-        }
+    // Resolved lazily rather than in `init`: `FeatureFlagManager.shared` is first
+    // touched by a stored-property initialiser of `ft8_hamApp`, which runs *before*
+    // the `init()` body that calls `FirebaseApp.configure()`. Deciding `nil` at
+    // construction time therefore left the app on compiled-in defaults forever and
+    // silently ignored every Remote Config value in Release builds.
+    private var resolvedRemoteConfig: RemoteConfig?
 
-        guard FirebaseApp.app() != nil else {
-            remoteConfig = nil
-            return
+    private var remoteConfig: RemoteConfig? {
+        if let resolvedRemoteConfig { return resolvedRemoteConfig }
+
+        guard AppEnvironment.current.isProduction, FirebaseApp.app() != nil else {
+            return nil
         }
 
         let remoteConfig = RemoteConfig.remoteConfig()
-        self.remoteConfig = remoteConfig
+        configureDefaults(on: remoteConfig)
+        resolvedRemoteConfig = remoteConfig
+        return remoteConfig
+    }
 
+    init() {}
+
+    private func configureDefaults(on remoteConfig: RemoteConfig) {
         let settings = RemoteConfigSettings()
         settings.minimumFetchInterval = 0
         remoteConfig.configSettings = settings
