@@ -27,6 +27,7 @@ enum HelpTip: Identifiable {
     case audioGain
     case txOutputGain
     case highlightNewCallsigns
+    case neededBadges
 
     var id: Self { self }
 
@@ -66,6 +67,8 @@ enum HelpTip: Identifiable {
             return String(localized: "TX Output Gain help")
         case .highlightNewCallsigns:
             return String(localized: "Highlight new callsigns help")
+        case .neededBadges:
+            return String(localized: "Needed badges help")
         }
     }
 

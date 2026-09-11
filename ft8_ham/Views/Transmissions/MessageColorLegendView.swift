@@ -85,12 +85,43 @@ struct MessageColorLegendView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Text("Tap the filter icon to cycle through the three modes.")
+                    HStack(spacing: 14) {
+                        Image(systemName: "star.circle.fill")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.teal)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Needed only")
+                                .font(.subheadline)
+                            Text("Shows only stations that would add something to your log on the current band and mode: a new callsign, grid or DXCC. Your own transmissions stay visible.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Text("Tap the filter icon to cycle through the four modes.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.top, 2)
                 } header: {
                     Text("Filter Button")
+                }
+
+                // MARK: - Badges
+                Section {
+                    HStack(spacing: 14) {
+                        NeededBadgeView(status: [.grid])
+                            .frame(width: 60, alignment: .leading)
+                        Text("Grid square not yet in your log on this band and mode")
+                            .font(.subheadline)
+                    }
+                    HStack(spacing: 14) {
+                        NeededBadgeView(status: [.dxcc])
+                            .frame(width: 60, alignment: .leading)
+                        Text("Country (DXCC) not yet in your log on this band and mode")
+                            .font(.subheadline)
+                    }
+                } header: {
+                    Text("Badges")
                 }
 
                 // MARK: - Reply

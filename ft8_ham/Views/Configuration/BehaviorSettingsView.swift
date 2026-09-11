@@ -105,6 +105,14 @@ struct BehaviorSettingsContent: View {
                 )
                 .accessibilityIdentifier("toggle_highlightNewCallsigns")
 
+                ToggleRow(
+                    labelKey: "Show NEW GRID / NEW DXCC badges",
+                    helpTip: .neededBadges,
+                    isOn: $viewModel.showNeededBadges,
+                    activeHelp: $activeHelp
+                )
+                .accessibilityIdentifier("toggle_showNeededBadges")
+
                 Divider()
 
                 Text("QSO Automation")

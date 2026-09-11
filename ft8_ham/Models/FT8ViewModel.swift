@@ -174,7 +174,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     /// Backs O(1) "have I worked this station?" lookups for new-callsign
     /// highlighting and the auto-CQ-reply check.
     @Published var workedCallsigns: Set<String> = []
-    
+
+    /// Band/mode-aware lookup tables (callsign, grid, country) rebuilt from
+    /// qsoList. Backs the "Needed" decode filter and the NEW GRID / NEW DXCC
+    /// badges.
+    @Published var workedIndex = WorkedIndex()
+
     
     // MARK: - QSO State (delegated to QSOStatusManager - single source of truth)
     var dxCallsign: String {
@@ -259,6 +264,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
     /// Highlight CQ calls from stations not yet in the logbook (green tint).
     @AppStorage("highlightNewCallsigns") var highlightNewCallsigns: Bool = true
+    /// Show NEW GRID / NEW DXCC badges on decoded rows (per band/mode).
+    @AppStorage("showNeededBadges") var showNeededBadges: Bool = true
 
     @AppStorage("catEnabled") var catEnabled = false {
         didSet {
@@ -511,9 +518,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         // call is reflected immediately in new-callsign highlighting).
         $qsoList
             .sink { [weak self] list in
-                self?.workedCallsigns = Set(
-                    list.map { $0.callsign.uppercased() }
-                )
+                guard let self else { return }
+                let index = WorkedIndex.build(from: list)
+                self.workedCallsigns = index.callsigns
+                self.workedIndex = index
             }
             .store(in: &cancellables)
 
