@@ -59,6 +59,6 @@ func backgroundColor(for msg: FT8Message, isNewCallsign: Bool = false) -> Color 
     case .rr73, .rrr, .final73:
         RowTints.purple
     case .unknown:
-        RowTints.gray
+        msg.isTX ? RowTints.yellow : RowTints.gray // own free text is yellow
     }
 }

@@ -12,6 +12,7 @@ import SwiftUI
 struct TransmissionButtonsBar: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @State private var containerWidth: CGFloat = 0
+    @State private var showFreeText = false
 
     var body: some View {
         // Evaluated once per body (it validates callsign/locator).
@@ -27,6 +28,25 @@ struct TransmissionButtonsBar: View {
             .tint(viewModel.transmitLoopActive ? .red : .blue)
             .buttonStyle(.borderedProminent)
             .disabled(!settingsLoaded)
+
+            Button(viewModel.freeTextLoopActive ? "Stop Free Text" : "Free Text") {
+                if viewModel.freeTextLoopActive {
+                    viewModel.stopFreeTextLoop()
+                } else {
+                    showFreeText = true
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .fixedSize(horizontal: true, vertical: false)
+            .tint(viewModel.freeTextLoopActive ? .red : .blue)
+            .buttonStyle(.borderedProminent)
+            .disabled(!settingsLoaded)
+            .accessibilityIdentifier("button_freeText")
+            .sheet(isPresented: $showFreeText) {
+                FreeTextTXView()
+                    .environmentObject(viewModel)
+            }
 
             Button("Stop TX") {
                 viewModel.stopCurrentTX()
@@ -65,7 +85,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(.red)
             .buttonStyle(.borderedProminent)
-            .disabled(!settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive))
+            .disabled(!settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive && !viewModel.freeTextLoopActive))
             }
             .padding(.horizontal)
             .frame(minWidth: containerWidth, alignment: .center)
@@ -278,6 +298,8 @@ struct StatusView: View {
     private var statusText: String {
         if viewModel.isTransmitting {
             String(localized: "Transmitting")
+        } else if viewModel.freeTextLoopActive {
+            String(localized: "Free Text TX")
         } else if viewModel.isListening {
             String(localized: "Listening")
         } else if viewModel.transmitLoopActive {
@@ -290,7 +312,7 @@ struct StatusView: View {
     private var statusColor: Color {
         if viewModel.isTransmitting {
             return .red
-        } else if viewModel.transmitLoopActive {
+        } else if viewModel.transmitLoopActive || viewModel.freeTextLoopActive {
             return .yellow
         } else if viewModel.isListening {
             return .green

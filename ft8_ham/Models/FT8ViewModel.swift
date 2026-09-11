@@ -103,6 +103,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     // MARK: - QSO Manager
     @Published private(set) var qsoManager = QSOStatusManager()
     internal var activeTXMessage: FT8Message?
+    /// Set while the audio in flight is a free-text message, so the QSO
+    /// state machine is not advanced when it finishes.
+    internal var activeTXIsFreeText = false
+
+    // MARK: - Free-text TX loop
+    /// Transmit `freeTextMessage` on every my-turn slot until stopped.
+    @Published var freeTextLoopActive = false
+    @AppStorage("freeTextMessage") var freeTextMessage: String = ""
     
     // MARK: - Loggers
     let rxLogger = AppLogger(category: "RX")
@@ -644,8 +652,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         setCatPTT(false, reason: "tx finished")
 
         txLogger.info("TX finished (AudioManager): \(txMessage.text)")
-        AnalyticsManager.shared.stopRadioActivity() 
-        
+        AnalyticsManager.shared.stopRadioActivity()
+
+        // Free text is not part of a QSO: nothing to advance.
+        if activeTXIsFreeText {
+            activeTXIsFreeText = false
+            return
+        }
+
         if let action = qsoManager.advanceStateOnTX(
             message: txMessage,
             frequency: frequency,

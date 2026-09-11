@@ -19,7 +19,7 @@ struct MessageColorLegendView: View {
                 // MARK: - Colors
                 Section {
                     legendRow(fill: .yellow.opacity(0.2), stroke: .yellow,
-                              label: "Your own CQ transmissions")
+                              label: "Your own CQ and free-text transmissions")
                     legendRow(fill: .purple.opacity(0.2), stroke: .purple,
                               label: "Received CQ from another station")
                     legendRow(fill: .blue.opacity(0.2), stroke: .blue,

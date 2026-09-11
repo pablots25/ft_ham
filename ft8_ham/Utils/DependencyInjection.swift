@@ -134,6 +134,7 @@ protocol AudioManaging: AnyObject {
 /// Protocol for FT8/FT4 message encoding and decoding.
 protocol MessageDecoding: AnyObject {
     func generateFT8(_ message: String, frequency: Float, isFT4: Bool, toFile outputURL: URL?) -> Data?
+    func generateFreeText(_ text: String, frequency: Float, isFT4: Bool) -> Data?
     func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]]
     func decode(_ input: URL?, isFT4: Bool) -> [[AnyHashable: Any]]
 }
