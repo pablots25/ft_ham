@@ -511,16 +511,23 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     @MainActor
-    /// Estimates the noise floor of one row as its 30th-percentile bin level
-    /// (a low percentile ignores the bins that carry signals), then smooths it
-    /// over time so the palette does not pump with every FT8 slot.
+    /// Estimates the noise floor of one row as its median bin level, then
+    /// smooths it over time so the palette does not pump with every FT8 slot.
+    ///
+    /// The median rather than a lower percentile: a line-level feed from a
+    /// radio is near-silent outside the rig's passband (below ~300 Hz and
+    /// above ~2.7 kHz), which can be a quarter or more of the displayed bins.
+    /// A 30th percentile lands in that silence, drags the floor down by tens
+    /// of dB and paints every real bin solid red. The median tolerates up to
+    /// half the bins being silent, and FT8 signals rarely fill more than a
+    /// third of the band, so it still sits on the noise.
     private func trackNoiseFloor(rowDB: [Float], count: Int) -> Float {
         if scratchSort.count != count {
             scratchSort = [Float](repeating: 0, count: count)
         }
         for i in 0 ..< count { scratchSort[i] = rowDB[i] }
         scratchSort.sort()
-        let rowFloor = scratchSort[count * 3 / 10]
+        let rowFloor = scratchSort[count / 2]
 
         guard let previous = smoothedFloorDB else {
             smoothedFloorDB = rowFloor
