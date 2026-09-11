@@ -1453,31 +1453,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hilfe zur Audiofrequenz"
+            "value" : "Legt den Audioton-Versatz innerhalb des Durchlassbereichs deines Funkgeräts fest, auf dem du sendest, in kHz. Wähle eine Stelle, die frei von anderen Stationen ist; 1,5 kHz ist ein üblicher Startwert."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Audio Frequency help"
+            "value" : "Sets the audio tone offset within your radio's passband where you transmit, in kHz. Pick a spot that is clear of other stations; 1.5 kHz is a common starting point."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ayuda frecuencia de audio"
+            "value" : "Ajusta el desplazamiento del tono de audio dentro del paso banda de tu radio donde transmites, en kHz. Elige un hueco libre de otras estaciones; 1,5 kHz es un punto de partida habitual."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aide sur la fréquence audio"
+            "value" : "Définit le décalage du ton audio dans la bande passante de ta radio où tu émets, en kHz. Choisis un emplacement libre d'autres stations ; 1,5 kHz est un point de départ courant."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aiuto sulla frequenza audio"
+            "value" : "Imposta lo scostamento del tono audio nella banda passante della tua radio su cui trasmetti, in kHz. Scegli un punto libero da altre stazioni; 1,5 kHz è un valore di partenza comune."
           }
         }
       }
@@ -1489,31 +1489,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hilfe zum Audiopegel"
+            "value" : "Legt fest, wie stark das eingehende Audio vor der Dekodierung verstärkt wird. Mit negativen dB eine externe Soundkarte oder ein Interface abschwächen, das zu stark einspeist; positive dB nur, wenn das Signal zum Dekodieren zu schwach ist."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Audio Gain help"
+            "value" : "Sets how much the incoming audio is amplified before decoding. Use negative dB to attenuate an external sound card or interface that feeds the input too hot; positive dB only if the signal is too weak to decode."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ayuda ganancia de audio"
+            "value" : "Ajusta cuánto se amplifica el audio de entrada antes de decodificar. Usa dB negativos para atenuar una tarjeta de sonido o interfaz externa que entre demasiado fuerte; dB positivos solo si la señal es demasiado débil para decodificar."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aide sur le gain audio"
+            "value" : "Définit l'amplification de l'audio entrant avant le décodage. Utilise des dB négatifs pour atténuer une carte son ou une interface externe qui entre trop fort ; des dB positifs seulement si le signal est trop faible pour être décodé."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aiuto sul guadagno audio"
+            "value" : "Imposta quanto viene amplificato l'audio in ingresso prima della decodifica. Usa dB negativi per attenuare una scheda audio o un'interfaccia esterna che entra troppo forte; dB positivi solo se il segnale è troppo debole per essere decodificato."
           }
         }
       }
@@ -4324,31 +4324,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hilfe zum DT-Versatz"
+            "value" : "Zeitversatz des dekodierten Signals zum Beginn des Zeitschlitzes, in Sekunden. Werte über etwa ±2 s bedeuten, dass deine Uhr oder die der Gegenstation falsch geht."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "DT offset help"
+            "value" : "Time offset of the decoded signal from the start of the slot, in seconds. Values beyond roughly ±2 s mean your clock or the other station's is off."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ayuda offset DT"
+            "value" : "Desfase temporal de la señal decodificada respecto al inicio del ciclo, en segundos. Valores más allá de unos ±2 s indican que tu reloj o el de la otra estación está desajustado."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aide sur le décalage DT"
+            "value" : "Décalage temporel du signal décodé par rapport au début du créneau, en secondes. Au-delà d'environ ±2 s, ton horloge ou celle de l'autre station est déréglée."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aiuto sull'offset DT"
+            "value" : "Scostamento temporale del segnale decodificato rispetto all'inizio dello slot, in secondi. Valori oltre circa ±2 s indicano che il tuo orologio o quello dell'altra stazione è sfasato."
           }
         }
       }
@@ -11566,31 +11566,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hilfe zu PSK Reporter"
+            "value" : "Lädt die von dir dekodierten Rufzeichen zu pskreporter.info hoch, damit du und andere sehen können, wo dein Signal gehört wird."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PSK Reporter help"
+            "value" : "Uploads the callsigns you decode to pskreporter.info, so you and others can see where your signal is being heard."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ayuda PSK Reporter"
+            "value" : "Sube a pskreporter.info los indicativos que decodificas, para que tú y otros podáis ver dónde se está oyendo tu señal."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aide sur PSK Reporter"
+            "value" : "Envoie les indicatifs que tu décodes vers pskreporter.info, pour que toi et d'autres puissiez voir où ton signal est entendu."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aiuto su PSK Reporter"
+            "value" : "Carica su pskreporter.info i nominativi che decodifichi, così tu e altri potete vedere dove viene ricevuto il tuo segnale."
           }
         }
       }
@@ -13403,31 +13403,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hilfe zum SNR (dB)"
+            "value" : "Signal-Rausch-Verhältnis der dekodierten Nachricht, in dB. FT8 dekodiert bis etwa −21 dB; darüber ist das Signal arbeitbar."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SNR dB help"
+            "value" : "Signal-to-noise ratio of the decoded message, in dB. FT8 decodes down to about −21 dB, so anything above that is a workable signal."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ayuda SNR dB"
+            "value" : "Relación señal/ruido del mensaje decodificado, en dB. FT8 decodifica hasta unos −21 dB, así que por encima de eso la señal es trabajable."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aide sur le SNR (dB)"
+            "value" : "Rapport signal/bruit du message décodé, en dB. Le FT8 décode jusqu'à environ −21 dB ; au-dessus, le signal est exploitable."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aiuto sull'SNR (dB)"
+            "value" : "Rapporto segnale/rumore del messaggio decodificato, in dB. L'FT8 decodifica fino a circa −21 dB, quindi al di sopra il segnale è lavorabile."
           }
         }
       }
