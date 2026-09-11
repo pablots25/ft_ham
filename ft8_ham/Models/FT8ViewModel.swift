@@ -260,6 +260,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @AppStorage("autoCQReplyEnabled") var autoCQReplyEnabled: Bool = false
     @AppStorage("autoCQReplyOnlyNewBandMode") var autoCQReplyOnlyNewBandMode: Bool = false
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
+    /// Pick a random caller when several stations answer our CQ in one slot.
+    @AppStorage("pileupRandomCaller") var pileupRandomCaller: Bool = true
+    /// …and prefer stations not yet in the logbook when doing so.
+    @AppStorage("pileupPreferNewCallsigns") var pileupPreferNewCallsigns: Bool = true
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
     /// Highlight CQ calls from stations not yet in the logbook (green tint).

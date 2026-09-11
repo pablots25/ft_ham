@@ -130,6 +130,24 @@ struct BehaviorSettingsContent: View {
                     .accessibilityIdentifier("field_maxRetrySlots")
 
                 ToggleRow(
+                    labelKey: "Random caller in pile-ups",
+                    helpTip: .pileupRandom,
+                    isOn: $viewModel.pileupRandomCaller,
+                    activeHelp: $activeHelp
+                )
+                .accessibilityIdentifier("toggle_pileupRandomCaller")
+
+                ToggleRow(
+                    labelKey: "Prefer never-worked callers",
+                    helpTip: .pileupPreferNew,
+                    isOn: $viewModel.pileupPreferNewCallsigns,
+                    activeHelp: $activeHelp
+                )
+                .disabled(!viewModel.pileupRandomCaller)
+                .opacity(viewModel.pileupRandomCaller ? 1.0 : 0.4)
+                .accessibilityIdentifier("toggle_pileupPreferNewCallsigns")
+
+                ToggleRow(
                     labelKey: "Auto QSO logging",
                     helpTip: .autoQSOLogging,
                     isOn: $viewModel.autoQSOLogging,

@@ -28,6 +28,8 @@ enum HelpTip: Identifiable {
     case txOutputGain
     case highlightNewCallsigns
     case neededBadges
+    case pileupRandom
+    case pileupPreferNew
 
     var id: Self { self }
 
@@ -69,6 +71,10 @@ enum HelpTip: Identifiable {
             return String(localized: "Highlight new callsigns help")
         case .neededBadges:
             return String(localized: "Needed badges help")
+        case .pileupRandom:
+            return String(localized: "Pile-up random caller help")
+        case .pileupPreferNew:
+            return String(localized: "Pile-up prefer new help")
         }
     }
 
