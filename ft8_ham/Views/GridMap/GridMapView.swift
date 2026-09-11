@@ -16,6 +16,21 @@ struct MapVisibility: Hashable {
     let countryCircles: Bool
     let geodesics: Bool
     let annotations: Bool
+    var heardMe: Bool = true
+}
+
+/// A receiver that heard us (PSK Reporter), drawn as an orange marker.
+final class HeardMeAnnotation: NSObject, MKAnnotation {
+    let station: HeardMeStation
+    var coordinate: CLLocationCoordinate2D { station.coordinate }
+    var title: String? { station.callsign }
+    var subtitle: String? {
+        var parts: [String] = []
+        if let snr = station.bestSNR { parts.append(String(format: "%+d dB", snr)) }
+        if let km = station.distanceKm { parts.append("\(Int(km.rounded())) km") }
+        return parts.joined(separator: " · ")
+    }
+    init(station: HeardMeStation) { self.station = station }
 }
 
 // MARK: - Map View with grids, countries, routes, and user location
@@ -31,10 +46,14 @@ struct GridMapView: UIViewRepresentable {
     /// Optional route points
     var routePoints: [CLLocationCoordinate2D] = []
 
+    /// Stations that heard us, from PSK Reporter.
+    var heardMeStations: [HeardMeStation] = []
+
     var showGrids: Bool = true
     var showCountryCircles: Bool = true
     var showGeodesics: Bool = true
     var showAnnotations: Bool = true
+    var showHeardMe: Bool = true
     @Binding var userTrackingMode: MKUserTrackingMode
     /// Invoked (on the main actor) when the device location resolves to a grid
     /// square that is not yet in `locators`.
@@ -88,9 +107,13 @@ struct GridMapView: UIViewRepresentable {
             grids: showGrids,
             countryCircles: showCountryCircles,
             geodesics: showGeodesics,
-            annotations: showAnnotations
+            annotations: showAnnotations,
+            heardMe: showHeardMe
         )
-        context.coordinator.updateMap(uiView, locators: locators, countries: countries, visibility: visibility)
+        context.coordinator.updateMap(
+            uiView, locators: locators, countries: countries,
+            heardMe: heardMeStations, visibility: visibility
+        )
     }
 
     // MARK: - Coordinator
@@ -197,14 +220,15 @@ struct GridMapView: UIViewRepresentable {
         // MARK: - Map update
 
         @MainActor
-        func updateMap(_ mapView: MKMapView, locators: [String], countries: [CountryPair], visibility: MapVisibility) {
+        func updateMap(_ mapView: MKMapView, locators: [String], countries: [CountryPair],
+                       heardMe: [HeardMeStation] = [], visibility: MapVisibility) {
             knownLocators = locators
-            let currentHash = makeHash(locators: locators, countries: countries, visibility: visibility)
+            let currentHash = makeHash(locators: locators, countries: countries, heardMe: heardMe, visibility: visibility)
             guard currentHash != lastHash else { return }
             lastHash = currentHash
 
             var overlaysToAdd: [MKOverlay] = []
-            var annotationsToAdd: [MKPointAnnotation] = []
+            var annotationsToAdd: [MKAnnotation] = []
 
             if visibility.grids {
                 addGridOverlays(locators: locators, visibility: visibility, overlays: &overlaysToAdd, annotations: &annotationsToAdd)
@@ -212,6 +236,10 @@ struct GridMapView: UIViewRepresentable {
 
             if visibility.countryCircles || visibility.geodesics {
                 addCountryOverlays(countries: countries, visibility: visibility, overlays: &overlaysToAdd)
+            }
+
+            if visibility.heardMe {
+                annotationsToAdd.append(contentsOf: heardMe.map(HeardMeAnnotation.init))
             }
 
             updateMapOverlays(mapView, overlays: overlaysToAdd, annotations: annotationsToAdd, showAnnotations: visibility.annotations)
@@ -223,18 +251,19 @@ struct GridMapView: UIViewRepresentable {
 
         // MARK: - Helper Methods
 
-        private func makeHash(locators: [String], countries: [CountryPair], visibility: MapVisibility) -> Int {
+        private func makeHash(locators: [String], countries: [CountryPair], heardMe: [HeardMeStation], visibility: MapVisibility) -> Int {
             // Hash the *content* of countries, not just its count, so a changed
             // set with the same size is not mistaken for "no change".
             var hasher = Hasher()
             hasher.combine(locators)
             hasher.combine(countries)
+            hasher.combine(heardMe)
             hasher.combine(visibility)
             return hasher.finalize()
         }
 
         private func addGridOverlays(locators: [String], visibility: MapVisibility,
-                                     overlays: inout [MKOverlay], annotations: inout [MKPointAnnotation]) {
+                                     overlays: inout [MKOverlay], annotations: inout [MKAnnotation]) {
             for locator in locators {
                 if let polygon = polygonCache[locator], let annotation = annotationCache[locator] {
                     overlays.append(polygon)
@@ -279,15 +308,15 @@ struct GridMapView: UIViewRepresentable {
 
         private func updateMapOverlays(_ mapView: MKMapView,
                                        overlays: [MKOverlay],
-                                       annotations: [MKPointAnnotation],
+                                       annotations: [MKAnnotation],
                                        showAnnotations: Bool) {
             mapView.removeOverlays(mapView.overlays)
             mapView.addOverlays(overlays)
 
             mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
-            if showAnnotations {
-                mapView.addAnnotations(annotations)
-            }
+            // The grid-label toggle only governs locator labels; heard-me
+            // markers have their own switch (applied before they get here).
+            mapView.addAnnotations(annotations.filter { showAnnotations || $0 is HeardMeAnnotation })
         }
 
         // MARK: - Renderers
@@ -325,6 +354,21 @@ struct GridMapView: UIViewRepresentable {
         func mapView(_ mapView: MKMapView,
                      viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             if annotation is MKUserLocation { return nil }
+
+            if annotation is HeardMeAnnotation {
+                let id = "heardMe"
+                let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                    as? MKMarkerAnnotationView
+                    ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
+                view.annotation = annotation
+                view.glyphImage = UIImage(systemName: "ear")
+                view.glyphText = nil
+                view.markerTintColor = .systemOrange
+                view.clusteringIdentifier = "heardMe"
+                view.displayPriority = .defaultHigh
+                view.canShowCallout = true
+                return view
+            }
 
             let id = "locator"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
@@ -447,6 +491,14 @@ enum MaidenheadGrid {
         locator += String(Character(UnicodeScalar(subsquareLon + 97)!)) + String(Character(UnicodeScalar(subsquareLat + 97)!))
 
         return locator
+    }
+
+    /// Centre of a 4- or 6-character Maidenhead locator; nil when malformed.
+    static func center(for locator: String) -> CLLocationCoordinate2D? {
+        guard let corners = gridPolygon(for: locator), corners.count == 4 else { return nil }
+        let lat = corners.map(\.latitude).reduce(0, +) / 4
+        let lon = corners.map(\.longitude).reduce(0, +) / 4
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 
     /// Returns polygon corners for a Maidenhead grid

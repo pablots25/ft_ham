@@ -16,11 +16,16 @@ struct GridMapViewWrapper: View {
     let countries: [CountryPair]
     var routePoints: [CLLocationCoordinate2D] = []
     @ObservedObject var mapSettings: MapSettingsModel
+    /// Stations that heard us (PSK Reporter). Omit to hide the feature.
+    @ObservedObject var heardMe: HeardMeStore = .shared
+    var myCallsign: String = ""
+    var myLocator: String = ""
     /// Called when the device location resolves to a grid square not yet shown.
     var onUserLocator: ((String) -> Void)? = nil
     @State private var userTrackingMode: MKUserTrackingMode = .none
     @State private var isControlsExpanded: Bool = false
     @State private var showMapLegend: Bool = false
+    @State private var showHeardMeList: Bool = false
 
     @ViewBuilder
     var body: some View {
@@ -39,10 +44,12 @@ struct GridMapViewWrapper: View {
                 locators: locators,
                 countries: countries,
                 routePoints: routePoints,
+                heardMeStations: heardMe.stations,
                 showGrids: mapSettings.showGrids,
                 showCountryCircles: mapSettings.showCountryCircles,
                 showGeodesics: mapSettings.showGeodesics,
                 showAnnotations: mapSettings.showAnnotations,
+                showHeardMe: mapSettings.showHeardMe,
                 userTrackingMode: $userTrackingMode,
                 onUserLocator: onUserLocator
             )
@@ -50,6 +57,12 @@ struct GridMapViewWrapper: View {
 
             mapControlBar
                 .padding(10)
+        }
+        .onAppear {
+            heardMe.refreshIfAllowed(callsign: myCallsign, myLocator: myLocator)
+        }
+        .sheet(isPresented: $showHeardMeList) {
+            HeardMeListView(store: heardMe, myCallsign: myCallsign, myLocator: myLocator)
         }
     }
 
@@ -61,6 +74,43 @@ struct GridMapViewWrapper: View {
         case .followWithHeading: return "location.north.fill"
         default: return "location"
         }
+    }
+
+    /// Tap: open the list. Long press: toggle the markers.
+    private var heardMeButton: some View {
+        Button {
+            showHeardMeList = true
+        } label: {
+            HStack(spacing: 2) {
+                Image(systemName: mapSettings.showHeardMe ? "ear.fill" : "ear")
+                if mapSettings.showHeardMe, !heardMe.stations.isEmpty {
+                    Text("\(heardMe.stations.count)")
+                        .font(.caption2.monospacedDigit())
+                }
+            }
+            .foregroundStyle(mapSettings.showHeardMe ? .orange : .primary)
+        }
+        .contextMenu {
+            Button {
+                mapSettings.showHeardMe.toggle()
+            } label: {
+                Label(mapSettings.showHeardMe ? "Hide stations that heard me" : "Show stations that heard me",
+                      systemImage: mapSettings.showHeardMe ? "eye.slash" : "eye")
+            }
+            ForEach(HeardMeWindow.allCases) { window in
+                Button {
+                    heardMe.window = window
+                } label: {
+                    if heardMe.window == window {
+                        Label(window.title, systemImage: "checkmark")
+                    } else {
+                        Text(window.title)
+                    }
+                }
+            }
+        }
+        .accessibilityLabel("Stations that heard you")
+        .accessibilityIdentifier("button_heardMe")
     }
 
     private var mapControlBar: some View {
@@ -136,6 +186,10 @@ struct GridMapViewWrapper: View {
                 Image(systemName: trackingModeIcon)
                     .foregroundStyle(userTrackingMode == .none ? Color.secondary : Color.blue)
             }
+
+            Divider()
+
+            heardMeButton
 
             Divider()
 
