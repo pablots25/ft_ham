@@ -197,6 +197,7 @@ struct SeparatedTransmissionView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Message Colors"))
                         .sheet(isPresented: $showLegend) {
                             MessageColorLegendView()
                         }

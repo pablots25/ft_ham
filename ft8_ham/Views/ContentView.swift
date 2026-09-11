@@ -388,7 +388,6 @@ struct ContentView: View {
     
     struct SeparatedTransmissionRootView: View {
         @State private var selectedPane: Pane = .received
-        @State private var showLegend: Bool = false
         @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
         enum Pane {
@@ -417,32 +416,17 @@ struct ContentView: View {
         }
 
         // MARK: - Pane Picker
+        // The message-colour legend is reachable from the column header inside
+        // SeparatedTransmissionView, so no info button is repeated here.
         private var panePicker: some View {
-            HStack(spacing: 8) {
-                Picker("Pane", selection: $selectedPane) {
-                    Text(String(localized: "Received"))
-                        .tag(Pane.received)
+            Picker("Pane", selection: $selectedPane) {
+                Text(String(localized: "Received"))
+                    .tag(Pane.received)
 
-                    Text(String(localized: "Transmitted"))
-                        .tag(Pane.transmitted)
-                }
-                .pickerStyle(.segmented)
-
-                if selectedPane == .transmitted {
-                    Button {
-                        showLegend.toggle()
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("Message Colors"))
-                    .sheet(isPresented: $showLegend) {
-                        MessageColorLegendView()
-                    }
-                }
+                Text(String(localized: "Transmitted"))
+                    .tag(Pane.transmitted)
             }
+            .pickerStyle(.segmented)
             .padding(.horizontal, 25)
             .padding(.bottom, 10)
         }
