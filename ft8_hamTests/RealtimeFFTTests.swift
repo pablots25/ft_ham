@@ -169,6 +169,32 @@ final class RealtimeFFTAdditionalTests: XCTestCase {
         }
     }
 
+    // MARK: - dBFS calibration
+
+    /// Magnitudes are scaled so that a full-scale sine reads 1.0 (0 dBFS) in
+    /// its peak bin, independent of FFT size. Without this the waterfall's
+    /// dB colour window has to be tuned to an FFT-size-dependent offset
+    /// (~+58 dB at N = 2048) and a normal input level saturates solid red.
+    func test_magnitudes_fullScaleSine_peaksAtUnity() {
+        for size in [512, 2048] {
+            let fft = RealtimeFFT(size: size)!
+            // Bin-centred tone so all energy lands in one bin (bin 16 = 16 cycles).
+            let cycles: Float = 16
+            var samples = [Float](repeating: 0, count: size)
+            for i in 0..<size {
+                samples[i] = sin(2 * .pi * cycles * Float(i) / Float(size))
+            }
+
+            let mags = samples.withUnsafeBufferPointer { fft.magnitudes(from: $0.baseAddress!) }
+            let peak = mags.max()!
+
+            XCTAssertEqual(peak, 1.0, accuracy: 0.02,
+                "N=\(size): a full-scale sine must peak at 1.0 (0 dBFS), got \(peak)")
+            XCTAssertEqual(mags.firstIndex(of: peak), Int(cycles),
+                "N=\(size): peak must land in bin \(Int(cycles))")
+        }
+    }
+
     // MARK: - Performance
 
     /// FFT on a 2048-sample block should complete well under 5 ms on any

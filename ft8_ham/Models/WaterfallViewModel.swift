@@ -57,6 +57,10 @@ final class WaterfallViewModel: ObservableObject {
     // Cached per-pixel bin-index map — recomputed only when width or maxBin changes
     private var cachedBinIndices: [Int] = []
     private var cachedMaxBin: Int = -1
+    /// Smoothed per-bin noise floor in dBFS for auto-ranging. `nil` until the
+    /// first rendered row seeds it.
+    private var smoothedFloorDB: Float?
+    private var scratchSort: [Float] = []   // scratch copy for the percentile
 
     // Background FFT helper — not actor-isolated, safe to call from any queue
     private let backgroundFFT = BackgroundFFTProcessor()
@@ -158,8 +162,21 @@ final class WaterfallViewModel: ObservableObject {
     struct Config {
         var waterfallFFTSize: Int
         var waterfallMaxRows: Int
-        var waterfallMinDB: Float = -25.0
-        var waterfallMaxDB: Float = 0.0
+        /// Colour window in dBFS, used only when `waterfallAutoRange` is off.
+        /// A -20 dBFS noise floor sits around -47 dBFS per bin after the Hann
+        /// window, so this shows the floor near the bottom of the palette.
+        var waterfallMinDB: Float = -80.0
+        var waterfallMaxDB: Float = -20.0
+        /// Track the noise floor and slide the colour window with it. The
+        /// built-in mic and a line-level sound card differ by tens of dB, and
+        /// no single fixed window reads well on both: one saturates solid red
+        /// while the other is all blue.
+        var waterfallAutoRange: Bool = true
+        /// With auto-range on, colour starts this far below the tracked floor
+        /// (so the floor itself reads as the faint bottom of the palette)…
+        var waterfallFloorMarginDB: Float = 6.0
+        /// …and saturates this far above that.
+        var waterfallSpanDB: Float = 45.0
         var timestampInterval: TimeInterval
         var targetFPS: Double = 15.0  // Reduced from 30 to 15 Hz for CPU optimization
         var maxDisplayFrequency: Float = 800.0
@@ -426,8 +443,20 @@ final class WaterfallViewModel: ObservableObject {
             var factor20: Float = 20.0
             vDSP_vsmul(scratchDB, 1, &factor20, &scratchDB, 1, vLen)
 
-            // 4. Linear scale: (db − minDB) / (maxDB − minDB)  [in-place: D = A*a + b]
-            let range = config.waterfallMaxDB - config.waterfallMinDB
+            // 4. Pick the colour window: fixed, or tracking the noise floor
+            let minDB: Float
+            let maxDB: Float
+            if config.waterfallAutoRange {
+                let floor = trackNoiseFloor(rowDB: scratchDB, count: w)
+                minDB = floor - config.waterfallFloorMarginDB
+                maxDB = minDB + config.waterfallSpanDB
+            } else {
+                minDB = config.waterfallMinDB
+                maxDB = config.waterfallMaxDB
+            }
+
+            // 5. Linear scale: (db − minDB) / (maxDB − minDB)  [in-place: D = A*a + b]
+            let range = maxDB - minDB
             guard range != 0 else {
                 // degenerate config — write black row and bail
                 let rowOffset = row * w
@@ -435,21 +464,21 @@ final class WaterfallViewModel: ObservableObject {
                 return
             }
             var scaleA: Float =  1.0 / range
-            var scaleB: Float = -config.waterfallMinDB / range
+            var scaleB: Float = -minDB / range
             vDSP_vsmsa(scratchDB, 1, &scaleA, &scaleB, &scratchDB, 1, vLen)
 
-            // 5. Clamp to [0, 1]
+            // 6. Clamp to [0, 1]
             var clampLo: Float = 0.0, clampHi: Float = 1.0
             vDSP_vclip(scratchDB, 1, &clampLo, &clampHi, &scratchDB, 1, vLen)
 
-            // 6. Square root
+            // 7. Square root
             vvsqrtf(&scratchDB, scratchDB, &wInt)
 
-            // 7. Scale to [0, 255]
+            // 8. Scale to [0, 255]
             var scale255: Float = 255.0
             vDSP_vsmul(scratchDB, 1, &scale255, &scratchDB, 1, vLen)
 
-            // 8. Palette lookup — unavoidably scalar, but L1-cache-friendly (256-entry table)
+            // 9. Palette lookup — unavoidably scalar, but L1-cache-friendly (256-entry table)
             let rowOffset = row * w
             for x in 0 ..< w {
                 let idx = Int(scratchDB[x]).clamped(to: 0 ... 255)
@@ -482,6 +511,30 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     @MainActor
+    /// Estimates the noise floor of one row as its 30th-percentile bin level
+    /// (a low percentile ignores the bins that carry signals), then smooths it
+    /// over time so the palette does not pump with every FT8 slot.
+    private func trackNoiseFloor(rowDB: [Float], count: Int) -> Float {
+        if scratchSort.count != count {
+            scratchSort = [Float](repeating: 0, count: count)
+        }
+        for i in 0 ..< count { scratchSort[i] = rowDB[i] }
+        scratchSort.sort()
+        let rowFloor = scratchSort[count * 3 / 10]
+
+        guard let previous = smoothedFloorDB else {
+            smoothedFloorDB = rowFloor
+            return rowFloor
+        }
+        // Follow drops quickly (band went quiet / gain lowered) and rises
+        // slowly, so a burst of strong signals does not lift the floor and
+        // hide the weak ones underneath.
+        let alpha: Float = rowFloor < previous ? 0.3 : 0.05
+        let next = previous + alpha * (rowFloor - previous)
+        smoothedFloorDB = next
+        return next
+    }
+
     private func renderWaterfallIncremental() {
         guard frameLimiter.shouldRender(), let ctx = context, let rawPtr = ctx.data else { return }
 
