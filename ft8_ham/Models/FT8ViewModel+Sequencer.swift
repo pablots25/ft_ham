@@ -49,7 +49,7 @@ extension FT8ViewModel {
             do {
                 while !Task.isCancelled {
                     // 1. Calculate Next Slot Boundary
-                    let now = Date()
+                    let now = AppClock.now()
                     let nextSlot = await self.slotManager.getNextSlot(from: now, isFT4: self.isFT4)
                     
                     // 2. Wait for Boundary
@@ -218,7 +218,7 @@ extension FT8ViewModel {
             return .receive
         }
         
-        let lag = Date().timeIntervalSince(slot.startTime)
+        let lag = AppClock.now().timeIntervalSince(slot.startTime)
         if lag > 2.0 {
             appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
             return .skip
@@ -257,7 +257,7 @@ extension FT8ViewModel {
 
     @MainActor
     internal func tryImmediateTXIfPossible() async{
-        let now = Date()
+        let now = AppClock.now()
         
         // 1. Obtener información del slot ACTUAL
         let currentSlot = await slotManager.getSlotInfo(
@@ -337,7 +337,7 @@ extension FT8ViewModel {
             return
         }
         
-        let now = Date()
+        let now = AppClock.now()
         let offsetFromSlotStart = now.timeIntervalSince(slot.startTime)
         
         let maxStartOffset = slot.isFT4
@@ -359,7 +359,7 @@ extension FT8ViewModel {
             (slot.isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration) + (slot.isFT4 ? Constants.ft4DecodeMargin : Constants.ft8DecodeMargin)
         )
         while self.isHarvestingRX {
-            if Date() > signalEnd {
+            if AppClock.now() > signalEnd {
                 txLogger.warning(
                     "TX aborted for slot \(slot.slotIndex): RX decode exceeded signal window"
                 )

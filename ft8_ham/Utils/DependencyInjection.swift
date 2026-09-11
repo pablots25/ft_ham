@@ -50,7 +50,7 @@ protocol TimeProviding: Sendable {
 
 /// Default implementation using system time.
 struct SystemTimeProvider: TimeProviding {
-    var now: Date { Date() }
+    var now: Date { AppClock.now() }
     
     func sleep(for duration: Duration) async throws {
         try await Task.sleep(for: duration)

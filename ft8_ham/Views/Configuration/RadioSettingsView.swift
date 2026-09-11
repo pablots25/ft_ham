@@ -25,6 +25,7 @@ struct RadioSettingsContent: View {
     @State private var inputGainDb: Float = 0
     @State private var txSliderTempValue: Float = 1.0
     @State private var activeHelp: HelpTip?
+    @ObservedObject private var clockSync = ClockSyncManager.shared
 
     private let minInputGain = Float(AudioGainLimits.minInput)
     private let maxInputGain = Float(AudioGainLimits.maxInput)
@@ -92,6 +93,12 @@ struct RadioSettingsContent: View {
             Text("RX Gain: adjust microphone sensitivity for decoding. TX Output: raise if your radio's VOX won't activate (also ensure phone volume is at maximum).")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            Divider()
+            Text("Clock")
+                .font(.headline)
+
+            clockSyncView
         }
         .onAppear {
             frequencyText = Self.frequencyFormatter.string(
@@ -306,6 +313,73 @@ struct RadioSettingsContent: View {
                     if !isEditing { viewModel.txOutputGain = Double(txSliderTempValue) }
                 }
             )
+        }
+    }
+
+    // MARK: - Clock sync
+
+    @ViewBuilder
+    private var clockSyncView: some View {
+        ToggleRow(
+            labelKey: "Sync clock with NTP",
+            helpTip: .ntpSync,
+            isOn: Binding(
+                get: { clockSync.isEnabled },
+                set: { clockSync.isEnabled = $0 }
+            ),
+            activeHelp: $activeHelp
+        )
+        .accessibilityIdentifier("toggle_ntpSyncEnabled")
+
+        if clockSync.isEnabled {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    if let error = clockSync.lastError {
+                        Text("Clock sync failed; using the device clock")
+                            .foregroundStyle(.orange)
+                        Text(error)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    } else if let date = clockSync.lastSyncDate {
+                        Text(String(
+                            format: String(localized: "Device clock offset: %@ s"),
+                            String(format: "%+.3f", clockSync.offset)
+                        ))
+                        .foregroundStyle(clockSync.isWarning ? .red : .primary)
+                        Text(String(
+                            format: String(localized: "Last sync %@"),
+                            date.formatted(date: .omitted, time: .standard)
+                        ))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    } else {
+                        Text("Not synced yet")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .font(.footnote)
+
+                Spacer()
+
+                Button {
+                    Task { await clockSync.syncNow() }
+                } label: {
+                    if clockSync.isSyncing {
+                        ProgressView()
+                    } else {
+                        Text("Sync now")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(clockSync.isSyncing)
+                .accessibilityIdentifier("button_ntpSyncNow")
+            }
+            if clockSync.isWarning && clockSync.lastError == nil {
+                Text("Your device clock is more than 1 s off. FT8 needs accurate time: enable Set Automatically in Settings > General > Date & Time.")
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
         }
     }
 

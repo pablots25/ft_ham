@@ -538,6 +538,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
             .store(in: &cancellables)
 
         workedLocators = []
+
+        setupClockSyncObserver()
+        ClockSyncManager.shared.start()
     }
     
     @MainActor

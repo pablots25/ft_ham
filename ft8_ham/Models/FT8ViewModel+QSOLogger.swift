@@ -36,7 +36,7 @@ extension FT8ViewModel  {
         let entry = qsoManager.createLogEntry(
             dxCallsign: qsoManager.lockedDXCallsign,
             dxLocator: qsoManager.lockedDXLocator,
-            qsoDate: .now,
+            qsoDate: AppClock.now(),
             band: qsoManager.qsoStartBand ?? effectiveBand,
             isFT4: qsoManager.qsoStartedAsFT4,
             rstSent: qsoManager.lastSentSNR,

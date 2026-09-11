@@ -338,11 +338,15 @@ struct StatusView: View {
 struct ClockView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0)) { context in
-            let currentUTC = DateFormatter.utcFormatterClock.string(from: context.date)
+            // Show the SNTP-corrected clock, which is what the slots follow.
+            let currentUTC = DateFormatter.utcFormatterClock.string(from: AppClock.corrected(context.date))
 
-            Text("UTC: \(currentUTC)")
-                .foregroundStyle(.gray)
-                .font(.body)
+            HStack(spacing: 6) {
+                Text("UTC: \(currentUTC)")
+                    .foregroundStyle(.gray)
+                    .font(.body)
+                ClockOffsetChip()
+            }
         }
     }
 }
@@ -508,5 +512,46 @@ struct QSOStatusView: View {
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 5)
+    }
+}
+
+// MARK: - Clock offset chip
+
+/// Shows how far the device clock is from SNTP time. Hidden while the
+/// correction is negligible; orange up to 1 s, red beyond (FT8 needs < 1 s).
+struct ClockOffsetChip: View {
+    @ObservedObject private var clockSync = ClockSyncManager.shared
+
+    var body: some View {
+        if clockSync.isEnabled, abs(clockSync.offset) >= 0.3 || clockSync.lastError != nil {
+            HStack(spacing: 2) {
+                Image(systemName: clockSync.lastError == nil ? "clock.badge.checkmark" : "clock.badge.exclamationmark")
+                    .font(.caption2)
+                if clockSync.lastError == nil {
+                    Text("Δ\(String(format: "%+.1f", clockSync.offset))s")
+                        .font(.caption2.monospacedDigit())
+                }
+            }
+            .foregroundStyle(color)
+            .fixedSize(horizontal: true, vertical: false)
+            .help(helpText)
+            .accessibilityLabel(helpText)
+            .accessibilityIdentifier("chip_clockOffset")
+        }
+    }
+
+    private var color: Color {
+        if clockSync.lastError != nil { return .secondary }
+        return clockSync.isWarning ? .red : .orange
+    }
+
+    private var helpText: String {
+        if clockSync.lastError != nil {
+            return String(localized: "Clock sync failed; using the device clock")
+        }
+        return String(
+            format: String(localized: "Device clock is off by %@ s; FT8 needs less than 1 s"),
+            String(format: "%+.2f", clockSync.offset)
+        )
     }
 }
