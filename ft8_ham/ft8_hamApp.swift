@@ -65,18 +65,11 @@ private extension AppDelegate {
     }
 
     func configureRemoteConfig() {
-        // Explicitly refresh all Firebase Remote Config variables at app launch
-        let provider = RemoteConfigProvider()
-        let logger = AppLogger(category: "APPINIT")
-
-        logger.debug("🔄 Starting Firebase Remote Config synchronization...")
-        provider.refreshAllFlags { [weak provider] in
-            if let provider = provider {
-                logger.debug(provider.getConfigurationSummary())
-            }
-            // After initial fetch, start the periodic refresh in FeatureFlagManager
-            FeatureFlagManager.shared.refresh()
-        }
+        // `FeatureFlagManager.shared` is created before `FirebaseApp.configure()`
+        // runs (see `ft8_hamApp`), so its initial refresh is a no-op. Now that
+        // Firebase is up, trigger the first real fetch through the manager itself
+        // so the values land in the instance the UI observes.
+        FeatureFlagManager.shared.refresh()
     }
 
     func configureNotifications() {
