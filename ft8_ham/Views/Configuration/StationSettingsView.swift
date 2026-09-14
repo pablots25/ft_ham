@@ -74,6 +74,13 @@ struct StationSettingsContent: View {
                 ),
                 activeHelp: $activeHelp
             )
+
+            Divider()
+
+            Text("CQ Message")
+                .font(.headline)
+
+            CQMessageSettingsContent(activeHelp: $activeHelp)
         }
         .onAppear {
             callsignText = viewModel.callsign
@@ -98,6 +105,24 @@ struct StationSettingsContent: View {
                 AnalyticsManager.shared.logConfigurationSaved()
             }
         }
+    }
+}
+
+/// The modifier and grid that shape the operator's CQ: part of the station
+/// identity, next to the callsign it goes out with.
+struct CQMessageSettingsContent: View {
+    @EnvironmentObject private var viewModel: FT8ViewModel
+    @Binding var activeHelp: HelpTip?
+
+    var body: some View {
+        CQModifierView()
+
+        ToggleRow(
+            labelKey: "Include Grid in CQ",
+            helpTip: .cqIncludeGrid,
+            isOn: $viewModel.cqIncludeGrid,
+            activeHelp: $activeHelp
+        )
     }
 }
 

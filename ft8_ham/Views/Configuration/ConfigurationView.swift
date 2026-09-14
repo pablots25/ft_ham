@@ -384,7 +384,7 @@ struct ConfigurationView: View {
                   systemImage: "gearshape.2",
                   keywords: ["auto rx", "cq", "reply", "auto-sequence", "sequence",
                              "retries", "pile-up", "pileup", "logging", "hold tx",
-                             "transmit", "modifier", "pota", "sota", "behavior"]),
+                             "transmit", "behavior"]),
             .init(.display,
                   title: String(localized: "Display"),
                   systemImage: "rectangle.3.group",
@@ -433,7 +433,8 @@ struct ConfigurationView: View {
         .init(.station,
               title: String(localized: "Station"),
               systemImage: "antenna.radiowaves.left.and.right",
-              keywords: ["callsign", "grid", "locator", "gps", "11 m", "cb"])
+              keywords: ["callsign", "grid", "locator", "gps", "11 m", "cb",
+                         "cq", "modifier", "pota", "sota"])
     }
 
     private var tutorialsItem: SettingsItem {

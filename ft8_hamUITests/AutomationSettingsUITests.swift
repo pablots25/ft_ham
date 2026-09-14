@@ -188,16 +188,6 @@ final class AutomationSettingsUITests: XCTestCase {
     }
 
     @MainActor
-    func testCQMessageSectionHeadingIsVisible() throws {
-        navigateToAutomationSettings()
-
-        XCTAssertTrue(
-            app.staticTexts["CQ Message"].waitForExistence(timeout: 5),
-            "CQ Message section heading should be visible"
-        )
-    }
-
-    @MainActor
     func testQSOAutomationSectionHeadingIsVisible() throws {
         navigateToAutomationSettings()
 

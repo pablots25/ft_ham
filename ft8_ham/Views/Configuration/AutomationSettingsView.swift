@@ -8,8 +8,8 @@
 import SwiftUI
 
 /// Everything that decides what the app does on its own while operating:
-/// receiver start-up, the CQ it sends, how it answers callers and how a QSO
-/// runs through to the log. Presentation preferences live in
+/// receiver start-up, how it answers callers and how a QSO runs through to
+/// the log. Presentation preferences live in
 /// `DisplaySettingsContent`; network reporting in `ReportingSettingsContent`.
 struct AutomationSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
@@ -27,13 +27,6 @@ struct AutomationSettingsContent: View {
                 activeHelp: $activeHelp
             )
             .accessibilityIdentifier("toggle_autoRXAtStart")
-
-            Divider()
-
-            Text("CQ Message")
-                .font(.headline)
-
-            CQMessageSettingsContent(activeHelp: $activeHelp)
 
             Divider()
 
@@ -112,25 +105,6 @@ struct AutomationSettingsContent: View {
             .accessibilityIdentifier("toggle_holdTXFrequency")
         }
         .onAppear { activeHelp = nil }
-    }
-}
-
-/// The modifier and grid that shape the operator's CQ. Shared with the
-/// on-air controls sheet so the modifier can be changed without leaving
-/// the waterfall.
-struct CQMessageSettingsContent: View {
-    @EnvironmentObject private var viewModel: FT8ViewModel
-    @Binding var activeHelp: HelpTip?
-
-    var body: some View {
-        CQModifierView()
-
-        ToggleRow(
-            labelKey: "Include Grid in CQ",
-            helpTip: .cqIncludeGrid,
-            isOn: $viewModel.cqIncludeGrid,
-            activeHelp: $activeHelp
-        )
     }
 }
 
