@@ -72,7 +72,7 @@ struct FreeTextTXView: View {
             }
             .onAppear { fieldFocused = true }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 

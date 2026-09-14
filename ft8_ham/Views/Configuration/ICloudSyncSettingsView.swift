@@ -124,6 +124,7 @@ struct ICloudSyncSettingsView: View {
             }
             .buttonStyle(.bordered)
             .disabled(sync.isSyncing)
+            .accessibilityLabel(Text("Sync now"))
             .accessibilityIdentifier("button_iCloudSyncNow")
 
             Button {

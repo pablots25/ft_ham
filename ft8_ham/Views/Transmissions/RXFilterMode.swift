@@ -84,6 +84,7 @@ struct RXFilterButton: View {
                 .accessibilityLabel(mode.accessibilityLabel)
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
         .accessibilityIdentifier("rxFilterButton")
     }
 }

@@ -125,6 +125,7 @@ struct HeardMeListView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(store.isLoading || wait > 0)
+            .accessibilityLabel(Text("Refresh"))
             .accessibilityIdentifier("button_heardMeRefresh")
         }
     }

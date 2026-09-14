@@ -373,6 +373,7 @@ struct RadioSettingsContent: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(clockSync.isSyncing)
+                .accessibilityLabel(Text("Sync now"))
                 .accessibilityIdentifier("button_ntpSyncNow")
             }
             if clockSync.isWarning && clockSync.lastError == nil {

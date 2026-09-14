@@ -97,6 +97,7 @@ struct GridMapViewWrapper: View {
             }
             .foregroundStyle(mapSettings.showHeardMe ? .orange : .primary)
         }
+        .contentShape(Rectangle())
         .contextMenu {
             Button {
                 mapSettings.showHeardMe.toggle()
@@ -134,6 +135,7 @@ struct GridMapViewWrapper: View {
             }
             .foregroundStyle(mapSettings.showPresence ? .cyan : .primary)
         }
+        .contentShape(Rectangle())
         .accessibilityLabel("Operators Online")
         .accessibilityIdentifier("button_presence")
     }

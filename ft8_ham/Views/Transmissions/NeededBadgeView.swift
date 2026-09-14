@@ -29,13 +29,14 @@ struct NeededBadgeView: View {
 
     private func badge(_ key: LocalizedStringKey, color: Color) -> some View {
         Text(key)
-            .font(.system(size: 9, weight: .bold))
+            .font(.caption2.weight(.bold))
             .foregroundStyle(color)
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
             .background(color.opacity(0.15), in: Capsule())
             .lineLimit(1)
             .fixedSize()
+            .minimumScaleFactor(0.8)
     }
 }
 
