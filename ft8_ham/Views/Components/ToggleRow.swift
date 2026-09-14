@@ -32,6 +32,7 @@ enum HelpTip: Identifiable {
     case pileupPreferNew
     case ntpSync
     case iCloudSync
+    case presence
 
     var id: Self { self }
 
@@ -81,6 +82,8 @@ enum HelpTip: Identifiable {
             return String(localized: "NTP sync help")
         case .iCloudSync:
             return String(localized: "iCloud sync help")
+        case .presence:
+            return String(localized: "Presence help")
         }
     }
 

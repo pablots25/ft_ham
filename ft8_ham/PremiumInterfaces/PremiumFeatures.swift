@@ -390,6 +390,53 @@ private final class CloudLogbookSyncAdapter: CloudLogbookSyncProtocol {
     }
 }
 
+// MARK: - Presence Adapter
+
+/// Adapter that wraps FTHamPremium.PresenceService to conform to the local
+/// PresenceServiceProtocol.
+@MainActor
+private final class PresenceAdapter: PresenceServiceProtocol {
+    private let service: FTHamPremium.PresenceService
+
+    init(service: FTHamPremium.PresenceService) {
+        self.service = service
+    }
+
+    func upsert(callsign: String, grid4: String, band: String, mode: String) async throws {
+        do {
+            try await service.upsert(callsign: callsign, grid4: grid4, band: band, mode: mode)
+        } catch let error as FTHamPremium.PresenceError {
+            throw Self.map(error)
+        }
+    }
+
+    func fetchOnline(since date: Date) async throws -> [PresenceStation] {
+        do {
+            return try await service.fetchOnline(since: date).map {
+                PresenceStation(callsign: $0.callsign, grid: $0.grid, band: $0.band, mode: $0.mode, lastSeen: $0.lastSeen)
+            }
+        } catch let error as FTHamPremium.PresenceError {
+            throw Self.map(error)
+        }
+    }
+
+    func removeMine() async throws {
+        do {
+            try await service.removeMine()
+        } catch let error as FTHamPremium.PresenceError {
+            throw Self.map(error)
+        }
+    }
+
+    private static func map(_ error: FTHamPremium.PresenceError) -> PresenceError {
+        switch error {
+        case .premiumRequired: return .premiumRequired
+        case .notAvailable: return .notAvailable
+        case .network(let message): return .network(message)
+        }
+    }
+}
+
 #endif
 
 /// Factory for premium features.
@@ -481,6 +528,20 @@ public enum PremiumFeatures {
             #endif
         }()
         _cloudLogbookSync = instance
+        return instance
+    }
+
+    private static var _presence: (any PresenceServiceProtocol)?
+    public static var presence: any PresenceServiceProtocol {
+        if let existing = _presence { return existing }
+        let instance: any PresenceServiceProtocol = {
+            #if canImport(FTHamPremium)
+            return PresenceAdapter(service: FTHamPremium.PresenceService.shared)
+            #else
+            return PresenceServiceStub.shared
+            #endif
+        }()
+        _presence = instance
         return instance
     }
 

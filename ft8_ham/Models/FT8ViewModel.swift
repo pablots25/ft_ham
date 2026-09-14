@@ -311,6 +311,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @AppStorage("bandHopEnabled") var bandHopEnabled = false {
         didSet { reconcileBandHopping() }
     }
+    /// Tells the presence map which band/mode we moved to.
+    @MainActor
+    internal func notifyPresenceContextChanged() {
+        PresenceManager.shared.contextDidChange(
+            band: effectiveBand.rawValue, mode: isFT4 ? "FT4" : "FT8", grid: locator
+        )
+    }
+
     /// Mirror of the scheduler state for the UI.
     @Published var bandHopState: BandHopState = .stopped
     internal var bandHopScheduler: any BandHopSchedulerProtocol = PremiumFeatures.bandHopScheduler

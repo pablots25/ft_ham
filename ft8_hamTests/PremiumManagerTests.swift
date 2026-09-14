@@ -130,8 +130,8 @@ final class PremiumFeaturePaywallPropertiesTests: XCTestCase {
         XCTAssertEqual(unique.count, PremiumFeature.allCases.count, "Each feature must have a unique paywall description")
     }
 
-    func test_countIsSevenFeatures() {
-        XCTAssertEqual(PremiumFeature.allCases.count, 7)
+    func test_countIsTenFeatures() {
+        XCTAssertEqual(PremiumFeature.allCases.count, 10)
     }
 }
 

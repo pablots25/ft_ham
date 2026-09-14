@@ -25,6 +25,10 @@ extension FT8ViewModel {
         }
         appLogger.info("Starting Sequencer Loop (FT\(isFT4 ? "4" : "8") - \(evenCycle ? "Even" : "Odd"))")
         isSequencerRunning = true
+        PresenceManager.shared.sequencerDidStart(
+            callsign: callsign, grid: locator,
+            band: effectiveBand.rawValue, mode: isFT4 ? "FT4" : "FT8"
+        )
 
         // Track first-run milestone
         UserDefaults.standard.set(true, forKey: "hasStartedRX")
@@ -166,6 +170,7 @@ extension FT8ViewModel {
             
             // Cleanup on exit
             self.isSequencerRunning = false
+            PresenceManager.shared.sequencerDidStop()
             self.isListening = false
             self.isTransmitting = false
             self.freeTextLoopActive = false

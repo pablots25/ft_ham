@@ -11,6 +11,8 @@ struct BehaviorSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var premiumManager: PremiumManager
     @State private var activeHelp: HelpTip?
+    @EnvironmentObject private var flags: FeatureFlagManager
+    @ObservedObject private var presence = PresenceManager.shared
     @State private var showPSKReporter = false
     @State private var showPaywall = false
     @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
@@ -156,6 +158,40 @@ struct BehaviorSettingsContent: View {
                 .accessibilityIdentifier("toggle_autoQSOLogging")
 
                 Divider()
+
+                if flags.isEnabled(.enablePresence) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Community")
+                            .font(.headline)
+
+                        ToggleRow(
+                            labelKey: "Show me online on the map",
+                            helpTip: .presence,
+                            isOn: Binding(
+                                get: { presence.optIn },
+                                set: { presence.optIn = $0 }
+                            ),
+                            activeHelp: $activeHelp
+                        )
+                        .accessibilityIdentifier("toggle_presenceOptIn")
+                    }
+                    .opacity(premiumManager.isPremiumUnlocked ? 1.0 : 0.4)
+                    .disabled(!premiumManager.isPremiumUnlocked)
+                    .overlay {
+                        if !premiumManager.isPremiumUnlocked {
+                            Button {
+                                showPaywall = true
+                            } label: {
+                                Color.clear
+                            }
+                            .contentShape(Rectangle())
+                            .accessibilityIdentifier("button_presenceLock")
+                            .accessibilityLabel("Operators Online, Premium Feature")
+                        }
+                    }
+
+                    Divider()
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("PSK reporter integration")

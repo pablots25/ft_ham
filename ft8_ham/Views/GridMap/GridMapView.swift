@@ -17,6 +17,7 @@ struct MapVisibility: Hashable {
     let geodesics: Bool
     let annotations: Bool
     var heardMe: Bool = true
+    var presence: Bool = true
 }
 
 /// A receiver that heard us (PSK Reporter), drawn as an orange marker.
@@ -31,6 +32,23 @@ final class HeardMeAnnotation: NSObject, MKAnnotation {
         return parts.joined(separator: " · ")
     }
     init(station: HeardMeStation) { self.station = station }
+}
+
+/// Another FT Ham operator currently on the air, drawn as a cyan marker.
+final class PresenceAnnotation: NSObject, MKAnnotation {
+    let station: PresenceStation
+    let coordinate: CLLocationCoordinate2D
+    var title: String? { station.callsign }
+    var subtitle: String? {
+        let where_ = [station.band, station.mode].filter { !$0.isEmpty }.joined(separator: " ")
+        let minutes = max(0, Int(Date().timeIntervalSince(station.lastSeen) / 60))
+        return where_.isEmpty ? "\(minutes) min" : "\(where_) · \(minutes) min"
+    }
+    init?(station: PresenceStation) {
+        guard let center = MaidenheadGrid.center(for: station.grid) else { return nil }
+        self.station = station
+        self.coordinate = center
+    }
 }
 
 // MARK: - Map View with grids, countries, routes, and user location
@@ -48,12 +66,15 @@ struct GridMapView: UIViewRepresentable {
 
     /// Stations that heard us, from PSK Reporter.
     var heardMeStations: [HeardMeStation] = []
+    /// Other FT Ham operators on the air (opt-in presence map).
+    var presenceStations: [PresenceStation] = []
 
     var showGrids: Bool = true
     var showCountryCircles: Bool = true
     var showGeodesics: Bool = true
     var showAnnotations: Bool = true
     var showHeardMe: Bool = true
+    var showPresence: Bool = true
     @Binding var userTrackingMode: MKUserTrackingMode
     /// Invoked (on the main actor) when the device location resolves to a grid
     /// square that is not yet in `locators`.
@@ -108,11 +129,12 @@ struct GridMapView: UIViewRepresentable {
             countryCircles: showCountryCircles,
             geodesics: showGeodesics,
             annotations: showAnnotations,
-            heardMe: showHeardMe
+            heardMe: showHeardMe,
+            presence: showPresence
         )
         context.coordinator.updateMap(
             uiView, locators: locators, countries: countries,
-            heardMe: heardMeStations, visibility: visibility
+            heardMe: heardMeStations, presence: presenceStations, visibility: visibility
         )
     }
 
@@ -221,9 +243,10 @@ struct GridMapView: UIViewRepresentable {
 
         @MainActor
         func updateMap(_ mapView: MKMapView, locators: [String], countries: [CountryPair],
-                       heardMe: [HeardMeStation] = [], visibility: MapVisibility) {
+                       heardMe: [HeardMeStation] = [], presence: [PresenceStation] = [],
+                       visibility: MapVisibility) {
             knownLocators = locators
-            let currentHash = makeHash(locators: locators, countries: countries, heardMe: heardMe, visibility: visibility)
+            let currentHash = makeHash(locators: locators, countries: countries, heardMe: heardMe, presence: presence, visibility: visibility)
             guard currentHash != lastHash else { return }
             lastHash = currentHash
 
@@ -242,6 +265,10 @@ struct GridMapView: UIViewRepresentable {
                 annotationsToAdd.append(contentsOf: heardMe.map(HeardMeAnnotation.init))
             }
 
+            if visibility.presence {
+                annotationsToAdd.append(contentsOf: presence.compactMap(PresenceAnnotation.init))
+            }
+
             updateMapOverlays(mapView, overlays: overlaysToAdd, annotations: annotationsToAdd, showAnnotations: visibility.annotations)
 
             if !hasEverFitRegion && !overlaysToAdd.isEmpty {
@@ -251,13 +278,14 @@ struct GridMapView: UIViewRepresentable {
 
         // MARK: - Helper Methods
 
-        private func makeHash(locators: [String], countries: [CountryPair], heardMe: [HeardMeStation], visibility: MapVisibility) -> Int {
+        private func makeHash(locators: [String], countries: [CountryPair], heardMe: [HeardMeStation], presence: [PresenceStation], visibility: MapVisibility) -> Int {
             // Hash the *content* of countries, not just its count, so a changed
             // set with the same size is not mistaken for "no change".
             var hasher = Hasher()
             hasher.combine(locators)
             hasher.combine(countries)
             hasher.combine(heardMe)
+            hasher.combine(presence)
             hasher.combine(visibility)
             return hasher.finalize()
         }
@@ -316,7 +344,9 @@ struct GridMapView: UIViewRepresentable {
             mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
             // The grid-label toggle only governs locator labels; heard-me
             // markers have their own switch (applied before they get here).
-            mapView.addAnnotations(annotations.filter { showAnnotations || $0 is HeardMeAnnotation })
+            mapView.addAnnotations(annotations.filter {
+                showAnnotations || $0 is HeardMeAnnotation || $0 is PresenceAnnotation
+            })
         }
 
         // MARK: - Renderers
@@ -354,6 +384,21 @@ struct GridMapView: UIViewRepresentable {
         func mapView(_ mapView: MKMapView,
                      viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             if annotation is MKUserLocation { return nil }
+
+            if annotation is PresenceAnnotation {
+                let id = "presence"
+                let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                    as? MKMarkerAnnotationView
+                    ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
+                view.annotation = annotation
+                view.glyphImage = UIImage(systemName: "person.fill")
+                view.glyphText = nil
+                view.markerTintColor = .systemCyan
+                view.clusteringIdentifier = "presence"
+                view.displayPriority = .defaultLow
+                view.canShowCallout = true
+                return view
+            }
 
             if annotation is HeardMeAnnotation {
                 let id = "heardMe"

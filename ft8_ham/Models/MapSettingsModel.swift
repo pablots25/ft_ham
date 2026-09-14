@@ -17,6 +17,8 @@ class MapSettingsModel: ObservableObject {
     @AppStorage("mapShowAnnotations") var showAnnotations: Bool = false
     /// Orange markers for stations that heard us (PSK Reporter).
     @AppStorage("mapShowHeardMe") var showHeardMe: Bool = true
+    /// Cyan markers for other FT Ham operators on the air (opt-in).
+    @AppStorage("mapShowPresence") var showPresence: Bool = true
     
     static let shared = MapSettingsModel()
     

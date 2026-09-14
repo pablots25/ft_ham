@@ -110,6 +110,7 @@ extension FT8ViewModel {
 
         selectedBand = band
         clearRXBuffer()
+        notifyPresenceContextChanged()
         appLogger.info("Band hop → \(band.rawValue)")
         toast = .info(String(format: String(localized: "Hopped to %@"), band.rawValue))
     }
