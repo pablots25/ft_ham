@@ -84,16 +84,6 @@ final class PremiumGatingUITests: XCTestCase {
         }
     }
 
-    /// Navigates to the Behavior settings screen.
-    @MainActor
-    private func navigateToBehaviorSettings() {
-        openSettingsTab()
-        let cell = app.cells.staticTexts["Behavior"]
-        if cell.waitForExistence(timeout: 5) {
-            cell.tap()
-        }
-    }
-
     /// Dismisses a presented sheet using the "Done" cancel button if present,
     /// otherwise falls back to a swipe-down gesture.
     @MainActor
@@ -231,41 +221,38 @@ final class PremiumGatingUITests: XCTestCase {
         )
     }
 
-    // MARK: - BehaviorSettingsView: PSK Reporter Section Blocked
+    // MARK: - ConfigurationView: Reporting Row Locked
 
     @MainActor
-    func testPSKReporterToggleIsDisabledForNonPremiumUsers() throws {
-        navigateToBehaviorSettings()
+    func testReportingIsLockedForNonPremiumUsers() throws {
+        openSettingsTab()
 
-        let toggle = app.switches["toggle_pskReporterEnabled"]
+        let lockedRow = app.buttons["premiumLocked_psk_reporter"]
+        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
+        scrollToVisible(lockedRow)
         XCTAssertTrue(
-            toggle.waitForExistence(timeout: 5),
-            "PSK Reporter toggle should exist in Behavior settings"
+            lockedRow.isHittable,
+            "Reporting should appear as a locked premium row for non-premium users"
         )
         XCTAssertFalse(
-            toggle.isEnabled,
-            "PSK Reporter toggle should be disabled for non-premium users"
+            app.switches["toggle_pskReporterEnabled"].exists,
+            "The PSK Reporter toggle must not be reachable from the list for non-premium users"
         )
     }
 
     @MainActor
-    func testPSKReporterSectionShowsPaywallWhenTapped() throws {
-        navigateToBehaviorSettings()
+    func testTappingLockedReportingShowsPaywall() throws {
+        openSettingsTab()
 
-        // The PSK Reporter section has a transparent overlay button that triggers
-        // the paywall when tapped
-        let lockOverlay = app.buttons["button_pskReporterLock"]
-        XCTAssertTrue(
-            lockOverlay.waitForExistence(timeout: 5),
-            "The PSK Reporter premium lock overlay should be present for non-premium users"
-        )
-        scrollToVisible(lockOverlay)
-        lockOverlay.tap()
+        let lockedRow = app.buttons["premiumLocked_psk_reporter"]
+        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
+        scrollToVisible(lockedRow)
+        lockedRow.tap()
 
         let paywallTitle = app.staticTexts["Unlock Premium Features"]
         XCTAssertTrue(
             paywallTitle.waitForExistence(timeout: 5),
-            "Tapping the PSK Reporter lock overlay should present the paywall"
+            "Tapping the locked Reporting row should present the paywall"
         )
     }
 
@@ -275,7 +262,7 @@ final class PremiumGatingUITests: XCTestCase {
     func testPaywallShowsCorrectContent() throws {
         openSettingsTab()
 
-        // Open paywall via the "Become Premium" row in the Support section
+        // Open paywall via the premium row at the top of the list
         let becomePremiumButton = app.buttons["Become Premium"]
         scrollToVisible(becomePremiumButton, maxSwipes: 10)
         XCTAssertTrue(becomePremiumButton.waitForExistence(timeout: 5))

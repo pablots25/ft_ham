@@ -143,6 +143,7 @@ struct MessageSelector: View {
     @State private var showGenMessages = false
     @State private var sheetDetent: PresentationDetent = .large
     @State private var stationSettingsExpanded = false
+    @State private var controlsHelp: HelpTip?
     @State private var genMessagesExpanded = false
 
     var body: some View {
@@ -214,6 +215,7 @@ struct MessageSelector: View {
                         
                         DisclosureGroup(isExpanded: $stationSettingsExpanded) {
                             StationSettingsContent()
+                            CQMessageSettingsContent(activeHelp: $controlsHelp)
                         } label: {
                             Text("Station Settings")
                                 .font(.headline)

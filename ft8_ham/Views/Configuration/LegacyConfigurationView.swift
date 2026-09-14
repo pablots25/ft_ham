@@ -28,12 +28,19 @@ struct LegacyConfigurationView: View {
 					RadioSettingsContent()
 				}
 
-				section("Behavior") {
-					BehaviorSettingsContent()
+				section("Automation") {
+					AutomationSettingsContent()
 				}
 
-				section("Interface") {
-					InterfaceSettingsContent()
+				section("Display") {
+					DisplaySettingsContent()
+				}
+
+				section("Reporting") {
+					ReportingSettingsContent()
+						.premiumLocked(!premiumManager.isPremiumUnlocked, feature: .pskReporter) {
+							showPremium = true
+						}
 				}
 
 				#if canImport(FTHamPremium)
@@ -160,11 +167,18 @@ struct LegacyConfigurationView: View {
 				}
 				#endif
 
-				section("Support") {
+				section("Help") {
 					Button {
 						showHelp = true
 					} label: {
 						Label("Getting Started", systemImage: "book")
+					}
+
+					NavigationLink {
+						TutorialsSettingsView()
+							.padding(.horizontal)
+					} label: {
+						Label("Tutorials", systemImage: "graduationcap")
 					}
 
 					Button {

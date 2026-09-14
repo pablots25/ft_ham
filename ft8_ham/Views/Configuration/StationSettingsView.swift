@@ -74,20 +74,6 @@ struct StationSettingsContent: View {
                 ),
                 activeHelp: $activeHelp
             )
-
-            ToggleRow(
-                labelKey: "Include Grid in CQ",
-                helpTip: .cqIncludeGrid,
-                isOn: $viewModel.cqIncludeGrid,
-                activeHelp: $activeHelp
-            )
-
-            Divider()
-
-            Text("CQ Modifier")
-                .font(.headline)
-
-            CQModifierView()
         }
         .onAppear {
             callsignText = viewModel.callsign

@@ -402,7 +402,7 @@ struct RadioSettingsContent: View {
 
 struct RadioSettingsView: View {
     var body: some View {
-        SettingsScrollContainer(title: "Radio", spacing: 20, dismissKeyboardOnScroll: true) {
+        SettingsScrollContainer(title: "Mode, Band & Audio", spacing: 20, dismissKeyboardOnScroll: true) {
             RadioSettingsContent()
         }
     }
