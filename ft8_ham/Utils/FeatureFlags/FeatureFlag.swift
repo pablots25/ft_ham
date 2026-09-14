@@ -14,6 +14,8 @@ enum FeatureFlag: String, CaseIterable {
     case controlsSheet
     case newConfigView
     case donationsEnabled
+    /// Free-text (type 0.0) transmission loop.
+    case enableFreeText
     /// Premium: autonomous band hopping over CAT.
     case enableBandHopping
     /// Premium: iCloud logbook sync.
@@ -34,7 +36,7 @@ enum FeatureFlag: String, CaseIterable {
         case .controlsSheet: return true
         case .newConfigView: return false
         case .donationsEnabled: return true
-        case .enableBandHopping, .enableICloudSync, .enablePresence:
+        case .enableFreeText, .enableBandHopping, .enableICloudSync, .enablePresence:
             #if DEBUG
             return true
             #else

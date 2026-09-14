@@ -11,8 +11,8 @@ import SwiftUI
 
 struct TransmissionButtonsBar: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @State private var containerWidth: CGFloat = 0
-    @State private var showFreeText = false
 
     var body: some View {
         // Evaluated once per body (it validates callsign/locator).
@@ -29,23 +29,22 @@ struct TransmissionButtonsBar: View {
             .buttonStyle(.borderedProminent)
             .disabled(!settingsLoaded)
 
-            Button(viewModel.freeTextLoopActive ? "Stop Free Text" : "Free Text") {
-                if viewModel.freeTextLoopActive {
-                    viewModel.stopFreeTextLoop()
-                } else {
-                    showFreeText = true
+            if flags.isEnabled(.enableFreeText) {
+                Button(viewModel.freeTextLoopActive ? "Stop Free Text" : "Free Text") {
+                    if viewModel.freeTextLoopActive {
+                        viewModel.stopFreeTextLoop()
+                    } else {
+                        // Presented by ContentView: see RootUIState.
+                        viewModel.rootState.showFreeTextSheet = true
+                    }
                 }
-            }
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .fixedSize(horizontal: true, vertical: false)
-            .tint(viewModel.freeTextLoopActive ? .red : .blue)
-            .buttonStyle(.borderedProminent)
-            .disabled(!settingsLoaded)
-            .accessibilityIdentifier("button_freeText")
-            .sheet(isPresented: $showFreeText) {
-                FreeTextTXView()
-                    .environmentObject(viewModel)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: true, vertical: false)
+                .tint(viewModel.freeTextLoopActive ? .red : .blue)
+                .buttonStyle(.borderedProminent)
+                .disabled(!settingsLoaded)
+                .accessibilityIdentifier("button_freeText")
             }
 
             Button("Stop TX") {

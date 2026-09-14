@@ -9,26 +9,39 @@ import SwiftUI
 
 /// Sheet to type a 13-character free-text message and loop it on every
 /// my-turn slot until stopped.
+///
+/// The field edits a local draft and only writes `viewModel.freeTextMessage`
+/// when the loop starts or the sheet closes. Writing it per keystroke would
+/// publish the whole view model on every character — besides being wasteful,
+/// that re-renders the controls bar this sheet is launched from.
 struct FreeTextTXView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @Environment(\.dismiss) private var dismiss
     @FocusState private var fieldFocused: Bool
+    @State private var draft: String = ""
 
-    private var text: String { viewModel.freeTextForTX }
+    private var text: String { FreeTextMessage.sanitize(draft) }
+
+    private var canStart: Bool {
+        guard case .success = FreeTextMessage.validate(text) else { return false }
+        return viewModel.settingsLoaded
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("HELLO WORLD", text: Binding(
-                        get: { viewModel.freeTextMessage },
-                        set: { viewModel.freeTextMessage = FreeTextMessage.sanitize($0) }
-                    ))
-                    .font(.system(.title3, design: .monospaced))
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .focused($fieldFocused)
-                    .accessibilityIdentifier("field_freeText")
+                    TextField("HELLO WORLD", text: $draft)
+                        .font(.system(.title3, design: .monospaced))
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .focused($fieldFocused)
+                        .onChange(of: draft) { newValue in
+                            // Keep the field honest as you type, but stay local.
+                            let clean = FreeTextMessage.sanitize(newValue)
+                            if clean != newValue { draft = clean }
+                        }
+                        .accessibilityIdentifier("field_freeText")
 
                     HStack {
                         Text("\(text.count)/\(FreeTextMessage.maxLength)")
@@ -47,8 +60,13 @@ struct FreeTextTXView: View {
 
                 Section {
                     Button {
-                        viewModel.toggleFreeTextLoop()
-                        if viewModel.freeTextLoopActive { dismiss() }
+                        if viewModel.freeTextLoopActive {
+                            viewModel.stopFreeTextLoop()
+                        } else {
+                            viewModel.freeTextMessage = text
+                            viewModel.startFreeTextLoop()
+                            if viewModel.freeTextLoopActive { dismiss() }
+                        }
                     } label: {
                         Label(
                             viewModel.freeTextLoopActive ? "Stop loop" : "Start loop",
@@ -58,7 +76,7 @@ struct FreeTextTXView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(viewModel.freeTextLoopActive ? .red : .blue)
-                    .disabled(!viewModel.freeTextLoopActive && !viewModel.canStartFreeTextLoop)
+                    .disabled(!viewModel.freeTextLoopActive && !canStart)
                     .listRowBackground(Color.clear)
                     .accessibilityIdentifier("button_freeTextLoop")
                 }
@@ -70,7 +88,14 @@ struct FreeTextTXView: View {
                     CloseButton()
                 }
             }
-            .onAppear { fieldFocused = true }
+            .onAppear {
+                draft = viewModel.freeTextMessage
+                fieldFocused = true
+            }
+            .onDisappear {
+                // Keep whatever was typed for next time.
+                viewModel.freeTextMessage = text
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)

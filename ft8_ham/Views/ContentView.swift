@@ -274,6 +274,10 @@ struct ContentView: View {
                     InAppPrompts.shared.checkPrompts()
                 }
             }
+            .sheet(isPresented: $root.showFreeTextSheet) {
+                FreeTextTXView()
+                    .environmentObject(viewModel)
+            }
         }
     }
     

@@ -36,6 +36,13 @@ struct DebugSettingsView: View {
                 }
 
                 Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.enableFreeText) },
+                    set: { flags.setOverride(.enableFreeText, value: $0) }
+                )) {
+                    Label("Free Text TX", systemImage: "text.bubble")
+                }
+
+                Toggle(isOn: Binding(
                     get: { flags.isEnabled(.enableBandHopping) },
                     set: { flags.setOverride(.enableBandHopping, value: $0) }
                 )) {
