@@ -147,14 +147,6 @@ struct ConfigurationView: View {
         Group {
             Section {
                 accountRow
-                if !premiumManager.isPremiumUnlocked {
-                    Button {
-                        presentPaywall(for: nil)
-                    } label: {
-                        ExternalActionRow(title: "Become Premium", systemImage: "star")
-                    }
-                    .accessibilityIdentifier("button_becomePremium")
-                }
             }
 
             // Sections are laid out one by one rather than through a
@@ -292,7 +284,7 @@ struct ConfigurationView: View {
         }
     }
 
-    private func presentPaywall(for feature: PremiumFeature?) {
+    private func presentPaywall(for feature: PremiumFeature) {
         paywallFeature = feature
         showPremium = true
     }

@@ -84,6 +84,16 @@ final class PremiumGatingUITests: XCTestCase {
         }
     }
 
+    /// Opens the paywall through the locked CAT Control row; there is no
+    /// standalone "Become Premium" entry in the list.
+    @MainActor
+    private func openPaywallFromLockedRow() {
+        let lockedRow = app.buttons["premiumLocked_cat_control"]
+        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
+        scrollToVisible(lockedRow)
+        lockedRow.tap()
+    }
+
     /// Dismisses a presented sheet using the "Done" cancel button if present,
     /// otherwise falls back to a swipe-down gesture.
     @MainActor
@@ -262,11 +272,7 @@ final class PremiumGatingUITests: XCTestCase {
     func testPaywallShowsCorrectContent() throws {
         openSettingsTab()
 
-        // Open paywall via the premium row at the top of the list
-        let becomePremiumButton = app.buttons["Become Premium"]
-        scrollToVisible(becomePremiumButton, maxSwipes: 10)
-        XCTAssertTrue(becomePremiumButton.waitForExistence(timeout: 5))
-        becomePremiumButton.tap()
+        openPaywallFromLockedRow()
 
         XCTAssertTrue(
             app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 5),
@@ -286,10 +292,7 @@ final class PremiumGatingUITests: XCTestCase {
     func testPaywallListsPSKReporterFeature() throws {
         openSettingsTab()
 
-        let becomePremiumButton = app.buttons["Become Premium"]
-        scrollToVisible(becomePremiumButton, maxSwipes: 10)
-        XCTAssertTrue(becomePremiumButton.waitForExistence(timeout: 5))
-        becomePremiumButton.tap()
+        openPaywallFromLockedRow()
 
         XCTAssertTrue(
             app.staticTexts["PSK Reporter"].waitForExistence(timeout: 5),
@@ -301,10 +304,7 @@ final class PremiumGatingUITests: XCTestCase {
     func testPaywallListsCATControlFeature() throws {
         openSettingsTab()
 
-        let becomePremiumButton = app.buttons["Become Premium"]
-        scrollToVisible(becomePremiumButton, maxSwipes: 10)
-        XCTAssertTrue(becomePremiumButton.waitForExistence(timeout: 5))
-        becomePremiumButton.tap()
+        openPaywallFromLockedRow()
 
         XCTAssertTrue(
             app.staticTexts["CAT Control"].waitForExistence(timeout: 5),
@@ -318,10 +318,7 @@ final class PremiumGatingUITests: XCTestCase {
     func testPaywallCanBeDismissed() throws {
         openSettingsTab()
 
-        let becomePremiumButton = app.buttons["Become Premium"]
-        scrollToVisible(becomePremiumButton, maxSwipes: 10)
-        XCTAssertTrue(becomePremiumButton.waitForExistence(timeout: 5))
-        becomePremiumButton.tap()
+        openPaywallFromLockedRow()
 
         XCTAssertTrue(
             app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 5),
