@@ -16,6 +16,7 @@ enum PremiumFeature: String, CaseIterable {
     case lotwSync = "lotw_sync"
     case eqslSync = "eqsl_sync"
     case statistics = "statistics"
+    case bandHopping = "band_hopping"
 
     var displayName: String {
         switch self {
@@ -26,6 +27,7 @@ enum PremiumFeature: String, CaseIterable {
         case .eqslSync: return "eQSL"
         case .iPadDashboard: return "iPad Dashboard"
         case .statistics: return "Statistics"
+        case .bandHopping: return "Band Hopping"
         }
     }
 
@@ -38,6 +40,7 @@ enum PremiumFeature: String, CaseIterable {
         case .eqslSync: return "envelope.badge.shield.half.filled"
         case .iPadDashboard: return "rectangle.split.3x1"
         case .statistics: return "chart.bar.xaxis"
+        case .bandHopping: return "arrow.triangle.2.circlepath"
         }
     }
 
@@ -50,6 +53,7 @@ enum PremiumFeature: String, CaseIterable {
         case .lotwSync: return "Upload QSOs and fetch LoTW confirmations"
         case .eqslSync: return "Upload QSOs and fetch eQSL confirmations"
         case .statistics: return "Charts, heatmaps and detailed analytics of your QSO activity"
+        case .bandHopping: return "Rotate through your favourite bands automatically while idle"
         }
     }
 
@@ -62,6 +66,7 @@ enum PremiumFeature: String, CaseIterable {
         case .lotwSync: return .green
         case .eqslSync: return .cyan
         case .statistics: return .indigo
+        case .bandHopping: return .mint
         }
     }
 

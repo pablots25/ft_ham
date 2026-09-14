@@ -14,6 +14,12 @@ enum FeatureFlag: String, CaseIterable {
     case controlsSheet
     case newConfigView
     case donationsEnabled
+    /// Premium: autonomous band hopping over CAT.
+    case enableBandHopping
+    /// Premium: iCloud logbook sync.
+    case enableICloudSync
+    /// Premium: "users online" presence on the map.
+    case enablePresence
 
     var defaultValue: Bool {
         switch self {
@@ -28,6 +34,12 @@ enum FeatureFlag: String, CaseIterable {
         case .controlsSheet: return true
         case .newConfigView: return false
         case .donationsEnabled: return true
+        case .enableBandHopping, .enableICloudSync, .enablePresence:
+            #if DEBUG
+            return true
+            #else
+            return false
+            #endif
         }
     }
 }

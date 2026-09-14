@@ -269,6 +269,46 @@ private final class eQSLServiceAdapter: eQSLServiceProtocol {
     }
 }
 
+// MARK: - Band Hop Adapter
+
+/// Adapter that wraps FTHamPremium.BandHopScheduler to conform to local BandHopSchedulerProtocol.
+@MainActor
+private final class BandHopAdapter: BandHopSchedulerProtocol {
+    private let scheduler: FTHamPremium.BandHopScheduler
+
+    init(scheduler: FTHamPremium.BandHopScheduler) {
+        self.scheduler = scheduler
+    }
+
+    private static func map(_ state: FTHamPremium.BandHopState) -> BandHopState {
+        switch state {
+        case .stopped: return .stopped
+        case .dwelling(let band, let until): return .dwelling(bandRaw: band, until: until)
+        case .paused(let band, let remaining): return .paused(bandRaw: band, remaining: remaining)
+        }
+    }
+
+    var state: BandHopState { Self.map(scheduler.state) }
+
+    var statePublisher: AnyPublisher<BandHopState, Never> {
+        scheduler.statePublisher.map(Self.map).eraseToAnyPublisher()
+    }
+
+    var hopRequests: AnyPublisher<String, Never> { scheduler.hopRequests }
+
+    func start(schedule: BandHopSchedule, startingAt bandRaw: String?) {
+        let steps = schedule.steps.map {
+            FTHamPremium.BandHopStep(id: $0.id, bandRaw: $0.bandRaw, dwellMinutes: $0.dwellMinutes)
+        }
+        scheduler.start(schedule: FTHamPremium.BandHopSchedule(steps: steps), startingAt: bandRaw)
+    }
+
+    func stop() { scheduler.stop() }
+    func pause() { scheduler.pause() }
+    func resume() { scheduler.resume() }
+    func skipToNext() { scheduler.skipToNext() }
+}
+
 #endif
 
 /// Factory for premium features.
@@ -332,6 +372,20 @@ public enum PremiumFeatures {
             #endif
         }()
         _lotwService = instance
+        return instance
+    }
+
+    private static var _bandHopScheduler: (any BandHopSchedulerProtocol)?
+    public static var bandHopScheduler: any BandHopSchedulerProtocol {
+        if let existing = _bandHopScheduler { return existing }
+        let instance: any BandHopSchedulerProtocol = {
+            #if canImport(FTHamPremium)
+            return BandHopAdapter(scheduler: FTHamPremium.BandHopScheduler.shared)
+            #else
+            return BandHopSchedulerStub.shared
+            #endif
+        }()
+        _bandHopScheduler = instance
         return instance
     }
 

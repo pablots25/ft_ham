@@ -29,7 +29,7 @@ private struct SettingsSearchItem: Identifiable {
 private enum SettingsDestination {
     case station, radio, behavior, interface
     #if canImport(FTHamPremium)
-    case catControl, qrzLogbook, loTW, eQSL
+    case catControl, qrzLogbook, loTW, eQSL, bandHopping
     #endif
     #if DEBUG
     case debug
@@ -42,6 +42,7 @@ private enum SettingsDestination {
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @EnvironmentObject private var premiumManager: PremiumManager
+    @EnvironmentObject private var flags: FeatureFlagManager
     @Binding var shouldScrollToDonations: Bool
 
     @State private var showHelp = false
@@ -145,6 +146,20 @@ struct ConfigurationView: View {
                 } else {
                     PremiumLockedRow(feature: .catControl) {
                         showPremium = true
+                    }
+                }
+
+                if flags.isEnabled(.enableBandHopping) {
+                    if premiumManager.isPremiumUnlocked {
+                        NavigationLink {
+                            BandHopSettingsView(allowedBands: Self.bandHopBands)
+                        } label: {
+                            Label("Band Hopping", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    } else {
+                        PremiumLockedRow(feature: .bandHopping) {
+                            showPremium = true
+                        }
                     }
                 }
                 #endif
@@ -344,6 +359,11 @@ struct ConfigurationView: View {
                       section: "General",
                       keywords: ["rig", "transceiver", "serial", "hamlib", "cat"],
                       destination: .catControl),
+                .init(title: "Band Hopping",
+                      systemImage: "arrow.triangle.2.circlepath",
+                      section: "General",
+                      keywords: ["band", "hop", "rotate", "schedule", "cat"],
+                      destination: .bandHopping),
                 .init(title: "QRZ Logbook",
                       systemImage: "network",
                       section: "Log Syncing",
@@ -377,6 +397,13 @@ struct ConfigurationView: View {
         return items
     }
 
+    /// Bands with an FT8 dial frequency, as offered by the band-hop editor.
+    static var bandHopBands: [String] {
+        FT8Message.Band.allCases
+            .filter { $0.frequency(for: .ft8) != nil && $0 != .custom && $0 != .unknown }
+            .map(\.rawValue)
+    }
+
     private var filteredItems: [SettingsSearchItem] {
         guard !searchText.isEmpty else { return [] }
         return allSettingsItems.filter { $0.matches(searchText) }
@@ -399,6 +426,8 @@ struct ConfigurationView: View {
         case .catControl:
             CatSettingsView(initialFrequencyMHz: viewModel.catDialFrequencyMHz)
                 .padding(.horizontal)
+        case .bandHopping:
+            BandHopSettingsView(allowedBands: Self.bandHopBands)
         case .qrzLogbook:
             ScrollView {
                 QRZSettingsView()

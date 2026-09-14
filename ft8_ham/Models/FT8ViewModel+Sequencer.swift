@@ -245,6 +245,15 @@ extension FT8ViewModel {
         return .receive
     }
     
+    /// Drops audio captured so far in this slot (e.g. after a band hop, so the
+    /// next decode does not mix two bands).
+    @MainActor
+    internal func clearRXBuffer() {
+        rxBufferLock.lock()
+        rxSampleBuffer = Data()
+        rxBufferLock.unlock()
+    }
+
     /// Slot parity check shared by the QSO and free-text loops.
     @MainActor
     internal func isMyTurn(_ slot: SlotInfo) -> Bool {

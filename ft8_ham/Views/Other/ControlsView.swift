@@ -471,6 +471,10 @@ struct QSOStatusView: View {
                     if viewModel.catEnabled {
                         catStatusChip
                     }
+
+                    if viewModel.bandHopEnabled, viewModel.bandHopState != .stopped {
+                        BandHopChip()
+                    }
                 }
                 
                 // Callsign + Locator
@@ -553,5 +557,54 @@ struct ClockOffsetChip: View {
             format: String(localized: "Device clock is off by %@ s; FT8 needs less than 1 s"),
             String(format: "%+.2f", clockSync.offset)
         )
+    }
+}
+
+// MARK: - Band hop chip
+
+/// "HOP 20m 3:41" countdown to the next band; paused during a QSO. Tap to
+/// hop right away.
+struct BandHopChip: View {
+    @EnvironmentObject private var viewModel: FT8ViewModel
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Button {
+                viewModel.skipToNextBand()
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.caption2)
+                    Text(label(at: context.date))
+                        .font(.caption2.monospacedDigit())
+                }
+                .foregroundStyle(color)
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Band Hopping"))
+            .accessibilityIdentifier("chip_bandHop")
+        }
+    }
+
+    private func label(at now: Date) -> String {
+        switch viewModel.bandHopState {
+        case .stopped:
+            return ""
+        case .dwelling(let band, let until):
+            return "\(band) \(Self.mmss(until.timeIntervalSince(now)))"
+        case .paused(let band, _):
+            return "\(band) ⏸"
+        }
+    }
+
+    private var color: Color {
+        if case .paused = viewModel.bandHopState { return .orange }
+        return .mint
+    }
+
+    private static func mmss(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded(.up)))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }

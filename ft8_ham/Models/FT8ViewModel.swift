@@ -289,6 +289,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
             } else {
                 stopCatFrequencyPolling()
                 catController.disconnect()
+                stopBandHopping()
             }
         }
     }
@@ -305,6 +306,18 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         }
     }
     @AppStorage("catApplyAudioOffset") var catApplyAudioOffset = false
+
+    // MARK: - Band hopping (premium)
+    @AppStorage("bandHopEnabled") var bandHopEnabled = false {
+        didSet { reconcileBandHopping() }
+    }
+    /// Mirror of the scheduler state for the UI.
+    @Published var bandHopState: BandHopState = .stopped
+    internal var bandHopScheduler: any BandHopSchedulerProtocol = PremiumFeatures.bandHopScheduler
+    internal var bandHopCancellables = Set<AnyCancellable>()
+    internal var activeBandHopSchedule: BandHopSchedule?
+    /// Feature flag + entitlement check; tests override it.
+    internal var bandHopGate: () -> Bool = FT8ViewModel.defaultBandHopGate
 
     @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
     @AppStorage("cqIncludeGrid") var cqIncludeGrid: Bool = true
@@ -541,6 +554,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
 
         setupClockSyncObserver()
         ClockSyncManager.shared.start()
+        setupBandHopObserver()
+        reconcileBandHopping()
     }
     
     @MainActor
@@ -606,6 +621,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
                 guard let self else { return }
                 if self.catEnabled { self.catEnabled = false }
                 if self.pskReporterEnabled { self.pskReporterEnabled = false }
+                self.stopBandHopping()
             }
             .store(in: &cancellables)
     }
