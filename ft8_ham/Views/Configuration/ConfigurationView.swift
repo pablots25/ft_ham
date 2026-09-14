@@ -31,6 +31,7 @@ private enum SettingsDestination {
     #if canImport(FTHamPremium)
     case catControl, qrzLogbook, loTW, eQSL, bandHopping
     #endif
+    case iCloudSync
     #if DEBUG
     case debug
     #endif
@@ -219,6 +220,19 @@ struct ConfigurationView: View {
                         showPremium = true
                     }
                 }
+                if flags.isEnabled(.enableICloudSync) {
+                    if premiumManager.isPremiumUnlocked {
+                        NavigationLink {
+                            ICloudSyncSettingsView()
+                        } label: {
+                            Label("iCloud Sync", systemImage: "icloud")
+                        }
+                    } else {
+                        PremiumLockedRow(feature: .iCloudSync) {
+                            showPremium = true
+                        }
+                    }
+                }
             } header: {
                 Text("Log Syncing")
             }
@@ -359,6 +373,11 @@ struct ConfigurationView: View {
                       section: "General",
                       keywords: ["rig", "transceiver", "serial", "hamlib", "cat"],
                       destination: .catControl),
+                .init(title: "iCloud Sync",
+                      systemImage: "icloud",
+                      section: "Log Syncing",
+                      keywords: ["icloud", "sync", "backup", "devices", "cloudkit"],
+                      destination: .iCloudSync),
                 .init(title: "Band Hopping",
                       systemImage: "arrow.triangle.2.circlepath",
                       section: "General",
@@ -414,6 +433,8 @@ struct ConfigurationView: View {
     @ViewBuilder
     private func destination(for dest: SettingsDestination) -> some View {
         switch dest {
+        case .iCloudSync:
+            ICloudSyncSettingsView()
         case .station:
             StationSettingsView().padding(.horizontal)
         case .radio:

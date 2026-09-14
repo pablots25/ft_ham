@@ -552,6 +552,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
 
         workedLocators = []
 
+        CloudLogbookSyncManager.shared.viewModel = self
+        Task { await CloudLogbookSyncManager.shared.pull() }
+
         setupClockSyncObserver()
         ClockSyncManager.shared.start()
         setupBandHopObserver()

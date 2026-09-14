@@ -100,6 +100,7 @@ extension FT8ViewModel  {
 
         // Trigger log sync (QRZ / LoTW upload if enabled)
         LogSyncManager.shared.syncNewQSO(qso)
+        CloudLogbookSyncManager.shared.syncNewQSO(qso)
 
         // Show persistent local notification
         let content = UNMutableNotificationContent()

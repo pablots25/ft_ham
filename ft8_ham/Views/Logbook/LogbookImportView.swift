@@ -205,6 +205,8 @@ struct LogbookImportView: View {
                 // Non-fatal — entries are on disk; the reload will happen next launch
             }
 
+            CloudLogbookSyncManager.shared.syncImported(entriesToWrite)
+
             lastImportResult = ImportResult(imported: entriesToWrite.count, skipped: previewSkipped)
             isCommitting = false
             dismiss()

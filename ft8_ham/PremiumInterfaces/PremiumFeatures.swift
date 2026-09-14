@@ -309,6 +309,87 @@ private final class BandHopAdapter: BandHopSchedulerProtocol {
     func skipToNext() { scheduler.skipToNext() }
 }
 
+// MARK: - iCloud Logbook Adapter
+
+/// Adapter that wraps FTHamPremium.CloudLogbookSyncService to conform to
+/// the local CloudLogbookSyncProtocol.
+@MainActor
+private final class CloudLogbookSyncAdapter: CloudLogbookSyncProtocol {
+    private let service: FTHamPremium.CloudLogbookSyncService
+
+    init(service: FTHamPremium.CloudLogbookSyncService) {
+        self.service = service
+    }
+
+    func accountStatus() async -> CloudSyncAccountStatus {
+        switch await service.accountStatus() {
+        case .available: return .available
+        case .noAccount: return .noAccount
+        case .restricted: return .restricted
+        case .unknown: return .unknown
+        }
+    }
+
+    func push(_ records: [CloudLogRecord]) async throws {
+        do {
+            try await service.push(records.map(Self.map))
+        } catch let error as FTHamPremium.CloudLogbookSyncError {
+            throw Self.map(error)
+        }
+    }
+
+    func pullChanges() async throws -> CloudPullResult {
+        do {
+            let result = try await service.pullChanges()
+            return CloudPullResult(
+                upserted: result.upserted.map(Self.map),
+                deletedKeys: result.deletedKeys
+            )
+        } catch let error as FTHamPremium.CloudLogbookSyncError {
+            throw Self.map(error)
+        }
+    }
+
+    func deleteAllRemote() async throws {
+        do {
+            try await service.deleteAllRemote()
+        } catch let error as FTHamPremium.CloudLogbookSyncError {
+            throw Self.map(error)
+        }
+    }
+
+    func resetChangeToken() { service.resetChangeToken() }
+
+    private static func map(_ r: CloudLogRecord) -> FTHamPremium.CloudLogRecord {
+        FTHamPremium.CloudLogRecord(
+            dedupKey: r.dedupKey, sourceID: r.sourceID, callsign: r.callsign, grid: r.grid,
+            date: r.date, frequencyHz: r.frequencyHz, mode: r.mode, band: r.band,
+            rstSent: r.rstSent, rstRcvd: r.rstRcvd, stationCallsign: r.stationCallsign,
+            cqModifier: r.cqModifier, mySigInfo: r.mySigInfo, country: r.country,
+            flag: r.flag, qrzStatusRaw: r.qrzStatusRaw, lotwStatusRaw: r.lotwStatusRaw
+        )
+    }
+
+    private static func map(_ r: FTHamPremium.CloudLogRecord) -> CloudLogRecord {
+        CloudLogRecord(
+            dedupKey: r.dedupKey, sourceID: r.sourceID, callsign: r.callsign, grid: r.grid,
+            date: r.date, frequencyHz: r.frequencyHz, mode: r.mode, band: r.band,
+            rstSent: r.rstSent, rstRcvd: r.rstRcvd, stationCallsign: r.stationCallsign,
+            cqModifier: r.cqModifier, mySigInfo: r.mySigInfo, country: r.country,
+            flag: r.flag, qrzStatusRaw: r.qrzStatusRaw, lotwStatusRaw: r.lotwStatusRaw
+        )
+    }
+
+    private static func map(_ error: FTHamPremium.CloudLogbookSyncError) -> CloudLogbookSyncError {
+        switch error {
+        case .premiumRequired: return .premiumRequired
+        case .notAvailable: return .notAvailable
+        case .network(let message): return .network(message)
+        case .server(let message): return .server(message)
+        }
+    }
+}
+
 #endif
 
 /// Factory for premium features.
@@ -386,6 +467,20 @@ public enum PremiumFeatures {
             #endif
         }()
         _bandHopScheduler = instance
+        return instance
+    }
+
+    private static var _cloudLogbookSync: (any CloudLogbookSyncProtocol)?
+    public static var cloudLogbookSync: any CloudLogbookSyncProtocol {
+        if let existing = _cloudLogbookSync { return existing }
+        let instance: any CloudLogbookSyncProtocol = {
+            #if canImport(FTHamPremium)
+            return CloudLogbookSyncAdapter(service: FTHamPremium.CloudLogbookSyncService.shared)
+            #else
+            return CloudLogbookSyncStub.shared
+            #endif
+        }()
+        _cloudLogbookSync = instance
         return instance
     }
 

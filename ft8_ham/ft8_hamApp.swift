@@ -154,6 +154,10 @@ struct ft8_hamApp: App {
             case .active:
                 NotificationHelper.cancelSequencerPausedNotification()
                 Task { await ClockSyncManager.shared.syncNow() }
+                Task {
+                    await CloudLogbookSyncManager.shared.pull()
+                    await CloudLogbookSyncManager.shared.pushPending()
+                }
                 Task { @MainActor in
                     if viewModel.wasSequencerRunningBeforeBackground {
                         if featureFlags.isEnabled(.backgroundToast) {
