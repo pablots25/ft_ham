@@ -22,6 +22,13 @@ struct FreeTextTXView: View {
 
     private var text: String { FreeTextMessage.sanitize(draft) }
 
+    /// "73 DE <own callsign>": a real message that also shows the habit the
+    /// footer asks for, since free text carries no callsign of its own.
+    private var placeholder: String {
+        let call = viewModel.callsign.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return FreeTextMessage.sanitize("73 DE \(call.isEmpty ? "EA4IQL" : call)")
+    }
+
     private var canStart: Bool {
         guard case .success = FreeTextMessage.validate(text) else { return false }
         return viewModel.settingsLoaded
@@ -31,7 +38,7 @@ struct FreeTextTXView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("HELLO WORLD", text: $draft)
+                    TextField(placeholder, text: $draft)
                         .font(.system(.title3, design: .monospaced))
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
@@ -114,6 +121,10 @@ struct FreeTextTXView: View {
 }
 
 #Preview {
-    FreeTextTXView()
-        .environmentObject(FT8ViewModel())
+    let viewModel = FT8ViewModel()
+    viewModel.callsign = "EA4IQL"
+    viewModel.locator = "IN80"
+    viewModel.freeTextMessage = "TNX QSO 73"
+    return FreeTextTXView()
+        .environmentObject(viewModel)
 }
