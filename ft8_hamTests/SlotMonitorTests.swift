@@ -68,8 +68,15 @@ final class SlotMonitorTests: XCTestCase {
         }
         XCTAssertEqual(pos, audio.count)
 
+        // 1 s = 6 symbols × 2 sub-rows. The second sub-row of each block is
+        // held back until the next audio callback ≥ 70 ms later, so right
+        // after a burst the last block's second row is still pending.
+        XCTAssertEqual(rows().count, 6 * 2 - 1)
+        usleep(100_000)
+        let tail = sine(hz: 1500, seconds: 0.001)
+        tail.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
         let emitted = rows()
-        XCTAssertEqual(emitted.count, 6 * 2, "1 s = 6 symbols × 2 sub-blocks; the partial 7th waits")
+        XCTAssertEqual(emitted.count, 6 * 2, "the held row is released on the next callback")
 
         let last = emitted.last!
         XCTAssertEqual(last.firstBinHz, 200, accuracy: 0.01)
@@ -125,7 +132,37 @@ final class SlotMonitorTests: XCTestCase {
         let rows = collectRows(monitor)
         let audio = sine(hz: 1000, seconds: 40.0)   // 250 symbols > 186 stored
         audio.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
-        XCTAssertEqual(rows().count, 250 * 2)
+        XCTAssertEqual(rows().count, 250 * 2 - 1, "all but the one held row")
+    }
+
+    /// Rows never reorder: a held row goes out before the next block's rows,
+    /// and before a slot reset.
+    func test_heldRowKeepsItsOrder() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let lock = NSLock()
+        var peaks: [Int] = []
+        monitor.rowHandler = { ptr, count, _, _ in
+            let row = UnsafeBufferPointer(start: ptr, count: Int(count))
+            let peak = row.indices.max { row[$0] < row[$1] }!
+            lock.lock(); peaks.append(peak); lock.unlock()
+        }
+        // Two symbols of 1000 Hz then two of 2000 Hz: every low row must
+        // come out before every high row. (The STFT window spans two
+        // symbols, so the rows around the change still lean low.)
+        let low = sine(hz: 1000, seconds: 0.32)
+        let high = sine(hz: 2000, seconds: 0.32)
+        low.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
+        high.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
+        _ = monitor.snapshotAndReset()   // releases the held row
+
+        lock.lock(); let seen = peaks; lock.unlock()
+        XCTAssertEqual(seen.count, 8)
+        let lowBin = Int(((1000.0 - 200) / 3.125).rounded())
+        let highBin = Int(((2000.0 - 200) / 3.125).rounded())
+        XCTAssertEqual(seen.first ?? -1, lowBin, accuracy: 1)
+        XCTAssertEqual(seen.last ?? -1, highBin, accuracy: 1)
+        XCTAssertEqual(seen, seen.sorted(), "rows reordered: \(seen)")
+        XCTAssertTrue(seen.allSatisfy { abs($0 - lowBin) <= 1 || abs($0 - highBin) <= 1 }, "\(seen)")
     }
 
     func test_reconfigure_switchesProtocol() {

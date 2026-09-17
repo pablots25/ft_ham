@@ -30,8 +30,12 @@ extension FT8ViewModel {
             )
         }
 
+        // A serial queue: the global concurrent queue can run two consecutive
+        // buffers on two threads, and audio fed to the monitor out of order
+        // corrupts both the display and the decode.
+        let monitorQueue = DispatchQueue(label: "ft8.slotMonitor", qos: .userInitiated)
         audioManager.audioSamplesPublisher
-            .receive(on: DispatchQueue.global(qos: .userInitiated))
+            .receive(on: monitorQueue)
             .sink { [weak self] samples in
                 guard let self else { return }
                 // One FFT pass serves both the waterfall (rows as they are

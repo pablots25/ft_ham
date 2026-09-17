@@ -7,6 +7,7 @@
 
 #import "ft8_SlotMonitor.h"
 
+#include <mach/mach_time.h>
 #include <mutex>
 #include <vector>
 
@@ -16,6 +17,21 @@ static const float kMonitorMinFrequency = 200.0f;
 static const float kMonitorMaxFrequency = 3000.0f;
 static const int kMonitorTimeOSR = 2;
 static const int kMonitorFreqOSR = 2;
+// ft8_lib analyses a whole symbol at once and produces both of its sub-rows
+// together. Emitting them together makes the display jump two rows every
+// 160 ms; instead the second sub-row is held back and released on the first
+// audio callback at least this long after the first, so rows reach the
+// display at a steady ~80 ms cadence. The audio tap runs every ~46 ms.
+static const double kStaggerSeconds = 0.070;
+
+static double monotonicSeconds(void) {
+  static mach_timebase_info_data_t timebase;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    mach_timebase_info(&timebase);
+  });
+  return (double)mach_absolute_time() * timebase.numer / timebase.denom / 1e9;
+}
 
 // -----------------------------------------------------------------------------
 // MARK: - FT8WaterfallSnapshot
@@ -66,6 +82,12 @@ static const int kMonitorFreqOSR = 2;
   std::vector<float> _pending;
   // One display row, bins interleaved into increasing-frequency order.
   std::vector<uint8_t> _row;
+  // Second sub-row of the last block, waiting for its turn (see kStaggerSeconds).
+  std::vector<uint8_t> _heldRow;
+  BOOL _hasHeldRow;
+  double _heldRowTime;
+  float _heldRowFirstBinHz;
+  float _heldRowBinHz;
 }
 
 - (instancetype)initWithSampleRate:(int)sampleRate isFT4:(BOOL)isFT4 {
@@ -115,6 +137,8 @@ static const int kMonitorFreqOSR = 2;
   _pending.clear();
   _pending.reserve((size_t)_mon.block_size);
   _row.assign((size_t)_mon.wf.num_bins * _mon.wf.freq_osr, 0);
+  _heldRow.assign(_row.size(), 0);
+  _hasHeldRow = NO;
 }
 
 - (float)rowPeriod {
@@ -137,6 +161,11 @@ static const int kMonitorFreqOSR = 2;
   }
   std::lock_guard<std::mutex> guard(_lock);
 
+  const double now = monotonicSeconds();
+  if (_hasHeldRow && now - _heldRowTime >= kStaggerSeconds) {
+    [self emitHeldRowLocked];
+  }
+
   const size_t blockSize = (size_t)_mon.block_size;
   size_t pos = 0;
   while (pos < count) {
@@ -158,34 +187,59 @@ static const int kMonitorFreqOSR = 2;
     int block = _mon.wf.num_blocks;
     monitor_process(&_mon, _pending.data());
     _pending.clear();
-    [self emitRowsForBlockLocked:block];
+    [self emitRowsForBlockLocked:block atTime:now];
   }
 }
 
-/// Hands each time subdivision of `block` to the row handler.
-/// Caller holds `_lock`.
-- (void)emitRowsForBlockLocked:(int)block {
-  FT8SlotMonitorRowHandler handler = self.rowHandler;
-  if (handler == nil) {
-    return;
-  }
+/// Copies time subdivision `timeSub` of `block` into `row`, bins in
+/// increasing-frequency order. Caller holds `_lock`.
+- (void)copyRowOfBlock:(int)block timeSub:(int)timeSub into:(std::vector<uint8_t> &)row {
   const ftx_waterfall_t *wf = &_mon.wf;
   const int numBins = wf->num_bins;
   const int freqOSR = wf->freq_osr;
-  const float binHz = 1.0f / (_mon.symbol_period * (float)freqOSR);
+  // Storage is [block][time_sub][freq_sub][bin]; the display wants
+  // frequency monotonic, i.e. bin-major with the subdivisions interleaved.
+  const WF_ELEM_T *base = wf->mag + (size_t)block * wf->block_stride +
+                          (size_t)timeSub * freqOSR * numBins;
+  for (int bin = 0; bin < numBins; ++bin) {
+    for (int sub = 0; sub < freqOSR; ++sub) {
+      row[(size_t)bin * freqOSR + sub] = base[(size_t)sub * numBins + bin];
+    }
+  }
+}
+
+/// Emits the first sub-row of `block` now and holds the last one back
+/// (see kStaggerSeconds). Any row still held from the previous block goes
+/// out first so rows never reorder. Caller holds `_lock`.
+- (void)emitRowsForBlockLocked:(int)block atTime:(double)now {
+  if (self.rowHandler == nil) {
+    _hasHeldRow = NO;
+    return;
+  }
+  if (_hasHeldRow) {
+    [self emitHeldRowLocked];
+  }
+  const ftx_waterfall_t *wf = &_mon.wf;
+  const float binHz = 1.0f / (_mon.symbol_period * (float)wf->freq_osr);
   const float firstBinHz = (float)_mon.min_bin / _mon.symbol_period;
 
-  for (int timeSub = 0; timeSub < wf->time_osr; ++timeSub) {
-    // Storage is [block][time_sub][freq_sub][bin]; the display wants
-    // frequency monotonic, i.e. bin-major with the subdivisions interleaved.
-    const WF_ELEM_T *base = wf->mag + (size_t)block * wf->block_stride +
-                            (size_t)timeSub * freqOSR * numBins;
-    for (int bin = 0; bin < numBins; ++bin) {
-      for (int sub = 0; sub < freqOSR; ++sub) {
-        _row[(size_t)bin * freqOSR + sub] = base[(size_t)sub * numBins + bin];
-      }
-    }
-    handler(_row.data(), (int)_row.size(), firstBinHz, binHz);
+  for (int timeSub = 0; timeSub < wf->time_osr - 1; ++timeSub) {
+    [self copyRowOfBlock:block timeSub:timeSub into:_row];
+    self.rowHandler(_row.data(), (int)_row.size(), firstBinHz, binHz);
+  }
+  [self copyRowOfBlock:block timeSub:wf->time_osr - 1 into:_heldRow];
+  _heldRowFirstBinHz = firstBinHz;
+  _heldRowBinHz = binHz;
+  _heldRowTime = now;
+  _hasHeldRow = YES;
+}
+
+/// Caller holds `_lock`.
+- (void)emitHeldRowLocked {
+  _hasHeldRow = NO;
+  FT8SlotMonitorRowHandler handler = self.rowHandler;
+  if (handler != nil) {
+    handler(_heldRow.data(), (int)_heldRow.size(), _heldRowFirstBinHz, _heldRowBinHz);
   }
 }
 
@@ -195,7 +249,7 @@ static const int kMonitorFreqOSR = 2;
     return;
   }
   _isFT4 = isFT4;
-  [self setUpMonitorLocked];
+  [self setUpMonitorLocked];   // also drops any held row: its geometry is gone
 }
 
 - (void)resetSlot {
@@ -205,6 +259,10 @@ static const int kMonitorFreqOSR = 2;
 
 /// Caller holds `_lock`.
 - (void)resetSlotLocked {
+  // The held row belongs to the slot that just ended; let it out first.
+  if (_hasHeldRow) {
+    [self emitHeldRowLocked];
+  }
   monitor_reset(&_mon);
   // Drop the partial block so block 0 starts at the reset instant. Up to one
   // symbol of audio is skipped, which is exactly the audio that straddles
