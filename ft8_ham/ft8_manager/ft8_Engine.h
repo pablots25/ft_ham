@@ -7,6 +7,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 #import <Foundation/Foundation.h>
+#import "ft8_SlotMonitor.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,6 +93,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSArray<NSDictionary *> *)decodeBufferUsingMonitor:(NSData *)audioData
                                            sampleRate:(double)sampleRate
+                                                isFT4:(BOOL)isFT4;
+
+/// Decodes one slot from the spectrogram the streaming `FT8SlotMonitor`
+/// already computed for the waterfall, so the audio is analysed only once.
+- (NSArray<NSDictionary *> *)decodeSlotSnapshot:(FT8WaterfallSnapshot *)snapshot
                                                 isFT4:(BOOL)isFT4;
 
 @end

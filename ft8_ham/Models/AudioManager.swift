@@ -75,9 +75,15 @@ final class AudioManager: NSObject, AudioManaging {
     private let playerNode = AVAudioPlayerNode()
     private let inputNode: AVAudioInputNode?
 
+    /// Hardware rate of the microphone. Audio is decimated to `sampleRate`
+    /// before it is published, so consumers never see this rate.
     internal private(set) var micSampleRate: Double
+    /// Rate of the audio this manager publishes (`audioSamplesPublisher`) and
+    /// plays back: the 12 kHz the FT8 engine is specified at.
     let sampleRate: Double
     let waterfallFFTSize: Int
+    /// Converts the microphone rate to `sampleRate`; rebuilt with every tap.
+    private var decimator: AudioDecimator?
 
     // MARK: - States
 
@@ -359,6 +365,21 @@ final class AudioManager: NSObject, AudioManaging {
     }
 
     private func installInputTap(on inputNode: AVAudioInputNode, format: AVAudioFormat) {
+        // Identity rates need no converter; anything else goes through one.
+        let decimator = format.sampleRate == sampleRate
+            ? nil
+            : AudioDecimator(inputRate: format.sampleRate, outputRate: sampleRate)
+        if format.sampleRate != sampleRate && decimator == nil {
+            let error = AudioManagerError.invalidInputFormat(
+                sampleRate: format.sampleRate,
+                channels: format.channelCount
+            )
+            audioLogger.log(.error, "Cannot resample \(format.sampleRate) Hz to \(sampleRate) Hz")
+            audioErrorPublisher.send(error.localizedDescription)
+            return
+        }
+        self.decimator = decimator
+
         inputNode.installTap(
             onBus: 0,
             bufferSize: AVAudioFrameCount(waterfallFFTSize),
@@ -402,7 +423,15 @@ final class AudioManager: NSObject, AudioManaging {
                     self.clippingPublisher.send(true)
                 }
 
-                self.audioSamplesPublisher.send(output)
+                // Publish at `sampleRate`: decimate unless the mic already runs there.
+                if let decimator {
+                    let resampled = output.withUnsafeBufferPointer { decimator.process($0) }
+                    if !resampled.isEmpty {
+                        self.audioSamplesPublisher.send(resampled)
+                    }
+                } else {
+                    self.audioSamplesPublisher.send(output)
+                }
             }
     }
 

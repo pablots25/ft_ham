@@ -28,7 +28,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     // MARK: - Constants
     internal enum Constants {
         static let sampleRate: Double = 12000
+        /// Microphone tap size in hardware-rate frames.
         static let waterfallFFTSize = 2048
+        /// Columns of the waterfall image; the monitor's ~900 bins map onto them.
+        static let waterfallImageWidth = 1024
         static let waterfallRows = 1200
         static let throttleInterval = 150
         /// Upper bound for the decoded-message list. Without it the list grows
@@ -70,6 +73,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     internal let timeProvider: TimeProviding
     
     let waterfallVM: WaterfallViewModel
+    /// Streaming spectrogram of the current slot. Fed from the audio tap; the
+    /// waterfall draws its rows and the sequencer decodes it at slot end.
+    let slotMonitor: FT8SlotMonitor
 
     /// Lightweight state observed by the app root / `ContentView` so they do not
     /// have to observe this whole object. See `RootUIState`.
@@ -86,8 +92,6 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     // progressTimerCancellable moved to ProgressViewModel
     internal var isHarvestingRX = false
 
-    internal var rxSampleBuffer = Data()
-    internal let rxBufferLock = NSLock()
     
     var lastTransmittedSlotIndex: Int?
     var pendingTXMessageVersion: Int = 0
@@ -376,6 +380,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         didSet {
             if rootState.isFT4 != isFT4 { rootState.isFT4 = isFT4 }
             waterfallVM.mode = isFT4 ? .ft4 : .ft8
+            slotMonitor.reconfigureIsFT4(isFT4)
             restartLoopsForModeChange()
             scheduleCatFrequencyUpdate(reason: "mode change")
         }
@@ -492,11 +497,11 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         let storedIsFT4 = UserDefaults.standard.bool(forKey: "isFT4")
         
         waterfallVM = WaterfallViewModel(
-            sampleRate: Float(Constants.sampleRate),
-            waterfallFFTSize: Constants.waterfallFFTSize,
+            imageWidth: Constants.waterfallImageWidth,
             waterfallRows: Constants.waterfallRows,
             isFT4: storedIsFT4
         )
+        slotMonitor = FT8SlotMonitor(sampleRate: Int32(self.audioManager.sampleRate), isFT4: storedIsFT4)
         
         super.init()
         

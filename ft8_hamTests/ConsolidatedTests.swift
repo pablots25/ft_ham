@@ -1102,7 +1102,7 @@ final class ValidatorsTests: XCTestCase {
 @MainActor
 final class WaterfallViewModelTests: XCTestCase {
     func testInitAndBasicAPIs() {
-        let vm = WaterfallViewModel(sampleRate: 12000, waterfallFFTSize: 16, waterfallRows: 4, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 8, waterfallRows: 4, isFT4: false)
 
         XCTAssertEqual(vm.width, 8)
         XCTAssertEqual(vm.height, 4)
@@ -1117,14 +1117,16 @@ final class WaterfallViewModelTests: XCTestCase {
     }
 
     /// The overlay, the cursor and tap-to-set-frequency share one axis: the
-    /// right edge is `maxDisplayFrequency` and pixel → Hz → pixel round-trips.
+    /// edges are `minDisplayFrequency`/`maxDisplayFrequency` and
+    /// pixel → Hz → pixel round-trips.
     func testFrequencyAxisRoundTrip() {
-        let vm = WaterfallViewModel(sampleRate: 44100, waterfallFFTSize: 2048, waterfallRows: 4, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 1024, waterfallRows: 4, isFT4: false)
         let width: CGFloat = 390
-        let maxHz = Double(vm.config.maxDisplayFrequency)
+        let range = vm.displayedFrequencyRange
 
-        XCTAssertEqual(vm.frequencyAtPixel(x: 0, width: width), 0)
-        XCTAssertEqual(vm.frequencyAtPixel(x: width, width: width), maxHz, accuracy: 1e-6)
+        XCTAssertEqual(range, 200 ... 3000, "the display covers the band the decoder analyses")
+        XCTAssertEqual(vm.frequencyAtPixel(x: 0, width: width), range.lowerBound)
+        XCTAssertEqual(vm.frequencyAtPixel(x: width, width: width), range.upperBound, accuracy: 1e-6)
 
         for hz in [200.0, 1500.0, 2999.0] {
             let x = vm.xPosition(for: hz, in: width)
@@ -1148,56 +1150,76 @@ final class WaterfallViewModelTests: XCTestCase {
         XCTAssertEqual(1500.0.clamped(to: ft8), 1500)
     }
 
-    /// A 2048-point FFT of 44.1 kHz audio has 21.5 Hz bins; a 1500 Hz tone
-    /// sits in bin 70 and must land at 1500 / 3200 of the width, where the
-    /// overlay draws 1500 Hz. The map must follow the magnitude count, not the
-    /// configured FFT size, and clamp at Nyquist.
-    func testDisplayedBinIndicesFollowTheSampleRate() {
+    /// The monitor's bins (3.125 Hz from 200 Hz for FT8) must land on the
+    /// same columns the overlay uses for those frequencies, whatever the
+    /// image width.
+    func testDisplayedBinIndicesFollowTheSourceBins() {
         let width = 1024
+        let firstBinHz: Float = 200
+        let binHz: Float = 3.125
+        let binCount = 898
         let map = WaterfallViewModel.displayedBinIndices(
-            pixelWidth: width, magsCount: 1024, sampleRate: 44100, maxDisplayFrequency: 3200
+            pixelWidth: width, binCount: binCount, firstBinHz: firstBinHz, binHz: binHz,
+            minDisplayHz: 200, maxDisplayHz: 3000
         )
         XCTAssertEqual(map.count, width)
         XCTAssertEqual(map.first, 0)
+        XCTAssertEqual(map.last, Int(((3000 - 200) / binHz).rounded()))
 
-        let binHz = 44100.0 / 2048.0
-        let toneBin = Int((1500.0 / binHz).rounded())
-        let toneX = Int(1500.0 / 3200.0 * Double(width))
-        let pixelsPerBin = Double(width) / (3200.0 / binHz)
+        // A 1500 Hz tone is bin 416 and the overlay draws 1500 Hz at 1300/2800 of the width.
+        let toneBin = Int(((1500 - firstBinHz) / binHz).rounded())
+        let toneX = Int((1500.0 - 200.0) / 2800.0 * Double(width))
+        let pixelsPerBin = Double(width) / (2800.0 / Double(binHz))
         let drawnX = map.firstIndex(of: toneBin)!
         XCTAssertEqual(Double(drawnX), Double(toneX), accuracy: pixelsPerBin)
-        XCTAssertEqual(map[width - 1], Int((3200.0 / binHz).rounded()) - 1)
 
-        // A different buffer size changes the bin width, not the axis.
-        let map4096 = WaterfallViewModel.displayedBinIndices(
-            pixelWidth: width, magsCount: 2048, sampleRate: 44100, maxDisplayFrequency: 3200
+        // A narrower display just zooms; columns outside the source clamp.
+        let zoomed = WaterfallViewModel.displayedBinIndices(
+            pixelWidth: 100, binCount: binCount, firstBinHz: firstBinHz, binHz: binHz,
+            minDisplayHz: 0, maxDisplayHz: 400
         )
-        let toneBin4096 = Int((1500.0 / (binHz / 2)).rounded())
-        XCTAssertEqual(Double(map4096.firstIndex(of: toneBin4096)!), Double(toneX), accuracy: pixelsPerBin / 2)
-
-        // Asking for more than Nyquist stops at the last real bin.
-        let clamped = WaterfallViewModel.displayedBinIndices(
-            pixelWidth: width, magsCount: 8, sampleRate: 12000, maxDisplayFrequency: 9000
-        )
-        XCTAssertEqual(clamped.last, 7)
+        XCTAssertEqual(zoomed.first, 0)
+        let lastColumnCentreHz: Float = 398   // 0 + 99.5 / 100 × 400
+        XCTAssertEqual(zoomed.last, Int(((lastColumnCentreHz - firstBinHz) / binHz).rounded()))
 
         XCTAssertTrue(WaterfallViewModel.displayedBinIndices(
-            pixelWidth: 0, magsCount: 8, sampleRate: 12000, maxDisplayFrequency: 3200
+            pixelWidth: 0, binCount: 8, firstBinHz: 0, binHz: 1, minDisplayHz: 0, maxDisplayHz: 8
+        ).isEmpty)
+        XCTAssertTrue(WaterfallViewModel.displayedBinIndices(
+            pixelWidth: 8, binCount: 8, firstBinHz: 0, binHz: 1, minDisplayHz: 8, maxDisplayHz: 8
         ).isEmpty)
     }
 
     func testUpdateWaterfallAddsLabelsAndTimestamps() {
-        let vm = WaterfallViewModel(sampleRate: 12000, waterfallFFTSize: 16, waterfallRows: 4, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 4, isFT4: false)
         vm.visibleRows = 1
         vm.addVerticalLabel(text: "L", frequency: 1000.0)
 
-        let mags = [Float](repeating: 0.5, count: vm.width)
-        vm.updateWaterfall(from: mags)
+        let row = [UInt8](repeating: 140, count: 898)
+        vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125)
 
         let ts = vm.timestampsForOverlay(height: 1)
         XCTAssertTrue(ts.count >= 0)
 
         let labels = vm.verticalLabelsForOverlay(height: 1)
-        XCTAssertTrue(labels.count >= 0)
+        XCTAssertEqual(labels.count, 1)
+        XCTAssertEqual(labels.first?.row, 0)
+        XCTAssertEqual(vm.renderedRows, 1)
+        XCTAssertNotNil(vm.waterfallImage)
+    }
+
+    /// Rows arriving from the audio thread are copied and applied on the
+    /// main actor.
+    func testAppendMonitorRowReachesTheMainActor() async {
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 4, isFT4: false)
+        vm.visibleRows = 1
+        var row = [UInt8](repeating: 100, count: 64)
+        row[32] = 255
+        row.withUnsafeBufferPointer { vm.appendMonitorRow($0, firstBinHz: 200, binHz: 43.75) }
+        await Task.yield()
+        for _ in 0 ..< 20 where vm.renderedRows == 0 {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertEqual(vm.renderedRows, 1)
     }
 }

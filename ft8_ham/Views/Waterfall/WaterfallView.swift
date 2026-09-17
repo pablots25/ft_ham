@@ -122,14 +122,20 @@ struct WaterfallOverlayView: View {
             let bodyOffset = headerHeight
             let rowScale = h / CGFloat(max(imageRows, 1))
 
+            let minFreq = Double(config.minDisplayFrequency)
             let maxFreq = Double(config.maxDisplayFrequency)
-            guard maxFreq > 0 else { return }
+            guard maxFreq > minFreq else { return }
+            // Same axis as the pixel rows: see WaterfallViewModel.xPosition(for:in:).
+            let xFor: (Double) -> CGFloat = { hz in
+                CGFloat((hz - minFreq) / (maxFreq - minFreq)) * w
+            }
 
             // Frequency ticks
             if overlayState.showFrequencyTicks {
                 let stepHz = 500.0
-                for f in stride(from: 0.0, through: maxFreq, by: stepHz) {
-                    let x = CGFloat(f / maxFreq) * w
+                let firstTick = (minFreq / stepHz).rounded(.up) * stepHz
+                for f in stride(from: firstTick, through: maxFreq, by: stepHz) {
+                    let x = xFor(f)
                     guard x.isFinite else { continue }
                     
                     var path = Path()
@@ -177,7 +183,7 @@ struct WaterfallOverlayView: View {
             if overlayState.showFrequencyMarker {
                 // TX frequency indicator
                 let txFreq = txFrequency
-                let txX = CGFloat(txFreq / maxFreq) * w
+                let txX = xFor(txFreq)
                 guard txX.isFinite else { return }
                 
                 let labelText = String(format: "%.0f Hz", txFreq)
@@ -204,7 +210,7 @@ struct WaterfallOverlayView: View {
                 // for FT8, 4 tones × 20.83 Hz for FT4.
                 let bandwidthHz = WaterfallViewModel.occupiedBandwidthHz(isFT4: isFT4)
                 for freq in [txFreq, txFreq + bandwidthHz] {
-                    let x = CGFloat(freq / maxFreq) * w
+                    let x = xFor(freq)
                     let path = Path { path in
                         path.move(to: CGPoint(x: x, y: bodyOffset + 15))
                         path.addLine(to: CGPoint(x: x, y: h))
@@ -215,7 +221,7 @@ struct WaterfallOverlayView: View {
 
             // Vertical moving labels
             for overlay in verticalLabels {
-                let x = CGFloat(overlay.frequency / maxFreq) * w
+                let x = xFor(overlay.frequency)
                 var tctx = ctx
                 let text = overlay.text
                 let approxCharWidth: CGFloat = 6.0

@@ -42,10 +42,8 @@ extension FT8ViewModel {
 
             AnalyticsManager.shared.startRadioActivity(.rx)
             
-            // Clear buffer initially
-            self.rxBufferLock.withLock {
-                self.rxSampleBuffer = Data()
-            }
+            // Whatever was analysed before belongs to no slot.
+            self.slotMonitor.resetSlot()
             
             // Ensure screen stays on
             self.updateScreenAlwaysOn()
@@ -63,61 +61,33 @@ extension FT8ViewModel {
                     try Task.checkCancellation()
                     
                     // --- HARVEST AND DECODE PREVIOUS SLOT ---
-                    // Wait a tiny bit more (200ms) to ensure the audio tap delivers the final samples of the previous slot
-                    try await Task.sleep(nanoseconds: 200_000_000)
-                    
+                    // The slot monitor has been analysing the audio as it
+                    // arrived; take that spectrogram and start the next slot's
+                    // in one step, so the new slot's block 0 sits on the boundary.
                     let completedSlotIndex = nextSlot.slotIndex - 1
-                    
-                    var audioToDecode = Data()
-                    var sampleCount = 0
-                    
-                    self.rxBufferLock.withLock {
-                        audioToDecode = self.rxSampleBuffer
-                        sampleCount = audioToDecode.count / 4
-                    }
-                    
-                    // Align RX buffer exactly to slot boundary
-                    self.rxBufferLock.withLock {
-                        self.rxSampleBuffer = Data()
-                    }
-                    
-                    // FT8 needs ~12.6s (151200 samples at 12k). FT4 needs ~5.0s.
+                    let snapshot = self.slotMonitor.snapshotAndReset()
+                    let coveredSeconds = snapshot.duration
+
+                    // FT8 needs ~12.6s of signal. FT4 needs ~4.5s.
                     let signalDuration = self.isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration
                     let decodeMargin   = self.isFT4 ? Constants.ft4DecodeMargin : Constants.ft8DecodeMargin
                     let requiredSeconds = signalDuration + decodeMargin
 
                     // Guard: micSampleRate starts at 0 and is populated lazily by startMicInput().
-                    // Passing 0 to monitor_init produces nfft=0, which causes a KISS FFT crash.
-                    let capturedSampleRate = self.audioManager.micSampleRate
-                    guard capturedSampleRate > 0 else {
+                    // Until then no audio has reached the monitor, so there is nothing to decode.
+                    guard self.audioManager.micSampleRate > 0 else {
                         self.rxLogger.warning("Skipping decode (slot \(completedSlotIndex)): micSampleRate not yet initialized")
                         continue
                     }
 
-                    let minSamples = Int(requiredSeconds * capturedSampleRate)
-                    
-                    // Disrcard extra long buffers
-                    let maxExpectedSamples = Int(
-                        (signalDuration + decodeMargin + 1.0) * capturedSampleRate
-                    )
-                    
-                    // Trim buffer if it exceeds max size to prevent memory issues
-                    if audioToDecode.count > maxExpectedSamples * 4 {
-                        let originalCount = audioToDecode.count / 4
-                        audioToDecode = Data(audioToDecode.prefix(maxExpectedSamples * 4))
-                        sampleCount = maxExpectedSamples
-                        self.rxLogger.debug("Audio buffer trimmed from \(originalCount) to \(maxExpectedSamples) samples")
-                    }
-
-                    
-                    if sampleCount >= minSamples && !self.isHarvestingRX {
+                    if coveredSeconds >= requiredSeconds && !self.isHarvestingRX {
 
                         self.rxLogger.info(
-                            "Harvested \(sampleCount) samples (~\(String(format: "%.1f", Double(sampleCount) / capturedSampleRate))s) for slot \(completedSlotIndex)"
+                            "Harvested \(String(format: "%.1f", coveredSeconds))s of spectrogram for slot \(completedSlotIndex)"
                         )
 
                         // Capture @MainActor values before spawning the detached task so the
-                        // CPU-intensive FFT decode runs on a background thread, not the main thread.
+                        // CPU-intensive decode runs on a background thread, not the main thread.
                         let capturedEngine = self.engine
                         let capturedIsFT4 = self.isFT4
                         let capturedLogger = self.rxLogger
@@ -126,18 +96,14 @@ extension FT8ViewModel {
                             let weakSelf = self
                             defer { Task { await MainActor.run { weakSelf?.isHarvestingRX = false } } }
 
-                            let msgs = capturedEngine.decodeAudioBuffer(
-                                audioToDecode,
-                                sampleRate: capturedSampleRate,
-                                isFT4: capturedIsFT4
-                            )
+                            let msgs = capturedEngine.decodeWaterfallSnapshot(snapshot, isFT4: capturedIsFT4)
 
                             capturedLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
                             await weakSelf?.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
                         }
                     } else {
-                        if sampleCount < minSamples {
-                            self.rxLogger.debug("Buffer too small (\(sampleCount) samples). Accumulating...")
+                        if coveredSeconds < requiredSeconds {
+                            self.rxLogger.debug("Slot too short (\(String(format: "%.1f", coveredSeconds))s). Accumulating...")
                             
                             // If it's the first loop, trigger a "Partial slot" message so the user sees
                             // the timestamp and the data loss warning immediately.
@@ -254,9 +220,7 @@ extension FT8ViewModel {
     /// next decode does not mix two bands).
     @MainActor
     internal func clearRXBuffer() {
-        rxBufferLock.lock()
-        rxSampleBuffer = Data()
-        rxBufferLock.unlock()
+        slotMonitor.resetSlot()
     }
 
     /// Slot parity check shared by the QSO and free-text loops.

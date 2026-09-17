@@ -33,12 +33,11 @@ final class WaterfallOverlayState: ObservableObject {
     @Published var showFrequencyMarker: Bool = true
 }
 
+/// Scrolling spectrogram fed by `FT8SlotMonitor`: one row per analysed
+/// sub-block (80 ms for FT8), bins at the decoder's own resolution, so the
+/// display shows exactly what the decoder sees.
 @MainActor
 final class WaterfallViewModel: ObservableObject {
-
-    // MARK: - FFT Properties
-    private var fft: RealtimeFFT?
-    private lazy var magsBuffer: [Float] = [Float](repeating: 0, count: config.waterfallFFTSize / 2)
 
     // Reused formatter — creating DateFormatter is expensive; keep one instance
     private let utcFormatter: DateFormatter = {
@@ -51,40 +50,36 @@ final class WaterfallViewModel: ObservableObject {
     // Pre-allocated render buffer — avoids ~3 MB heap allocation per render frame
     private var renderBuffer: [UInt32] = []
 
-    // Scratch buffers for the vectorized pixel-color pipeline in updateWaterfall(from:)
-    private var scratchMags: [Float] = []   // gathered bin magnitudes (width elements)
-    private var scratchDB: [Float] = []     // reused through the vDSP/vForce chain
+    // Scratch buffer for the vectorized pixel-color pipeline: gathered row
+    // values in dB, reused through the vDSP/vForce chain
+    private var scratchDB: [Float] = []
     // Cached per-pixel bin-index map — recomputed only when the pixel width,
-    // the FFT size or the sample rate changes
+    // the source bins or the displayed range change
     private var cachedBinIndices: [Int] = []
     private var cachedBinMapKey: BinMapKey?
-    /// Smoothed per-bin noise floor in dBFS for auto-ranging. `nil` until the
-    /// first rendered row seeds it.
+    /// Smoothed noise floor in dB for auto-ranging. `nil` until the first
+    /// rendered row seeds it.
     private var smoothedFloorDB: Float?
     private var scratchSort: [Float] = []   // scratch copy for the percentile
-
-    // Background FFT helper — not actor-isolated, safe to call from any queue
-    private let backgroundFFT = BackgroundFFTProcessor()
 
     // MARK: - Background handling
     private var isInBackground: Bool = false
     private var showBlackWhenBackgrounded: Bool = true
 
-    /// Called from a background audio queue. Runs the FFT there, then dispatches
-    /// only the lightweight magnitude array to @MainActor for the pixel-write step.
-    /// This keeps vDSP_fft_zip off the main thread entirely.
-    /// - Parameter sampleRate: the rate of `samples`. The frequency axis is
-    ///   derived from it, so it must be the real capture rate (the microphone
-    ///   runs at the hardware rate, not at the 12 kHz decode/playback rate).
-    nonisolated func updateWaterfallFromSamplesAsync(_ samples: [Float], sampleRate: Double? = nil) {
-        guard !samples.isEmpty else { return }
-        let mags = backgroundFFT.computeMagnitudes(from: samples)
+    // MARK: - Monitor input
+
+    /// Called from the audio thread with one row from the slot monitor. Copies
+    /// the row and hops to the main actor for the pixel-write step.
+    /// - Parameters:
+    ///   - row: magnitudes in increasing frequency order, 0–255 in 0.5 dB
+    ///     steps with 0 = −120 dB (ft8_lib's waterfall encoding).
+    ///   - firstBinHz: frequency of `row[0]`.
+    ///   - binHz: spacing between consecutive values.
+    nonisolated func appendMonitorRow(_ row: UnsafeBufferPointer<UInt8>, firstBinHz: Float, binHz: Float) {
+        guard row.count > 1 else { return }
+        let copy = Array(row)
         Task { @MainActor [weak self] in
-            guard let self else { return }
-            if let sampleRate, sampleRate > 0, self.sampleRate != Float(sampleRate) {
-                self.sampleRate = Float(sampleRate)
-            }
-            self.updateWaterfall(from: mags)
+            self?.updateWaterfall(monitorRow: copy, firstBinHz: firstBinHz, binHz: binHz)
         }
     }
 
@@ -112,35 +107,6 @@ final class WaterfallViewModel: ObservableObject {
         if rows > 0 { ensureBufferCanHold(visibleRows: rows) }
     }
 
-    /// Legacy @MainActor path kept for backward compatibility.
-    func updateWaterfallFromSamples(_ samples: [Float]) {
-        guard !samples.isEmpty else { return }
-
-        if fft == nil {
-            fft = RealtimeFFT(size: config.waterfallFFTSize)
-        }
-
-        let fftSize = config.waterfallFFTSize
-        let count = min(samples.count, fftSize)
-        let start = samples.count - count
-
-        // We only use the last fftSize samples for the waterfall fft
-        let fftInput = Array(samples[start..<samples.count])
-
-        // Ensure our shared magsBuffer is the right size
-        if magsBuffer.count != fftSize / 2 {
-            magsBuffer = [Float](repeating: 0, count: fftSize / 2)
-        }
-
-        if isInBackground {
-            // We still advance the waterfall, but with black rows
-            updateWaterfall(from: magsBuffer)
-        } else {
-            _ = fft?.magnitudesDirect(fftInput, output: &magsBuffer)
-            updateWaterfall(from: magsBuffer)
-        }
-    }
-
     enum Mode {
         case ft8
         case ft4
@@ -161,11 +127,14 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     struct Config {
-        var waterfallFFTSize: Int
+        /// Width of the pixel image. Source bins are mapped onto these
+        /// columns, so it does not have to match the monitor's bin count.
+        var imageWidth: Int
         var waterfallMaxRows: Int
-        /// Colour window in dBFS, used only when `waterfallAutoRange` is off.
-        /// A -20 dBFS noise floor sits around -47 dBFS per bin after the Hann
-        /// window, so this shows the floor near the bottom of the palette.
+        /// Colour window in dB, used only when `waterfallAutoRange` is off.
+        /// Rows arrive in ft8_lib's scale (0 dB ≈ a full-scale tone); a
+        /// −20 dBFS noise floor spreads to roughly −50 dB per bin, so this
+        /// shows that floor near the bottom of the palette.
         var waterfallMinDB: Float = -80.0
         var waterfallMaxDB: Float = -20.0
         /// Track the noise floor and slide the colour window with it. The
@@ -180,10 +149,12 @@ final class WaterfallViewModel: ObservableObject {
         var waterfallSpanDB: Float = 45.0
         var timestampInterval: TimeInterval
         var targetFPS: Double = 15.0  // Reduced from 30 to 15 Hz for CPU optimization
-        /// Audio frequency at the right edge of the waterfall, in Hz. The
-        /// pixel rows, the overlay, the cursor and the tap-to-set-frequency
-        /// mapping all derive from this one value, so they cannot drift apart.
-        var maxDisplayFrequency: Float = 3200.0
+        /// Audio frequencies at the left and right edges of the waterfall, in
+        /// Hz. The pixel rows, the overlay, the cursor and the
+        /// tap-to-set-frequency mapping all derive from these two values, so
+        /// they cannot drift apart. Defaults to the band the decoder analyses.
+        var minDisplayFrequency: Float = 200.0
+        var maxDisplayFrequency: Float = 3000.0
 
         static let absoluteMaxRows = 2000
     }
@@ -228,14 +199,11 @@ final class WaterfallViewModel: ObservableObject {
     private let wfLogger = AppLogger(category: "WF")
     var config: Config
 
-    var width: Int { config.waterfallFFTSize / 2 }
+    var width: Int { config.imageWidth }
     var height: Int { config.waterfallMaxRows }
 
-    private var waterfallBufferFlat: [Float]
-    private var writeIndex: Int
-
-    // Use same sample rate as AudioManager
-    var sampleRate: Float
+    /// Next row of the ring buffer to write (0 ..< height).
+    private var writeRow: Int = 0
 
     private lazy var waterfallPalette: [UInt32] = (0 ... 255).map { i -> UInt32 in
         let t = Float(i) / 255.0
@@ -272,28 +240,21 @@ final class WaterfallViewModel: ObservableObject {
     private var context: CGContext?
     private var frameLimiter: FrameLimiter
 
-    init(sampleRate: Float, waterfallFFTSize: Int, waterfallRows: Int, isFT4: Bool) {
+    init(imageWidth: Int, waterfallRows: Int, isFT4: Bool) {
         let initialMode: Mode = isFT4 ? .ft4 : .ft8
         self.mode = initialMode
 
         // Initialize config with the right timestamp interval
         self.config = Config(
-            waterfallFFTSize: waterfallFFTSize,
-            waterfallMaxRows: waterfallRows,
+            imageWidth: max(2, imageWidth),
+            waterfallMaxRows: max(1, waterfallRows),
             timestampInterval: initialMode.timestampInterval
         )
 
-        self.sampleRate = sampleRate
         frameLimiter = FrameLimiter(targetFPS: config.targetFPS)
 
-        let w = max(2, config.waterfallFFTSize) / 2
-        let h = max(1, config.waterfallMaxRows)
-
-        waterfallBufferFlat = [Float](repeating: 0, count: w * h)
-        writeIndex = 0
-
-        setupContext(width: w, height: h)
-        wfLogger.log(.info, "WaterfallViewModel initialized: FFTSize \(w * 2), rows \(h)")
+        setupContext(width: width, height: height)
+        wfLogger.log(.info, "WaterfallViewModel initialized: \(width) columns, \(height) rows")
 
         nextUTCMark = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
 
@@ -342,7 +303,7 @@ final class WaterfallViewModel: ObservableObject {
         let remainder = Double(s).truncatingRemainder(dividingBy: interval)
         return now.addingTimeInterval(interval - remainder)
     }
-    
+
     private func setupContext(width w: Int, height h: Int) {
         context = CGContext(
             data: nil,
@@ -353,39 +314,74 @@ final class WaterfallViewModel: ObservableObject {
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         )
+        // CGContext does not promise zeroed memory; start from black.
+        if let ctx = context, let raw = ctx.data {
+            raw.assumingMemoryBound(to: UInt32.self).update(repeating: 0xFF000000, count: w * h)
+        }
     }
-    
+
+    /// Grows the ring buffer so a view can show `visibleRows` rows, keeping
+    /// the history already drawn.
     func ensureBufferCanHold(visibleRows: Int) {
         let w = width
         // Limit rows to absolute maximum
         let cappedRows = min(max(visibleRows, height), Config.absoluteMaxRows)
-        guard cappedRows > height else { return }
-        
-        let oldBuffer = waterfallBufferFlat
-        waterfallBufferFlat = [Float](repeating: 0, count: cappedRows * w)
-        for i in 0 ..< height {
-            waterfallBufferFlat[(cappedRows - height + i) * w ..< (cappedRows - height + i + 1) * w] =
-            oldBuffer[i * w ..< (i + 1) * w]
+        guard cappedRows > height, let oldCtx = context, let oldRaw = oldCtx.data else { return }
+        let oldHeight = height
+        let oldPixels = oldRaw.assumingMemoryBound(to: UInt32.self)
+
+        // Copy the old rows, oldest first, to the start of the new buffer so
+        // the write position simply continues after them.
+        var copied = [UInt32](repeating: 0xFF000000, count: cappedRows * w)
+        for i in 0 ..< oldHeight {
+            let srcRow = (writeRow + i) % oldHeight
+            copied.withUnsafeMutableBufferPointer { dst in
+                (dst.baseAddress! + i * w).update(from: oldPixels + srcRow * w, count: w)
+            }
         }
-        writeIndex = (cappedRows - height) * w
+
         config.waterfallMaxRows = cappedRows
         setupContext(width: w, height: cappedRows)
+        if let ctx = context, let raw = ctx.data {
+            copied.withUnsafeBufferPointer { src in
+                raw.assumingMemoryBound(to: UInt32.self).update(from: src.baseAddress!, count: copied.count)
+            }
+        }
+        writeRow = oldHeight
     }
-    
+
     // ---------------------------------------------------------
     // Overlay helpers
     // ---------------------------------------------------------
     func addVerticalLabel(text: String, frequency: Double) {
         verticalLabelRows[absoluteRowCounter, default: []].append((text: text, frequency: frequency))
     }
-    
+
     func addVerticalLabels(_ labels: [(String, Double)]) {
         guard !labels.isEmpty else { return }
         verticalLabelRows[absoluteRowCounter, default: []].append(contentsOf: labels)
     }
-    
+
+    // ---------------------------------------------------------
+    // Frequency axis
+    // ---------------------------------------------------------
+
+    /// Frequencies at the left and right edges of the display.
+    var displayedFrequencyRange: ClosedRange<Double> {
+        Double(config.minDisplayFrequency) ... Double(config.maxDisplayFrequency)
+    }
+
     func xPosition(for frequency: Double, in width: CGFloat) -> CGFloat {
-        CGFloat(frequency / Double(config.maxDisplayFrequency)) * width
+        let range = displayedFrequencyRange
+        let span = range.upperBound - range.lowerBound
+        guard span > 0 else { return 0 }
+        return CGFloat((frequency - range.lowerBound) / span) * width
+    }
+
+    func frequencyAtPixel(x: CGFloat, width: CGFloat) -> Double {
+        guard width > 0 else { return 0 }
+        let range = displayedFrequencyRange
+        return range.lowerBound + Double(x / width) * (range.upperBound - range.lowerBound)
     }
 
     /// Bandwidth a transmission occupies above its base tone: 8 tones × 6.25 Hz
@@ -400,148 +396,148 @@ final class WaterfallViewModel: ObservableObject {
         200.0 ... (3000.0 - occupiedBandwidthHz(isFT4: isFT4))
     }
 
-    /// Identifies one pixel → FFT-bin mapping; the map is rebuilt when any
+    /// Identifies one pixel → source-bin mapping; the map is rebuilt when any
     /// of these change.
     private struct BinMapKey: Equatable {
         let pixelWidth: Int
-        let magsCount: Int
-        let sampleRate: Float
-        let maxDisplayFrequency: Float
+        let binCount: Int
+        let firstBinHz: Float
+        let binHz: Float
+        let minDisplayHz: Float
+        let maxDisplayHz: Float
     }
 
-    /// For each of `pixelWidth` columns, the index into an FFT magnitude array
-    /// of `magsCount` bins (covering 0 Hz … `sampleRate / 2`) whose bin is
-    /// shown there, so that the columns span 0 Hz … `maxDisplayFrequency`.
-    ///
-    /// The bin width is taken from `magsCount`, not from the configured FFT
-    /// size: the background FFT sizes itself to the audio buffer it gets, so
-    /// the two can differ. If the requested span exceeds Nyquist the map
-    /// stops at the last real bin.
+    /// For each of `pixelWidth` columns, the index of the source bin shown
+    /// there, so that the columns span `minDisplayHz` … `maxDisplayHz`.
+    /// Source bins are uniformly spaced: bin `i` is at `firstBinHz + i × binHz`.
+    /// Columns outside the source band clamp to its edge bins.
     static func displayedBinIndices(
         pixelWidth: Int,
-        magsCount: Int,
-        sampleRate: Float,
-        maxDisplayFrequency: Float
+        binCount: Int,
+        firstBinHz: Float,
+        binHz: Float,
+        minDisplayHz: Float,
+        maxDisplayHz: Float
     ) -> [Int] {
-        guard pixelWidth > 0, magsCount > 0, sampleRate > 0 else { return [] }
-        let binHz = sampleRate / (2 * Float(magsCount))
-        let maxBin = min(max(Int((maxDisplayFrequency / binHz).rounded()), 1), magsCount)
-        return (0 ..< pixelWidth).map {
-            min(Int(Float($0) / Float(pixelWidth) * Float(maxBin)), maxBin - 1)
+        guard pixelWidth > 0, binCount > 0, binHz > 0, maxDisplayHz > minDisplayHz else { return [] }
+        let spanHz = maxDisplayHz - minDisplayHz
+        return (0 ..< pixelWidth).map { x in
+            // Sample the centre of the column.
+            let hz = minDisplayHz + (Float(x) + 0.5) / Float(pixelWidth) * spanHz
+            let bin = Int(((hz - firstBinHz) / binHz).rounded())
+            return bin.clamped(to: 0 ... (binCount - 1))
         }
     }
 
     // ---------------------------------------------------------
     // Waterfall update
     // ---------------------------------------------------------
-    func updateWaterfall(from mags: [Float]) {
+
+    /// Appends one monitor row (see `appendMonitorRow`) and renders.
+    func updateWaterfall(monitorRow row: [UInt8], firstBinHz: Float, binHz: Float) {
         let w = width
         guard let ctx = context, let rawPtr = ctx.data else { return }
-
-        let row = writeIndex / w
         let pixelData = rawPtr.assumingMemoryBound(to: UInt32.self)
+        let rowOffset = writeRow * w
 
         if isInBackground && showBlackWhenBackgrounded {
             // Write a full black row
-            for x in 0 ..< w {
-                waterfallBufferFlat[writeIndex + x] = 0
-                pixelData[row * w + x] = 0xFF000000
-            }
+            for x in 0 ..< w { pixelData[rowOffset + x] = 0xFF000000 }
         } else {
-            guard mags.count > 1 else { return }
+            guard row.count > 1 else { return }
 
-            // Resize scratch buffers only when width changes (once per session)
-            if scratchMags.count != w {
-                scratchMags = [Float](repeating: 0, count: w)
-                scratchDB   = [Float](repeating: 0, count: w)
+            if scratchDB.count != w {
+                scratchDB = [Float](repeating: 0, count: w)
             }
 
             // Rebuild bin-index table only when the mapping changes
             let mapKey = BinMapKey(
                 pixelWidth: w,
-                magsCount: mags.count,
-                sampleRate: sampleRate,
-                maxDisplayFrequency: config.maxDisplayFrequency
+                binCount: row.count,
+                firstBinHz: firstBinHz,
+                binHz: binHz,
+                minDisplayHz: config.minDisplayFrequency,
+                maxDisplayHz: config.maxDisplayFrequency
             )
             if cachedBinMapKey != mapKey {
                 cachedBinMapKey = mapKey
                 cachedBinIndices = Self.displayedBinIndices(
                     pixelWidth: w,
-                    magsCount: mags.count,
-                    sampleRate: sampleRate,
-                    maxDisplayFrequency: config.maxDisplayFrequency
+                    binCount: row.count,
+                    firstBinHz: firstBinHz,
+                    binHz: binHz,
+                    minDisplayHz: config.minDisplayFrequency,
+                    maxDisplayHz: config.maxDisplayFrequency
                 )
             }
             guard cachedBinIndices.count == w else { return }
 
-            // Gather magnitudes: mags[binIndex] → scratchMags
-            // Also write raw mags into the float waterfall buffer (unchanged semantics)
-            let rowBase = writeIndex
+            // Gather the displayed bins, then decode ft8_lib's 8-bit scale:
+            // dB = value / 2 − 120 (in-place: D = A*a + b)
             for x in 0 ..< w {
-                let mag = mags[cachedBinIndices[x]]
-                scratchMags[x] = mag
-                waterfallBufferFlat[rowBase + x] = mag
+                scratchDB[x] = Float(row[cachedBinIndices[x]])
             }
+            var toDBScale: Float = 0.5
+            var toDBOffset: Float = -120.0
+            vDSP_vsmsa(scratchDB, 1, &toDBScale, &toDBOffset, &scratchDB, 1, vDSP_Length(w))
 
-            // --- Vectorized dB + scale + sqrt pipeline (vDSP / vForce) ---
-            var wInt = Int32(w)
-            var vLen = vDSP_Length(w)
-
-            // 1. Clamp to avoid log10(0): max(mag, 1e-12)
-            var logFloor: Float = 1e-12
-            var logCeil:  Float = .greatestFiniteMagnitude
-            vDSP_vclip(scratchMags, 1, &logFloor, &logCeil, &scratchDB, 1, vLen)
-
-            // 2. log10 (vectorized vForce)
-            vvlog10f(&scratchDB, scratchDB, &wInt)
-
-            // 3. ×20 → dB
-            var factor20: Float = 20.0
-            vDSP_vsmul(scratchDB, 1, &factor20, &scratchDB, 1, vLen)
-
-            // 4. Pick the colour window: fixed, or tracking the noise floor
-            let minDB: Float
-            let maxDB: Float
-            if config.waterfallAutoRange {
-                let floor = trackNoiseFloor(rowDB: scratchDB, count: w)
-                minDB = floor - config.waterfallFloorMarginDB
-                maxDB = minDB + config.waterfallSpanDB
-            } else {
-                minDB = config.waterfallMinDB
-                maxDB = config.waterfallMaxDB
-            }
-
-            // 5. Linear scale: (db − minDB) / (maxDB − minDB)  [in-place: D = A*a + b]
-            let range = maxDB - minDB
-            guard range != 0 else {
-                // degenerate config — write black row and bail
-                let rowOffset = row * w
-                for x in 0 ..< w { pixelData[rowOffset + x] = 0xFF000000 }
-                return
-            }
-            var scaleA: Float =  1.0 / range
-            var scaleB: Float = -minDB / range
-            vDSP_vsmsa(scratchDB, 1, &scaleA, &scaleB, &scratchDB, 1, vLen)
-
-            // 6. Clamp to [0, 1]
-            var clampLo: Float = 0.0, clampHi: Float = 1.0
-            vDSP_vclip(scratchDB, 1, &clampLo, &clampHi, &scratchDB, 1, vLen)
-
-            // 7. Square root
-            vvsqrtf(&scratchDB, scratchDB, &wInt)
-
-            // 8. Scale to [0, 255]
-            var scale255: Float = 255.0
-            vDSP_vsmul(scratchDB, 1, &scale255, &scratchDB, 1, vLen)
-
-            // 9. Palette lookup — unavoidably scalar, but L1-cache-friendly (256-entry table)
-            let rowOffset = row * w
-            for x in 0 ..< w {
-                let idx = Int(scratchDB[x]).clamped(to: 0 ... 255)
-                pixelData[rowOffset + x] = waterfallPalette[idx]
-            }
+            paintRow(fromDB: &scratchDB, into: pixelData + rowOffset)
         }
 
+        finishRow()
+    }
+
+    /// Colours one row from per-column dB values and writes it to `pixels`.
+    /// `db` is consumed as scratch space.
+    private func paintRow(fromDB db: inout [Float], into pixels: UnsafeMutablePointer<UInt32>) {
+        let w = width
+        var wInt = Int32(w)
+        let vLen = vDSP_Length(w)
+
+        // 1. Pick the colour window: fixed, or tracking the noise floor
+        let minDB: Float
+        let maxDB: Float
+        if config.waterfallAutoRange {
+            let floor = trackNoiseFloor(rowDB: db, count: w)
+            minDB = floor - config.waterfallFloorMarginDB
+            maxDB = minDB + config.waterfallSpanDB
+        } else {
+            minDB = config.waterfallMinDB
+            maxDB = config.waterfallMaxDB
+        }
+
+        // 2. Linear scale: (db − minDB) / (maxDB − minDB)  [in-place: D = A*a + b]
+        let range = maxDB - minDB
+        guard range != 0 else {
+            // degenerate config — write black row and bail
+            for x in 0 ..< w { pixels[x] = 0xFF000000 }
+            return
+        }
+        var scaleA: Float =  1.0 / range
+        var scaleB: Float = -minDB / range
+        vDSP_vsmsa(db, 1, &scaleA, &scaleB, &db, 1, vLen)
+
+        // 3. Clamp to [0, 1]
+        var clampLo: Float = 0.0, clampHi: Float = 1.0
+        vDSP_vclip(db, 1, &clampLo, &clampHi, &db, 1, vLen)
+
+        // 4. Square root
+        vvsqrtf(&db, db, &wInt)
+
+        // 5. Scale to [0, 255]
+        var scale255: Float = 255.0
+        vDSP_vsmul(db, 1, &scale255, &db, 1, vLen)
+
+        // 6. Palette lookup — unavoidably scalar, but L1-cache-friendly (256-entry table)
+        for x in 0 ..< w {
+            let idx = Int(db[x]).clamped(to: 0 ... 255)
+            pixels[x] = waterfallPalette[idx]
+        }
+    }
+
+    /// Bookkeeping shared by every row: slot timestamps, ring advance,
+    /// overlay pruning and rendering.
+    private func finishRow() {
         // Timestamp logic ALWAYS runs — uses cached formatter (avoids per-call allocation)
         let now = Date()
         if now >= nextUTCMark {
@@ -549,13 +545,13 @@ final class WaterfallViewModel: ObservableObject {
             nextUTCMark = nextUTCMark.addingTimeInterval(config.timestampInterval)
         }
 
-        writeIndex = (writeIndex + w) % waterfallBufferFlat.count
+        writeRow = (writeRow + 1) % height
         absoluteRowCounter += 1
 
         // Prune timestamps/labels that scrolled out of the (maximum) visible
-        // range. Done every 64 rows rather than on every audio buffer: the
-        // overlay accessors already clip to the visible height, so pruning is
-        // only about keeping the dictionaries small.
+        // range. Done every 64 rows rather than on every row: the overlay
+        // accessors already clip to the visible height, so pruning is only
+        // about keeping the dictionaries small.
         if absoluteRowCounter % 64 == 0 {
             let cutoff = absoluteRowCounter - Config.absoluteMaxRows
             timestampRows = timestampRows.filter { $0.key >= cutoff }
@@ -611,14 +607,14 @@ final class WaterfallViewModel: ObservableObject {
             renderBuffer = [UInt32](repeating: 0, count: needed)
         }
 
-        let currentWriteRow = writeIndex / w
+        // Newest row at the top of the image.
         for y in 0 ..< h {
-            let srcRow = (currentWriteRow - h + y + height) % height
+            let srcRow = (writeRow - h + y + height) % height
             let dstBase = (h - y - 1) * w
             let srcBase = srcRow * w
             renderBuffer.withUnsafeMutableBufferPointer { dst in
                 let src = pixelData + srcBase
-                (dst.baseAddress! + dstBase).assign(from: src, count: w)
+                (dst.baseAddress! + dstBase).update(from: src, count: w)
             }
         }
 
@@ -628,7 +624,7 @@ final class WaterfallViewModel: ObservableObject {
         }
     }
     // MARK: - Overlay toggles helpers
-    
+
     /// Toggle the master "Show All Overlays"
     func setShowAllOverlays(_ value: Bool) {
         showOverlay = value
@@ -637,57 +633,57 @@ final class WaterfallViewModel: ObservableObject {
         showFrequencyTicks = value
         showFrequencyMarker = value
     }
-    
+
     /// Toggle individual "Timestamps" overlay
     func setShowTimestamps(_ value: Bool) {
         showTimestamps = value
         showOverlay = showTimestamps || showVerticalLabels || showFrequencyTicks || showFrequencyMarker
     }
-    
+
     /// Toggle individual "Vertical Labels" overlay
     func setShowVerticalLabels(_ value: Bool) {
         showVerticalLabels = value
         showOverlay = showTimestamps || showVerticalLabels || showFrequencyTicks || showFrequencyMarker
     }
-    
+
     /// Toggle individual "Frequency Ticks" overlay
     func setShowFrequencyTicks(_ value: Bool) {
         showFrequencyTicks = value
         showOverlay = showTimestamps || showVerticalLabels || showFrequencyTicks || showFrequencyMarker
     }
-    
+
     /// Toggle individual "Frequency Marker" overlay
     func setShowFrequencyMarker(_ value: Bool) {
         showFrequencyMarker = value
         showOverlay = showTimestamps || showVerticalLabels || showFrequencyTicks || showFrequencyMarker
     }
-    
+
     /// Helper to toggle master overlay
     func toggleShowAllOverlays() {
         setShowAllOverlays(!showOverlay)
     }
-    
+
     /// Toggle timestamps independently
     func toggleTimestamps() {
         setShowTimestamps(!showTimestamps)
     }
-    
+
     /// Toggle vertical labels independently
     func toggleVerticalLabels() {
         setShowVerticalLabels(!showVerticalLabels)
     }
-    
+
     /// Toggle frequency ticks independently
     func toggleFrequencyTicks() {
         setShowFrequencyTicks(!showFrequencyTicks)
     }
-    
+
     /// Toggle frequency marker independently
     func toggleFrequencyMarker() {
         setShowFrequencyMarker(!showFrequencyMarker)
     }
-    
-    
+
+
     private func makeCGImageFromARGB(pixelData: inout [UInt32], width: Int, height: Int) -> CGImage? {
         guard pixelData.count == width * height else { return nil }
         let bytesPerRow = width * 4
@@ -717,20 +713,23 @@ final class WaterfallViewModel: ObservableObject {
             )
         }
     }
-    
+
     func updateConfig(_ update: (inout Config) -> Void) {
         var c = config
         update(&c)
-        // Apply absolute max limit
-        c.waterfallMaxRows = min(c.waterfallMaxRows, Config.absoluteMaxRows)
+        // The pixel image is sized at init and only ever grows, through
+        // ensureBufferCanHold, so the ring arithmetic always matches it.
+        let requestedRows = c.waterfallMaxRows
+        c.imageWidth = config.imageWidth
+        c.waterfallMaxRows = config.waterfallMaxRows
         config = c
         frameLimiter = FrameLimiter(targetFPS: config.targetFPS)
-        ensureBufferCanHold(visibleRows: visibleRows)
+        ensureBufferCanHold(visibleRows: max(visibleRows, requestedRows))
         nextUTCMark = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
     }
-    
+
     // MARK: - Overlay accessors
-    
+
     func timestampsForOverlay(height: Int) -> [TimestampOverlay] {
         guard showOverlay && showTimestamps else { return [] }
         let topRow = absoluteRowCounter - 1
@@ -739,7 +738,7 @@ final class WaterfallViewModel: ObservableObject {
             return (rowOffset >= 0 && rowOffset < height) ? TimestampOverlay(text: text, row: rowOffset) : nil
         }
     }
-    
+
     func verticalLabelsForOverlay(height: Int) -> [VerticalLabelOverlay] {
         guard showOverlay && showVerticalLabels else { return [] }
         let topRow = absoluteRowCounter - 1
@@ -749,59 +748,14 @@ final class WaterfallViewModel: ObservableObject {
             return labels.map { VerticalLabelOverlay(text: $0.text, row: rowOffset, frequency: $0.frequency) }
         }.flatMap { $0 }
     }
-    
-    func frequencyAtPixel(x: CGFloat, width: CGFloat) -> Double {
-        guard width > 0 else { return 0 }
-        return Double(x / width) * Double(config.maxDisplayFrequency)
-    }
-    
+
     @MainActor
     func resyncNextTimestampFromNow() {
         let now = Date()
         let aligned = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
         nextUTCMark = aligned <= now ? aligned.addingTimeInterval(config.timestampInterval) : aligned
     }
-    
-}
 
-// MARK: - BackgroundFFTProcessor
-// A thread-safe, non-actor FFT helper that can be called from any queue.
-// WaterfallViewModel holds one instance and calls computeMagnitudes() from
-// the background audio queue so vDSP work stays off @MainActor.
-private final class BackgroundFFTProcessor: @unchecked Sendable {
-    private var fft: RealtimeFFT?
-    private var magsBuffer: [Float] = []
-    private let lock = NSLock()
-
-    func computeMagnitudes(from samples: [Float]) -> [Float] {
-        lock.lock()
-        defer { lock.unlock() }
-
-        // Lazily init FFT with the sample count as the FFT size (power-of-two)
-        let fftSize = samples.count.previousPowerOfTwo
-        if fft?.n != fftSize {
-            fft = RealtimeFFT(size: fftSize)
-            magsBuffer = [Float](repeating: 0, count: fftSize / 2)
-        }
-        guard let fft else { return [] }
-        if magsBuffer.count != fftSize / 2 {
-            magsBuffer = [Float](repeating: 0, count: fftSize / 2)
-        }
-        _ = samples.withUnsafeBufferPointer { ptr in
-            fft.magnitudesDirect(ptr.baseAddress!, output: &magsBuffer)
-        }
-        return magsBuffer
-    }
-}
-
-private extension Int {
-    /// Largest power of two ≤ self (minimum 2)
-    var previousPowerOfTwo: Int {
-        guard self >= 2 else { return 2 }
-        var n = self
-        n |= (n >> 1); n |= (n >> 2); n |= (n >> 4); n |= (n >> 8); n |= (n >> 16)
-        return n - (n >> 1)
-    }
 }
 
 // MARK: - FrameLimiter
@@ -829,4 +783,3 @@ extension Comparable {
         min(max(self, limits.lowerBound), limits.upperBound)
     }
 }
-

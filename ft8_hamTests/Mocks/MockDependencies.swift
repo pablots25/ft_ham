@@ -111,6 +111,7 @@ final class MockMessageDecoder: MessageDecoding {
     // MARK: - Call Tracking
     var generateFT8CallCount = 0
     var decodeAudioBufferCallCount = 0
+    var decodeWaterfallSnapshotCallCount = 0
     var decodeURLCallCount = 0
     var lastGeneratedMessage: String?
     var lastDecodedData: Data?
@@ -135,6 +136,11 @@ final class MockMessageDecoder: MessageDecoding {
     func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]] {
         decodeAudioBufferCallCount += 1
         lastDecodedData = audioData
+        return decodedMessages
+    }
+
+    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, isFT4: Bool) -> [[String: Any]] {
+        decodeWaterfallSnapshotCallCount += 1
         return decodedMessages
     }
     

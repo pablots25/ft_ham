@@ -75,8 +75,8 @@ final class SequencerSampleRateGuardTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(50))
 
         // No slot has completed in 50 ms — no decode should have been attempted.
-        XCTAssertEqual(engine.decodeAudioBufferCallCount, 0,
-            "decodeAudioBuffer must not be called with micSampleRate == 0")
+        XCTAssertEqual(engine.decodeAudioBufferCallCount + engine.decodeWaterfallSnapshotCallCount, 0,
+            "no decode must be attempted with micSampleRate == 0")
 
         await vm.stopSequencer()
     }
@@ -95,7 +95,7 @@ final class SequencerSampleRateGuardTests: XCTestCase {
         vm.startSequencer()
         try? await Task.sleep(for: .milliseconds(50))
 
-        XCTAssertEqual(engine.decodeAudioBufferCallCount, 0,
+        XCTAssertEqual(engine.decodeAudioBufferCallCount + engine.decodeWaterfallSnapshotCallCount, 0,
             "No slot completes within 50 ms — no decode expected regardless")
 
         await vm.stopSequencer()

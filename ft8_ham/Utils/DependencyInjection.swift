@@ -105,7 +105,10 @@ extension Duration {
 /// Implement this protocol for mocking audio in tests.
 protocol AudioManaging: AnyObject {
     // MARK: - Properties
+    /// Hardware microphone rate; 0 until capture starts.
     var micSampleRate: Double { get }
+    /// Rate of the samples published on `audioSamplesPublisher` and of the
+    /// audio handed to `playAudio`.
     var sampleRate: Double { get }
     var isPlaying: Bool { get }
     var isListening: Bool { get }
@@ -136,6 +139,8 @@ protocol MessageDecoding: AnyObject {
     func generateFT8(_ message: String, frequency: Float, isFT4: Bool, toFile outputURL: URL?) -> Data?
     func generateFreeText(_ text: String, frequency: Float, isFT4: Bool) -> Data?
     func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]]
+    /// Decodes a slot the streaming `FT8SlotMonitor` already analysed.
+    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, isFT4: Bool) -> [[String: Any]]
     func decode(_ input: URL?, isFT4: Bool) -> [[AnyHashable: Any]]
 }
 
@@ -192,6 +197,11 @@ extension ft8_Engine: MessageDecoding {
     func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]] {
         // Bridge Objective-C method to Swift protocol
         let result = self.decodeBuffer(usingMonitor: audioData, sampleRate: sampleRate, isFT4: isFT4)
+        return result as? [[String: Any]] ?? []
+    }
+
+    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, isFT4: Bool) -> [[String: Any]] {
+        let result = self.decodeSlotSnapshot(snapshot, isFT4: isFT4)
         return result as? [[String: Any]] ?? []
     }
 }

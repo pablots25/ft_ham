@@ -19,24 +19,27 @@ extension FT8ViewModel {
             return
         }
         
+        // The monitor hands every analysed row to the waterfall on this same
+        // queue; the waterfall copies it and hops to @MainActor itself.
+        let waterfallVM = self.waterfallVM
+        slotMonitor.rowHandler = { row, count, firstBinHz, binHz in
+            waterfallVM.appendMonitorRow(
+                UnsafeBufferPointer(start: row, count: Int(count)),
+                firstBinHz: firstBinHz,
+                binHz: binHz
+            )
+        }
+
         audioManager.audioSamplesPublisher
             .receive(on: DispatchQueue.global(qos: .userInitiated))
             .sink { [weak self] samples in
                 guard let self else { return }
-                
-                // Append to buffer for decoding
-                let data = samples.withUnsafeBytes { Data($0) }
-                self.rxBufferLock.lock()
-                self.rxSampleBuffer.append(data)
-                self.rxBufferLock.unlock()
-                
-                // Run FFT on this background queue; only the magnitude array
-                // is dispatched to @MainActor for the pixel-write step. Pass the
-                // real capture rate so the frequency axis is correct.
-                self.waterfallVM.updateWaterfallFromSamplesAsync(
-                    samples,
-                    sampleRate: self.audioManager.micSampleRate
-                )
+                // One FFT pass serves both the waterfall (rows as they are
+                // analysed) and the decoder (snapshot at the slot boundary).
+                samples.withUnsafeBufferPointer { buffer in
+                    guard let base = buffer.baseAddress else { return }
+                    self.slotMonitor.feedSamples(base, count: UInt(buffer.count))
+                }
             }
             .store(in: &cancellables)
 

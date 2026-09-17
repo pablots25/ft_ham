@@ -1,4 +1,5 @@
 #import "ft8_Engine.h"
+#import "ft8_SlotMonitor.h"
 
 #include "decode.h"
 #include "encode.h"
@@ -482,6 +483,43 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
                           .freq_osr = 2,
                           .protocol = protocol};
 
+  monitor_init(&mon, &cfg);
+
+  int blockSize = mon.block_size;
+  for (int pos = 0; pos + blockSize <= nSamples; pos += blockSize) {
+    monitor_process(&mon, audio + pos);
+  }
+
+  NSArray<NSDictionary *> *results =
+      [self decodeWaterfall:&mon.wf
+                     minBin:mon.min_bin
+               symbolPeriod:mon.symbol_period
+                      isFT4:isFT4
+             coveredSeconds:(double)nSamples / sampleRate];
+
+  monitor_free(&mon);
+  return results;
+}
+
+- (NSArray<NSDictionary *> *)decodeSlotSnapshot:(FT8WaterfallSnapshot *)snapshot
+                                                isFT4:(BOOL)isFT4 {
+  return [self decodeWaterfall:snapshot.waterfall
+                        minBin:snapshot.minBin
+                  symbolPeriod:snapshot.symbolPeriod
+                         isFT4:isFT4
+                coveredSeconds:snapshot.duration];
+}
+
+/// Shared decode core: candidate search, LDPC decode and message unpacking
+/// over an already-analysed spectrogram, whether it came from a one-off
+/// batch monitor (WAV files, buffers) or from the streaming slot monitor.
+/// `coveredSeconds` is how much audio the spectrogram spans; it decides
+/// whether an empty result is reported as a partial slot.
+- (NSArray<NSDictionary *> *)decodeWaterfall:(const ftx_waterfall_t *)wf
+                                      minBin:(int)minBin
+                                symbolPeriod:(float)symbolPeriod
+                                       isFT4:(BOOL)isFT4
+                              coveredSeconds:(double)coveredSeconds {
   // The callsign hash table has to live across slots: a compound callsign is
   // spelled out once and referred to by hash afterwards, often slots later.
   // Re-initialising it per buffer would erase every call learned so far and
@@ -497,15 +535,6 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
   // ageing can retire the entry between overs.
   ft8_register_known_callsign([[[NSUserDefaults standardUserDefaults]
       stringForKey:@"callsign"] uppercaseString]);
-
-  monitor_init(&mon, &cfg);
-
-  int blockSize = mon.block_size;
-  for (int pos = 0; pos + blockSize <= nSamples; pos += blockSize) {
-    monitor_process(&mon, audio + pos);
-  }
-
-  const ftx_waterfall_t *wf = &mon.wf;
 
   // ------------------------------------------------------------
   // Find candidates
@@ -525,12 +554,11 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 
       if (rc == FTX_MESSAGE_RC_OK) {
         float snr = compute_snr_db(wf, &candidates[i]);
-        float symbolPeriod = isFT4 ? FT4_SYMBOL_PERIOD : FT8_SYMBOL_PERIOD;
 
         float timeSec = (candidates[i].time_offset +
                          (float)candidates[i].time_sub / wf->time_osr) *
                         symbolPeriod;
-        float freqHz = (mon.min_bin + candidates[i].freq_offset +
+        float freqHz = (minBin + candidates[i].freq_offset +
                         (float)candidates[i].freq_sub / wf->freq_osr) /
                        symbolPeriod;
 
@@ -553,7 +581,6 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
     }
   }
 
-  monitor_free(&mon);
   hashtable_cleanup(10);
 
   NSMutableDictionary<NSString *, NSDictionary *> *bestResults =
@@ -572,11 +599,8 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
     double signalDuration = isFT4 ? 4.5 : 12.6;   // physical signal length
     double decodeMargin   = isFT4 ? 0.1 : 0.2;    // safety margin
 
-    double minSamplesForFullSignal =
-        (signalDuration + decodeMargin) * sampleRate;
-
     // Only report partial slot if we could not decode any valid messages
-    if (nSamples < minSamplesForFullSignal && bestResults.count == 0) {
+    if (coveredSeconds < signalDuration + decodeMargin && bestResults.count == 0) {
         [bestResults setObject:@{
             @"text" : @"Partial slot",
             @"snr" : @0,
