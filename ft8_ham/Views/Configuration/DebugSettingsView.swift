@@ -63,6 +63,16 @@ struct DebugSettingsView: View {
                     Label("Presence Map", systemImage: "person.2.wave.2")
                 }
 
+                Button {
+                    flags.resetOverrides()
+                } label: {
+                    Label("Reset flags to debug defaults", systemImage: "arrow.counterclockwise")
+                }
+
+                Text("In debug builds these switches are the source of truth: Remote Config values are fetched but never applied to feature flags.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 Divider()
 
                 Toggle(isOn: Binding(

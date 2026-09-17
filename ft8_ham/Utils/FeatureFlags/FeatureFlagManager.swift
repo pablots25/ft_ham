@@ -45,9 +45,13 @@ final class FeatureFlagManager: ObservableObject {
     
     func isEnabled(_ flag: FeatureFlag) -> Bool {
 #if DEBUG
-        if let override = override(for: flag) { return override }
-#endif
+        // Debug builds are driven by the Debug settings screen: the switch
+        // the developer set, else the compiled-in DEBUG default. Remote Config
+        // never flips a flag underneath them.
+        return override(for: flag) ?? flag.defaultValue
+#else
         return values[flag] ?? flag.defaultValue
+#endif
     }
     
     private func startAutoRefresh() {
@@ -61,8 +65,12 @@ final class FeatureFlagManager: ObservableObject {
     
     func refresh() {
         provider.refreshAllFlags { [weak self] in
+#if DEBUG
+            // The fetch still runs (prompt_config and whats_new_config come
+            // from it), but remote flag values are not applied: see isEnabled.
+            _ = self
+#else
             guard let self else { return }
-            
             let oldValues = self.values
             var newValues: [FeatureFlag: Bool] = [:]
             for flag in FeatureFlag.allCases {
@@ -70,14 +78,6 @@ final class FeatureFlagManager: ObservableObject {
             }
             
             Task { @MainActor in
-#if DEBUG
-                // Re-apply any debug overrides on top of remote values
-                for flag in FeatureFlag.allCases {
-                    if let override = self.override(for: flag) {
-                        newValues[flag] = override
-                    }
-                }
-#endif
                 // Assign once, and only when something actually changed: this
                 // object is observed near the root of the view tree, so an
                 // unconditional write every 30 s would invalidate most of the app.
@@ -86,6 +86,7 @@ final class FeatureFlagManager: ObservableObject {
                 }
                 self.logChanges(from: oldValues, to: newValues)
             }
+#endif
         }
     }
     
@@ -102,9 +103,20 @@ final class FeatureFlagManager: ObservableObject {
 
 #if DEBUG
     func setOverride(_ flag: FeatureFlag, value: Bool) {
+        // `values` is only mirrored here so the @Published change re-renders
+        // observers; `isEnabled` reads the override itself.
         values[flag] = value
         UserDefaults.standard.set(value, forKey: Self.overrideKey(for: flag))
         logger.info("[DEBUG] Feature flag '\(flag.rawValue)' overridden to: \(value)")
+    }
+
+    /// Drops every override so each flag falls back to its DEBUG default.
+    func resetOverrides() {
+        for flag in FeatureFlag.allCases {
+            UserDefaults.standard.removeObject(forKey: Self.overrideKey(for: flag))
+            values[flag] = flag.defaultValue
+        }
+        logger.info("[DEBUG] Feature flag overrides reset to defaults")
     }
 #endif
 }
