@@ -1116,6 +1116,60 @@ final class WaterfallViewModelTests: XCTestCase {
         XCTAssertLessThanOrEqual(vm.height, WaterfallViewModel.Config.absoluteMaxRows)
     }
 
+    /// The overlay, the cursor and tap-to-set-frequency share one axis: the
+    /// right edge is `maxDisplayFrequency` and pixel → Hz → pixel round-trips.
+    func testFrequencyAxisRoundTrip() {
+        let vm = WaterfallViewModel(sampleRate: 44100, waterfallFFTSize: 2048, waterfallRows: 4, isFT4: false)
+        let width: CGFloat = 390
+        let maxHz = Double(vm.config.maxDisplayFrequency)
+
+        XCTAssertEqual(vm.frequencyAtPixel(x: 0, width: width), 0)
+        XCTAssertEqual(vm.frequencyAtPixel(x: width, width: width), maxHz, accuracy: 1e-6)
+
+        for hz in [200.0, 1500.0, 2999.0] {
+            let x = vm.xPosition(for: hz, in: width)
+            XCTAssertEqual(vm.frequencyAtPixel(x: x, width: width), hz, accuracy: 1e-6)
+        }
+    }
+
+    /// A 2048-point FFT of 44.1 kHz audio has 21.5 Hz bins; a 1500 Hz tone
+    /// sits in bin 70 and must land at 1500 / 3200 of the width, where the
+    /// overlay draws 1500 Hz. The map must follow the magnitude count, not the
+    /// configured FFT size, and clamp at Nyquist.
+    func testDisplayedBinIndicesFollowTheSampleRate() {
+        let width = 1024
+        let map = WaterfallViewModel.displayedBinIndices(
+            pixelWidth: width, magsCount: 1024, sampleRate: 44100, maxDisplayFrequency: 3200
+        )
+        XCTAssertEqual(map.count, width)
+        XCTAssertEqual(map.first, 0)
+
+        let binHz = 44100.0 / 2048.0
+        let toneBin = Int((1500.0 / binHz).rounded())
+        let toneX = Int(1500.0 / 3200.0 * Double(width))
+        let pixelsPerBin = Double(width) / (3200.0 / binHz)
+        let drawnX = map.firstIndex(of: toneBin)!
+        XCTAssertEqual(Double(drawnX), Double(toneX), accuracy: pixelsPerBin)
+        XCTAssertEqual(map[width - 1], Int((3200.0 / binHz).rounded()) - 1)
+
+        // A different buffer size changes the bin width, not the axis.
+        let map4096 = WaterfallViewModel.displayedBinIndices(
+            pixelWidth: width, magsCount: 2048, sampleRate: 44100, maxDisplayFrequency: 3200
+        )
+        let toneBin4096 = Int((1500.0 / (binHz / 2)).rounded())
+        XCTAssertEqual(Double(map4096.firstIndex(of: toneBin4096)!), Double(toneX), accuracy: pixelsPerBin / 2)
+
+        // Asking for more than Nyquist stops at the last real bin.
+        let clamped = WaterfallViewModel.displayedBinIndices(
+            pixelWidth: width, magsCount: 8, sampleRate: 12000, maxDisplayFrequency: 9000
+        )
+        XCTAssertEqual(clamped.last, 7)
+
+        XCTAssertTrue(WaterfallViewModel.displayedBinIndices(
+            pixelWidth: 0, magsCount: 8, sampleRate: 12000, maxDisplayFrequency: 3200
+        ).isEmpty)
+    }
+
     func testUpdateWaterfallAddsLabelsAndTimestamps() {
         let vm = WaterfallViewModel(sampleRate: 12000, waterfallFFTSize: 16, waterfallRows: 4, isFT4: false)
         vm.visibleRows = 1

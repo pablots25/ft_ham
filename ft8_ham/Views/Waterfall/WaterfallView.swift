@@ -116,7 +116,7 @@ struct WaterfallOverlayView: View {
             let h = size.height
             let bodyOffset = headerHeight
 
-            let maxFreq = Double(config.maxDisplayFrequency) * 4.0
+            let maxFreq = Double(config.maxDisplayFrequency)
             guard maxFreq > 0 else { return }
 
             // Frequency ticks
@@ -188,7 +188,9 @@ struct WaterfallOverlayView: View {
                     anchor: .center
                 )
                 
-                let bandwidthHz = (isFT4 ? 90.0 : 50.0) * 2
+                // Occupied bandwidth above the base tone: 8 tones × 6.25 Hz
+                // for FT8, 4 tones × 20.83 Hz for FT4.
+                let bandwidthHz = isFT4 ? 83.3 : 50.0
                 for freq in [txFreq, txFreq + bandwidthHz] {
                     let x = CGFloat(freq / maxFreq) * w
                     let path = Path { path in

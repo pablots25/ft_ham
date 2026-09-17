@@ -54,9 +54,10 @@ final class WaterfallViewModel: ObservableObject {
     // Scratch buffers for the vectorized pixel-color pipeline in updateWaterfall(from:)
     private var scratchMags: [Float] = []   // gathered bin magnitudes (width elements)
     private var scratchDB: [Float] = []     // reused through the vDSP/vForce chain
-    // Cached per-pixel bin-index map — recomputed only when width or maxBin changes
+    // Cached per-pixel bin-index map — recomputed only when the pixel width,
+    // the FFT size or the sample rate changes
     private var cachedBinIndices: [Int] = []
-    private var cachedMaxBin: Int = -1
+    private var cachedBinMapKey: BinMapKey?
     /// Smoothed per-bin noise floor in dBFS for auto-ranging. `nil` until the
     /// first rendered row seeds it.
     private var smoothedFloorDB: Float?
@@ -179,7 +180,10 @@ final class WaterfallViewModel: ObservableObject {
         var waterfallSpanDB: Float = 45.0
         var timestampInterval: TimeInterval
         var targetFPS: Double = 15.0  // Reduced from 30 to 15 Hz for CPU optimization
-        var maxDisplayFrequency: Float = 800.0
+        /// Audio frequency at the right edge of the waterfall, in Hz. The
+        /// pixel rows, the overlay, the cursor and the tap-to-set-frequency
+        /// mapping all derive from this one value, so they cannot drift apart.
+        var maxDisplayFrequency: Float = 3200.0
 
         static let absoluteMaxRows = 2000
     }
@@ -378,8 +382,38 @@ final class WaterfallViewModel: ObservableObject {
     }
     
     func xPosition(for frequency: Double, in width: CGFloat) -> CGFloat {
-        let maxFreq = Double(config.maxDisplayFrequency) * 4.0
-        return CGFloat(frequency / maxFreq) * width
+        CGFloat(frequency / Double(config.maxDisplayFrequency)) * width
+    }
+
+    /// Identifies one pixel → FFT-bin mapping; the map is rebuilt when any
+    /// of these change.
+    private struct BinMapKey: Equatable {
+        let pixelWidth: Int
+        let magsCount: Int
+        let sampleRate: Float
+        let maxDisplayFrequency: Float
+    }
+
+    /// For each of `pixelWidth` columns, the index into an FFT magnitude array
+    /// of `magsCount` bins (covering 0 Hz … `sampleRate / 2`) whose bin is
+    /// shown there, so that the columns span 0 Hz … `maxDisplayFrequency`.
+    ///
+    /// The bin width is taken from `magsCount`, not from the configured FFT
+    /// size: the background FFT sizes itself to the audio buffer it gets, so
+    /// the two can differ. If the requested span exceeds Nyquist the map
+    /// stops at the last real bin.
+    static func displayedBinIndices(
+        pixelWidth: Int,
+        magsCount: Int,
+        sampleRate: Float,
+        maxDisplayFrequency: Float
+    ) -> [Int] {
+        guard pixelWidth > 0, magsCount > 0, sampleRate > 0 else { return [] }
+        let binHz = sampleRate / (2 * Float(magsCount))
+        let maxBin = min(max(Int((maxDisplayFrequency / binHz).rounded()), 1), magsCount)
+        return (0 ..< pixelWidth).map {
+            min(Int(Float($0) / Float(pixelWidth) * Float(maxBin)), maxBin - 1)
+        }
     }
 
     // ---------------------------------------------------------
@@ -399,10 +433,7 @@ final class WaterfallViewModel: ObservableObject {
                 pixelData[row * w + x] = 0xFF000000
             }
         } else {
-            guard mags.count >= w else { return }
-
-            let nyquist = max(1.0, sampleRate / 2.0)
-            let maxBin = min(max(Int(round((config.maxDisplayFrequency / nyquist) * Float(w))), 1), w)
+            guard mags.count > 1 else { return }
 
             // Resize scratch buffers only when width changes (once per session)
             if scratchMags.count != w {
@@ -411,12 +442,22 @@ final class WaterfallViewModel: ObservableObject {
             }
 
             // Rebuild bin-index table only when the mapping changes
-            if cachedBinIndices.count != w || cachedMaxBin != maxBin {
-                cachedMaxBin = maxBin
-                cachedBinIndices = (0 ..< w).map {
-                    min(Int(Float($0) / Float(w) * Float(maxBin)), maxBin - 1)
-                }
+            let mapKey = BinMapKey(
+                pixelWidth: w,
+                magsCount: mags.count,
+                sampleRate: sampleRate,
+                maxDisplayFrequency: config.maxDisplayFrequency
+            )
+            if cachedBinMapKey != mapKey {
+                cachedBinMapKey = mapKey
+                cachedBinIndices = Self.displayedBinIndices(
+                    pixelWidth: w,
+                    magsCount: mags.count,
+                    sampleRate: sampleRate,
+                    maxDisplayFrequency: config.maxDisplayFrequency
+                )
             }
+            guard cachedBinIndices.count == w else { return }
 
             // Gather magnitudes: mags[binIndex] → scratchMags
             // Also write raw mags into the float waterfall buffer (unchanged semantics)
@@ -695,7 +736,7 @@ final class WaterfallViewModel: ObservableObject {
     
     func frequencyAtPixel(x: CGFloat, width: CGFloat) -> Double {
         guard width > 0 else { return 0 }
-        return Double(x / width) * Double(config.maxDisplayFrequency) * 4.0
+        return Double(x / width) * Double(config.maxDisplayFrequency)
     }
     
     @MainActor
