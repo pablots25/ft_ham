@@ -269,6 +269,174 @@ private final class eQSLServiceAdapter: eQSLServiceProtocol {
     }
 }
 
+// MARK: - Band Hop Adapter
+
+/// Adapter that wraps FTHamPremium.BandHopScheduler to conform to local BandHopSchedulerProtocol.
+@MainActor
+private final class BandHopAdapter: BandHopSchedulerProtocol {
+    private let scheduler: FTHamPremium.BandHopScheduler
+
+    init(scheduler: FTHamPremium.BandHopScheduler) {
+        self.scheduler = scheduler
+    }
+
+    private static func map(_ state: FTHamPremium.BandHopState) -> BandHopState {
+        switch state {
+        case .stopped: return .stopped
+        case .dwelling(let band, let until): return .dwelling(bandRaw: band, until: until)
+        case .paused(let band, let remaining): return .paused(bandRaw: band, remaining: remaining)
+        }
+    }
+
+    var state: BandHopState { Self.map(scheduler.state) }
+
+    var statePublisher: AnyPublisher<BandHopState, Never> {
+        scheduler.statePublisher.map(Self.map).eraseToAnyPublisher()
+    }
+
+    var hopRequests: AnyPublisher<String, Never> { scheduler.hopRequests }
+
+    func start(schedule: BandHopSchedule, startingAt bandRaw: String?) {
+        let steps = schedule.steps.map {
+            FTHamPremium.BandHopStep(id: $0.id, bandRaw: $0.bandRaw, dwellMinutes: $0.dwellMinutes)
+        }
+        scheduler.start(schedule: FTHamPremium.BandHopSchedule(steps: steps), startingAt: bandRaw)
+    }
+
+    func stop() { scheduler.stop() }
+    func pause() { scheduler.pause() }
+    func resume() { scheduler.resume() }
+    func skipToNext() { scheduler.skipToNext() }
+}
+
+// MARK: - iCloud Logbook Adapter
+
+/// Adapter that wraps FTHamPremium.CloudLogbookSyncService to conform to
+/// the local CloudLogbookSyncProtocol.
+@MainActor
+private final class CloudLogbookSyncAdapter: CloudLogbookSyncProtocol {
+    private let service: FTHamPremium.CloudLogbookSyncService
+
+    init(service: FTHamPremium.CloudLogbookSyncService) {
+        self.service = service
+    }
+
+    func accountStatus() async -> CloudSyncAccountStatus {
+        switch await service.accountStatus() {
+        case .available: return .available
+        case .noAccount: return .noAccount
+        case .restricted: return .restricted
+        case .unknown: return .unknown
+        }
+    }
+
+    func push(_ records: [CloudLogRecord]) async throws {
+        do {
+            try await service.push(records.map(Self.map))
+        } catch let error as FTHamPremium.CloudLogbookSyncError {
+            throw Self.map(error)
+        }
+    }
+
+    func pullChanges() async throws -> CloudPullResult {
+        do {
+            let result = try await service.pullChanges()
+            return CloudPullResult(
+                upserted: result.upserted.map(Self.map),
+                deletedKeys: result.deletedKeys
+            )
+        } catch let error as FTHamPremium.CloudLogbookSyncError {
+            throw Self.map(error)
+        }
+    }
+
+    func deleteAllRemote() async throws {
+        do {
+            try await service.deleteAllRemote()
+        } catch let error as FTHamPremium.CloudLogbookSyncError {
+            throw Self.map(error)
+        }
+    }
+
+    func resetChangeToken() { service.resetChangeToken() }
+
+    private static func map(_ r: CloudLogRecord) -> FTHamPremium.CloudLogRecord {
+        FTHamPremium.CloudLogRecord(
+            dedupKey: r.dedupKey, sourceID: r.sourceID, callsign: r.callsign, grid: r.grid,
+            date: r.date, frequencyHz: r.frequencyHz, mode: r.mode, band: r.band,
+            rstSent: r.rstSent, rstRcvd: r.rstRcvd, stationCallsign: r.stationCallsign,
+            cqModifier: r.cqModifier, mySigInfo: r.mySigInfo, country: r.country,
+            flag: r.flag, qrzStatusRaw: r.qrzStatusRaw, lotwStatusRaw: r.lotwStatusRaw
+        )
+    }
+
+    private static func map(_ r: FTHamPremium.CloudLogRecord) -> CloudLogRecord {
+        CloudLogRecord(
+            dedupKey: r.dedupKey, sourceID: r.sourceID, callsign: r.callsign, grid: r.grid,
+            date: r.date, frequencyHz: r.frequencyHz, mode: r.mode, band: r.band,
+            rstSent: r.rstSent, rstRcvd: r.rstRcvd, stationCallsign: r.stationCallsign,
+            cqModifier: r.cqModifier, mySigInfo: r.mySigInfo, country: r.country,
+            flag: r.flag, qrzStatusRaw: r.qrzStatusRaw, lotwStatusRaw: r.lotwStatusRaw
+        )
+    }
+
+    private static func map(_ error: FTHamPremium.CloudLogbookSyncError) -> CloudLogbookSyncError {
+        switch error {
+        case .premiumRequired: return .premiumRequired
+        case .notAvailable: return .notAvailable
+        case .network(let message): return .network(message)
+        case .server(let message): return .server(message)
+        }
+    }
+}
+
+// MARK: - Presence Adapter
+
+/// Adapter that wraps FTHamPremium.PresenceService to conform to the local
+/// PresenceServiceProtocol.
+@MainActor
+private final class PresenceAdapter: PresenceServiceProtocol {
+    private let service: FTHamPremium.PresenceService
+
+    init(service: FTHamPremium.PresenceService) {
+        self.service = service
+    }
+
+    func upsert(callsign: String, grid4: String, band: String, mode: String) async throws {
+        do {
+            try await service.upsert(callsign: callsign, grid4: grid4, band: band, mode: mode)
+        } catch let error as FTHamPremium.PresenceError {
+            throw Self.map(error)
+        }
+    }
+
+    func fetchOnline(since date: Date) async throws -> [PresenceStation] {
+        do {
+            return try await service.fetchOnline(since: date).map {
+                PresenceStation(callsign: $0.callsign, grid: $0.grid, band: $0.band, mode: $0.mode, lastSeen: $0.lastSeen)
+            }
+        } catch let error as FTHamPremium.PresenceError {
+            throw Self.map(error)
+        }
+    }
+
+    func removeMine() async throws {
+        do {
+            try await service.removeMine()
+        } catch let error as FTHamPremium.PresenceError {
+            throw Self.map(error)
+        }
+    }
+
+    private static func map(_ error: FTHamPremium.PresenceError) -> PresenceError {
+        switch error {
+        case .premiumRequired: return .premiumRequired
+        case .notAvailable: return .notAvailable
+        case .network(let message): return .network(message)
+        }
+    }
+}
+
 #endif
 
 /// Factory for premium features.
@@ -332,6 +500,48 @@ public enum PremiumFeatures {
             #endif
         }()
         _lotwService = instance
+        return instance
+    }
+
+    private static var _bandHopScheduler: (any BandHopSchedulerProtocol)?
+    public static var bandHopScheduler: any BandHopSchedulerProtocol {
+        if let existing = _bandHopScheduler { return existing }
+        let instance: any BandHopSchedulerProtocol = {
+            #if canImport(FTHamPremium)
+            return BandHopAdapter(scheduler: FTHamPremium.BandHopScheduler.shared)
+            #else
+            return BandHopSchedulerStub.shared
+            #endif
+        }()
+        _bandHopScheduler = instance
+        return instance
+    }
+
+    private static var _cloudLogbookSync: (any CloudLogbookSyncProtocol)?
+    public static var cloudLogbookSync: any CloudLogbookSyncProtocol {
+        if let existing = _cloudLogbookSync { return existing }
+        let instance: any CloudLogbookSyncProtocol = {
+            #if canImport(FTHamPremium)
+            return CloudLogbookSyncAdapter(service: FTHamPremium.CloudLogbookSyncService.shared)
+            #else
+            return CloudLogbookSyncStub.shared
+            #endif
+        }()
+        _cloudLogbookSync = instance
+        return instance
+    }
+
+    private static var _presence: (any PresenceServiceProtocol)?
+    public static var presence: any PresenceServiceProtocol {
+        if let existing = _presence { return existing }
+        let instance: any PresenceServiceProtocol = {
+            #if canImport(FTHamPremium)
+            return PresenceAdapter(service: FTHamPremium.PresenceService.shared)
+            #else
+            return PresenceServiceStub.shared
+            #endif
+        }()
+        _presence = instance
         return instance
     }
 

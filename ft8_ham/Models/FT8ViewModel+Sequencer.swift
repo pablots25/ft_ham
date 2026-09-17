@@ -25,6 +25,10 @@ extension FT8ViewModel {
         }
         appLogger.info("Starting Sequencer Loop (FT\(isFT4 ? "4" : "8") - \(evenCycle ? "Even" : "Odd"))")
         isSequencerRunning = true
+        PresenceManager.shared.sequencerDidStart(
+            callsign: callsign, grid: locator,
+            band: effectiveBand.rawValue, mode: isFT4 ? "FT4" : "FT8"
+        )
 
         // Track first-run milestone
         UserDefaults.standard.set(true, forKey: "hasStartedRX")
@@ -49,7 +53,7 @@ extension FT8ViewModel {
             do {
                 while !Task.isCancelled {
                     // 1. Calculate Next Slot Boundary
-                    let now = Date()
+                    let now = AppClock.now()
                     let nextSlot = await self.slotManager.getNextSlot(from: now, isFT4: self.isFT4)
                     
                     // 2. Wait for Boundary
@@ -166,8 +170,10 @@ extension FT8ViewModel {
             
             // Cleanup on exit
             self.isSequencerRunning = false
+            PresenceManager.shared.sequencerDidStop()
             self.isListening = false
             self.isTransmitting = false
+            self.freeTextLoopActive = false
             self.sequencerTask = nil
             self.audioManager.stopPlayback()
             self.audioManager.stopMicInput()
@@ -217,25 +223,23 @@ extension FT8ViewModel {
             return .receive
         }
         
-        let lag = Date().timeIntervalSince(slot.startTime)
+        let lag = AppClock.now().timeIntervalSince(slot.startTime)
         if lag > 2.0 {
             appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
             return .skip
         }
         
+        // Free text runs outside the QSO state machine: every my-turn slot.
+        if self.freeTextLoopActive {
+            return isMyTurn(slot) ? .transmit : .receive
+        }
+
         // Check if we should transmit based on QSO state machine
         // Only TX when: calling CQ, in a "sending" state, or isReadyForTX (immediate response)
         let shouldTX = (self.transmitLoopActive && qsoManager.shouldTransmitThisSlot()) || self.isReadyForTX
         
         if shouldTX {
-            let isMyTurn: Bool
-            switch self.txSlotPreference {
-            case .followClock: isMyTurn = (slot.isEven == self.evenCycle)
-            case .forceEven:   isMyTurn = slot.isEven
-            case .forceOdd:    isMyTurn = !slot.isEven
-            }
-            
-            if isMyTurn {
+            if isMyTurn(slot) {
                 // Clear isReadyForTX after using it to prevent repeated TX
                 self.isReadyForTX = false
                 appLogger.debug("Sequencer Decided: TRANSMIT (Slot \(slot.slotIndex), Even: \(slot.isEven))")
@@ -246,9 +250,28 @@ extension FT8ViewModel {
         return .receive
     }
     
+    /// Drops audio captured so far in this slot (e.g. after a band hop, so the
+    /// next decode does not mix two bands).
+    @MainActor
+    internal func clearRXBuffer() {
+        rxBufferLock.lock()
+        rxSampleBuffer = Data()
+        rxBufferLock.unlock()
+    }
+
+    /// Slot parity check shared by the QSO and free-text loops.
+    @MainActor
+    internal func isMyTurn(_ slot: SlotInfo) -> Bool {
+        switch self.txSlotPreference {
+        case .followClock: return slot.isEven == self.evenCycle
+        case .forceEven:   return slot.isEven
+        case .forceOdd:    return !slot.isEven
+        }
+    }
+
     @MainActor
     internal func tryImmediateTXIfPossible() async{
-        let now = Date()
+        let now = AppClock.now()
         
         // 1. Obtener información del slot ACTUAL
         let currentSlot = await slotManager.getSlotInfo(
@@ -328,7 +351,7 @@ extension FT8ViewModel {
             return
         }
         
-        let now = Date()
+        let now = AppClock.now()
         let offsetFromSlotStart = now.timeIntervalSince(slot.startTime)
         
         let maxStartOffset = slot.isFT4
@@ -350,7 +373,7 @@ extension FT8ViewModel {
             (slot.isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration) + (slot.isFT4 ? Constants.ft4DecodeMargin : Constants.ft8DecodeMargin)
         )
         while self.isHarvestingRX {
-            if Date() > signalEnd {
+            if AppClock.now() > signalEnd {
                 txLogger.warning(
                     "TX aborted for slot \(slot.slotIndex): RX decode exceeded signal window"
                 )
@@ -365,23 +388,57 @@ extension FT8ViewModel {
             txLogger.info("TX delayed \(waitedMs) ms (RX decode barrier)")
         }
         
-        guard let selectedIndex = selectedMessageIndex,
-              allMessages.indices.contains(selectedIndex) else {
-            txLogger.warning(
-                "No message selected for TX (selectedIndex: \(String(describing: selectedMessageIndex)))"
-            )
-            return
+        let message: String
+        let audioData: Data
+        let isFreeText = freeTextLoopActive
+
+        if isFreeText {
+            guard case .success(let text) = FreeTextMessage.validate(freeTextForTX) else {
+                txLogger.warning("Free text TX skipped: text is invalid")
+                freeTextLoopActive = false
+                return
+            }
+            guard isValidCallsign(callsign) else {
+                audioError = "Invalid callsign/locator"
+                txLogger.error("Invalid callsign: \(callsign)")
+                return
+            }
+            guard let data = engine.generateFreeText(text, frequency: Float(frequency), isFT4: isFT4) else {
+                txLogger.error("Failed to generate free text audio for: \(text)")
+                return
+            }
+            message = text
+            audioData = data
+        } else {
+            guard let selectedIndex = selectedMessageIndex,
+                  allMessages.indices.contains(selectedIndex) else {
+                txLogger.warning(
+                    "No message selected for TX (selectedIndex: \(String(describing: selectedMessageIndex)))"
+                )
+                return
+            }
+
+            message = allMessages[selectedIndex]
+            txLogger.debug("TX message selection: index=\(selectedIndex), message='\(message)', dxCallsign='\(dxCallsign)'")
+
+            guard isValidCallsign(callsign), isValidLocator(locator) else {
+                audioError = "Invalid callsign/locator"
+                txLogger.error("Invalid callsign/locator: \(callsign)/\(locator)")
+                return
+            }
+
+            guard let data = engine.generateFT8(
+                message,
+                frequency: Float(frequency),
+                isFT4: isFT4,
+                toFile: nil
+            ) else {
+                txLogger.error("Failed to generate audio for: \(message)")
+                return
+            }
+            audioData = data
         }
-        
-        let message = allMessages[selectedIndex]
-        txLogger.debug("TX message selection: index=\(selectedIndex), message='\(message)', dxCallsign='\(dxCallsign)'")
-        
-        guard isValidCallsign(callsign), isValidLocator(locator) else {
-            audioError = "Invalid callsign/locator"
-            txLogger.error("Invalid callsign/locator: \(callsign)/\(locator)")
-            return
-        }
-        
+
         let txMessage = FT8Message(
             text: message,
             mode: isFT4 ? .ft4 : .ft8,
@@ -389,16 +446,6 @@ extension FT8ViewModel {
             isTX: true,
             band: selectedBand
         )
-        
-        guard let audioData = engine.generateFT8(
-            message,
-            frequency: Float(frequency),
-            isFT4: isFT4,
-            toFile: nil
-        ) else {
-            txLogger.error("Failed to generate audio for: \(message)")
-            return
-        }
         
         transmittedMessages.append(txMessage)
         txLogger.info("Added to TX list: \(message)")
@@ -426,6 +473,7 @@ extension FT8ViewModel {
         
         
         self.activeTXMessage = txMessage
+        self.activeTXIsFreeText = isFreeText
         self.lastTransmittedSlotIndex = slot.slotIndex
         
         // Final QSO messages (RR73 / 73) are handled by QSOStatusManager

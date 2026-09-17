@@ -11,6 +11,7 @@ struct SettingsScrollContainer<Content: View>: View {
     let title: LocalizedStringKey
     let alignment: HorizontalAlignment
     let spacing: CGFloat
+    /// Keeps the last row clear of the floating tab bar.
     let contentBottomPadding: CGFloat
     let dismissKeyboardOnScroll: Bool
     @ViewBuilder let content: () -> Content
@@ -19,7 +20,7 @@ struct SettingsScrollContainer<Content: View>: View {
         title: LocalizedStringKey,
         alignment: HorizontalAlignment = .leading,
         spacing: CGFloat = 20,
-        contentBottomPadding: CGFloat = 0,
+        contentBottomPadding: CGFloat = 20,
         dismissKeyboardOnScroll: Bool = false,
         @ViewBuilder content: @escaping () -> Content
     ) {

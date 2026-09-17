@@ -71,7 +71,7 @@ actor MessageProcessor {
         var shouldResetFirstLoop = false
         
         // Add timestamp marker
-        let now = Date()
+        let now = AppClock.now()
         let slotDuration: Double = isFT4 ? 7.5 : 15.0
         let roundedTimestamp = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970 / (slotDuration / 2.0)) * (slotDuration / 2.0))
         
@@ -182,7 +182,9 @@ actor MessageProcessor {
     // MARK: - Message Creation
     private static func createMessage(from dict: [String: Any], isFT4: Bool, selectedBand: FT8Message.Band, isTX: Bool) -> FT8Message {
         let text = (dict["text"] as? String) ?? ""
-        let timestampRaw = (dict["timestamp"] as? Double) ?? (dict["time"] as? Double) ?? Date().timeIntervalSince1970
+        // The engine stamps with the raw system clock; shift it onto the corrected clock.
+        let timestampRaw = ((dict["timestamp"] as? Double) ?? (dict["time"] as? Double) ?? Date().timeIntervalSince1970)
+            + AppClock.shared.offset
         let slotLen = isFT4 ? 7.5 : 15.0
         let computedTimestamp = Date(timeIntervalSince1970: timestampRaw - slotLen)
         

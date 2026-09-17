@@ -10,6 +10,7 @@ import SwiftUI
 
 struct SeparatedMsgView: View {
     let msg: FT8Message
+    var needed: NeededStatus = []
 
     var body: some View {
         if msg.msgType == .internalTimestamp {
@@ -54,6 +55,7 @@ struct SeparatedMsgView: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
 
+                    NeededBadgeView(status: needed)
                     Text("(\(msg.mode.rawValue.uppercased()))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)

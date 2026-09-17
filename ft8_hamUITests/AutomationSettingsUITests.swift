@@ -1,5 +1,5 @@
 //
-//  BehaviorSettingsUITests.swift
+//  AutomationSettingsUITests.swift
 //  ft8_hamUITests
 //
 //  Created by GitHub Copilot on 04/04/26.
@@ -7,15 +7,15 @@
 
 import XCTest
 
-// MARK: - BehaviorSettings UI Tests
+// MARK: - AutomationSettings UI Tests
 
-/// UI tests that navigate to the Behavior settings screen and verify that
+/// UI tests that navigate to the Automation settings screen and verify that
 /// each toggle control is present and responds to user interaction.
 ///
-/// These tests use the accessibility identifiers added to BehaviorSettingsView
+/// These tests use the accessibility identifiers added to AutomationSettingsView
 /// (prefixed `toggle_` and `field_`) as well as standard accessibility labels
 /// set on the Toggle controls via ToggleRow.
-final class BehaviorSettingsUITests: XCTestCase {
+final class AutomationSettingsUITests: XCTestCase {
 
     var app: XCUIApplication!
 
@@ -53,39 +53,44 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     // MARK: - Navigation Helper
 
-    /// Navigates from the app's root to the Behavior settings screen.
+    /// Navigates from the app's root to the settings screen named `row`.
     @MainActor
-    private func navigateToBehaviorSettings() {
+    private func navigateToSettings(row: String) {
         // The tab bar item for Settings/Configuration is labelled "Settings"
         let settingsTab = app.tabBars.buttons["Settings"]
         if settingsTab.exists {
             settingsTab.tap()
         }
 
-        // Tap the "Behavior" row inside the configuration list
-        let behaviorCell = app.cells.staticTexts["Behavior"]
-        if behaviorCell.waitForExistence(timeout: 5) {
-            behaviorCell.tap()
+        // Tap the row inside the configuration list
+        let cell = app.cells.staticTexts[row]
+        if cell.waitForExistence(timeout: 5) {
+            cell.tap()
         }
+    }
+
+    @MainActor
+    private func navigateToAutomationSettings() {
+        navigateToSettings(row: "Automation")
     }
 
     // MARK: - Visibility Tests
 
     @MainActor
-    func testBehaviorSettingsScreenLoads() throws {
-        navigateToBehaviorSettings()
+    func testAutomationSettingsScreenLoads() throws {
+        navigateToAutomationSettings()
 
         // The screen title or a section heading should be visible
         let receiverControlHeading = app.staticTexts["Receiver Control"]
         XCTAssertTrue(
             receiverControlHeading.waitForExistence(timeout: 5),
-            "Receiver Control heading should be visible on the Behavior settings screen"
+            "Receiver Control heading should be visible on the Automation settings screen"
         )
     }
 
     @MainActor
     func testAutoRXAtStartToggleIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Auto RX at start"]
         XCTAssertTrue(
@@ -96,7 +101,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoCQReplyToggleIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Reply to CQ received"]
         XCTAssertTrue(
@@ -107,7 +112,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoCQNewBandModeToggleIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Only if new band/mode"]
         XCTAssertTrue(
@@ -118,7 +123,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testShowTXMessagesToggleIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToSettings(row: "Display")
 
         let toggle = app.switches["Show TX messages in RX list"]
         XCTAssertTrue(
@@ -129,7 +134,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testHoldTXFrequencyToggleIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Hold TX frequency"]
         XCTAssertTrue(
@@ -140,7 +145,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoSequencingToggleIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Auto-sequence"]
         XCTAssertTrue(
@@ -151,7 +156,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoQSOLoggingToggleIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Auto QSO logging"]
         XCTAssertTrue(
@@ -164,7 +169,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoCQReplySectionHeadingIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         XCTAssertTrue(
             app.staticTexts["Auto CQ Reply"].waitForExistence(timeout: 5),
@@ -173,18 +178,18 @@ final class BehaviorSettingsUITests: XCTestCase {
     }
 
     @MainActor
-    func testDisplayTransmissionSectionHeadingIsVisible() throws {
-        navigateToBehaviorSettings()
+    func testTransmissionSectionHeadingIsVisible() throws {
+        navigateToAutomationSettings()
 
         XCTAssertTrue(
-            app.staticTexts["Display & Transmission"].waitForExistence(timeout: 5),
-            "Display & Transmission section heading should be visible"
+            app.staticTexts["Transmission"].waitForExistence(timeout: 5),
+            "Transmission section heading should be visible"
         )
     }
 
     @MainActor
     func testQSOAutomationSectionHeadingIsVisible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         XCTAssertTrue(
             app.staticTexts["QSO Automation"].waitForExistence(timeout: 5),
@@ -196,7 +201,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoRXAtStartToggleCanBeEnabled() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Auto RX at start"]
         guard toggle.waitForExistence(timeout: 5) else {
@@ -218,7 +223,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoCQReplyToggleCanBeEnabled() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Reply to CQ received"]
         guard toggle.waitForExistence(timeout: 5) else {
@@ -239,7 +244,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testShowTXMessagesToggleCanBeEnabled() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Show TX messages in RX list"]
         guard toggle.waitForExistence(timeout: 5) else {
@@ -260,7 +265,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testHoldTXFrequencyToggleCanBeEnabled() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         let toggle = app.switches["Hold TX frequency"]
         guard toggle.waitForExistence(timeout: 5) else {
@@ -281,7 +286,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoQSOLoggingToggleCanBeDisabled() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         // autoQSOLogging defaults to true, so we verify it starts on and can be turned off
         let toggle = app.switches["Auto QSO logging"]
@@ -303,7 +308,7 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testAutoSequencingToggleCanBeDisabled() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         // autoSequencingEnabled defaults to true
         let toggle = app.switches["Auto-sequence"]
@@ -327,13 +332,13 @@ final class BehaviorSettingsUITests: XCTestCase {
 
     @MainActor
     func testHelpButtonsAreAccessible() throws {
-        navigateToBehaviorSettings()
+        navigateToAutomationSettings()
 
         // Verify at least one Help button exists on the screen
         let helpButtons = app.buttons["Help"]
         XCTAssertTrue(
             helpButtons.waitForExistence(timeout: 5),
-            "At least one Help button should be present on the Behavior settings screen"
+            "At least one Help button should be present on the Automation settings screen"
         )
     }
 }

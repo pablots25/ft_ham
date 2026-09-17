@@ -19,11 +19,7 @@ struct MessageListView: View {
     @Binding var filterMode: Int
 
     private var filteredMessages: [FT8Message] {
-        switch filterMode {
-        case 1: return messages.filter { $0.forMe || $0.isTX }
-        case 2: return messages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
-        default: return messages
-        }
+        RXFilterMode(storage: filterMode).apply(messages, isNeeded: viewModel.isNeeded)
     }
 
     var body: some View {
@@ -63,7 +59,7 @@ struct MessageListView: View {
                                     .listRowBackground(Color.clear)
                                     .id(msg.id)
                             } else {
-                                MessageView(msg: msg)
+                                MessageView(msg: msg, needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [])
                                     .font(.caption2)
                                     .dynamicTypeSize(.medium ... .accessibility5)
                                     .lineLimit(1)

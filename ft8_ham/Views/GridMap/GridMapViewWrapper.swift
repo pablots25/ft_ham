@@ -16,11 +16,17 @@ struct GridMapViewWrapper: View {
     let countries: [CountryPair]
     var routePoints: [CLLocationCoordinate2D] = []
     @ObservedObject var mapSettings: MapSettingsModel
+    /// Stations that heard us (PSK Reporter). Omit to hide the feature.
+    @ObservedObject var heardMe: HeardMeStore = .shared
+    @ObservedObject var presence: PresenceManager = .shared
+    var myCallsign: String = ""
+    var myLocator: String = ""
     /// Called when the device location resolves to a grid square not yet shown.
     var onUserLocator: ((String) -> Void)? = nil
     @State private var userTrackingMode: MKUserTrackingMode = .none
     @State private var isControlsExpanded: Bool = false
     @State private var showMapLegend: Bool = false
+    @State private var showHeardMeList: Bool = false
 
     @ViewBuilder
     var body: some View {
@@ -39,10 +45,14 @@ struct GridMapViewWrapper: View {
                 locators: locators,
                 countries: countries,
                 routePoints: routePoints,
+                heardMeStations: heardMe.stations,
+                presenceStations: presence.visibleStations,
                 showGrids: mapSettings.showGrids,
                 showCountryCircles: mapSettings.showCountryCircles,
                 showGeodesics: mapSettings.showGeodesics,
                 showAnnotations: mapSettings.showAnnotations,
+                showHeardMe: mapSettings.showHeardMe,
+                showPresence: mapSettings.showPresence,
                 userTrackingMode: $userTrackingMode,
                 onUserLocator: onUserLocator
             )
@@ -50,6 +60,16 @@ struct GridMapViewWrapper: View {
 
             mapControlBar
                 .padding(10)
+        }
+        .onAppear {
+            heardMe.refreshIfAllowed(callsign: myCallsign, myLocator: myLocator)
+            presence.mapDidAppear()
+        }
+        .onDisappear {
+            presence.mapDidDisappear()
+        }
+        .sheet(isPresented: $showHeardMeList) {
+            HeardMeListView(store: heardMe, myCallsign: myCallsign, myLocator: myLocator)
         }
     }
 
@@ -61,6 +81,63 @@ struct GridMapViewWrapper: View {
         case .followWithHeading: return "location.north.fill"
         default: return "location"
         }
+    }
+
+    /// Tap: open the list. Long press: toggle the markers.
+    private var heardMeButton: some View {
+        Button {
+            showHeardMeList = true
+        } label: {
+            HStack(spacing: 2) {
+                Image(systemName: mapSettings.showHeardMe ? "ear.fill" : "ear")
+                if mapSettings.showHeardMe, !heardMe.stations.isEmpty {
+                    Text("\(heardMe.stations.count)")
+                        .font(.caption2.monospacedDigit())
+                }
+            }
+            .foregroundStyle(mapSettings.showHeardMe ? .orange : .primary)
+        }
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button {
+                mapSettings.showHeardMe.toggle()
+            } label: {
+                Label(mapSettings.showHeardMe ? "Hide stations that heard me" : "Show stations that heard me",
+                      systemImage: mapSettings.showHeardMe ? "eye.slash" : "eye")
+            }
+            ForEach(HeardMeWindow.allCases) { window in
+                Button {
+                    heardMe.window = window
+                } label: {
+                    if heardMe.window == window {
+                        Label(window.title, systemImage: "checkmark")
+                    } else {
+                        Text(window.title)
+                    }
+                }
+            }
+        }
+        .accessibilityLabel("Stations that heard you")
+        .accessibilityIdentifier("button_heardMe")
+    }
+
+    /// Cyan marker toggle plus a count of operators currently on the air.
+    private var presenceButton: some View {
+        Button {
+            mapSettings.showPresence.toggle()
+        } label: {
+            HStack(spacing: 2) {
+                Image(systemName: "person.2.fill")
+                if mapSettings.showPresence, !presence.visibleStations.isEmpty {
+                    Text("\(presence.visibleStations.count)")
+                        .font(.caption2.monospacedDigit())
+                }
+            }
+            .foregroundStyle(mapSettings.showPresence ? .cyan : .primary)
+        }
+        .contentShape(Rectangle())
+        .accessibilityLabel("Operators Online")
+        .accessibilityIdentifier("button_presence")
     }
 
     private var mapControlBar: some View {
@@ -135,6 +212,16 @@ struct GridMapViewWrapper: View {
             } label: {
                 Image(systemName: trackingModeIcon)
                     .foregroundStyle(userTrackingMode == .none ? Color.secondary : Color.blue)
+            }
+
+            Divider()
+
+            heardMeButton
+
+            if presence.isActive {
+                Divider()
+
+                presenceButton
             }
 
             Divider()

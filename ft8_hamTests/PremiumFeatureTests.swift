@@ -31,6 +31,6 @@ final class PremiumFeatureTests: XCTestCase {
     }
 
     func testAllCasesCount() {
-        XCTAssertEqual(PremiumFeature.allCases.count, 7)
+        XCTAssertEqual(PremiumFeature.allCases.count, 10)
     }
 }

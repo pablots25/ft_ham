@@ -191,25 +191,7 @@ struct CondensedTransmissionView: View {
                     Spacer()
                     
                     if(allowReply){
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                filterMode = (filterMode + 1) % 3
-                            }
-                        } label: {
-                            Image(systemName: filterMode == 0
-                                  ? "line.3.horizontal.decrease.circle"
-                                  : "line.3.horizontal.decrease.circle.fill")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(
-                                filterMode == 0 ? .secondary :
-                                filterMode == 1 ? .primary : Color.accentColor
-                            )
-                            .accessibilityLabel(
-                                filterMode == 0 ? "Show all messages" :
-                                filterMode == 1 ? "Show mine" : "Show mine and CQ"
-                            )
-                        }
-                        .buttonStyle(.plain)
+                        RXFilterButton(filterMode: $filterMode)
 
                         Button {
                             showLegend.toggle()

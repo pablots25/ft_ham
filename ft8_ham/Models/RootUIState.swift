@@ -15,6 +15,11 @@ import Combine
 @MainActor
 final class RootUIState: ObservableObject {
     @Published var toast: ToastMessage?
+    /// Presents the free-text TX sheet. It lives here, not in
+    /// `TransmissionButtonsBar`, because that bar re-renders on every view
+    /// model publish — a sheet anchored inside it is torn down and
+    /// re-presented while you type.
+    @Published var showFreeTextSheet: Bool = false
     @Published var settingsLoaded: Bool = false
     @Published var isFT4: Bool = false
 }

@@ -27,6 +27,12 @@ enum HelpTip: Identifiable {
     case audioGain
     case txOutputGain
     case highlightNewCallsigns
+    case neededBadges
+    case pileupRandom
+    case pileupPreferNew
+    case ntpSync
+    case iCloudSync
+    case presence
 
     var id: Self { self }
 
@@ -66,6 +72,18 @@ enum HelpTip: Identifiable {
             return String(localized: "TX Output Gain help")
         case .highlightNewCallsigns:
             return String(localized: "Highlight new callsigns help")
+        case .neededBadges:
+            return String(localized: "Needed badges help")
+        case .pileupRandom:
+            return String(localized: "Pile-up random caller help")
+        case .pileupPreferNew:
+            return String(localized: "Pile-up prefer new help")
+        case .ntpSync:
+            return String(localized: "NTP sync help")
+        case .iCloudSync:
+            return String(localized: "iCloud sync help")
+        case .presence:
+            return String(localized: "Presence help")
         }
     }
 

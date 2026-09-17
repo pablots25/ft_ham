@@ -118,6 +118,39 @@ extension FT8ViewModel{
         return !workedCallsigns.contains(call)
     }
 
+    /// What a decoded station would still add to the logbook on the current
+    /// band and mode: an unworked callsign, an unworked 4-char grid, an
+    /// unworked country. Empty for our own TX rows and non-station rows.
+    internal func neededStatus(for msg: FT8Message) -> NeededStatus {
+        guard !msg.isTX,
+              msg.msgType != .internalTimestamp, msg.msgType != .unknown,
+              let call = msg.callsign, !call.isEmpty else { return [] }
+
+        let band = effectiveBand.rawValue
+        let mode = isFT4 ? "FT4" : "FT8"
+        var status: NeededStatus = []
+
+        if !workedIndex.callsignBandMode.contains(WorkedIndex.key(call, band: band, mode: mode)) {
+            status.insert(.callsign)
+        }
+        if let locator = msg.locator, locator.count >= 4 {
+            let grid4 = String(locator.prefix(4))
+            if !workedIndex.gridBandMode.contains(WorkedIndex.key(grid4, band: band, mode: mode)) {
+                status.insert(.grid)
+            }
+        }
+        if let country = msg.senderCountry.country, !country.isEmpty,
+           !workedIndex.countryBandMode.contains(WorkedIndex.key(country, band: band, mode: mode)) {
+            status.insert(.dxcc)
+        }
+        return status
+    }
+
+    /// True when the row should survive the "Needed" decode filter.
+    internal func isNeeded(_ msg: FT8Message) -> Bool {
+        !neededStatus(for: msg).isEmpty
+    }
+
     func generateMessages() -> [String] {
         let includeGrid = UserDefaults.standard.object(forKey: "cqIncludeGrid") as? Bool ?? true
         let currentParams = MessageParams(

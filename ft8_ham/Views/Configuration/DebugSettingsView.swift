@@ -35,6 +35,34 @@ struct DebugSettingsView: View {
                     Label("Donations Enabled", systemImage: "heart")
                 }
 
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.enableFreeText) },
+                    set: { flags.setOverride(.enableFreeText, value: $0) }
+                )) {
+                    Label("Free Text TX", systemImage: "text.bubble")
+                }
+
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.enableBandHopping) },
+                    set: { flags.setOverride(.enableBandHopping, value: $0) }
+                )) {
+                    Label("Band Hopping", systemImage: "arrow.triangle.2.circlepath")
+                }
+
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.enableICloudSync) },
+                    set: { flags.setOverride(.enableICloudSync, value: $0) }
+                )) {
+                    Label("iCloud Sync", systemImage: "icloud")
+                }
+
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.enablePresence) },
+                    set: { flags.setOverride(.enablePresence, value: $0) }
+                )) {
+                    Label("Presence Map", systemImage: "person.2.wave.2")
+                }
+
                 Divider()
 
                 Toggle(isOn: Binding(

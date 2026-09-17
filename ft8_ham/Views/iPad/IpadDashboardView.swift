@@ -69,6 +69,9 @@ struct IpadDashboardView: View {
             locators: viewModel.workedLocators,
             countries: viewModel.workedCountryPairs,
             mapSettings: mapSettings,
+            heardMe: HeardMeStore.shared,
+            myCallsign: viewModel.callsign,
+            myLocator: viewModel.locator,
             onUserLocator: { [weak viewModel] locator in
                 viewModel?.addUserLocator(locator)
             }

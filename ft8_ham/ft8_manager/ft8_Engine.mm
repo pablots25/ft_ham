@@ -739,6 +739,37 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
     return nil;
   }
 
+  return [self audioForPayload:&ftxMsg
+                     frequency:frequency
+                         isFT4:isFT4
+                        toFile:outputURL];
+}
+
+/// Free text bypasses `encodeMessage:` on purpose: that path hands any 2+
+/// token string to the standard/non-standard packers first, which would turn
+/// "HELLO WORLD" into a hashed callsign pair instead of a type-0.0 message.
+- (nullable NSData *)generateFreeText:(NSString *)text
+                            frequency:(float)frequency
+                                isFT4:(BOOL)isFT4 {
+  const char *raw = [text UTF8String];
+  if (raw == NULL) {
+    return nil;
+  }
+  ftx_message_t ftxMsg;
+  ftx_message_rc_t rc = ftx_message_encode_free(&ftxMsg, raw);
+  if (rc != FTX_MESSAGE_RC_OK) {
+    [self logFT8:@"Error packing free text '%@' (%d)", text, rc];
+    return nil;
+  }
+  return [self audioForPayload:&ftxMsg frequency:frequency isFT4:isFT4 toFile:nil];
+}
+
+/// GFSK synthesis shared by every encoder entry point.
+- (nullable NSData *)audioForPayload:(const ftx_message_t *)ftxMsgPtr
+                           frequency:(float)frequency
+                               isFT4:(BOOL)isFT4
+                              toFile:(nullable NSURL *)outputURL {
+  const ftx_message_t ftxMsg = *ftxMsgPtr;
   int numTones = isFT4 ? FT4_NN : FT8_NN;
   float symbolPeriod = isFT4 ? FT4_SYMBOL_PERIOD : FT8_SYMBOL_PERIOD;
   float symbolBT = isFT4 ? 1.0f : 2.0f;

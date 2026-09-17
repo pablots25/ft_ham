@@ -36,7 +36,7 @@ extension FT8ViewModel  {
         let entry = qsoManager.createLogEntry(
             dxCallsign: qsoManager.lockedDXCallsign,
             dxLocator: qsoManager.lockedDXLocator,
-            qsoDate: .now,
+            qsoDate: AppClock.now(),
             band: qsoManager.qsoStartBand ?? effectiveBand,
             isFT4: qsoManager.qsoStartedAsFT4,
             rstSent: qsoManager.lastSentSNR,
@@ -100,6 +100,7 @@ extension FT8ViewModel  {
 
         // Trigger log sync (QRZ / LoTW upload if enabled)
         LogSyncManager.shared.syncNewQSO(qso)
+        CloudLogbookSyncManager.shared.syncNewQSO(qso)
 
         // Show persistent local notification
         let content = UNMutableNotificationContent()

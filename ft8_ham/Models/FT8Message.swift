@@ -88,7 +88,7 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
         text: String,
         mode: FT8MessageMode,
         isRealtime: Bool = false,
-        timestamp: Date = .now,
+        timestamp: Date = AppClock.now(),
         measuredSNR: Double = .nan,
         frequency: Double = .nan,
         timeOffset: Double = .nan,
@@ -213,7 +213,7 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
     
     // MARK: - Static Factory Methods
     static func timestamped(_ text: String, mode: FT8MessageMode, realtime: Bool = false, isTx: Bool) -> FT8Message {
-        FT8Message(text: text, mode: mode, isRealtime: realtime, timestamp: .now, isTX: isTx)
+        FT8Message(text: text, mode: mode, isRealtime: realtime, timestamp: AppClock.now(), isTX: isTx)
     }
     
     static func decode(
@@ -228,7 +228,7 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
             text: text,
             mode: mode,
             isRealtime: realtime,
-            timestamp: .now,
+            timestamp: AppClock.now(),
             measuredSNR: snr,
             frequency: frequency,
             timeOffset: timeOffset,
@@ -664,7 +664,7 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
             text: "",
             mode: .ft8,
             isRealtime: false,
-            timestamp: .now,
+            timestamp: AppClock.now(),
             isTX: false
         )
     }

@@ -21,11 +21,7 @@ struct CondensedMsgListView: View {
     @Binding var filterMode: Int
 
     private var filteredMessages: [FT8Message] {
-        switch filterMode {
-        case 1: return messages.filter { $0.forMe || $0.isTX }
-        case 2: return messages.filter { $0.forMe || $0.isTX || $0.msgType == .cq }
-        default: return messages
-        }
+        RXFilterMode(storage: filterMode).apply(messages, isNeeded: viewModel.isNeeded)
     }
 
     var body: some View {
@@ -65,7 +61,7 @@ struct CondensedMsgListView: View {
                                         .padding(.vertical, 2)
                                         .id(msg.id)
                                 } else {
-                                    CondensedMsgView(msg: msg)
+                                    CondensedMsgView(msg: msg, needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [])
                                         .font(.body)
                                         .dynamicTypeSize(.medium ... .accessibility5)
                                         .lineLimit(1)

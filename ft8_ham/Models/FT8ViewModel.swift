@@ -103,6 +103,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     // MARK: - QSO Manager
     @Published private(set) var qsoManager = QSOStatusManager()
     internal var activeTXMessage: FT8Message?
+    /// Set while the audio in flight is a free-text message, so the QSO
+    /// state machine is not advanced when it finishes.
+    internal var activeTXIsFreeText = false
+
+    // MARK: - Free-text TX loop
+    /// Transmit `freeTextMessage` on every my-turn slot until stopped.
+    @Published var freeTextLoopActive = false
+    @AppStorage("freeTextMessage") var freeTextMessage: String = ""
     
     // MARK: - Loggers
     let rxLogger = AppLogger(category: "RX")
@@ -174,7 +182,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     /// Backs O(1) "have I worked this station?" lookups for new-callsign
     /// highlighting and the auto-CQ-reply check.
     @Published var workedCallsigns: Set<String> = []
-    
+
+    /// Band/mode-aware lookup tables (callsign, grid, country) rebuilt from
+    /// qsoList. Backs the "Needed" decode filter and the NEW GRID / NEW DXCC
+    /// badges.
+    @Published var workedIndex = WorkedIndex()
+
     
     // MARK: - QSO State (delegated to QSOStatusManager - single source of truth)
     var dxCallsign: String {
@@ -255,10 +268,16 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @AppStorage("autoCQReplyEnabled") var autoCQReplyEnabled: Bool = false
     @AppStorage("autoCQReplyOnlyNewBandMode") var autoCQReplyOnlyNewBandMode: Bool = false
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
+    /// Pick a random caller when several stations answer our CQ in one slot.
+    @AppStorage("pileupRandomCaller") var pileupRandomCaller: Bool = true
+    /// …and prefer stations not yet in the logbook when doing so.
+    @AppStorage("pileupPreferNewCallsigns") var pileupPreferNewCallsigns: Bool = true
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
     /// Highlight CQ calls from stations not yet in the logbook (green tint).
     @AppStorage("highlightNewCallsigns") var highlightNewCallsigns: Bool = true
+    /// Show NEW GRID / NEW DXCC badges on decoded rows (per band/mode).
+    @AppStorage("showNeededBadges") var showNeededBadges: Bool = true
 
     @AppStorage("catEnabled") var catEnabled = false {
         didSet {
@@ -270,6 +289,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
             } else {
                 stopCatFrequencyPolling()
                 catController.disconnect()
+                stopBandHopping()
             }
         }
     }
@@ -286,6 +306,26 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         }
     }
     @AppStorage("catApplyAudioOffset") var catApplyAudioOffset = false
+
+    // MARK: - Band hopping (premium)
+    @AppStorage("bandHopEnabled") var bandHopEnabled = false {
+        didSet { reconcileBandHopping() }
+    }
+    /// Tells the presence map which band/mode we moved to.
+    @MainActor
+    internal func notifyPresenceContextChanged() {
+        PresenceManager.shared.contextDidChange(
+            band: effectiveBand.rawValue, mode: isFT4 ? "FT4" : "FT8", grid: locator
+        )
+    }
+
+    /// Mirror of the scheduler state for the UI.
+    @Published var bandHopState: BandHopState = .stopped
+    internal var bandHopScheduler: any BandHopSchedulerProtocol = PremiumFeatures.bandHopScheduler
+    internal var bandHopCancellables = Set<AnyCancellable>()
+    internal var activeBandHopSchedule: BandHopSchedule?
+    /// Feature flag + entitlement check; tests override it.
+    internal var bandHopGate: () -> Bool = FT8ViewModel.defaultBandHopGate
 
     @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
     @AppStorage("cqIncludeGrid") var cqIncludeGrid: Bool = true
@@ -511,13 +551,22 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         // call is reflected immediately in new-callsign highlighting).
         $qsoList
             .sink { [weak self] list in
-                self?.workedCallsigns = Set(
-                    list.map { $0.callsign.uppercased() }
-                )
+                guard let self else { return }
+                let index = WorkedIndex.build(from: list)
+                self.workedCallsigns = index.callsigns
+                self.workedIndex = index
             }
             .store(in: &cancellables)
 
         workedLocators = []
+
+        CloudLogbookSyncManager.shared.viewModel = self
+        Task { await CloudLogbookSyncManager.shared.pull() }
+
+        setupClockSyncObserver()
+        ClockSyncManager.shared.start()
+        setupBandHopObserver()
+        reconcileBandHopping()
     }
     
     @MainActor
@@ -583,6 +632,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
                 guard let self else { return }
                 if self.catEnabled { self.catEnabled = false }
                 if self.pskReporterEnabled { self.pskReporterEnabled = false }
+                self.stopBandHopping()
             }
             .store(in: &cancellables)
     }
@@ -632,8 +682,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         setCatPTT(false, reason: "tx finished")
 
         txLogger.info("TX finished (AudioManager): \(txMessage.text)")
-        AnalyticsManager.shared.stopRadioActivity() 
-        
+        AnalyticsManager.shared.stopRadioActivity()
+
+        // Free text is not part of a QSO: nothing to advance.
+        if activeTXIsFreeText {
+            activeTXIsFreeText = false
+            return
+        }
+
         if let action = qsoManager.advanceStateOnTX(
             message: txMessage,
             frequency: frequency,

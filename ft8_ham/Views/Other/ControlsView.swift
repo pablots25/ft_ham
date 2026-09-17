@@ -11,6 +11,7 @@ import SwiftUI
 
 struct TransmissionButtonsBar: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var flags: FeatureFlagManager
     @State private var containerWidth: CGFloat = 0
 
     var body: some View {
@@ -27,6 +28,24 @@ struct TransmissionButtonsBar: View {
             .tint(viewModel.transmitLoopActive ? .red : .blue)
             .buttonStyle(.borderedProminent)
             .disabled(!settingsLoaded)
+
+            if flags.isEnabled(.enableFreeText) {
+                Button(viewModel.freeTextLoopActive ? "Stop Free Text" : "Free Text") {
+                    if viewModel.freeTextLoopActive {
+                        viewModel.stopFreeTextLoop()
+                    } else {
+                        // Presented by ContentView: see RootUIState.
+                        viewModel.rootState.showFreeTextSheet = true
+                    }
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: true, vertical: false)
+                .tint(viewModel.freeTextLoopActive ? .red : .blue)
+                .buttonStyle(.borderedProminent)
+                .disabled(!settingsLoaded)
+                .accessibilityIdentifier("button_freeText")
+            }
 
             Button("Stop TX") {
                 viewModel.stopCurrentTX()
@@ -65,7 +84,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(.red)
             .buttonStyle(.borderedProminent)
-            .disabled(!settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive))
+            .disabled(!settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive && !viewModel.freeTextLoopActive))
             }
             .padding(.horizontal)
             .frame(minWidth: containerWidth, alignment: .center)
@@ -278,6 +297,8 @@ struct StatusView: View {
     private var statusText: String {
         if viewModel.isTransmitting {
             String(localized: "Transmitting")
+        } else if viewModel.freeTextLoopActive {
+            String(localized: "Free Text TX")
         } else if viewModel.isListening {
             String(localized: "Listening")
         } else if viewModel.transmitLoopActive {
@@ -290,7 +311,7 @@ struct StatusView: View {
     private var statusColor: Color {
         if viewModel.isTransmitting {
             return .red
-        } else if viewModel.transmitLoopActive {
+        } else if viewModel.transmitLoopActive || viewModel.freeTextLoopActive {
             return .yellow
         } else if viewModel.isListening {
             return .green
@@ -316,11 +337,15 @@ struct StatusView: View {
 struct ClockView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0)) { context in
-            let currentUTC = DateFormatter.utcFormatterClock.string(from: context.date)
+            // Show the SNTP-corrected clock, which is what the slots follow.
+            let currentUTC = DateFormatter.utcFormatterClock.string(from: AppClock.corrected(context.date))
 
-            Text("UTC: \(currentUTC)")
-                .foregroundStyle(.gray)
-                .font(.body)
+            HStack(spacing: 6) {
+                Text("UTC: \(currentUTC)")
+                    .foregroundStyle(.gray)
+                    .font(.body)
+                ClockOffsetChip()
+            }
         }
     }
 }
@@ -445,6 +470,10 @@ struct QSOStatusView: View {
                     if viewModel.catEnabled {
                         catStatusChip
                     }
+
+                    if viewModel.bandHopEnabled, viewModel.bandHopState != .stopped {
+                        BandHopChip()
+                    }
                 }
                 
                 // Callsign + Locator
@@ -486,5 +515,95 @@ struct QSOStatusView: View {
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 5)
+    }
+}
+
+// MARK: - Clock offset chip
+
+/// Shows how far the device clock is from SNTP time. Hidden while the
+/// correction is negligible; orange up to 1 s, red beyond (FT8 needs < 1 s).
+struct ClockOffsetChip: View {
+    @ObservedObject private var clockSync = ClockSyncManager.shared
+
+    var body: some View {
+        if clockSync.isEnabled, abs(clockSync.offset) >= 0.3 || clockSync.lastError != nil {
+            HStack(spacing: 2) {
+                Image(systemName: clockSync.lastError == nil ? "clock.badge.checkmark" : "clock.badge.exclamationmark")
+                    .font(.caption2)
+                if clockSync.lastError == nil {
+                    Text("Δ\(String(format: "%+.1f", clockSync.offset))s")
+                        .font(.caption2.monospacedDigit())
+                }
+            }
+            .foregroundStyle(color)
+            .fixedSize(horizontal: true, vertical: false)
+            .help(helpText)
+            .accessibilityLabel(helpText)
+            .accessibilityIdentifier("chip_clockOffset")
+        }
+    }
+
+    private var color: Color {
+        if clockSync.lastError != nil { return .secondary }
+        return clockSync.isWarning ? .red : .orange
+    }
+
+    private var helpText: String {
+        if clockSync.lastError != nil {
+            return String(localized: "Clock sync failed; using the device clock")
+        }
+        return String(
+            format: String(localized: "Device clock is off by %@ s; FT8 needs less than 1 s"),
+            String(format: "%+.2f", clockSync.offset)
+        )
+    }
+}
+
+// MARK: - Band hop chip
+
+/// "HOP 20m 3:41" countdown to the next band; paused during a QSO. Tap to
+/// hop right away.
+struct BandHopChip: View {
+    @EnvironmentObject private var viewModel: FT8ViewModel
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Button {
+                viewModel.skipToNextBand()
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.caption2)
+                    Text(label(at: context.date))
+                        .font(.caption2.monospacedDigit())
+                }
+                .foregroundStyle(color)
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Band Hopping"))
+            .accessibilityIdentifier("chip_bandHop")
+        }
+    }
+
+    private func label(at now: Date) -> String {
+        switch viewModel.bandHopState {
+        case .stopped:
+            return ""
+        case .dwelling(let band, let until):
+            return "\(band) \(Self.mmss(until.timeIntervalSince(now)))"
+        case .paused(let band, _):
+            return "\(band) ⏸"
+        }
+    }
+
+    private var color: Color {
+        if case .paused = viewModel.bandHopState { return .orange }
+        return .mint
+    }
+
+    private static func mmss(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded(.up)))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }

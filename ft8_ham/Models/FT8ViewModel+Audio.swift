@@ -106,7 +106,23 @@ extension FT8ViewModel {
             receivedMessages = updated
         }
 
-        for message in result.messages {
+        // While we are calling CQ, several stations may answer in the same
+        // slot. Pick one at random (optionally favouring never-worked calls)
+        // instead of whichever the decoder happened to list first; the QSO
+        // manager locks onto the first caller it sees and ignores the rest.
+        var orderedMessages = result.messages
+        if pileupRandomCaller, qsoManager.qsoState == .callingCQ, transmitLoopActive {
+            var selector = PileupSelector(preferNeverWorked: pileupPreferNewCallsigns)
+            let pick = selector.prioritize(
+                result.messages, myCallsign: callsign, workedCallsigns: workedCallsigns
+            )
+            if pick.pileupSize > 1, let chosen = pick.chosen {
+                orderedMessages = pick.messages
+                appLogger.info("Pile-up of \(pick.pileupSize) callers, picked \(chosen.callsign ?? "?")")
+            }
+        }
+
+        for message in orderedMessages {
             if message.isTX {
                 continue
             } else if message.msgType != .internalTimestamp && message.msgType != .unknown {
@@ -347,7 +363,7 @@ extension FT8ViewModel {
             let logEntry = qsoManager.createLogEntry(
                 dxCallsign: completedCallsign,
                 dxLocator: completedLocator,
-                qsoDate: .now,
+                qsoDate: AppClock.now(),
                 band: qsoManager.qsoStartBand ?? effectiveBand,
                 isFT4: qsoManager.qsoStartedAsFT4,
                 rstSent: qsoManager.lastSentSNR,
@@ -388,7 +404,7 @@ extension FT8ViewModel {
             let logEntry = qsoManager.createLogEntry(
                 dxCallsign: completedCallsign,
                 dxLocator: completedLocator,
-                qsoDate: .now,
+                qsoDate: AppClock.now(),
                 band: qsoManager.qsoStartBand ?? effectiveBand,
                 isFT4: qsoManager.qsoStartedAsFT4,
                 rstSent: qsoManager.lastSentSNR,

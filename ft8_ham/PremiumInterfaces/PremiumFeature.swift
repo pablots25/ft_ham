@@ -16,6 +16,9 @@ enum PremiumFeature: String, CaseIterable {
     case lotwSync = "lotw_sync"
     case eqslSync = "eqsl_sync"
     case statistics = "statistics"
+    case bandHopping = "band_hopping"
+    case iCloudSync = "icloud_sync"
+    case presence = "presence"
 
     var displayName: String {
         switch self {
@@ -26,6 +29,9 @@ enum PremiumFeature: String, CaseIterable {
         case .eqslSync: return "eQSL"
         case .iPadDashboard: return "iPad Dashboard"
         case .statistics: return "Statistics"
+        case .bandHopping: return "Band Hopping"
+        case .iCloudSync: return "iCloud Sync"
+        case .presence: return "Operators Online"
         }
     }
 
@@ -38,6 +44,9 @@ enum PremiumFeature: String, CaseIterable {
         case .eqslSync: return "envelope.badge.shield.half.filled"
         case .iPadDashboard: return "rectangle.split.3x1"
         case .statistics: return "chart.bar.xaxis"
+        case .bandHopping: return "arrow.triangle.2.circlepath"
+        case .iCloudSync: return "icloud"
+        case .presence: return "person.2.wave.2"
         }
     }
 
@@ -50,6 +59,9 @@ enum PremiumFeature: String, CaseIterable {
         case .lotwSync: return "Upload QSOs and fetch LoTW confirmations"
         case .eqslSync: return "Upload QSOs and fetch eQSL confirmations"
         case .statistics: return "Charts, heatmaps and detailed analytics of your QSO activity"
+        case .bandHopping: return "Rotate through your favourite bands automatically while idle"
+        case .iCloudSync: return "Keep your logbook in step across your devices, privately"
+        case .presence: return "See other FT Ham operators on the air right now"
         }
     }
 
@@ -62,6 +74,9 @@ enum PremiumFeature: String, CaseIterable {
         case .lotwSync: return .green
         case .eqslSync: return .cyan
         case .statistics: return .indigo
+        case .bandHopping: return .mint
+        case .iCloudSync: return .blue
+        case .presence: return .cyan
         }
     }
 

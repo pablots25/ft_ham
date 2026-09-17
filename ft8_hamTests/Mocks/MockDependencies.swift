@@ -123,6 +123,15 @@ final class MockMessageDecoder: MessageDecoding {
         return generatedAudioData ?? Data(repeating: 0, count: 1024)
     }
     
+    var generateFreeTextCallCount = 0
+    var lastGeneratedFreeText: String?
+
+    func generateFreeText(_ text: String, frequency: Float, isFT4: Bool) -> Data? {
+        generateFreeTextCallCount += 1
+        lastGeneratedFreeText = text
+        return generatedAudioData ?? Data(repeating: 0, count: 1024)
+    }
+
     func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]] {
         decodeAudioBufferCallCount += 1
         lastDecodedData = audioData

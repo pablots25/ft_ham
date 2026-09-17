@@ -44,6 +44,18 @@ struct MapLegendView: View {
                         .font(.system(size: 16, weight: .medium))
                         .frame(width: 18, height: 18)
                 }
+                mapRow(label: "A station that heard you (PSK Reporter)") {
+                    Image(systemName: "ear.fill")
+                        .foregroundStyle(Color.orange)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 18, height: 18)
+                }
+                mapRow(label: "Another FT Ham operator on the air") {
+                    Image(systemName: "person.fill")
+                        .foregroundStyle(Color.cyan)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 18, height: 18)
+                }
                 mapRow(label: "Your current location") {
                     Circle()
                         .fill(Color.blue)
