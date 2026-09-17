@@ -28,6 +28,10 @@ struct LegacyConfigurationView: View {
 					RadioSettingsContent()
 				}
 
+				section("Audio") {
+					AudioSettingsContent()
+				}
+
 				section("Automation") {
 					AutomationSettingsContent()
 				}

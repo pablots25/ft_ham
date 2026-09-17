@@ -13,7 +13,7 @@ import SwiftUI
 /// action (help links, the paywall) are not destinations; they are laid out
 /// by hand in the Help section.
 private enum SettingsDestination: Hashable {
-    case station, radio, automation, display, reporting
+    case station, radio, audio, automation, display, reporting
     #if canImport(FTHamPremium)
     case catControl, bandHopping, qrzLogbook, loTW, eQSL, iCloudSync
     #endif
@@ -354,10 +354,15 @@ struct ConfigurationView: View {
     private var radioGroup: SettingsGroup {
         var items: [SettingsItem] = [
             .init(.radio,
-                  title: String(localized: "Mode, Band & Audio"),
+                  title: String(localized: "Mode & Band"),
                   systemImage: "dial.low",
-                  keywords: ["radio", "band", "frequency", "mode", "ft8", "ft4", "cycle",
-                             "offset", "gain", "audio", "clock", "time", "sync"]),
+                  keywords: ["radio", "band", "dial", "frequency", "mode", "ft8", "ft4",
+                             "cycle", "even", "odd", "clock", "time", "sync", "sntp"]),
+            .init(.audio,
+                  title: String(localized: "Audio"),
+                  systemImage: "waveform",
+                  keywords: ["audio", "offset", "tone", "gain", "rx gain", "input",
+                             "microphone", "tx output", "level", "vox", "volume", "db"]),
         ]
         #if canImport(FTHamPremium)
         items += [
@@ -476,6 +481,8 @@ struct ConfigurationView: View {
             StationSettingsView().padding(.horizontal)
         case .radio:
             RadioSettingsView().padding(.horizontal)
+        case .audio:
+            AudioSettingsView().padding(.horizontal)
         case .automation:
             AutomationSettingsView().padding(.horizontal)
         case .display:
