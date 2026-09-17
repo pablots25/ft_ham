@@ -1132,6 +1132,22 @@ final class WaterfallViewModelTests: XCTestCase {
         }
     }
 
+    /// A base tone picked on the waterfall must leave the whole signal inside
+    /// the decoder's 200–3000 Hz window.
+    func testTXFrequencyRangeKeepsTheSignalInThePassband() {
+        let ft8 = WaterfallViewModel.txFrequencyRange(isFT4: false)
+        XCTAssertEqual(ft8.lowerBound, 200)
+        XCTAssertEqual(ft8.upperBound + WaterfallViewModel.occupiedBandwidthHz(isFT4: false), 3000, accuracy: 1e-9)
+
+        let ft4 = WaterfallViewModel.txFrequencyRange(isFT4: true)
+        XCTAssertEqual(ft4.upperBound + WaterfallViewModel.occupiedBandwidthHz(isFT4: true), 3000, accuracy: 1e-9)
+        XCTAssertLessThan(ft4.upperBound, ft8.upperBound)
+
+        XCTAssertEqual(3199.0.clamped(to: ft8), ft8.upperBound)
+        XCTAssertEqual(0.0.clamped(to: ft8), 200)
+        XCTAssertEqual(1500.0.clamped(to: ft8), 1500)
+    }
+
     /// A 2048-point FFT of 44.1 kHz audio has 21.5 Hz bins; a 1500 Hz tone
     /// sits in bin 70 and must land at 1500 / 3200 of the width, where the
     /// overlay draws 1500 Hz. The map must follow the magnitude count, not the

@@ -189,6 +189,9 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     @Published var waterfallImage: Image? = nil
+    /// Rows in the published `waterfallImage`. The view stretches the image
+    /// to its own height, so the overlay needs this to place a row on screen.
+    private(set) var renderedRows: Int = 0
     @Published var visibleRows: Int = 0
 
     // Dedicated object for overlay state — decoupled from waterfallImage so the
@@ -383,6 +386,18 @@ final class WaterfallViewModel: ObservableObject {
     
     func xPosition(for frequency: Double, in width: CGFloat) -> CGFloat {
         CGFloat(frequency / Double(config.maxDisplayFrequency)) * width
+    }
+
+    /// Bandwidth a transmission occupies above its base tone: 8 tones × 6.25 Hz
+    /// for FT8, 4 tones × 20.83 Hz for FT4.
+    static func occupiedBandwidthHz(isFT4: Bool) -> Double {
+        isFT4 ? 83.3 : 50.0
+    }
+
+    /// Lowest and highest base tone the decoder can still see whole: it
+    /// analyses 200–3000 Hz, so the top of the signal must stay under 3000.
+    static func txFrequencyRange(isFT4: Bool) -> ClosedRange<Double> {
+        200.0 ... (3000.0 - occupiedBandwidthHz(isFT4: isFT4))
     }
 
     /// Identifies one pixel → FFT-bin mapping; the map is rebuilt when any
@@ -608,6 +623,7 @@ final class WaterfallViewModel: ObservableObject {
         }
 
         if let cg = makeCGImageFromARGB(pixelData: &renderBuffer, width: w, height: h) {
+            renderedRows = h
             waterfallImage = Image(uiImage: UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up))
         }
     }

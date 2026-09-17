@@ -40,16 +40,17 @@ struct WaterfallView: View {
 
                     // Overlay data is passed as plain values (Equatable) so the
                     // Canvas below only redraws when something it draws changed.
-                    let overlayHeight = Int(geo.size.height)
+                    // Rows are addressed in image rows, not points: the image is
+                    // stretched to the view height, and the overlay scales to match.
+                    let imageRows = max(viewModel.renderedRows, 1)
                     WaterfallOverlayView(
                         overlayState: viewModel.overlayState,
                         config: viewModel.config,
-                        timestamps: viewModel.timestampsForOverlay(height: overlayHeight),
-                        verticalLabels: viewModel.verticalLabelsForOverlay(height: overlayHeight),
+                        timestamps: viewModel.timestampsForOverlay(height: imageRows),
+                        verticalLabels: viewModel.verticalLabelsForOverlay(height: imageRows),
                         txFrequency: ft8ViewModel.frequency,
                         isFT4: ft8ViewModel.isFT4,
-                        width: Int(geo.size.width),
-                        height: overlayHeight
+                        imageRows: imageRows
                     )
                 } else {
                     Text("Waiting for audio data...")
@@ -82,7 +83,11 @@ struct WaterfallView: View {
                         cursorFrequency = viewModel.frequencyAtPixel(x: x, width: w)
 
                         if isSettingFrequency {
-                            ft8ViewModel.frequency = cursorFrequency
+                            // Keep the whole signal inside the decoder's passband
+                            // even when the finger runs past the band edges.
+                            ft8ViewModel.frequency = cursorFrequency.clamped(
+                                to: WaterfallViewModel.txFrequencyRange(isFT4: ft8ViewModel.isFT4)
+                            )
                         }
                     }
                     .onEnded { _ in
@@ -104,9 +109,9 @@ struct WaterfallOverlayView: View {
     let verticalLabels: [VerticalLabelOverlay]
     let txFrequency: Double
     let isFT4: Bool
-
-    let width: Int
-    let height: Int
+    /// Rows in the image under this overlay; row `r` is drawn at
+    /// `r * size.height / imageRows`.
+    let imageRows: Int
     let headerHeight: CGFloat = 15
 
     var body: some View {
@@ -115,6 +120,7 @@ struct WaterfallOverlayView: View {
             let w = size.width
             let h = size.height
             let bodyOffset = headerHeight
+            let rowScale = h / CGFloat(max(imageRows, 1))
 
             let maxFreq = Double(config.maxDisplayFrequency)
             guard maxFreq > 0 else { return }
@@ -131,19 +137,22 @@ struct WaterfallOverlayView: View {
                     path.addLine(to: CGPoint(x: x, y: h))
                     ctx.stroke(path, with: .color(.white.opacity(0.5)), lineWidth: 1)
                     
+                    // The last label would run off the right edge; flip it.
+                    let fitsRight = x + 45 <= w
                     ctx.draw(
                         Text(String(format: "%.1f kHz", f / 1000))
                             .font(.system(size: 10, weight: .regular))
                             .foregroundColor(.white),
-                        at: CGPoint(x: x + 2, y: 0),
-                        anchor: .topLeading
+                        at: CGPoint(x: fitsRight ? x + 2 : x - 2, y: 0),
+                        anchor: fitsRight ? .topLeading : .topTrailing
                     )
                 }
             }
 
-            // Horizontal timestamp lines
+            // Horizontal timestamp lines, on the exact row the slot started
+            // (newer rows are above it, so the label sits on the newer side).
             for overlay in timestamps {
-                let y = CGFloat(overlay.row) + bodyOffset
+                let y = CGFloat(overlay.row) * rowScale
                 
                 // Line
                 let path = Path { path in
@@ -152,13 +161,16 @@ struct WaterfallOverlayView: View {
                 }
                 ctx.stroke(path, with: .color(.yellow), lineWidth: 1)
                 
-                // Label
+                // Label — below the line only while it is still too close to
+                // the top edge to fit above it.
+                let labelHeight: CGFloat = 12
+                let labelAbove = y >= labelHeight
                 ctx.draw(
                     Text(overlay.text)
                         .font(.system(size: 10, weight: .regular))
                         .foregroundColor(.white),
-                    at: CGPoint(x: w - 4, y: CGFloat(overlay.row)),
-                    anchor: .topTrailing
+                    at: CGPoint(x: w - 4, y: labelAbove ? y - 1 : y + 1),
+                    anchor: labelAbove ? .bottomTrailing : .topTrailing
                 )
             }
 
@@ -190,7 +202,7 @@ struct WaterfallOverlayView: View {
                 
                 // Occupied bandwidth above the base tone: 8 tones × 6.25 Hz
                 // for FT8, 4 tones × 20.83 Hz for FT4.
-                let bandwidthHz = isFT4 ? 83.3 : 50.0
+                let bandwidthHz = WaterfallViewModel.occupiedBandwidthHz(isFT4: isFT4)
                 for freq in [txFreq, txFreq + bandwidthHz] {
                     let x = CGFloat(freq / maxFreq) * w
                     let path = Path { path in
@@ -210,7 +222,8 @@ struct WaterfallOverlayView: View {
                 let approxCharHeight: CGFloat = 12.0
                 let textWidth = CGFloat(text.count) * approxCharWidth
                 let textHeight = approxCharHeight
-                let y = CGFloat(overlay.row) + bodyOffset + textWidth
+                // Text runs upward from the anchor row (the decode moment).
+                let y = CGFloat(overlay.row) * rowScale + textWidth
 
                 tctx.translateBy(x: x, y: y)
                 tctx.rotate(by: .radians(-.pi / 2))
