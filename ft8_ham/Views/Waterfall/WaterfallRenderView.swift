@@ -224,7 +224,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         line.backgroundColor = UIColor.yellow.cgColor
         group.addSublayer(line)
 
-        let label = Self.makeTextLayer(text, size: 10, weight: .regular, color: .white, boxed: true)
+        let label = Self.makePill(text, size: 10, weight: .regular, color: .white, background: Self.pillBackground)
         label.name = "label"
         group.addSublayer(label)
 
@@ -243,8 +243,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
             case "line":
                 sub.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 1)
             case "label":
-                let text = group.value(forKey: Self.textKey) as? String ?? ""
-                let size = CGSize(width: Self.measure(text, size: 10, weight: .regular).width + 8, height: 14)
+                let size = sub.bounds.size
                 sub.frame = CGRect(x: bounds.width - 4 - size.width, y: -size.height - 2, width: size.width, height: size.height)
             default:
                 break
@@ -298,25 +297,21 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
     private func addLabelLayer(_ placed: WaterfallPlacedLabel, lane: Int, lanes: Int) {
         let text = placed.label.text
         let color = Self.color(for: placed.label.kind)
-        let label = Self.makeTextLayer(text, size: Self.labelFontSize, weight: .bold, color: color)
+        let label = Self.makePill(
+            text, size: Self.labelFontSize, weight: .bold, color: color,
+            background: Self.pillBackground, height: Self.labelBoxHeight
+        )
         label.setValue(placed.anchorRow, forKey: Self.absRowKey)
-        label.backgroundColor = UIColor.black.withAlphaComponent(0.55).cgColor
-        label.cornerRadius = 4
-        label.alignmentMode = .left
+        let textWidth = label.bounds.width
+        let boxHeight = Self.labelBoxHeight
         if placed.label.isWorked {
             // Already in the log: struck through and dimmed, still readable.
             label.opacity = 0.7
             let strike = CALayer()
             strike.backgroundColor = color.cgColor
-            strike.frame = CGRect(x: 3, y: Self.labelBoxHeight / 2, width: 0, height: 1)
-            strike.name = "strike"
+            strike.frame = CGRect(x: 3, y: (boxHeight / 2).rounded(), width: textWidth - 6, height: 1)
             label.addSublayer(strike)
         }
-
-        let textWidth = Self.measure(text, size: Self.labelFontSize, weight: .bold).width + 6
-        let boxHeight = Self.labelBoxHeight
-        label.bounds = CGRect(x: 0, y: 0, width: textWidth, height: boxHeight)
-        (label.sublayers?.first { $0.name == "strike" })?.frame.size.width = textWidth - 6
 
         // Rotated −90° around its centre, so position it as an upright box.
         // Rows grow upward on screen (y = −row), so the signal's start is at
@@ -358,21 +353,25 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
                 let tx = x(forHz: hz)
                 path.move(to: CGPoint(x: tx, y: headerHeight))
                 path.addLine(to: CGPoint(x: tx, y: h))
-                let text = String(format: "%.1f kHz", hz / 1000)
-                let size = CGSize(width: Self.measure(text, size: 10, weight: .regular).width + 8, height: 14)
+                let label = Self.makePill(
+                    String(format: "%.1f kHz", hz / 1000), size: 10, weight: .regular,
+                    color: .white, background: Self.pillBackground
+                )
+                let size = label.bounds.size
                 // The last label would run off the right edge: flip it, and
                 // drop it if that would run into the previous one.
                 let fitsRight = tx + 2 + size.width <= w
                 let originX = fitsRight ? tx + 2 : tx - 2 - size.width
                 if originX < previousLabelMaxX + 2 { continue }
-                let label = Self.makeTextLayer(text, size: 10, weight: .regular, color: .white, boxed: true)
                 label.frame = CGRect(x: originX, y: 1, width: size.width, height: size.height)
                 staticLayer.addSublayer(label)
                 previousLabelMaxX = originX + size.width
             }
             let ticks = CAShapeLayer()
             ticks.path = path.cgPath
-            ticks.strokeColor = UIColor.white.withAlphaComponent(0.5).cgColor
+            // Dark, so the grid reads over the yellow/cyan body of the
+            // palette as well as over the blue floor.
+            ticks.strokeColor = UIColor.black.withAlphaComponent(0.45).cgColor
             ticks.lineWidth = 1
             ticks.fillColor = nil
             staticLayer.addSublayer(ticks)
@@ -393,16 +392,16 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
             lines.fillColor = nil
             staticLayer.addSublayer(lines)
 
-            let text = String(format: "%.0f Hz", style.txFrequency)
-            let label = Self.makeTextLayer(text, size: 10, weight: .semibold, color: .red)
-            label.alignmentMode = .center
-            label.backgroundColor = UIColor.white.withAlphaComponent(0.85).cgColor
-            label.cornerRadius = 4
-            let labelWidth = Self.measure(text, size: 10, weight: .semibold).width + 10
-            let labelHeight: CGFloat = 18
+            let label = Self.makePill(
+                String(format: "%.0f Hz", style.txFrequency), size: 10, weight: .semibold,
+                color: .red, background: UIColor.white.withAlphaComponent(0.85), height: 18, padding: 10
+            )
             // Centred on the band the signal occupies, not on its base tone.
             let bandCentreX = x(forHz: style.txFrequency + bandwidthHz / 2)
-            label.frame = CGRect(x: bandCentreX - labelWidth / 2, y: headerHeight / 2 + 5, width: labelWidth, height: labelHeight)
+            label.frame = CGRect(
+                x: bandCentreX - label.bounds.width / 2, y: headerHeight / 2 + 5,
+                width: label.bounds.width, height: label.bounds.height
+            )
             staticLayer.addSublayer(label)
         }
     }
@@ -417,10 +416,10 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         (text as NSString).size(withAttributes: [.font: font(size: size, weight: weight)])
     }
 
-    /// - Parameter boxed: draw on a dark translucent pill, centred, so the
-    ///   text stays readable over any part of the palette.
+    private static let pillBackground = UIColor.black.withAlphaComponent(0.55)
+
     private static func makeTextLayer(
-        _ text: String, size: CGFloat, weight: UIFont.Weight, color: UIColor, boxed: Bool = false
+        _ text: String, size: CGFloat, weight: UIFont.Weight, color: UIColor
     ) -> CATextLayer {
         let layer = CATextLayer()
         layer.string = text
@@ -430,12 +429,31 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         layer.contentsScale = UIScreen.main.scale
         layer.truncationMode = .none
         layer.isWrapped = false
-        if boxed {
-            layer.alignmentMode = .center
-            layer.backgroundColor = UIColor.black.withAlphaComponent(0.55).cgColor
-            layer.cornerRadius = 3
-        }
+        layer.alignmentMode = .center
         return layer
+    }
+
+    /// A rounded pill with `text` centred in it, both ways. CATextLayer only
+    /// aligns horizontally, so the text sits in a child sized to the font's
+    /// line height. The pill's `bounds` are set; place it with `frame` or
+    /// `position`.
+    private static func makePill(
+        _ text: String, size: CGFloat, weight: UIFont.Weight, color: UIColor,
+        background: UIColor, height: CGFloat = 14, padding: CGFloat = 8
+    ) -> CALayer {
+        let uiFont = font(size: size, weight: weight)
+        let textSize = (text as NSString).size(withAttributes: [.font: uiFont])
+        let pill = CALayer()
+        pill.bounds = CGRect(x: 0, y: 0, width: (textSize.width + padding).rounded(.up), height: height)
+        pill.backgroundColor = background.cgColor
+        pill.cornerRadius = 3
+        pill.contentsScale = UIScreen.main.scale
+
+        let label = makeTextLayer(text, size: size, weight: weight, color: color)
+        let lineHeight = uiFont.lineHeight.rounded(.up)
+        label.frame = CGRect(x: 0, y: ((height - lineHeight) / 2).rounded(), width: pill.bounds.width, height: lineHeight)
+        pill.addSublayer(label)
+        return pill
     }
 }
 
