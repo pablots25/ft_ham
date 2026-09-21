@@ -224,9 +224,8 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         line.backgroundColor = UIColor.yellow.cgColor
         group.addSublayer(line)
 
-        let label = Self.makeTextLayer(text, size: 10, weight: .regular, color: .white)
+        let label = Self.makeTextLayer(text, size: 10, weight: .regular, color: .white, boxed: true)
         label.name = "label"
-        label.alignmentMode = .right
         group.addSublayer(label)
 
         timestampsLayer.addSublayer(group)
@@ -244,8 +243,9 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
             case "line":
                 sub.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 1)
             case "label":
-                let size = CGSize(width: 70, height: 12)
-                sub.frame = CGRect(x: bounds.width - 4 - size.width, y: -size.height - 1, width: size.width, height: size.height)
+                let text = group.value(forKey: Self.textKey) as? String ?? ""
+                let size = CGSize(width: Self.measure(text, size: 10, weight: .regular).width + 8, height: 14)
+                sub.frame = CGRect(x: bounds.width - 4 - size.width, y: -size.height - 2, width: size.width, height: size.height)
             default:
                 break
             }
@@ -359,15 +359,14 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
                 path.move(to: CGPoint(x: tx, y: headerHeight))
                 path.addLine(to: CGPoint(x: tx, y: h))
                 let text = String(format: "%.1f kHz", hz / 1000)
-                let size = CGSize(width: Self.measure(text, size: 10, weight: .regular).width + 2, height: 12)
+                let size = CGSize(width: Self.measure(text, size: 10, weight: .regular).width + 8, height: 14)
                 // The last label would run off the right edge: flip it, and
                 // drop it if that would run into the previous one.
                 let fitsRight = tx + 2 + size.width <= w
                 let originX = fitsRight ? tx + 2 : tx - 2 - size.width
-                if originX < previousLabelMaxX { continue }
-                let label = Self.makeTextLayer(text, size: 10, weight: .regular, color: .white)
-                label.alignmentMode = fitsRight ? .left : .right
-                label.frame = CGRect(x: originX, y: 0, width: size.width, height: size.height)
+                if originX < previousLabelMaxX + 2 { continue }
+                let label = Self.makeTextLayer(text, size: 10, weight: .regular, color: .white, boxed: true)
+                label.frame = CGRect(x: originX, y: 1, width: size.width, height: size.height)
                 staticLayer.addSublayer(label)
                 previousLabelMaxX = originX + size.width
             }
@@ -380,7 +379,6 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         }
 
         if style.showFrequencyMarker {
-            let txX = x(forHz: style.txFrequency)
             let bandwidthHz = WaterfallViewModel.occupiedBandwidthHz(isFT4: style.isFT4)
             let path = UIBezierPath()
             for hz in [style.txFrequency, style.txFrequency + bandwidthHz] {
@@ -396,13 +394,15 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
             staticLayer.addSublayer(lines)
 
             let text = String(format: "%.0f Hz", style.txFrequency)
-            let label = Self.makeTextLayer(text, size: 10, weight: .regular, color: .red)
+            let label = Self.makeTextLayer(text, size: 10, weight: .semibold, color: .red)
             label.alignmentMode = .center
-            label.backgroundColor = UIColor.white.withAlphaComponent(0.8).cgColor
+            label.backgroundColor = UIColor.white.withAlphaComponent(0.85).cgColor
             label.cornerRadius = 4
-            let labelWidth = Self.measure(text, size: 10, weight: .regular).width + 8
+            let labelWidth = Self.measure(text, size: 10, weight: .semibold).width + 10
             let labelHeight: CGFloat = 18
-            label.frame = CGRect(x: txX - labelWidth / 2, y: headerHeight / 2 + 5, width: labelWidth, height: labelHeight)
+            // Centred on the band the signal occupies, not on its base tone.
+            let bandCentreX = x(forHz: style.txFrequency + bandwidthHz / 2)
+            label.frame = CGRect(x: bandCentreX - labelWidth / 2, y: headerHeight / 2 + 5, width: labelWidth, height: labelHeight)
             staticLayer.addSublayer(label)
         }
     }
@@ -417,7 +417,11 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         (text as NSString).size(withAttributes: [.font: font(size: size, weight: weight)])
     }
 
-    private static func makeTextLayer(_ text: String, size: CGFloat, weight: UIFont.Weight, color: UIColor) -> CATextLayer {
+    /// - Parameter boxed: draw on a dark translucent pill, centred, so the
+    ///   text stays readable over any part of the palette.
+    private static func makeTextLayer(
+        _ text: String, size: CGFloat, weight: UIFont.Weight, color: UIColor, boxed: Bool = false
+    ) -> CATextLayer {
         let layer = CATextLayer()
         layer.string = text
         layer.font = font(size: size, weight: weight)
@@ -426,6 +430,11 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         layer.contentsScale = UIScreen.main.scale
         layer.truncationMode = .none
         layer.isWrapped = false
+        if boxed {
+            layer.alignmentMode = .center
+            layer.backgroundColor = UIColor.black.withAlphaComponent(0.55).cgColor
+            layer.cornerRadius = 3
+        }
         return layer
     }
 }
