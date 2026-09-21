@@ -1190,36 +1190,87 @@ final class WaterfallViewModelTests: XCTestCase {
         ).isEmpty)
     }
 
-    func testUpdateWaterfallAddsLabelsAndTimestamps() {
+    /// Records what the view model pushes to a renderer.
+    @MainActor
+    private final class RecordingSink: WaterfallRenderSink {
+        var resets = 0
+        var resetRows: (width: Int, height: Int, writeRow: Int)?
+        var appended: [(ringRow: Int, absoluteRow: Int, firstPixel: UInt32)] = []
+        var labels: [(String, Double, Int)] = []
+        var timestamps: [(String, Int)] = []
+
+        func reset(width: Int, height: Int, pixels: UnsafeBufferPointer<UInt32>, writeRow: Int, absoluteRow: Int,
+                   timestamps: [(absoluteRow: Int, text: String)],
+                   labels: [(absoluteRow: Int, text: String, frequency: Double)]) {
+            resets += 1
+            resetRows = (width, height, writeRow)
+            XCTAssertEqual(pixels.count, width * height)
+            self.labels += labels.map { ($0.text, $0.frequency, $0.absoluteRow) }
+            self.timestamps += timestamps.map { ($0.text, $0.absoluteRow) }
+        }
+        func append(row: UnsafeBufferPointer<UInt32>, ringRow: Int, absoluteRow: Int) {
+            appended.append((ringRow, absoluteRow, row[0]))
+        }
+        func addTimestamp(_ text: String, absoluteRow: Int) { timestamps.append((text, absoluteRow)) }
+        func addLabels(_ labels: [(String, Double)], absoluteRow: Int) {
+            self.labels += labels.map { ($0.0, $0.1, absoluteRow) }
+        }
+    }
+
+    func testUpdateWaterfallPushesRowsAndLabelsToSinks() {
         let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 4, isFT4: false)
-        vm.visibleRows = 1
+        let sink = RecordingSink()
+        vm.attach(sink)
+        XCTAssertEqual(sink.resets, 1)
+        XCTAssertEqual(sink.resetRows?.width, 16)
+        XCTAssertEqual(sink.resetRows?.height, 4)
+        XCTAssertFalse(vm.hasData)
+
         vm.addVerticalLabel(text: "L", frequency: 1000.0)
+        XCTAssertEqual(sink.labels.count, 1)
+        XCTAssertEqual(sink.labels.first?.2, 0, "anchored to the row about to be written")
 
         let row = [UInt8](repeating: 140, count: 898)
-        vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125)
+        for _ in 0 ..< 5 { vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125) }
 
-        let ts = vm.timestampsForOverlay(height: 1)
-        XCTAssertTrue(ts.count >= 0)
+        XCTAssertTrue(vm.hasData)
+        XCTAssertEqual(sink.appended.map(\.ringRow), [0, 1, 2, 3, 0], "ring of 4 rows wraps")
+        XCTAssertEqual(sink.appended.map(\.absoluteRow), [0, 1, 2, 3, 4])
+        XCTAssertEqual(vm.writeRow, 1)
+        XCTAssertEqual(vm.absoluteRowCount, 5)
+        XCTAssertNotEqual(sink.appended[0].firstPixel, 0xFF000000, "a row with signal is not black")
 
-        let labels = vm.verticalLabelsForOverlay(height: 1)
+        // The overlay accessors still answer relative to the newest row.
+        let labels = vm.verticalLabelsForOverlay(height: 10)
         XCTAssertEqual(labels.count, 1)
-        XCTAssertEqual(labels.first?.row, 0)
-        XCTAssertEqual(vm.renderedRows, 1)
-        XCTAssertNotNil(vm.waterfallImage)
+        XCTAssertEqual(labels.first?.row, 4)
+
+        // A sink attached later gets the history it missed.
+        let late = RecordingSink()
+        vm.attach(late)
+        XCTAssertEqual(late.resetRows?.writeRow, 1)
+        XCTAssertEqual(late.labels.count, 1)
+        XCTAssertTrue(late.appended.isEmpty)
+
+        vm.detach(sink)
+        vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125)
+        XCTAssertEqual(sink.appended.count, 5, "detached sinks stop receiving rows")
+        XCTAssertEqual(late.appended.count, 1)
     }
 
     /// Rows arriving from the audio thread are copied and applied on the
     /// main actor.
     func testAppendMonitorRowReachesTheMainActor() async {
         let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 4, isFT4: false)
-        vm.visibleRows = 1
+        let sink = RecordingSink()
+        vm.attach(sink)
         var row = [UInt8](repeating: 100, count: 64)
         row[32] = 255
         row.withUnsafeBufferPointer { vm.appendMonitorRow($0, firstBinHz: 200, binHz: 43.75) }
         await Task.yield()
-        for _ in 0 ..< 20 where vm.renderedRows == 0 {
+        for _ in 0 ..< 20 where sink.appended.isEmpty {
             try? await Task.sleep(nanoseconds: 10_000_000)
         }
-        XCTAssertEqual(vm.renderedRows, 1)
+        XCTAssertEqual(sink.appended.count, 1)
     }
 }

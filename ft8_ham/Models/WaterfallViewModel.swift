@@ -21,9 +21,8 @@ struct VerticalLabelOverlay: Equatable {
 }
 
 // MARK: - WaterfallOverlayState
-// Holds only the overlay data that the Canvas needs. Keeping it in a separate
-// ObservableObject means that `waterfallImage` changes (published by WaterfallViewModel)
-// do NOT trigger a Canvas redraw — only actual overlay data changes do.
+// The overlay toggles, kept apart from the row data so flipping one only
+// touches the layers it controls.
 @MainActor
 final class WaterfallOverlayState: ObservableObject {
     @Published var showOverlay: Bool = true
@@ -33,9 +32,37 @@ final class WaterfallOverlayState: ObservableObject {
     @Published var showFrequencyMarker: Bool = true
 }
 
+/// Receives the waterfall's pixel rows and overlay marks as they are
+/// produced, on the main actor. Implemented by the on-screen renderer
+/// (`WaterfallRenderView`); the view model keeps its own copy of the ring so
+/// a sink attached later can be brought up to date with `reset`.
+@MainActor
+protocol WaterfallRenderSink: AnyObject {
+    /// Replaces everything: the whole pixel ring (`height` rows of `width`
+    /// BGRA pixels, row `writeRow` is the next to be written, so the newest
+    /// row is `writeRow - 1`), and the overlay marks still in range.
+    func reset(
+        width: Int,
+        height: Int,
+        pixels: UnsafeBufferPointer<UInt32>,
+        writeRow: Int,
+        absoluteRow: Int,
+        timestamps: [(absoluteRow: Int, text: String)],
+        labels: [(absoluteRow: Int, text: String, frequency: Double)]
+    )
+    /// One new row, already coloured. `absoluteRow` counts rows since start.
+    func append(row: UnsafeBufferPointer<UInt32>, ringRow: Int, absoluteRow: Int)
+    func addTimestamp(_ text: String, absoluteRow: Int)
+    func addLabels(_ labels: [(String, Double)], absoluteRow: Int)
+}
+
 /// Scrolling spectrogram fed by `FT8SlotMonitor`: one row per analysed
 /// sub-block (80 ms for FT8), bins at the decoder's own resolution, so the
 /// display shows exactly what the decoder sees.
+///
+/// Rows are pushed to attached `WaterfallRenderSink`s rather than published
+/// as SwiftUI images: a new row costs the renderer a 4 KB texture upload and
+/// one layer transform, not a pass through the SwiftUI view graph.
 @MainActor
 final class WaterfallViewModel: ObservableObject {
 
@@ -46,9 +73,6 @@ final class WaterfallViewModel: ObservableObject {
         f.dateFormat = "HH:mm:ss"
         return f
     }()
-
-    // Pre-allocated render buffer — avoids ~3 MB heap allocation per render frame
-    private var renderBuffer: [UInt32] = []
 
     // Scratch buffer for the vectorized pixel-color pipeline: gathered row
     // values in dB, reused through the vDSP/vForce chain
@@ -83,28 +107,40 @@ final class WaterfallViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Visibility
+    // MARK: - Render sinks
 
-    /// Views currently showing this waterfall, with the rows each one needs.
-    /// Rendering (CGImage creation + publish) only happens while at least one
-    /// view is on screen; the pixel buffer keeps scrolling regardless so the
-    /// history is right when a view comes back.
-    private var viewerRows: [UUID: Int] = [:]
+    private struct WeakSink {
+        weak var sink: WaterfallRenderSink?
+    }
+    private var sinks: [WeakSink] = []
 
-    func viewerAppeared(_ id: UUID, rows: Int) {
-        viewerRows[id] = max(1, rows)
-        recomputeVisibleRows()
+    /// Starts feeding `sink`, after handing it the history drawn so far.
+    func attach(_ sink: WaterfallRenderSink) {
+        sinks.removeAll { $0.sink == nil || $0.sink === sink }
+        sinks.append(WeakSink(sink: sink))
+        pixelRing.withUnsafeBufferPointer { pixels in
+            sink.reset(
+                width: width,
+                height: height,
+                pixels: pixels,
+                writeRow: writeRow,
+                absoluteRow: absoluteRowCounter,
+                timestamps: timestampRows.map { (absoluteRow: $0.key, text: $0.value) },
+                labels: verticalLabelRows.flatMap { row, labels in
+                    labels.map { (absoluteRow: row, text: $0.text, frequency: $0.frequency) }
+                }
+            )
+        }
     }
 
-    func viewerDisappeared(_ id: UUID) {
-        viewerRows[id] = nil
-        recomputeVisibleRows()
+    func detach(_ sink: WaterfallRenderSink) {
+        sinks.removeAll { $0.sink == nil || $0.sink === sink }
     }
 
-    private func recomputeVisibleRows() {
-        let rows = viewerRows.values.max() ?? 0
-        if visibleRows != rows { visibleRows = rows }
-        if rows > 0 { ensureBufferCanHold(visibleRows: rows) }
+    private func forEachSink(_ body: (WaterfallRenderSink) -> Void) {
+        for entry in sinks {
+            if let sink = entry.sink { body(sink) }
+        }
     }
 
     enum Mode {
@@ -127,9 +163,10 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     struct Config {
-        /// Width of the pixel image. Source bins are mapped onto these
+        /// Width of the pixel ring. Source bins are mapped onto these
         /// columns, so it does not have to match the monitor's bin count.
         var imageWidth: Int
+        /// Rows kept in the ring; the display shows the newest ones that fit.
         var waterfallMaxRows: Int
         /// Colour window in dB, used only when `waterfallAutoRange` is off.
         /// Rows arrive in ft8_lib's scale (0 dB ≈ a full-scale tone); a
@@ -148,7 +185,6 @@ final class WaterfallViewModel: ObservableObject {
         /// …and saturates this far above that.
         var waterfallSpanDB: Float = 45.0
         var timestampInterval: TimeInterval
-        var targetFPS: Double = 15.0  // Reduced from 30 to 15 Hz for CPU optimization
         /// Audio frequencies at the left and right edges of the waterfall, in
         /// Hz. The pixel rows, the overlay, the cursor and the
         /// tap-to-set-frequency mapping all derive from these two values, so
@@ -159,14 +195,10 @@ final class WaterfallViewModel: ObservableObject {
         static let absoluteMaxRows = 2000
     }
 
-    @Published var waterfallImage: Image? = nil
-    /// Rows in the published `waterfallImage`. The view stretches the image
-    /// to its own height, so the overlay needs this to place a row on screen.
-    private(set) var renderedRows: Int = 0
-    @Published var visibleRows: Int = 0
+    /// Becomes true with the first row; the view shows a placeholder until then.
+    @Published private(set) var hasData: Bool = false
 
-    // Dedicated object for overlay state — decoupled from waterfallImage so the
-    // Canvas in WaterfallOverlayView only invalidates when overlay data changes.
+    // Dedicated object for the overlay toggles.
     let overlayState = WaterfallOverlayState()
 
     // Overlay flags — forwarded to overlayState for backward-compatible access
@@ -202,8 +234,12 @@ final class WaterfallViewModel: ObservableObject {
     var width: Int { config.imageWidth }
     var height: Int { config.waterfallMaxRows }
 
+    /// The coloured rows, `height` × `width` BGRA pixels, as a ring.
+    private var pixelRing: [UInt32]
     /// Next row of the ring buffer to write (0 ..< height).
-    private var writeRow: Int = 0
+    private(set) var writeRow: Int = 0
+    /// Rows produced since start; also the absolute index of the next row.
+    var absoluteRowCount: Int { absoluteRowCounter }
 
     private lazy var waterfallPalette: [UInt32] = (0 ... 255).map { i -> UInt32 in
         let t = Float(i) / 255.0
@@ -237,9 +273,6 @@ final class WaterfallViewModel: ObservableObject {
         return (255 << 24) | (UInt32(r) << 16) | (UInt32(g) << 8) | UInt32(b)
     }
 
-    private var context: CGContext?
-    private var frameLimiter: FrameLimiter
-
     init(imageWidth: Int, waterfallRows: Int, isFT4: Bool) {
         let initialMode: Mode = isFT4 ? .ft4 : .ft8
         self.mode = initialMode
@@ -247,13 +280,11 @@ final class WaterfallViewModel: ObservableObject {
         // Initialize config with the right timestamp interval
         self.config = Config(
             imageWidth: max(2, imageWidth),
-            waterfallMaxRows: max(1, waterfallRows),
+            waterfallMaxRows: min(max(1, waterfallRows), Config.absoluteMaxRows),
             timestampInterval: initialMode.timestampInterval
         )
 
-        frameLimiter = FrameLimiter(targetFPS: config.targetFPS)
-
-        setupContext(width: width, height: height)
+        pixelRing = [UInt32](repeating: 0xFF000000, count: config.imageWidth * config.waterfallMaxRows)
         wfLogger.log(.info, "WaterfallViewModel initialized: \(width) columns, \(height) rows")
 
         nextUTCMark = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
@@ -304,62 +335,17 @@ final class WaterfallViewModel: ObservableObject {
         return now.addingTimeInterval(interval - remainder)
     }
 
-    private func setupContext(width w: Int, height h: Int) {
-        context = CGContext(
-            data: nil,
-            width: w,
-            height: h,
-            bitsPerComponent: 8,
-            bytesPerRow: w * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        )
-        // CGContext does not promise zeroed memory; start from black.
-        if let ctx = context, let raw = ctx.data {
-            raw.assumingMemoryBound(to: UInt32.self).update(repeating: 0xFF000000, count: w * h)
-        }
-    }
-
-    /// Grows the ring buffer so a view can show `visibleRows` rows, keeping
-    /// the history already drawn.
-    func ensureBufferCanHold(visibleRows: Int) {
-        let w = width
-        // Limit rows to absolute maximum
-        let cappedRows = min(max(visibleRows, height), Config.absoluteMaxRows)
-        guard cappedRows > height, let oldCtx = context, let oldRaw = oldCtx.data else { return }
-        let oldHeight = height
-        let oldPixels = oldRaw.assumingMemoryBound(to: UInt32.self)
-
-        // Copy the old rows, oldest first, to the start of the new buffer so
-        // the write position simply continues after them.
-        var copied = [UInt32](repeating: 0xFF000000, count: cappedRows * w)
-        for i in 0 ..< oldHeight {
-            let srcRow = (writeRow + i) % oldHeight
-            copied.withUnsafeMutableBufferPointer { dst in
-                (dst.baseAddress! + i * w).update(from: oldPixels + srcRow * w, count: w)
-            }
-        }
-
-        config.waterfallMaxRows = cappedRows
-        setupContext(width: w, height: cappedRows)
-        if let ctx = context, let raw = ctx.data {
-            copied.withUnsafeBufferPointer { src in
-                raw.assumingMemoryBound(to: UInt32.self).update(from: src.baseAddress!, count: copied.count)
-            }
-        }
-        writeRow = oldHeight
-    }
-
     // ---------------------------------------------------------
     // Overlay helpers
     // ---------------------------------------------------------
     func addVerticalLabel(text: String, frequency: Double) {
-        verticalLabelRows[absoluteRowCounter, default: []].append((text: text, frequency: frequency))
+        addVerticalLabels([(text, frequency)])
     }
 
     func addVerticalLabels(_ labels: [(String, Double)]) {
         guard !labels.isEmpty else { return }
         verticalLabelRows[absoluteRowCounter, default: []].append(contentsOf: labels)
+        forEachSink { $0.addLabels(labels, absoluteRow: absoluteRowCounter) }
     }
 
     // ---------------------------------------------------------
@@ -433,16 +419,15 @@ final class WaterfallViewModel: ObservableObject {
     // Waterfall update
     // ---------------------------------------------------------
 
-    /// Appends one monitor row (see `appendMonitorRow`) and renders.
+    /// Appends one monitor row (see `appendMonitorRow`) and hands it to the
+    /// attached renderers.
     func updateWaterfall(monitorRow row: [UInt8], firstBinHz: Float, binHz: Float) {
         let w = width
-        guard let ctx = context, let rawPtr = ctx.data else { return }
-        let pixelData = rawPtr.assumingMemoryBound(to: UInt32.self)
         let rowOffset = writeRow * w
 
         if isInBackground && showBlackWhenBackgrounded {
             // Write a full black row
-            for x in 0 ..< w { pixelData[rowOffset + x] = 0xFF000000 }
+            for x in 0 ..< w { pixelRing[rowOffset + x] = 0xFF000000 }
         } else {
             guard row.count > 1 else { return }
 
@@ -481,7 +466,9 @@ final class WaterfallViewModel: ObservableObject {
             var toDBOffset: Float = -120.0
             vDSP_vsmsa(scratchDB, 1, &toDBScale, &toDBOffset, &scratchDB, 1, vDSP_Length(w))
 
-            paintRow(fromDB: &scratchDB, into: pixelData + rowOffset)
+            pixelRing.withUnsafeMutableBufferPointer { ring in
+                paintRow(fromDB: &scratchDB, into: ring.baseAddress! + rowOffset)
+            }
         }
 
         finishRow()
@@ -536,30 +523,38 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     /// Bookkeeping shared by every row: slot timestamps, ring advance,
-    /// overlay pruning and rendering.
+    /// overlay pruning, and pushing the row to the renderers.
     private func finishRow() {
         // Timestamp logic ALWAYS runs — uses cached formatter (avoids per-call allocation)
         let now = Date()
         if now >= nextUTCMark {
-            timestampRows[absoluteRowCounter] = utcFormatter.string(from: nextUTCMark)
+            let text = utcFormatter.string(from: nextUTCMark)
+            timestampRows[absoluteRowCounter] = text
+            forEachSink { $0.addTimestamp(text, absoluteRow: absoluteRowCounter) }
             nextUTCMark = nextUTCMark.addingTimeInterval(config.timestampInterval)
+        }
+
+        let w = width
+        let ringRow = writeRow
+        let absoluteRow = absoluteRowCounter
+        pixelRing.withUnsafeBufferPointer { ring in
+            let row = UnsafeBufferPointer(start: ring.baseAddress! + ringRow * w, count: w)
+            forEachSink { $0.append(row: row, ringRow: ringRow, absoluteRow: absoluteRow) }
         }
 
         writeRow = (writeRow + 1) % height
         absoluteRowCounter += 1
+        if !hasData { hasData = true }
 
         // Prune timestamps/labels that scrolled out of the (maximum) visible
         // range. Done every 64 rows rather than on every row: the overlay
         // accessors already clip to the visible height, so pruning is only
         // about keeping the dictionaries small.
         if absoluteRowCounter % 64 == 0 {
-            let cutoff = absoluteRowCounter - Config.absoluteMaxRows
+            let cutoff = absoluteRowCounter - height
             timestampRows = timestampRows.filter { $0.key >= cutoff }
             verticalLabelRows = verticalLabelRows.filter { $0.key >= cutoff }
         }
-
-        // Render (CGImage + publish) only while a view is on screen.
-        if visibleRows > 0 { renderWaterfallIncremental() }
     }
 
     @MainActor
@@ -594,35 +589,6 @@ final class WaterfallViewModel: ObservableObject {
         return next
     }
 
-    private func renderWaterfallIncremental() {
-        guard frameLimiter.shouldRender(), let ctx = context, let rawPtr = ctx.data else { return }
-
-        let w = width
-        let h = max(1, min(visibleRows, height))
-        let pixelData = rawPtr.assumingMemoryBound(to: UInt32.self)
-
-        // Reuse pre-allocated render buffer; only resize when dimensions change
-        let needed = w * h
-        if renderBuffer.count != needed {
-            renderBuffer = [UInt32](repeating: 0, count: needed)
-        }
-
-        // Newest row at the top of the image.
-        for y in 0 ..< h {
-            let srcRow = (writeRow - h + y + height) % height
-            let dstBase = (h - y - 1) * w
-            let srcBase = srcRow * w
-            renderBuffer.withUnsafeMutableBufferPointer { dst in
-                let src = pixelData + srcBase
-                (dst.baseAddress! + dstBase).update(from: src, count: w)
-            }
-        }
-
-        if let cg = makeCGImageFromARGB(pixelData: &renderBuffer, width: w, height: h) {
-            renderedRows = h
-            waterfallImage = Image(uiImage: UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up))
-        }
-    }
     // MARK: - Overlay toggles helpers
 
     /// Toggle the master "Show All Overlays"
@@ -684,50 +650,17 @@ final class WaterfallViewModel: ObservableObject {
     }
 
 
-    private func makeCGImageFromARGB(pixelData: inout [UInt32], width: Int, height: Int) -> CGImage? {
-        guard pixelData.count == width * height else { return nil }
-        let bytesPerRow = width * 4
-        let bitmapInfo = CGBitmapInfo(
-            rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue |
-            CGBitmapInfo.byteOrder32Little.rawValue
-        )
-        // withUnsafeBytes gives a zero-copy view; CGDataProvider copies the bytes once into
-        // the CGImage backing store — no intermediate Data allocation.
-        return pixelData.withUnsafeBytes { rawBuffer -> CGImage? in
-            guard
-                let base = rawBuffer.baseAddress,
-                let provider = CGDataProvider(data: CFDataCreate(nil, base.assumingMemoryBound(to: UInt8.self), rawBuffer.count))
-            else { return nil }
-            return CGImage(
-                width: width,
-                height: height,
-                bitsPerComponent: 8,
-                bitsPerPixel: 32,
-                bytesPerRow: bytesPerRow,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: bitmapInfo,
-                provider: provider,
-                decode: nil,
-                shouldInterpolate: false,
-                intent: .defaultIntent
-            )
-        }
-    }
-
+    /// Adjusts colour and axis settings. The ring's dimensions are fixed at
+    /// init and are not affected.
     func updateConfig(_ update: (inout Config) -> Void) {
         var c = config
         update(&c)
-        // The pixel image is sized at init and only ever grows, through
-        // ensureBufferCanHold, so the ring arithmetic always matches it.
-        let requestedRows = c.waterfallMaxRows
         c.imageWidth = config.imageWidth
         c.waterfallMaxRows = config.waterfallMaxRows
         config = c
-        frameLimiter = FrameLimiter(targetFPS: config.targetFPS)
-        ensureBufferCanHold(visibleRows: max(visibleRows, requestedRows))
         nextUTCMark = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
     }
-
+    
     // MARK: - Overlay accessors
 
     func timestampsForOverlay(height: Int) -> [TimestampOverlay] {
@@ -756,26 +689,6 @@ final class WaterfallViewModel: ObservableObject {
         nextUTCMark = aligned <= now ? aligned.addingTimeInterval(config.timestampInterval) : aligned
     }
 
-}
-
-// MARK: - FrameLimiter
-
-private struct FrameLimiter {
-    private let minInterval: TimeInterval
-    private var last: TimeInterval = 0
-
-    init(targetFPS: Double) {
-        minInterval = targetFPS > 0 ? 1.0 / targetFPS : 0
-    }
-
-    mutating func shouldRender(now: TimeInterval = CACurrentMediaTime()) -> Bool {
-        guard minInterval > 0 else { return true }
-        if now - last >= minInterval {
-            last = now
-            return true
-        }
-        return false
-    }
 }
 
 extension Comparable {
