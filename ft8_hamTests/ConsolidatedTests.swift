@@ -1196,25 +1196,23 @@ final class WaterfallViewModelTests: XCTestCase {
         var resets = 0
         var resetRows: (width: Int, height: Int, writeRow: Int)?
         var appended: [(ringRow: Int, absoluteRow: Int, firstPixel: UInt32)] = []
-        var labels: [(String, Double, Int)] = []
+        var labels: [WaterfallPlacedLabel] = []
         var timestamps: [(String, Int)] = []
 
         func reset(width: Int, height: Int, pixels: UnsafeBufferPointer<UInt32>, writeRow: Int, absoluteRow: Int,
                    timestamps: [(absoluteRow: Int, text: String)],
-                   labels: [(absoluteRow: Int, text: String, frequency: Double)]) {
+                   labels: [WaterfallPlacedLabel]) {
             resets += 1
             resetRows = (width, height, writeRow)
             XCTAssertEqual(pixels.count, width * height)
-            self.labels += labels.map { ($0.text, $0.frequency, $0.absoluteRow) }
+            self.labels += labels
             self.timestamps += timestamps.map { ($0.text, $0.absoluteRow) }
         }
         func append(row: UnsafeBufferPointer<UInt32>, ringRow: Int, absoluteRow: Int) {
             appended.append((ringRow, absoluteRow, row[0]))
         }
         func addTimestamp(_ text: String, absoluteRow: Int) { timestamps.append((text, absoluteRow)) }
-        func addLabels(_ labels: [(String, Double)], absoluteRow: Int) {
-            self.labels += labels.map { ($0.0, $0.1, absoluteRow) }
-        }
+        func addLabels(_ labels: [WaterfallPlacedLabel]) { self.labels += labels }
     }
 
     func testUpdateWaterfallPushesRowsAndLabelsToSinks() {
@@ -1228,7 +1226,8 @@ final class WaterfallViewModelTests: XCTestCase {
 
         vm.addVerticalLabel(text: "L", frequency: 1000.0)
         XCTAssertEqual(sink.labels.count, 1)
-        XCTAssertEqual(sink.labels.first?.2, 0, "anchored to the row about to be written")
+        XCTAssertEqual(sink.labels.first?.anchorRow, 0, "anchored to the row about to be written")
+        XCTAssertEqual(sink.labels.first?.spanRows, 0, "no DT: hangs from the anchor")
 
         let row = [UInt8](repeating: 140, count: 898)
         for _ in 0 ..< 5 { vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125) }
@@ -1258,6 +1257,59 @@ final class WaterfallViewModelTests: XCTestCase {
         XCTAssertEqual(late.appended.count, 1)
     }
 
+    /// A decode carries the slot it came from and its DT; the label lands on
+    /// the row the signal started and spans the signal's length.
+    func testLabelsAreAnchoredToTheSignalStart() {
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 400, isFT4: false)
+        vm.rowPeriod = 0.08
+        let sink = RecordingSink()
+        vm.attach(sink)
+        let row = [UInt8](repeating: 140, count: 898)
+
+        // Slot 7 starts at absolute row 10 (rows 0–9 belong to slot 6).
+        for i in 0 ..< 10 { vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125, slotSequence: 6, slotRow: 100 + i) }
+        for i in 0 ..< 190 { vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125, slotSequence: 7, slotRow: i) }
+        // Slot 8 has begun; the decode of slot 7 arrives now.
+        for i in 0 ..< 5 { vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125, slotSequence: 8, slotRow: i) }
+
+        let cq = WaterfallLabel(text: "CQ W1AW FN31", frequency: 1000, kind: .cq, callsign: "W1AW", timeOffset: 0.48)
+        let late = WaterfallLabel(text: "K1ABC W9XYZ -05", frequency: 2000, kind: .other, timeOffset: 1.6)
+        let bogus = WaterfallLabel(text: "X", frequency: 500, kind: .other, timeOffset: 40)
+        vm.addLabels([cq, late, bogus], slotSequence: 7, signalDuration: 12.64)
+
+        XCTAssertEqual(sink.labels.count, 3)
+        XCTAssertEqual(sink.labels[0].anchorRow, 10 + 6, "0.48 s = 6 rows after the slot started")
+        XCTAssertEqual(sink.labels[0].spanRows, 158, "12.64 s = 158 rows")
+        XCTAssertEqual(sink.labels[1].anchorRow, 10 + 20)
+        XCTAssertEqual(sink.labels[2].anchorRow, vm.absoluteRowCount, "a start past the newest row falls back to the decode row")
+        XCTAssertEqual(sink.labels[2].spanRows, 0)
+        XCTAssertEqual(sink.labels[0].label.kind, .cq)
+
+        // A decode from a slot the display never saw hangs from the current row.
+        vm.addLabels([cq], slotSequence: 99, signalDuration: 12.64)
+        XCTAssertEqual(sink.labels[3].anchorRow, vm.absoluteRowCount)
+
+        // The overlay accessor reports the anchor relative to the newest row.
+        let overlay = vm.verticalLabelsForOverlay(height: 400)
+        XCTAssertEqual(overlay.first?.row, (vm.absoluteRowCount - 1) - 16)
+        XCTAssertEqual(overlay.first?.spanRows, 158)
+    }
+
+    func testLabelKindsFromMessages() {
+        let cq = FT8Message(text: "CQ W1AW FN31", mode: .ft8, frequency: 1200, timeOffset: 0.3)
+        let cqLabel = WaterfallLabel(message: cq)
+        XCTAssertEqual(cqLabel.kind, .cq)
+        XCTAssertEqual(cqLabel.callsign, "W1AW")
+        XCTAssertEqual(cqLabel.frequency, 1200)
+        XCTAssertEqual(cqLabel.timeOffset, 0.3)
+        XCTAssertFalse(cqLabel.isWorked)
+
+        let other = FT8Message(text: "K1ABC W9XYZ -05", mode: .ft8, frequency: 900)
+        let otherLabel = WaterfallLabel(message: other)
+        XCTAssertEqual(otherLabel.kind, .other)
+        XCTAssertNil(otherLabel.timeOffset, "NaN DT means unknown")
+    }
+
     /// Rows arriving from the audio thread are copied and applied on the
     /// main actor.
     func testAppendMonitorRowReachesTheMainActor() async {
@@ -1266,7 +1318,7 @@ final class WaterfallViewModelTests: XCTestCase {
         vm.attach(sink)
         var row = [UInt8](repeating: 100, count: 64)
         row[32] = 255
-        row.withUnsafeBufferPointer { vm.appendMonitorRow($0, firstBinHz: 200, binHz: 43.75) }
+        row.withUnsafeBufferPointer { vm.appendMonitorRow($0, firstBinHz: 200, binHz: 43.75, slotSequence: 1, slotRow: 0) }
         await Task.yield()
         for _ in 0 ..< 20 where sink.appended.isEmpty {
             try? await Task.sleep(nanoseconds: 10_000_000)

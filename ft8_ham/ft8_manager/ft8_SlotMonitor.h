@@ -29,15 +29,21 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) float symbolPeriod;
 /// Seconds of audio the snapshot covers (blocks × symbol period).
 @property(nonatomic, readonly) double duration;
+/// Which slot this is (see `FT8SlotMonitor.slotSequence`).
+@property(nonatomic, readonly) NSUInteger slotSequence;
 
 @end
 
 /// One spectrogram row for the waterfall display: `count` magnitudes in
 /// increasing frequency order, starting at `firstBinHz` and `binHz` apart.
-/// Values are 0–255 in 0.5 dB steps, 0 = −120 dB. The pointer is only valid
-/// during the call, and the call happens on the audio thread.
+/// Values are 0–255 in 0.5 dB steps, 0 = −120 dB. `slotSequence` and
+/// `slotRow` say which slot the row belongs to and how many rows into it
+/// it is, so the display can place a decode at the row its signal began.
+/// The pointer is only valid during the call, and the call happens on the
+/// audio thread.
 typedef void (^FT8SlotMonitorRowHandler)(const uint8_t *row, int count,
-                                         float firstBinHz, float binHz);
+                                         float firstBinHz, float binHz,
+                                         NSUInteger slotSequence, int slotRow);
 
 /// Streaming FT8/FT4 spectrogram shared by the waterfall and the decoder.
 ///
@@ -57,6 +63,9 @@ typedef void (^FT8SlotMonitorRowHandler)(const uint8_t *row, int count,
 @property(nonatomic, readonly) BOOL isFT4;
 /// Seconds between two emitted rows (symbol period / time oversampling).
 @property(nonatomic, readonly) float rowPeriod;
+/// Counts slots: incremented by every reset. Rows and snapshots carry it,
+/// which ties a decoded message back to the rows its signal occupies.
+@property(nonatomic, readonly) NSUInteger slotSequence;
 /// Lowest / highest frequency analysed, in Hz.
 @property(nonatomic, readonly) float minFrequency;
 @property(nonatomic, readonly) float maxFrequency;

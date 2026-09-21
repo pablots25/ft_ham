@@ -10,7 +10,7 @@ private let performanceLog = OSLog(subsystem: "com.ft8ham.app", category: "Perfo
 
 internal struct BatchProcessResult {
     let messages: [FT8Message]
-    let labels: [(String, Double)]
+    let labels: [WaterfallLabel]
     let waterfallSamples: [Float]
     let newLocators: [String]
     let workedCountries: [CountryPair]
@@ -62,7 +62,7 @@ actor MessageProcessor {
         var messagesToAdd: [FT8Message] = []
         messagesToAdd.reserveCapacity(batch.count + 1)
         
-        var labelsToAdd: [(String, Double)] = []
+        var labelsToAdd: [WaterfallLabel] = []
         labelsToAdd.reserveCapacity(batch.count)
         
         var waterfallSamples: [Float] = []
@@ -116,7 +116,7 @@ actor MessageProcessor {
                 )
             )
             
-            labelsToAdd.append((text, message.frequency))
+            labelsToAdd.append(WaterfallLabel(message: message))
             
             if let audioSamples = msgDict["audioSamples"] as? [Float] {
                 waterfallSamples.append(contentsOf: audioSamples)

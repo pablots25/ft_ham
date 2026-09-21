@@ -22,7 +22,7 @@ final class SlotMonitorTests: XCTestCase {
     private func collectRows(_ monitor: FT8SlotMonitor) -> (() -> [Row]) {
         let lock = NSLock()
         var rows: [Row] = []
-        monitor.rowHandler = { ptr, count, firstBinHz, binHz in
+        monitor.rowHandler = { ptr, count, firstBinHz, binHz, _, _ in
             let values = Array(UnsafeBufferPointer(start: ptr, count: Int(count)))
             lock.lock(); rows.append(Row(values: values, firstBinHz: firstBinHz, binHz: binHz)); lock.unlock()
         }
@@ -141,7 +141,7 @@ final class SlotMonitorTests: XCTestCase {
         let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
         let lock = NSLock()
         var peaks: [Int] = []
-        monitor.rowHandler = { ptr, count, _, _ in
+        monitor.rowHandler = { ptr, count, _, _, _, _ in
             let row = UnsafeBufferPointer(start: ptr, count: Int(count))
             let peak = row.indices.max { row[$0] < row[$1] }!
             lock.lock(); peaks.append(peak); lock.unlock()
@@ -163,6 +163,29 @@ final class SlotMonitorTests: XCTestCase {
         XCTAssertEqual(seen.last ?? -1, highBin, accuracy: 1)
         XCTAssertEqual(seen, seen.sorted(), "rows reordered: \(seen)")
         XCTAssertTrue(seen.allSatisfy { abs($0 - lowBin) <= 1 || abs($0 - highBin) <= 1 }, "\(seen)")
+    }
+
+    /// Rows say which slot they belong to and how far into it they are;
+    /// snapshots carry the same sequence, so a decode can find its rows.
+    func test_rowsCarrySlotSequenceAndIndex() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let lock = NSLock()
+        var tags: [(UInt, Int)] = []
+        monitor.rowHandler = { _, _, _, _, seq, row in lock.lock(); tags.append((seq, Int(row))); lock.unlock() }
+
+        let audio = sine(hz: 1000, seconds: 0.48)   // 3 symbols
+        audio.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
+        let first = monitor.snapshotAndReset()      // releases the held row, then resets
+        audio.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
+        let second = monitor.snapshotAndReset()
+
+        lock.lock(); let seen = tags; lock.unlock()
+        XCTAssertEqual(seen.map { $0.1 }, [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5], "row index restarts with each slot")
+        XCTAssertEqual(Set(seen.prefix(6).map { $0.0 }).count, 1)
+        XCTAssertEqual(Set(seen.suffix(6).map { $0.0 }).count, 1)
+        XCTAssertEqual(seen[0].0, UInt(first.slotSequence), "rows and the snapshot of a slot share its sequence")
+        XCTAssertEqual(seen[6].0, UInt(second.slotSequence))
+        XCTAssertEqual(second.slotSequence, first.slotSequence + 1)
     }
 
     func test_reconfigure_switchesProtocol() {

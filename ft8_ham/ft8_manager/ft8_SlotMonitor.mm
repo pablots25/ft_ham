@@ -41,9 +41,10 @@ static double monotonicSeconds(void) {
   ftx_waterfall_t _wf;
 }
 
-- (instancetype)initWithMonitor:(const monitor_t *)mon {
+- (instancetype)initWithMonitor:(const monitor_t *)mon slotSequence:(NSUInteger)slotSequence {
   self = [super init];
   if (self) {
+    _slotSequence = slotSequence;
     _wf = mon->wf;
     // Only the blocks written so far are copied; `max_blocks` shrinks to
     // match so nothing reads past the copy.
@@ -88,6 +89,8 @@ static double monotonicSeconds(void) {
   double _heldRowTime;
   float _heldRowFirstBinHz;
   float _heldRowBinHz;
+  NSUInteger _heldRowSlotSequence;
+  int _heldRowSlotRow;
 }
 
 - (instancetype)initWithSampleRate:(int)sampleRate isFT4:(BOOL)isFT4 {
@@ -182,6 +185,7 @@ static double monotonicSeconds(void) {
     // block from here on.
     if (_mon.wf.num_blocks >= _mon.wf.max_blocks) {
       monitor_reset(&_mon);
+      _slotSequence += 1;
     }
 
     int block = _mon.wf.num_blocks;
@@ -225,11 +229,14 @@ static double monotonicSeconds(void) {
 
   for (int timeSub = 0; timeSub < wf->time_osr - 1; ++timeSub) {
     [self copyRowOfBlock:block timeSub:timeSub into:_row];
-    self.rowHandler(_row.data(), (int)_row.size(), firstBinHz, binHz);
+    self.rowHandler(_row.data(), (int)_row.size(), firstBinHz, binHz,
+                    _slotSequence, block * wf->time_osr + timeSub);
   }
   [self copyRowOfBlock:block timeSub:wf->time_osr - 1 into:_heldRow];
   _heldRowFirstBinHz = firstBinHz;
   _heldRowBinHz = binHz;
+  _heldRowSlotSequence = _slotSequence;
+  _heldRowSlotRow = block * wf->time_osr + wf->time_osr - 1;
   _heldRowTime = now;
   _hasHeldRow = YES;
 }
@@ -239,7 +246,8 @@ static double monotonicSeconds(void) {
   _hasHeldRow = NO;
   FT8SlotMonitorRowHandler handler = self.rowHandler;
   if (handler != nil) {
-    handler(_heldRow.data(), (int)_heldRow.size(), _heldRowFirstBinHz, _heldRowBinHz);
+    handler(_heldRow.data(), (int)_heldRow.size(), _heldRowFirstBinHz, _heldRowBinHz,
+            _heldRowSlotSequence, _heldRowSlotRow);
   }
 }
 
@@ -264,6 +272,7 @@ static double monotonicSeconds(void) {
     [self emitHeldRowLocked];
   }
   monitor_reset(&_mon);
+  _slotSequence += 1;
   // Drop the partial block so block 0 starts at the reset instant. Up to one
   // symbol of audio is skipped, which is exactly the audio that straddles
   // the slot boundary and belongs to neither slot.
@@ -273,7 +282,7 @@ static double monotonicSeconds(void) {
 - (FT8WaterfallSnapshot *)snapshotAndReset {
   std::lock_guard<std::mutex> guard(_lock);
   FT8WaterfallSnapshot *snapshot =
-      [[FT8WaterfallSnapshot alloc] initWithMonitor:&_mon];
+      [[FT8WaterfallSnapshot alloc] initWithMonitor:&_mon slotSequence:_slotSequence];
   [self resetSlotLocked];
   return snapshot;
 }

@@ -381,6 +381,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
             if rootState.isFT4 != isFT4 { rootState.isFT4 = isFT4 }
             waterfallVM.mode = isFT4 ? .ft4 : .ft8
             slotMonitor.reconfigureIsFT4(isFT4)
+            waterfallVM.rowPeriod = Double(slotMonitor.rowPeriod)
             restartLoopsForModeChange()
             scheduleCatFrequencyUpdate(reason: "mode change")
         }
@@ -502,6 +503,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
             isFT4: storedIsFT4
         )
         slotMonitor = FT8SlotMonitor(sampleRate: Int32(self.audioManager.sampleRate), isFT4: storedIsFT4)
+        waterfallVM.rowPeriod = Double(slotMonitor.rowPeriod)
         
         super.init()
         

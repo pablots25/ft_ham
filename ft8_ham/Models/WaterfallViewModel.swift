@@ -18,6 +18,9 @@ struct VerticalLabelOverlay: Equatable {
     let text: String
     var row: Int
     let frequency: Double
+    let kind: WaterfallLabel.Kind
+    let isWorked: Bool
+    let spanRows: Int
 }
 
 // MARK: - WaterfallOverlayState
@@ -48,12 +51,14 @@ protocol WaterfallRenderSink: AnyObject {
         writeRow: Int,
         absoluteRow: Int,
         timestamps: [(absoluteRow: Int, text: String)],
-        labels: [(absoluteRow: Int, text: String, frequency: Double)]
+        labels: [WaterfallPlacedLabel]
     )
     /// One new row, already coloured. `absoluteRow` counts rows since start.
     func append(row: UnsafeBufferPointer<UInt32>, ringRow: Int, absoluteRow: Int)
     func addTimestamp(_ text: String, absoluteRow: Int)
-    func addLabels(_ labels: [(String, Double)], absoluteRow: Int)
+    /// Labels decoded together; the renderer lays the batch out so labels
+    /// on neighbouring frequencies do not cover each other.
+    func addLabels(_ labels: [WaterfallPlacedLabel])
 }
 
 /// Scrolling spectrogram fed by `FT8SlotMonitor`: one row per analysed
@@ -99,11 +104,22 @@ final class WaterfallViewModel: ObservableObject {
     ///     steps with 0 = −120 dB (ft8_lib's waterfall encoding).
     ///   - firstBinHz: frequency of `row[0]`.
     ///   - binHz: spacing between consecutive values.
-    nonisolated func appendMonitorRow(_ row: UnsafeBufferPointer<UInt8>, firstBinHz: Float, binHz: Float) {
+    ///   - slotSequence: the monitor's slot counter for this row.
+    ///   - slotRow: rows since that slot started.
+    nonisolated func appendMonitorRow(
+        _ row: UnsafeBufferPointer<UInt8>,
+        firstBinHz: Float,
+        binHz: Float,
+        slotSequence: UInt,
+        slotRow: Int
+    ) {
         guard row.count > 1 else { return }
         let copy = Array(row)
         Task { @MainActor [weak self] in
-            self?.updateWaterfall(monitorRow: copy, firstBinHz: firstBinHz, binHz: binHz)
+            self?.updateWaterfall(
+                monitorRow: copy, firstBinHz: firstBinHz, binHz: binHz,
+                slotSequence: slotSequence, slotRow: slotRow
+            )
         }
     }
 
@@ -126,9 +142,7 @@ final class WaterfallViewModel: ObservableObject {
                 writeRow: writeRow,
                 absoluteRow: absoluteRowCounter,
                 timestamps: timestampRows.map { (absoluteRow: $0.key, text: $0.value) },
-                labels: verticalLabelRows.flatMap { row, labels in
-                    labels.map { (absoluteRow: row, text: $0.text, frequency: $0.frequency) }
-                }
+                labels: placedLabels
             )
         }
     }
@@ -224,9 +238,12 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     private var timestampRows: [Int: String] = [:]
-    private var verticalLabelRows: [Int: [(text: String, frequency: Double)]] = [:]
+    private var placedLabels: [WaterfallPlacedLabel] = []
     private var nextUTCMark: Date = .init()
     private var absoluteRowCounter: Int = 0
+    /// Absolute row at which each monitor slot started, by slot sequence.
+    /// Filled as rows arrive; a decode looks its slot up here.
+    private var slotStartRows: [UInt: Int] = [:]
 
     private let wfLogger = AppLogger(category: "WF")
     var config: Config
@@ -339,14 +356,39 @@ final class WaterfallViewModel: ObservableObject {
     // Overlay helpers
     // ---------------------------------------------------------
     func addVerticalLabel(text: String, frequency: Double) {
-        addVerticalLabels([(text, frequency)])
+        addLabels([WaterfallLabel(text: text, frequency: frequency)], slotSequence: nil, signalDuration: 0)
     }
 
-    func addVerticalLabels(_ labels: [(String, Double)]) {
+    /// Places decoded messages on the waterfall.
+    ///
+    /// With the slot they were decoded from (`slotSequence`) and their DT,
+    /// each label is anchored to the row its signal started on and spans
+    /// the signal's duration; without that, it hangs from the current row.
+    /// - Parameters:
+    ///   - slotSequence: the monitor slot the decode came from.
+    ///   - signalDuration: how long a transmission lasts (12.64 s FT8, 4.48 s FT4).
+    func addLabels(_ labels: [WaterfallLabel], slotSequence: UInt?, signalDuration: Double) {
         guard !labels.isEmpty else { return }
-        verticalLabelRows[absoluteRowCounter, default: []].append(contentsOf: labels)
-        forEachSink { $0.addLabels(labels, absoluteRow: absoluteRowCounter) }
+        let slotStart = slotSequence.flatMap { slotStartRows[$0] }
+        let placed = labels.map { label -> WaterfallPlacedLabel in
+            if let slotStart, let dt = label.timeOffset, rowPeriod > 0 {
+                let start = slotStart + Int((dt / rowPeriod).rounded())
+                let span = max(1, Int((signalDuration / rowPeriod).rounded()))
+                // The decode moment is the newest row we can show; a start
+                // beyond it (bad DT) falls back to hanging from there.
+                if start < absoluteRowCounter {
+                    return WaterfallPlacedLabel(label: label, anchorRow: start, spanRows: min(span, absoluteRowCounter - start))
+                }
+            }
+            return WaterfallPlacedLabel(label: label, anchorRow: absoluteRowCounter, spanRows: 0)
+        }
+        placedLabels.append(contentsOf: placed)
+        forEachSink { $0.addLabels(placed) }
     }
+
+    /// Seconds per row: the monitor's `rowPeriod` (80 ms FT8, 24 ms FT4).
+    /// Set by the owner whenever the monitor is (re)configured.
+    var rowPeriod: Double = 0.08
 
     // ---------------------------------------------------------
     // Frequency axis
@@ -421,9 +463,24 @@ final class WaterfallViewModel: ObservableObject {
 
     /// Appends one monitor row (see `appendMonitorRow`) and hands it to the
     /// attached renderers.
-    func updateWaterfall(monitorRow row: [UInt8], firstBinHz: Float, binHz: Float) {
+    func updateWaterfall(
+        monitorRow row: [UInt8],
+        firstBinHz: Float,
+        binHz: Float,
+        slotSequence: UInt = 0,
+        slotRow: Int = 0
+    ) {
         let w = width
         let rowOffset = writeRow * w
+
+        // Remember where this slot began, so decodes can be placed on it.
+        if slotStartRows[slotSequence] == nil {
+            slotStartRows[slotSequence] = absoluteRowCounter - slotRow
+            if slotStartRows.count > 8 {
+                let oldest = slotStartRows.keys.min()!
+                slotStartRows[oldest] = nil
+            }
+        }
 
         if isInBackground && showBlackWhenBackgrounded {
             // Write a full black row
@@ -553,7 +610,7 @@ final class WaterfallViewModel: ObservableObject {
         if absoluteRowCounter % 64 == 0 {
             let cutoff = absoluteRowCounter - height
             timestampRows = timestampRows.filter { $0.key >= cutoff }
-            verticalLabelRows = verticalLabelRows.filter { $0.key >= cutoff }
+            placedLabels.removeAll { $0.anchorRow + $0.spanRows < cutoff }
         }
     }
 
@@ -675,11 +732,14 @@ final class WaterfallViewModel: ObservableObject {
     func verticalLabelsForOverlay(height: Int) -> [VerticalLabelOverlay] {
         guard showOverlay && showVerticalLabels else { return [] }
         let topRow = absoluteRowCounter - 1
-        return verticalLabelRows.compactMap { absRow, labels -> [VerticalLabelOverlay]? in
-            let rowOffset = topRow - absRow
+        return placedLabels.compactMap { placed in
+            let rowOffset = topRow - placed.anchorRow
             guard rowOffset >= 0 && rowOffset < height else { return nil }
-            return labels.map { VerticalLabelOverlay(text: $0.text, row: rowOffset, frequency: $0.frequency) }
-        }.flatMap { $0 }
+            return VerticalLabelOverlay(
+                text: placed.label.text, row: rowOffset, frequency: placed.label.frequency,
+                kind: placed.label.kind, isWorked: placed.label.isWorked, spanRows: placed.spanRows
+            )
+        }
     }
 
     @MainActor

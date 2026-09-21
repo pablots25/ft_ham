@@ -100,8 +100,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         scrollLayer.frame = bounds
         rebuildStaticLayer()
         // Label geometry depends on the width; simplest to lay them out again.
-        for sub in labelsLayer.sublayers ?? [] { sub.removeFromSuperlayer() }
-        for (absRow, text, hz) in pendingLabelsForRelayout { addLabelLayer(text: text, frequency: hz, absoluteRow: absRow) }
+        relayoutAllLabels()
         for sub in timestampsLayer.sublayers ?? [] { layoutTimestampLayer(sub) }
         updateScrollTransform()
         CATransaction.commit()
@@ -128,10 +127,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         scrollLayer.isHidden = !newStyle.showOverlay
         timestampsLayer.isHidden = !newStyle.showTimestamps
         labelsLayer.isHidden = !newStyle.showVerticalLabels
-        if axisChanged {
-            for sub in labelsLayer.sublayers ?? [] { sub.removeFromSuperlayer() }
-            for (absRow, text, hz) in pendingLabelsForRelayout { addLabelLayer(text: text, frequency: hz, absoluteRow: absRow) }
-        }
+        if axisChanged { relayoutAllLabels() }
         CATransaction.commit()
     }
 
@@ -149,7 +145,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         writeRow: Int,
         absoluteRow: Int,
         timestamps: [(absoluteRow: Int, text: String)],
-        labels: [(absoluteRow: Int, text: String, frequency: Double)]
+        labels: [WaterfallPlacedLabel]
     ) {
         ringHeight = height
         topAbsoluteRow = absoluteRow - 1
@@ -159,10 +155,9 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for sub in timestampsLayer.sublayers ?? [] { sub.removeFromSuperlayer() }
-        for sub in labelsLayer.sublayers ?? [] { sub.removeFromSuperlayer() }
-        pendingLabelsForRelayout.removeAll()
         for t in timestamps { addTimestampLayer(t.text, absoluteRow: t.absoluteRow) }
-        for l in labels { addLabelLayer(text: l.text, frequency: l.frequency, absoluteRow: l.absoluteRow) }
+        allLabels = labels
+        relayoutAllLabels()
         updateScrollTransform()
         CATransaction.commit()
         metalView.setNeedsDisplay()
@@ -186,10 +181,11 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         CATransaction.commit()
     }
 
-    func addLabels(_ labels: [(String, Double)], absoluteRow: Int) {
+    func addLabels(_ labels: [WaterfallPlacedLabel]) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        for (text, hz) in labels { addLabelLayer(text: text, frequency: hz, absoluteRow: absoluteRow) }
+        allLabels.append(contentsOf: labels)
+        layoutLabelBatch(labels)
         CATransaction.commit()
     }
 
@@ -209,13 +205,14 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         for sub in labelsLayer.sublayers ?? [] where (sub.value(forKey: Self.absRowKey) as? Int ?? .max) < cutoff {
             sub.removeFromSuperlayer()
         }
-        pendingLabelsForRelayout.removeAll { $0.absoluteRow < cutoff }
+        allLabels.removeAll { $0.anchorRow + $0.spanRows < cutoff }
     }
 
     private static let absRowKey = "wf.absoluteRow"
     private static let textKey = "wf.text"
-    /// Labels kept as data so they can be laid out again after a resize.
-    private var pendingLabelsForRelayout: [(absoluteRow: Int, text: String, frequency: Double)] = []
+    /// Every label still on the ring, as data, so they can be laid out again
+    /// after a resize or an axis change.
+    private var allLabels: [WaterfallPlacedLabel] = []
 
     private func addTimestampLayer(_ text: String, absoluteRow: Int) {
         let group = CALayer()
@@ -255,24 +252,91 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         }
     }
 
-    private func addLabelLayer(text: String, frequency: Double, absoluteRow: Int) {
-        if !pendingLabelsForRelayout.contains(where: { $0.absoluteRow == absoluteRow && $0.text == text && $0.frequency == frequency }) {
-            pendingLabelsForRelayout.append((absoluteRow, text, frequency))
+    private func relayoutAllLabels() {
+        for sub in labelsLayer.sublayers ?? [] { sub.removeFromSuperlayer() }
+        // Labels from one decode share anchor and span; lay each such batch out
+        // together so neighbours on close frequencies get separate lanes.
+        let batches = Dictionary(grouping: allLabels) { "\($0.anchorRow)/\($0.spanRows)" }
+        for batch in batches.values { layoutLabelBatch(batch) }
+    }
+
+    private static let labelBoxHeight: CGFloat = 14   // text height, becomes the width once rotated
+    private static let labelFontSize: CGFloat = 10
+
+    /// Adds layers for `batch`, splitting labels whose frequencies are too
+    /// close to be drawn side by side into lanes along the signal's length.
+    private func layoutLabelBatch(_ batch: [WaterfallPlacedLabel]) {
+        let boxWidth = Self.labelBoxHeight + 2
+        let sorted = batch.sorted { $0.label.frequency < $1.label.frequency }
+        var group: [WaterfallPlacedLabel] = []
+        var groupMaxX: CGFloat = -.infinity
+        func flush() {
+            for (i, placed) in group.enumerated() { addLabelLayer(placed, lane: i, lanes: group.count) }
+            group.removeAll()
         }
-        let label = Self.makeTextLayer(text, size: 10, weight: .bold, color: .white)
-        label.setValue(absoluteRow, forKey: Self.absRowKey)
-        label.backgroundColor = UIColor.black.withAlphaComponent(0.3).cgColor
+        for placed in sorted {
+            let px = x(forHz: placed.label.frequency)
+            if !group.isEmpty && px >= groupMaxX { flush() }
+            group.append(placed)
+            groupMaxX = max(groupMaxX, px + boxWidth)
+        }
+        flush()
+    }
+
+    private static func color(for kind: WaterfallLabel.Kind) -> UIColor {
+        switch kind {
+        case .forMe: return UIColor(red: 1.0, green: 0.55, blue: 0.6, alpha: 1)
+        case .cq: return UIColor(red: 1.0, green: 0.9, blue: 0.25, alpha: 1)
+        case .other: return .white
+        }
+    }
+
+    /// One label, rotated −90° so it reads upward along the signal.
+    /// - Parameters:
+    ///   - lane: which of `lanes` slots along the signal this label takes when
+    ///     several decodes sit on neighbouring frequencies.
+    private func addLabelLayer(_ placed: WaterfallPlacedLabel, lane: Int, lanes: Int) {
+        let text = placed.label.text
+        let color = Self.color(for: placed.label.kind)
+        let label = Self.makeTextLayer(text, size: Self.labelFontSize, weight: .bold, color: color)
+        label.setValue(placed.anchorRow, forKey: Self.absRowKey)
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.55).cgColor
         label.cornerRadius = 4
         label.alignmentMode = .left
+        if placed.label.isWorked {
+            // Already in the log: struck through and dimmed, still readable.
+            label.opacity = 0.7
+            let strike = CALayer()
+            strike.backgroundColor = color.cgColor
+            strike.frame = CGRect(x: 3, y: Self.labelBoxHeight / 2, width: 0, height: 1)
+            strike.name = "strike"
+            label.addSublayer(strike)
+        }
 
-        let textWidth = Self.measure(text, size: 10, weight: .bold).width + 4
-        let textHeight: CGFloat = 14
-        // The anchor row is the decode moment; the signal sits in the older
-        // rows below it, so the box hangs down from the anchor. Rotated −90°
-        // around its centre, so position it as an upright box first.
-        let anchorY = -CGFloat(absoluteRow) * Self.pointsPerRow
-        label.bounds = CGRect(x: 0, y: 0, width: textWidth, height: textHeight)
-        label.position = CGPoint(x: x(forHz: frequency) + textHeight / 2, y: anchorY + textWidth / 2)
+        let textWidth = Self.measure(text, size: Self.labelFontSize, weight: .bold).width + 6
+        let boxHeight = Self.labelBoxHeight
+        label.bounds = CGRect(x: 0, y: 0, width: textWidth, height: boxHeight)
+        (label.sublayers?.first { $0.name == "strike" })?.frame.size.width = textWidth - 6
+
+        // Rotated −90° around its centre, so position it as an upright box.
+        // Rows grow upward on screen (y = −row), so the signal's start is at
+        // anchorY and it runs to anchorY − span.
+        let anchorY = -CGFloat(placed.anchorRow) * Self.pointsPerRow
+        let centreY: CGFloat
+        if placed.spanRows > 0 {
+            // Centre the label on its lane's share of the signal.
+            let span = CGFloat(placed.spanRows) * Self.pointsPerRow
+            let laneTop = anchorY - span * CGFloat(lane + 1) / CGFloat(lanes)
+            let laneBottom = anchorY - span * CGFloat(lane) / CGFloat(lanes)
+            centreY = (laneTop + laneBottom) / 2
+        } else {
+            // Start unknown: hang from the anchor, later lanes further down.
+            centreY = anchorY + textWidth / 2 + CGFloat(lane) * (textWidth + 4)
+        }
+        // Lanes past the first also step one box to the right, so labels
+        // longer than their share of the signal still do not cross.
+        let laneX = CGFloat(lane) * (boxHeight + 2)
+        label.position = CGPoint(x: x(forHz: placed.label.frequency) + boxHeight / 2 + laneX, y: centreY)
         label.transform = CATransform3DMakeRotation(-.pi / 2, 0, 0, 1)
         labelsLayer.addSublayer(label)
     }

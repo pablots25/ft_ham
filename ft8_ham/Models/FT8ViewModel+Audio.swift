@@ -22,11 +22,13 @@ extension FT8ViewModel {
         // The monitor hands every analysed row to the waterfall on this same
         // queue; the waterfall copies it and hops to @MainActor itself.
         let waterfallVM = self.waterfallVM
-        slotMonitor.rowHandler = { row, count, firstBinHz, binHz in
+        slotMonitor.rowHandler = { row, count, firstBinHz, binHz, slotSequence, slotRow in
             waterfallVM.appendMonitorRow(
                 UnsafeBufferPointer(start: row, count: Int(count)),
                 firstBinHz: firstBinHz,
-                binHz: binHz
+                binHz: binHz,
+                slotSequence: slotSequence,
+                slotRow: Int(slotRow)
             )
         }
 
@@ -64,7 +66,7 @@ extension FT8ViewModel {
     // MARK: - Optimized RX Decode Handling
     // Called from setupAudioSubscriptions when a buffer is ready
     @MainActor
-    internal func handleDecodedMessages(_ decodedAny: [Any], slotIndex: Int?) async {
+    internal func handleDecodedMessages(_ decodedAny: [Any], slotIndex: Int?, slotSequence: UInt? = nil) async {
         let batch = decodedAny as? [[String: Any]] ?? []
         rxLogger.debug("handleDecodedMessages: processing batch of \(batch.count)")
         
@@ -79,12 +81,14 @@ extension FT8ViewModel {
             decodeSelfTXMessages: decodeSelfTXMessages
         )
         
-        await self.applyBatchUpdates(result, slotIndex: slotIndex)
+        await self.applyBatchUpdates(result, slotIndex: slotIndex, slotSequence: slotSequence)
     }
     
     // MARK: - Apply Batch Updates
     @MainActor
-    internal func applyBatchUpdates(_ result: BatchProcessResult, slotIndex: Int?) async {
+    /// - Parameter slotSequence: the monitor slot the batch was decoded from,
+    ///   which places the waterfall labels on their signals.
+    internal func applyBatchUpdates(_ result: BatchProcessResult, slotIndex: Int?, slotSequence: UInt? = nil) async {
         let performanceLog = OSLog(subsystem: "com.ft8ham.app", category: "Performance")
         os_signpost(.begin, log: performanceLog, name: "UI Update")
         defer { os_signpost(.end, log: performanceLog, name: "UI Update") }
@@ -178,7 +182,19 @@ extension FT8ViewModel {
             AnalyticsManager.shared.addDecodedMessages(count: decodedCount)
         }
         
-        waterfallVM.addVerticalLabels(result.labels)
+        // Mark stations already in the log, then place the labels on the
+        // rows their signals occupy.
+        let worked = workedCallsigns
+        let labels = result.labels.map { label -> WaterfallLabel in
+            var l = label
+            if let call = label.callsign { l.isWorked = worked.contains(call.uppercased()) }
+            return l
+        }
+        waterfallVM.addLabels(
+            labels,
+            slotSequence: slotSequence,
+            signalDuration: isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration
+        )
         
         // Note: `result.waterfallSamples` is never populated by the engine (no
         // "audioSamples" key), and `updateWaterfall(from:)` expects FFT

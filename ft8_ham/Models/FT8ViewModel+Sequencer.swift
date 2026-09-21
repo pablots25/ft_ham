@@ -99,7 +99,9 @@ extension FT8ViewModel {
                             let msgs = capturedEngine.decodeWaterfallSnapshot(snapshot, isFT4: capturedIsFT4)
 
                             capturedLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
-                            await weakSelf?.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
+                            await weakSelf?.handleDecodedMessages(
+                                msgs, slotIndex: completedSlotIndex, slotSequence: UInt(snapshot.slotSequence)
+                            )
                         }
                     } else {
                         if coveredSeconds < requiredSeconds {
