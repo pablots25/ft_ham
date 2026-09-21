@@ -13,7 +13,7 @@ import SwiftUI
 /// action (help links, the paywall) are not destinations; they are laid out
 /// by hand in the Help section.
 private enum SettingsDestination: Hashable {
-    case station, radio, audio, automation, display, reporting
+    case station, radio, audio, automation, display, waterfall, reporting
     #if canImport(FTHamPremium)
     case catControl, bandHopping, qrzLogbook, loTW, eQSL, iCloudSync
     #endif
@@ -395,6 +395,11 @@ struct ConfigurationView: View {
                   systemImage: "rectangle.3.group",
                   keywords: ["view mode", "list", "highlight", "badges", "new grid",
                              "dxcc", "gesture", "double tap", "appearance", "interface"]),
+            .init(.waterfall,
+                  title: String(localized: "Waterfall"),
+                  systemImage: "waveform",
+                  keywords: ["waterfall", "spectrum", "palette", "colour", "color",
+                             "gain", "zero", "level", "flatten", "noise"]),
             .init(.reporting,
                   title: String(localized: "Reporting"),
                   systemImage: "dot.radiowaves.up.forward",
@@ -487,6 +492,8 @@ struct ConfigurationView: View {
             AutomationSettingsView().padding(.horizontal)
         case .display:
             DisplaySettingsView().padding(.horizontal)
+        case .waterfall:
+            WaterfallSettingsView().padding(.horizontal)
         case .reporting:
             ReportingSettingsView().padding(.horizontal)
         #if canImport(FTHamPremium)

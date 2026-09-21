@@ -195,6 +195,23 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
     private func updateScrollTransform() {
         let shift = CGFloat(topAbsoluteRow) * Self.pointsPerRow
         scrollLayer.sublayerTransform = CATransform3DMakeTranslation(0, shift, 0)
+        flipTimestampLabelsNearTop()
+    }
+
+    /// The time normally sits above its line (the newer side). While a line
+    /// is still within a label's height of the top edge that would clip it,
+    /// so the label goes below the line until the rows have moved on.
+    private func flipTimestampLabelsNearTop() {
+        for group in timestampsLayer.sublayers ?? [] {
+            guard let absRow = group.value(forKey: Self.absRowKey) as? Int,
+                  let label = group.sublayers?.first(where: { $0.name == "label" }) else { continue }
+            let rowsFromTop = topAbsoluteRow - absRow
+            let below = CGFloat(rowsFromTop) * Self.pointsPerRow < label.bounds.height + 2
+            let wasBelow = label.frame.origin.y >= 0
+            if below != wasBelow {
+                label.frame.origin.y = below ? 2 : -label.bounds.height - 2
+            }
+        }
     }
 
     private func pruneScrolledOut() {

@@ -31,6 +31,8 @@ struct WaterfallLabel: Equatable, Sendable {
     var timeOffset: Double?
     /// The sending station is already in the logbook.
     var isWorked: Bool = false
+    /// The decoded message behind the label, for replying from the waterfall.
+    var messageID: UUID?
 
     init(
         text: String,
@@ -38,7 +40,8 @@ struct WaterfallLabel: Equatable, Sendable {
         kind: Kind = .other,
         callsign: String? = nil,
         timeOffset: Double? = nil,
-        isWorked: Bool = false
+        isWorked: Bool = false,
+        messageID: UUID? = nil
     ) {
         self.text = text
         self.frequency = frequency
@@ -46,6 +49,7 @@ struct WaterfallLabel: Equatable, Sendable {
         self.callsign = callsign
         self.timeOffset = timeOffset
         self.isWorked = isWorked
+        self.messageID = messageID
     }
 
     init(message: FT8Message) {
@@ -62,7 +66,8 @@ struct WaterfallLabel: Equatable, Sendable {
             frequency: message.frequency,
             kind: kind,
             callsign: message.callsign,
-            timeOffset: message.timeOffset.isFinite ? message.timeOffset : nil
+            timeOffset: message.timeOffset.isFinite ? message.timeOffset : nil,
+            messageID: message.id
         )
     }
 }

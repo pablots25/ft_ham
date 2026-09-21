@@ -1310,6 +1310,98 @@ final class WaterfallViewModelTests: XCTestCase {
         XCTAssertNil(otherLabel.timeOffset, "NaN DT means unknown")
     }
 
+    /// Snapping a tap and hit-testing a label both look at the placed labels.
+    func testTapSnapAndLabelHitTest() {
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 400, isFT4: false)
+        let row = [UInt8](repeating: 140, count: 898)
+        for i in 0 ..< 200 { vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125, slotSequence: 1, slotRow: i) }
+        let id = UUID()
+        vm.addLabels([
+            WaterfallLabel(text: "CQ W1AW FN31", frequency: 1000, kind: .cq, timeOffset: 0.5, messageID: id),
+            WaterfallLabel(text: "K1ABC W9XYZ -05", frequency: 1030, kind: .other, timeOffset: 0.5),
+        ], slotSequence: 1, signalDuration: 12.64)
+
+        XCTAssertEqual(vm.nearestLabelFrequency(to: 1012, toleranceHz: 40, withinRows: 400), 1000)
+        XCTAssertEqual(vm.nearestLabelFrequency(to: 1020, toleranceHz: 40, withinRows: 400), 1030)
+        XCTAssertNil(vm.nearestLabelFrequency(to: 2000, toleranceHz: 40, withinRows: 400))
+        XCTAssertNil(vm.nearestLabelFrequency(to: 1000, toleranceHz: 40, withinRows: 10), "scrolled out of the window")
+
+        // The signal started at row 6 and runs 158 rows; the newest row is 199.
+        let onSignal = vm.placedLabel(nearHz: 1005, rowFromTop: 199 - 80, toleranceHz: 40)
+        XCTAssertEqual(onSignal?.label.messageID, id)
+        XCTAssertNil(vm.placedLabel(nearHz: 1005, rowFromTop: 5, toleranceHz: 40), "above the signal's end")
+        XCTAssertNil(vm.placedLabel(nearHz: 1500, rowFromTop: 100, toleranceHz: 40))
+    }
+
+    /// Flattening removes a sloped passband while leaving a signal standing.
+    func testFlattenLevelsTheNoiseAcrossTheBand() {
+        let vm = WaterfallViewModel(imageWidth: 256, waterfallRows: 8, isFT4: false)
+        vm.displaySettings = WaterfallDisplaySettings(palette: .grey, flatten: true, autoLevel: true, zeroDB: 6, gainDB: 40)
+        let sink = RecordingSink()
+        vm.attach(sink)
+
+        // Noise 20 dB louder at the low end than at the high end, plus a
+        // 50 Hz signal 25 dB above the local noise around 2000 Hz.
+        var row = [UInt8](repeating: 0, count: 898)
+        for i in row.indices {
+            let slope = Float(20) * (1 - Float(i) / 897)          // 20 → 0 dB
+            var db: Float = -60 + slope
+            let hz = 200 + Float(i) * 3.125
+            if hz >= 2000 && hz < 2050 { db += 25 }
+            row[i] = UInt8(max(0, min(255, (db + 120) * 2)))
+        }
+        // Let the baseline tracker settle.
+        var last: [UInt32] = []
+        for _ in 0 ..< 30 {
+            vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125, slotSequence: 1, slotRow: 0)
+        }
+        _ = last
+        last = vm.pixelRowForTesting(ringRow: (vm.writeRow + 7) % 8)
+
+        func grey(_ px: UInt32) -> Int { Int(px & 0xFF) }
+        let left = grey(last[20]), right = grey(last[235])
+        let peakX = Int((2025.0 - 200) / 2800 * 256)
+        let peak = grey(last[peakX])
+        XCTAssertLessThan(abs(left - right), 25, "noise reads the same at both ends: \(left) vs \(right)")
+        XCTAssertGreaterThan(peak - left, 100, "the signal still stands out: \(peak) vs \(left)")
+
+        // Without flattening the slope shows: the low end is much brighter.
+        vm.displaySettings.flatten = false
+        for _ in 0 ..< 30 {
+            vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125, slotSequence: 1, slotRow: 0)
+        }
+        let raw = vm.pixelRowForTesting(ringRow: (vm.writeRow + 7) % 8)
+        XCTAssertGreaterThan(grey(raw[20]) - grey(raw[235]), 60)
+    }
+
+    func testDisplaySettingsRoundTrip() {
+        let defaults = UserDefaults(suiteName: "WaterfallDisplaySettingsTests")!
+        defaults.removePersistentDomain(forName: "WaterfallDisplaySettingsTests")
+        XCTAssertEqual(WaterfallDisplaySettings.load(from: defaults), WaterfallDisplaySettings())
+
+        var s = WaterfallDisplaySettings()
+        s.palette = .fire; s.flatten = false; s.autoLevel = false
+        s.zeroDB = 12; s.manualFloorDB = -30; s.gainDB = 55
+        s.save(to: defaults)
+        XCTAssertEqual(WaterfallDisplaySettings.load(from: defaults), s)
+
+        defaults.set(999, forKey: "waterfall.gainDB")
+        XCTAssertEqual(WaterfallDisplaySettings.load(from: defaults).gainDB, WaterfallDisplaySettings.gainRange.upperBound, "clamped")
+    }
+
+    func testPalettesAreWellFormed() {
+        for palette in WaterfallPalette.allCases {
+            let lut = palette.lookupTable
+            XCTAssertEqual(lut.count, 256)
+            XCTAssertTrue(lut.allSatisfy { $0 >> 24 == 0xFF }, "\(palette) opaque")
+        }
+        XCTAssertEqual(WaterfallPalette.grey.lookupTable.first, 0xFF000000)
+        XCTAssertEqual(WaterfallPalette.grey.lookupTable.last, 0xFFFFFFFF)
+        XCTAssertEqual(WaterfallPalette.blue.lookupTable.first, 0xFF000000, "noise floor is black")
+        let top = WaterfallPalette.blue.rgb(at: 1)
+        XCTAssertEqual(top.r, 255); XCTAssertEqual(top.g, 255); XCTAssertEqual(top.b, 255)
+    }
+
     /// Rows arriving from the audio thread are copied and applied on the
     /// main actor.
     func testAppendMonitorRowReachesTheMainActor() async {

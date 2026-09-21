@@ -182,22 +182,8 @@ final class WaterfallViewModel: ObservableObject {
         var imageWidth: Int
         /// Rows kept in the ring; the display shows the newest ones that fit.
         var waterfallMaxRows: Int
-        /// Colour window in dB, used only when `waterfallAutoRange` is off.
-        /// Rows arrive in ft8_lib's scale (0 dB ≈ a full-scale tone); a
-        /// −20 dBFS noise floor spreads to roughly −50 dB per bin, so this
-        /// shows that floor near the bottom of the palette.
-        var waterfallMinDB: Float = -80.0
-        var waterfallMaxDB: Float = -20.0
-        /// Track the noise floor and slide the colour window with it. The
-        /// built-in mic and a line-level sound card differ by tens of dB, and
-        /// no single fixed window reads well on both: one saturates solid red
-        /// while the other is all blue.
-        var waterfallAutoRange: Bool = true
-        /// With auto-range on, colour starts this far below the tracked floor
-        /// (so the floor itself reads as the faint bottom of the palette)…
-        var waterfallFloorMarginDB: Float = 6.0
-        /// …and saturates this far above that.
-        var waterfallSpanDB: Float = 45.0
+        /// How rows are levelled and coloured; see `WaterfallDisplaySettings`.
+        var display: WaterfallDisplaySettings = .init()
         var timestampInterval: TimeInterval
         /// Audio frequencies at the left and right edges of the waterfall, in
         /// Hz. The pixel rows, the overlay, the cursor and the
@@ -258,37 +244,18 @@ final class WaterfallViewModel: ObservableObject {
     /// Rows produced since start; also the absolute index of the next row.
     var absoluteRowCount: Int { absoluteRowCounter }
 
-    private lazy var waterfallPalette: [UInt32] = (0 ... 255).map { i -> UInt32 in
-        let t = Float(i) / 255.0
-        let r: UInt8
-        let g: UInt8
-        let b: UInt8
+    /// Baked colour table for `config.display.palette`.
+    private var paletteLUT: [UInt32] = WaterfallPalette.default.lookupTable
+    private var paletteLUTFor: WaterfallPalette = .default
 
-        switch t {
-        case 0.0 ..< 0.25:
-            let f = t / 0.25
-            r = 0
-            g = UInt8(255 * f)
-            b = 255
-        case 0.25 ..< 0.5:
-            let f = (t - 0.25) / 0.25
-            r = UInt8(255 * f)
-            g = 255
-            b = UInt8(255 * (1.0 - f))
-        case 0.5 ..< 0.75:
-            let f = (t - 0.5) / 0.25
-            r = 255
-            g = UInt8(255 * (1.0 - 0.5 * f))
-            b = 0
-        default:
-            let f = (t - 0.75) / 0.25
-            r = 255
-            g = UInt8(127 * (1.0 - f))
-            b = 0
-        }
-
-        return (255 << 24) | (UInt32(r) << 16) | (UInt32(g) << 8) | UInt32(b)
-    }
+    // Flatten scratch: per-column noise baseline (dB) and the row's envelope.
+    private var baselineDB: [Float] = []
+    private var envelopeDB: [Float] = []
+    private var envelopeSmooth: [Float] = []
+    /// Half-width in columns of the window the envelope is taken over:
+    /// wide enough to step over an FT8 signal (50 Hz), narrow enough to
+    /// follow the passband's shape.
+    private var flattenHalfWindow: Int { max(4, Int(100.0 / Double(config.maxDisplayFrequency - config.minDisplayFrequency) * Double(width))) }
 
     init(imageWidth: Int, waterfallRows: Int, isFT4: Bool) {
         let initialMode: Mode = isFT4 ? .ft4 : .ft8
@@ -301,6 +268,7 @@ final class WaterfallViewModel: ObservableObject {
             timestampInterval: initialMode.timestampInterval
         )
 
+        config.display = WaterfallDisplaySettings.load()
         pixelRing = [UInt32](repeating: 0xFF000000, count: config.imageWidth * config.waterfallMaxRows)
         wfLogger.log(.info, "WaterfallViewModel initialized: \(width) columns, \(height) rows")
 
@@ -384,6 +352,30 @@ final class WaterfallViewModel: ObservableObject {
         }
         placedLabels.append(contentsOf: placed)
         forEachSink { $0.addLabels(placed) }
+    }
+
+    /// The label whose signal covers `frequency` (within `toleranceHz`) at
+    /// `rowFromTop` rows below the newest row, if any — what a finger on the
+    /// waterfall is pointing at. Prefers the closest frequency.
+    func placedLabel(nearHz frequency: Double, rowFromTop: Int, toleranceHz: Double) -> WaterfallPlacedLabel? {
+        let row = absoluteRowCounter - 1 - rowFromTop
+        return placedLabels
+            .filter { placed in
+                abs(placed.label.frequency - frequency) <= toleranceHz &&
+                    row >= placed.anchorRow - 2 &&
+                    row <= placed.anchorRow + max(placed.spanRows, 40) + 2
+            }
+            .min { abs($0.label.frequency - frequency) < abs($1.label.frequency - frequency) }
+    }
+
+    /// The decoded signal closest to `frequency`, within `toleranceHz`, among
+    /// the labels still on screen — used to snap a tap to a real station.
+    func nearestLabelFrequency(to frequency: Double, toleranceHz: Double, withinRows: Int) -> Double? {
+        let cutoff = absoluteRowCounter - withinRows
+        return placedLabels
+            .filter { $0.anchorRow + $0.spanRows >= cutoff && abs($0.label.frequency - frequency) <= toleranceHz }
+            .min { abs($0.label.frequency - frequency) < abs($1.label.frequency - frequency) }?
+            .label.frequency
     }
 
     /// Seconds per row: the monitor's `rowPeriod` (80 ms FT8, 24 ms FT4).
@@ -535,48 +527,105 @@ final class WaterfallViewModel: ObservableObject {
     /// `db` is consumed as scratch space.
     private func paintRow(fromDB db: inout [Float], into pixels: UnsafeMutablePointer<UInt32>) {
         let w = width
-        var wInt = Int32(w)
         let vLen = vDSP_Length(w)
+        let display = config.display
 
-        // 1. Pick the colour window: fixed, or tracking the noise floor
+        // 1. Flatten: subtract each column's own noise baseline so a shaped
+        //    passband (line-in from a radio) reads level across the band.
+        if display.flatten {
+            flatten(&db)
+        }
+
+        // 2. Pick the colour window: tracking the noise floor, or fixed
         let minDB: Float
-        let maxDB: Float
-        if config.waterfallAutoRange {
+        if display.autoLevel {
             let floor = trackNoiseFloor(rowDB: db, count: w)
-            minDB = floor - config.waterfallFloorMarginDB
-            maxDB = minDB + config.waterfallSpanDB
+            minDB = floor - display.zeroDB
         } else {
-            minDB = config.waterfallMinDB
-            maxDB = config.waterfallMaxDB
+            // Manual: `zeroDB` is the level (relative to the noise once
+            // flattened, absolute otherwise) that maps to the bottom colour.
+            minDB = display.manualFloorDB
         }
+        let range = max(display.gainDB, 1)
 
-        // 2. Linear scale: (db − minDB) / (maxDB − minDB)  [in-place: D = A*a + b]
-        let range = maxDB - minDB
-        guard range != 0 else {
-            // degenerate config — write black row and bail
-            for x in 0 ..< w { pixels[x] = 0xFF000000 }
-            return
-        }
-        var scaleA: Float =  1.0 / range
-        var scaleB: Float = -minDB / range
+        // 3. Linear scale to 0…255: (db − minDB) / range × 255  [D = A*a + b]
+        var scaleA: Float = 255.0 / range
+        var scaleB: Float = -minDB * 255.0 / range
         vDSP_vsmsa(db, 1, &scaleA, &scaleB, &db, 1, vLen)
 
-        // 3. Clamp to [0, 1]
-        var clampLo: Float = 0.0, clampHi: Float = 1.0
+        // 4. Clamp to [0, 255]
+        var clampLo: Float = 0.0, clampHi: Float = 255.0
         vDSP_vclip(db, 1, &clampLo, &clampHi, &db, 1, vLen)
 
-        // 4. Square root
-        vvsqrtf(&db, db, &wInt)
-
-        // 5. Scale to [0, 255]
-        var scale255: Float = 255.0
-        vDSP_vsmul(db, 1, &scale255, &db, 1, vLen)
-
-        // 6. Palette lookup — unavoidably scalar, but L1-cache-friendly (256-entry table)
-        for x in 0 ..< w {
-            let idx = Int(db[x]).clamped(to: 0 ... 255)
-            pixels[x] = waterfallPalette[idx]
+        // 5. Palette lookup — unavoidably scalar, but L1-cache-friendly (256-entry table)
+        if paletteLUTFor != display.palette {
+            paletteLUT = display.palette.lookupTable
+            paletteLUTFor = display.palette
         }
+        for x in 0 ..< w {
+            pixels[x] = paletteLUT[Int(db[x])]
+        }
+    }
+
+    /// Removes the passband's shape from one row, in place.
+    ///
+    /// The noise floor at each column is estimated as the minimum over a
+    /// ±100 Hz window (an FT8 signal is 50 Hz wide, so the window always
+    /// reaches noise beside it), smoothed across frequency and then over
+    /// time, and subtracted. Noise ends up around 0 dB everywhere; signals
+    /// keep their height above it.
+    private func flatten(_ db: inout [Float]) {
+        let w = width
+        let r = flattenHalfWindow
+        if envelopeDB.count != w {
+            envelopeDB = [Float](repeating: 0, count: w)
+            envelopeSmooth = [Float](repeating: 0, count: w)
+            baselineDB = []
+        }
+
+        // Sliding minimum: O(w × window), a few hundred thousand compares
+        // per row, well under a millisecond.
+        db.withUnsafeBufferPointer { src in
+            for x in 0 ..< w {
+                var m = src[x]
+                let lo = max(0, x - r), hi = min(w - 1, x + r)
+                var i = lo
+                while i <= hi {
+                    if src[i] < m { m = src[i] }
+                    i += 1
+                }
+                envelopeDB[x] = m
+            }
+        }
+        // Smooth across frequency with a box of the same width (edges keep
+        // the raw minimum), and lift by the expected min-to-median gap of
+        // noise over that many samples so the result sits on the median.
+        let box = 2 * r + 1
+        if w > box {
+            envelopeSmooth.withUnsafeMutableBufferPointer { dst in
+                envelopeDB.withUnsafeBufferPointer { src in
+                    vDSP_vswsum(src.baseAddress!, 1, dst.baseAddress! + r, 1, vDSP_Length(w - box + 1), vDSP_Length(box))
+                    var inv = 1.0 / Float(box)
+                    vDSP_vsmul(dst.baseAddress! + r, 1, &inv, dst.baseAddress! + r, 1, vDSP_Length(w - box + 1))
+                    for x in 0 ..< r { dst[x] = src[x] }
+                    for x in (w - r) ..< w { dst[x] = src[x] }
+                }
+            }
+        } else {
+            envelopeSmooth = envelopeDB
+        }
+
+        // Follow the envelope over time; slow enough not to flicker, fast
+        // enough to track a gain change within a second or two.
+        if baselineDB.count != w {
+            baselineDB = envelopeSmooth
+        } else {
+            var alpha: Float = 0.1
+            var oneMinus: Float = 0.9
+            // baseline = 0.9·baseline + 0.1·envelope
+            vDSP_vsmsma(baselineDB, 1, &oneMinus, envelopeSmooth, 1, &alpha, &baselineDB, 1, vDSP_Length(w))
+        }
+        vDSP_vsub(baselineDB, 1, db, 1, &db, 1, vDSP_Length(w))
     }
 
     /// Bookkeeping shared by every row: slot timestamps, ring advance,
@@ -706,6 +755,28 @@ final class WaterfallViewModel: ObservableObject {
         setShowFrequencyMarker(!showFrequencyMarker)
     }
 
+
+    /// One ring row's pixels, for tests.
+    func pixelRowForTesting(ringRow: Int) -> [UInt32] {
+        Array(pixelRing[(ringRow * width) ..< ((ringRow + 1) * width)])
+    }
+
+    /// The persisted display settings; writing saves them and applies them
+    /// to the next row.
+    var displaySettings: WaterfallDisplaySettings {
+        get { config.display }
+        set {
+            guard newValue != config.display else { return }
+            // Switching flatten on or off changes the scale the floor lives
+            // in; start the trackers afresh rather than sliding from the old one.
+            if newValue.flatten != config.display.flatten {
+                baselineDB = []
+                smoothedFloorDB = nil
+            }
+            config.display = newValue
+            newValue.save()
+        }
+    }
 
     /// Adjusts colour and axis settings. The ring's dimensions are fixed at
     /// init and are not affected.

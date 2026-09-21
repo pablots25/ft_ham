@@ -33,6 +33,9 @@ enum HelpTip: Identifiable {
     case ntpSync
     case iCloudSync
     case presence
+    case waterfallPalette
+    case waterfallFlatten
+    case waterfallLevel
 
     var id: Self { self }
 
@@ -84,6 +87,21 @@ enum HelpTip: Identifiable {
             return String(localized: "iCloud sync help")
         case .presence:
             return String(localized: "Presence help")
+        case .waterfallPalette:
+            return String(
+                localized: "Waterfall palette help",
+                defaultValue: "Colour scale of the waterfall. Blue keeps the noise dark and shows signals in cyan and white; Classic is the scale earlier versions used."
+            )
+        case .waterfallFlatten:
+            return String(
+                localized: "Waterfall flatten help",
+                defaultValue: "Evens out the audio passband so the noise looks the same across the whole band. Useful with a radio's line output, where the edges of the filter are much quieter than the middle."
+            )
+        case .waterfallLevel:
+            return String(
+                localized: "Waterfall level help",
+                defaultValue: "Auto level follows the noise floor so the display looks the same with a microphone or a sound card. Zero sets where the darkest colour starts below the noise; Gain sets how many dB the colour scale spans."
+            )
         }
     }
 

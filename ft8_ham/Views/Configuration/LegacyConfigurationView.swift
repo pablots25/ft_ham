@@ -40,6 +40,10 @@ struct LegacyConfigurationView: View {
 					DisplaySettingsContent()
 				}
 
+				section("Waterfall") {
+					WaterfallSettingsContent()
+				}
+
 				section("Reporting") {
 					ReportingSettingsContent()
 						.premiumLocked(!premiumManager.isPremiumUnlocked, feature: .pskReporter) {
