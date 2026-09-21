@@ -36,7 +36,10 @@ enum FeatureFlag: String, CaseIterable {
         case .controlsSheet: return true
         case .newConfigView: return false
         case .donationsEnabled: return true
-        case .enableFreeText, .enableBandHopping, .enableICloudSync, .enablePresence:
+        // Off everywhere, including debug builds: switch it on from the
+        // Debug screen (or Remote Config in release) when wanted.
+        case .enableFreeText: return false
+        case .enableBandHopping, .enableICloudSync, .enablePresence:
             #if DEBUG
             return true
             #else
