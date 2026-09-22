@@ -68,321 +68,6 @@
         }
       }
     },
-    "Audio" : {
-      "comment" : "Settings row and screen title for TX audio offset and RX/TX audio levels.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio"
-          }
-        }
-      }
-    },
-    "Audio levels" : {
-      "comment" : "Heading in Audio settings for RX input gain and TX output gain.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audiopegel"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio levels"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Niveles de audio"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Niveaux audio"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Livelli audio"
-          }
-        }
-      }
-    },
-    "Callsign and locator" : {
-      "comment" : "Account row subtitle when no callsign has been entered yet.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rufzeichen und Locator"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Callsign and locator"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Indicativo y localizador"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Indicatif et locator"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nominativo e locator"
-          }
-        }
-      }
-    },
-    "Free" : {
-      "comment" : "Tier shown in the account row for users without the premium purchase.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kostenlos"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Free"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gratis"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gratuit"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gratuito"
-          }
-        }
-      }
-    },
-    "Frequency offset" : {
-      "comment" : "Heading in Audio settings for the TX audio offset within the passband.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frequenzversatz"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Frequency offset"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Offset de frecuencia"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Décalage de fréquence"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Offset di frequenza"
-          }
-        }
-      }
-    },
-    "Mode & Band" : {
-      "comment" : "Settings row and screen title for operating mode, TX cycle, band and clock.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modus & Band"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mode & Band"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modo y banda"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mode et bande"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modo e banda"
-          }
-        }
-      }
-    },
-    "Mode, Band & Audio" : {
-      "comment" : "Settings row and screen title for operating mode, band, audio levels and clock.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modus, Band & Audio"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mode, Band & Audio"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modo, banda y audio"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mode, bande et audio"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modo, banda e audio"
-          }
-        }
-      }
-    },
-    "Premium" : {
-      "comment" : "Tier shown in the account row when the purchase is unlocked.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium"
-          }
-        }
-      }
-    },
-    "Set up your station" : {
-      "comment" : "Account row title when no callsign has been entered yet.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Station einrichten"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set up your station"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Configura tu estación"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Configurez votre station"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Configura la tua stazione"
-          }
-        }
-      }
-    },
     "… and %lld more" : {
       "comment" : "A note at the bottom of the preview section that indicates there are more QSO entries that are being skipped.",
       "isCommentAutoGenerated" : true,
@@ -521,7 +206,34 @@
         }
       }
     },
-    "/" : {},
+    "/" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "/"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "/"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "/"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "/"
+          }
+        }
+      }
+    },
     "%@" : {
       "comment" : "A label displaying the signal-to-noise ratio (SNR) for a QSO. The argument is the signal-to-noise ratio (SNR) of the QSO.",
       "extractionState" : "stale",
@@ -599,9 +311,33 @@
       "comment" : "A label combining the callsign, mode, and band of the logbook entry.",
       "isCommentAutoGenerated" : true,
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
+            "value" : "%1$@, %2$@, %3$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
             "value" : "%1$@, %2$@, %3$@"
           }
         }
@@ -609,7 +345,33 @@
     },
     "%@, Premium Feature" : {
       "comment" : "A label for a button that opens a paywall. The argument is the name of the premium feature.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, Premium-Funktion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, función Premium"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, fonction Premium"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, funzione Premium"
+          }
+        }
+      }
     },
     "%@: %@" : {
       "comment" : "A secondary label that combines a call sign quality modifier with additional signal information.",
@@ -685,7 +447,33 @@
     },
     "%lld km" : {
       "comment" : "A distance in kilometers.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld km"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld km"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld km"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld km"
+          }
+        }
+      }
     },
     "%lld QSO(s) exported successfully." : {
       "localizations" : {
@@ -1109,11 +897,63 @@
     },
     "11 m / CB callsign" : {
       "comment" : "A toggle that allows the user to enable the use of 11-meter callsigns.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "11-m-/CB-Rufzeichen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicativo de 11 m / CB"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicatif 11 m / CB"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nominativo 11 m / CB"
+          }
+        }
+      }
     },
     "11 m / CB callsign — not a standard FT8/FT4 amateur callsign. It is sent as a non-standard callsign, and FT8/FT4 on the 11 m band may not be permitted where you operate." : {
       "comment" : "A warning for 11 m callsigns.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "11-m-/CB-Rufzeichen – kein Standard-Amateurfunkrufzeichen für FT8/FT4. Es wird als Nicht-Standard-Rufzeichen gesendet, und FT8/FT4 im 11-m-Band ist dort, wo du funkst, möglicherweise nicht erlaubt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicativo de 11 m / CB: no es un indicativo de aficionado estándar de FT8/FT4. Se envía como indicativo no estándar, y puede que FT8/FT4 en la banda de 11 m no esté permitido donde operas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicatif 11 m / CB : ce n'est pas un indicatif radioamateur standard FT8/FT4. Il est envoyé comme indicatif non standard, et le FT8/FT4 sur la bande 11 m n'est peut-être pas autorisé là où vous opérez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nominativo 11 m / CB: non è un nominativo radioamatoriale standard FT8/FT4. Viene inviato come nominativo non standard, e FT8/FT4 sulla banda degli 11 m potrebbe non essere consentito dove operi."
+          }
+        }
+      }
     },
     "15/45" : {
       "localizations" : {
@@ -1921,6 +1761,41 @@
         }
       }
     },
+    "Audio" : {
+      "comment" : "Settings row and screen title for TX audio offset and RX/TX audio levels.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio"
+          }
+        }
+      }
+    },
     "Audio Frequency help" : {
       "comment" : "A help text for the audio frequency setting.",
       "isCommentAutoGenerated" : true,
@@ -1989,6 +1864,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Imposta quanto viene amplificato l'audio in ingresso prima della decodifica. Usa dB negativi per attenuare una scheda audio o un'interfaccia esterna che entra troppo forte; dB positivi solo se il segnale è troppo debole per essere decodificato."
+          }
+        }
+      }
+    },
+    "Audio levels" : {
+      "comment" : "Heading in Audio settings for RX input gain and TX output gain.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audiopegel"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio levels"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niveles de audio"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niveaux audio"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Livelli audio"
           }
         }
       }
@@ -2133,6 +2043,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Risponde automaticamente ai CQ in arrivo quando la sequenza automatica è attiva."
+          }
+        }
+      }
+    },
+    "Auto level" : {
+      "comment" : "Toggle to enable/disable automatic level control.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatischer Pegel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nivel automático"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niveau automatique"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Livello automatico"
           }
         }
       }
@@ -2870,6 +2810,36 @@
         }
       }
     },
+    "Blue" : {
+      "comment" : "Name of the colour scale that starts at black and goes through blue.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blau"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Azul"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bleu"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blu"
+          }
+        }
+      }
+    },
     "By using FT Ham, you agree to the Terms of Use and End-User License Agreement (EULA)." : {
       "comment" : "A text that informs the user that using the app means agreeing to the app's terms and conditions.",
       "isCommentAutoGenerated" : true,
@@ -2968,6 +2938,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nominativo"
+          }
+        }
+      }
+    },
+    "Callsign and locator" : {
+      "comment" : "Account row subtitle when no callsign has been entered yet.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rufzeichen und Locator"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Callsign and locator"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicativo y localizador"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicatif et locator"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nominativo e locator"
           }
         }
       }
@@ -3147,7 +3152,33 @@
     },
     "CAT" : {
       "comment" : "A label for the CAT status.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CAT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CAT"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CAT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CAT"
+          }
+        }
+      }
     },
     "CAT (Computer Aided Transceiver) control requires premium features." : {
       "comment" : "A description of the premium requirement for using the CAT control feature.",
@@ -3627,6 +3658,36 @@
         }
       }
     },
+    "Classic" : {
+      "comment" : "The classic colour scale.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klassisch"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clásica"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classique"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classica"
+          }
+        }
+      }
+    },
     "Clear" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3888,6 +3949,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chiudi"
+          }
+        }
+      }
+    },
+    "Colour" : {
+      "comment" : "A label displayed above the waterfall colour settings.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farbe"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couleur"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colore"
           }
         }
       }
@@ -5615,11 +5706,63 @@
     },
     "e.g. -05" : {
       "comment" : "A placeholder text for the RST Received field in the signal report section of the QSO edit view.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z. B. -05"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. ej. -05"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. ex. -05"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "es. -05"
+          }
+        }
+      }
     },
     "e.g. -10" : {
       "comment" : "A placeholder text for the RST Sent field in the Signal Report section of the QSOEditView.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z. B. -10"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. ej. -10"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. ex. -10"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "es. -10"
+          }
+        }
+      }
     },
     "e.g. 14.074" : {
       "comment" : "A placeholder text for a text field that allows the user to input a custom dial frequency.",
@@ -5641,7 +5784,33 @@
     },
     "e.g. 14.074000" : {
       "comment" : "A placeholder text for a frequency input field in MHz.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z. B. 14.074000"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. ej. 14.074000"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. ex. 14.074000"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "es. 14.074000"
+          }
+        }
+      }
     },
     "e.g. EA-1234" : {
       "comment" : "A placeholder text for the user to enter a POTA reference.",
@@ -7027,6 +7196,66 @@
         }
       }
     },
+    "Fire" : {
+      "comment" : "Name of the palette for the fire colour scale.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feuer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuego"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feu"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuoco"
+          }
+        }
+      }
+    },
+    "Flatten passband" : {
+      "comment" : "Label for a toggle that flattens the waterfall passband.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Durchlassband glätten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aplanar banda de paso"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aplanir la bande passante"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appiattisci banda passante"
+          }
+        }
+      }
+    },
     "For all your devices" : {
       "comment" : "A description of the premium feature that is available to all users.",
       "isCommentAutoGenerated" : true,
@@ -7089,6 +7318,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Per le politiche d'uso dell'app e le donazioni, consulta la nostra Informativa sulla privacy e le Condizioni d'uso."
+          }
+        }
+      }
+    },
+    "Free" : {
+      "comment" : "Tier shown in the account row for users without the premium purchase.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kostenlos"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gratis"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gratuit"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gratuito"
           }
         }
       }
@@ -7265,8 +7529,44 @@
         }
       }
     },
+    "Frequency offset" : {
+      "comment" : "Heading in Audio settings for the TX audio offset within the passband.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequenzversatz"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequency offset"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offset de frecuencia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Décalage de fréquence"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offset di frequenza"
+          }
+        }
+      }
+    },
     "Frequency offset and audio levels" : {
       "comment" : "A section header describing the frequency offset and audio levels settings.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "de" : {
@@ -7522,6 +7822,36 @@
         }
       }
     },
+    "Gain" : {
+      "comment" : "A label displayed for the gain slider.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verstärkung"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganancia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gain"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guadagno"
+          }
+        }
+      }
+    },
     "General" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7721,6 +8051,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Capito!"
+          }
+        }
+      }
+    },
+    "Grey" : {
+      "comment" : "Name of the grey palette.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grau"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gris"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gris"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grigio"
           }
         }
       }
@@ -9266,6 +9626,36 @@
         }
       }
     },
+    "Level" : {
+      "comment" : "A label displayed above the waterfall level settings.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pegel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nivel"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niveau"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Livello"
+          }
+        }
+      }
+    },
     "Licenses & EULA" : {
       "comment" : "The title of a view that lists legal and EULA information.",
       "isCommentAutoGenerated" : true,
@@ -9510,7 +9900,34 @@
         }
       }
     },
-    "Log incomplete QSO?" : {},
+    "Log incomplete QSO?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unvollständiges QSO loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Registrar el QSO incompleto?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer le QSO incomplet ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registrare il QSO incompleto?"
+          }
+        }
+      }
+    },
     "Log QSO" : {
       "comment" : "Button that manually logs the QSO currently in progress.",
       "localizations" : {
@@ -10061,6 +10478,41 @@
         }
       }
     },
+    "Mode & Band" : {
+      "comment" : "Settings row and screen title for operating mode, TX cycle, band and clock.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modus & Band"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode & Band"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo y banda"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode et bande"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo e banda"
+          }
+        }
+      }
+    },
     "Mode and frequency" : {
       "localizations" : {
         "de" : {
@@ -10091,6 +10543,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Modo e frequenza"
+          }
+        }
+      }
+    },
+    "Mode, Band & Audio" : {
+      "comment" : "Settings row and screen title for operating mode, band, audio levels and clock.",
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modus, Band & Audio"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode, Band & Audio"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo, banda y audio"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode, bande et audio"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo, banda e audio"
           }
         }
       }
@@ -13205,6 +13693,36 @@
         }
       }
     },
+    "Palette:" : {
+      "comment" : "A label for the palette of the waterfall.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palette:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paleta:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Palette :"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tavolozza:"
+          }
+        }
+      }
+    },
     "Pane" : {
       "comment" : "A segmented control that allows the user to switch between \"Received\" and \"Transmitted\" transmission views.",
       "isCommentAutoGenerated" : true,
@@ -13553,9 +14071,70 @@
         }
       }
     },
+    "Premium" : {
+      "comment" : "Tier shown in the account row when the purchase is unlocked.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        }
+      }
+    },
     "Premium Access Removed" : {
       "comment" : "A title for an alert that informs the user that their premium access has been removed.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium-Zugang entfernt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acceso Premium retirado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accès Premium retiré"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso Premium rimosso"
+          }
+        }
+      }
     },
     "Premium Feature" : {
       "comment" : "A label describing a premium feature.",
@@ -14814,6 +15393,36 @@
         }
       }
     },
+    "Reset to defaults" : {
+      "comment" : "A button that resets the waterfall settings to their default values.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf Standard zurücksetzen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer valores por defecto"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rétablir les valeurs par défaut"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina i valori predefiniti"
+          }
+        }
+      }
+    },
     "Restore Backup" : {
       "comment" : "A button that restores a logbook from a backup file.",
       "isCommentAutoGenerated" : true,
@@ -15105,7 +15714,33 @@
     },
     "RX Gain: adjust microphone sensitivity for decoding. TX Output: raise if your radio's VOX won't activate (also ensure phone volume is at maximum)." : {
       "comment" : "A description of the RX and TX gain sliders.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RX-Verstärkung: Mikrofonempfindlichkeit fürs Dekodieren einstellen. TX-Ausgang: erhöhen, wenn das VOX deines Funkgeräts nicht anspricht (auch die Telefonlautstärke auf Maximum stellen)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganancia RX: ajusta la sensibilidad del micrófono para decodificar. Salida TX: súbela si el VOX de tu radio no se activa (asegúrate también de que el volumen del teléfono está al máximo)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gain RX : règle la sensibilité du micro pour le décodage. Sortie TX : augmentez-la si le VOX de votre radio ne s'active pas (vérifiez aussi que le volume du téléphone est au maximum)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guadagno RX: regola la sensibilità del microfono per la decodifica. Uscita TX: aumentala se il VOX della radio non si attiva (assicurati anche che il volume del telefono sia al massimo)."
+          }
+        }
+      }
     },
     "SA (South America)" : {
       "comment" : "A country option in the CQ Modifier picker.",
@@ -15496,6 +16131,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Separato"
+          }
+        }
+      }
+    },
+    "Set up your station" : {
+      "comment" : "Account row title when no callsign has been entered yet.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Station einrichten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up your station"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura tu estación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurez votre station"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura la tua stazione"
           }
         }
       }
@@ -17782,7 +18452,33 @@
     },
     "The QSO with %@ timed out before the final 73, but both signal reports were exchanged. Log it anyway?" : {
       "comment" : "A confirmation alert message for a QSO that was not confirmed. The argument is the callsign of the QSO.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das QSO mit %@ ist vor dem abschließenden 73 abgelaufen, aber beide Rapporte wurden ausgetauscht. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El QSO con %@ expiró antes del 73 final, pero se intercambiaron ambos reportes de señal. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le QSO avec %@ a expiré avant le 73 final, mais les deux reports ont été échangés. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il QSO con %@ è scaduto prima del 73 finale, ma entrambi i rapporti sono stati scambiati. Registrarlo comunque?"
+          }
+        }
+      }
     },
     "The QSOs on this device are not touched. Other devices keep whatever they already downloaded." : {
       "comment" : "Confirmation dialog message.",
@@ -17887,7 +18583,33 @@
     },
     "This looks like an 11 m / CB callsign. Turn on “11 m / CB callsign” below to use it." : {
       "comment" : "A message that appears when a 11 m / CB callsign is entered but the user has not opted in.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das sieht nach einem 11-m-/CB-Rufzeichen aus. Aktiviere unten „11-m-/CB-Rufzeichen“, um es zu verwenden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parece un indicativo de 11 m / CB. Activa «Indicativo de 11 m / CB» más abajo para usarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cela ressemble à un indicatif 11 m / CB. Activez « Indicatif 11 m / CB » ci-dessous pour l’utiliser."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sembra un nominativo 11 m / CB. Attiva “Nominativo 11 m / CB” qui sotto per usarlo."
+          }
+        }
+      }
     },
     "This Month" : {
       "comment" : "Label for the \"This Month\" statistics period.",
@@ -18081,7 +18803,33 @@
     },
     "To" : {
       "comment" : "A label for the \"To\" field in a date picker.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bis"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hasta"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jusqu’au"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fino al"
+          }
+        }
+      }
     },
     "Transmission" : {
       "comment" : "Heading in Automation settings for transmit-frequency options.",
@@ -18417,6 +19165,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "TX"
+          }
+        }
+      }
+    },
+    "TX frequency set to %lld Hz" : {
+      "comment" : "A toast message that appears on the screen for a few seconds.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TX-Frequenz auf %lld Hz gesetzt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frecuencia TX fijada en %lld Hz"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fréquence TX réglée sur %lld Hz"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequenza TX impostata a %lld Hz"
           }
         }
       }
@@ -19139,6 +19917,36 @@
         }
       }
     },
+    "Viridis" : {
+      "comment" : "Name of the colour scale for the waterfall.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viridis"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viridis"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viridis"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Viridis"
+          }
+        }
+      }
+    },
     "Waiting" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19276,6 +20084,117 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waterfall"
+          }
+        }
+      }
+    },
+    "Waterfall flatten help" : {
+      "comment" : "A help tip for the waterfall flatten toggle.",
+      "extractionState" : "extracted_with_value",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gleicht das Audio-Durchlassband aus, sodass das Rauschen über die ganze Bandbreite gleich aussieht. Nützlich mit dem Line-Ausgang eines Funkgeräts, bei dem die Filterränder viel leiser sind als die Mitte."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Evens out the audio passband so the noise looks the same across the whole band. Useful with a radio's line output, where the edges of the filter are much quieter than the middle."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iguala la banda de paso del audio para que el ruido se vea igual en toda la banda. Útil con la salida de línea de una radio, donde los bordes del filtro son mucho más silenciosos que el centro."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Égalise la bande passante audio pour que le bruit ait le même aspect sur toute la bande. Utile avec la sortie ligne d'une radio, où les bords du filtre sont bien plus faibles que le centre."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Livella la banda passante audio in modo che il rumore appaia uguale su tutta la banda. Utile con l'uscita di linea di una radio, dove i bordi del filtro sono molto più bassi del centro."
+          }
+        }
+      }
+    },
+    "Waterfall level help" : {
+      "comment" : "A help tip for the waterfall level toggle.",
+      "extractionState" : "extracted_with_value",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der automatische Pegel folgt dem Rauschteppich, damit die Anzeige mit Mikrofon und Soundkarte gleich aussieht. Null legt fest, wo unterhalb des Rauschens die dunkelste Farbe beginnt; Verstärkung legt fest, wie viele dB die Farbskala umfasst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Auto level follows the noise floor so the display looks the same with a microphone or a sound card. Zero sets where the darkest colour starts below the noise; Gain sets how many dB the colour scale spans."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El nivel automático sigue el suelo de ruido para que la pantalla se vea igual con un micrófono o con una tarjeta de sonido. Cero fija dónde empieza el color más oscuro por debajo del ruido; Ganancia fija cuántos dB abarca la escala de color."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le niveau automatique suit le plancher de bruit pour que l'affichage soit identique avec un micro ou une carte son. Zéro fixe où commence la couleur la plus sombre sous le bruit ; Gain fixe le nombre de dB couverts par l'échelle de couleurs."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il livello automatico segue il rumore di fondo così che lo schermo appaia uguale con un microfono o una scheda audio. Zero imposta dove inizia il colore più scuro sotto il rumore; Guadagno imposta quanti dB copre la scala di colori."
+          }
+        }
+      }
+    },
+    "Waterfall palette help" : {
+      "comment" : "A help tip for the waterfall colour scale.",
+      "extractionState" : "extracted_with_value",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farbskala des Wasserfalls. Blau hält das Rauschen dunkel und zeigt Signale in Cyan und Weiß; Klassisch ist die Skala früherer Versionen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Colour scale of the waterfall. Blue keeps the noise dark and shows signals in cyan and white; Classic is the scale earlier versions used."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escala de color del waterfall. Azul mantiene el ruido oscuro y muestra las señales en cian y blanco; Clásica es la escala que usaban las versiones anteriores."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échelle de couleurs du waterfall. Bleu garde le bruit sombre et montre les signaux en cyan et blanc ; Classique est l’échelle des versions précédentes."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scala di colori del waterfall. Blu mantiene il rumore scuro e mostra i segnali in ciano e bianco; Classica è la scala usata dalle versioni precedenti."
           }
         }
       }
@@ -20649,7 +21568,33 @@
     },
     "Your premium access has been removed. If this is unexpected, please contact Apple Support." : {
       "comment" : "An alert message displayed when a user's premium access is revoked.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Premium-Zugang wurde entfernt. Falls das unerwartet ist, wende dich bitte an den Apple Support."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se ha retirado tu acceso Premium. Si no lo esperabas, contacta con el soporte de Apple."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre accès Premium a été retiré. Si cela est inattendu, veuillez contacter l'assistance Apple."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo accesso Premium è stato rimosso. Se non te lo aspettavi, contatta il supporto Apple."
+          }
+        }
+      }
     },
     "Your premium purchase has been restored." : {
       "comment" : "A message displayed when a user successfully restores their premium purchase.",
@@ -20717,9 +21662,95 @@
         }
       }
     },
+    "Zero" : {
+      "comment" : "A label for the \"Zero\" slider.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Null"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cero"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zéro"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zero"
+          }
+        }
+      }
+    },
+    "Zero is where the darkest colour starts; Gain is how many dB the scale covers. Lower the gain to make weak signals stand out, raise it if strong ones saturate." : {
+      "comment" : "A description of the waterfall settings.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Null ist, wo die dunkelste Farbe beginnt; Verstärkung ist, wie viele dB die Skala abdeckt. Verstärkung verringern, damit schwache Signale hervortreten; erhöhen, wenn starke Signale übersteuern."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cero es donde empieza el color más oscuro; Ganancia es cuántos dB cubre la escala. Baja la ganancia para resaltar las señales débiles, súbela si las fuertes saturan."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zéro est là où commence la couleur la plus sombre ; Gain est le nombre de dB couverts par l'échelle. Baissez le gain pour faire ressortir les signaux faibles, montez-le si les forts saturent."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zero è dove inizia il colore più scuro; Guadagno è quanti dB copre la scala. Abbassa il guadagno per far risaltare i segnali deboli, alzalo se quelli forti saturano."
+          }
+        }
+      }
+    },
     "Δ%@s" : {
       "comment" : "A label showing the offset between the device clock and SNTP time. The argument is the string “%+.1f”.",
-      "isCommentAutoGenerated" : true
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δ%@s"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δ%@s"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δ%@s"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δ%@s"
+          }
+        }
+      }
     },
     "Δt" : {
       "comment" : "A label for the change in time between two consecutive messages.",
