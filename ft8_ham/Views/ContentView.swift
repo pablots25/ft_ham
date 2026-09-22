@@ -225,7 +225,7 @@ struct ContentView: View {
                         .onAppear {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
-                    MapTabView()
+                    MapTabView(isSelected: selectedTab == 2)
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
                     }
@@ -317,8 +317,29 @@ struct ContentView: View {
     /// this subtree is re-evaluated when worked locators/countries change.
     struct MapTabView: View {
         @EnvironmentObject private var viewModel: FT8ViewModel
+        /// The tab bar builds every tab's view up front, which would create
+        /// the MapKit view (and start loading tiles) at launch. The map is
+        /// only built once this tab has been shown, and kept from then on.
+        let isSelected: Bool
+        @State private var hasBeenSelected = false
 
         var body: some View {
+            Group {
+                if hasBeenSelected || isSelected {
+                    map
+                } else {
+                    Color.clear
+                }
+            }
+            .onChange(of: isSelected) { selected in
+                if selected { hasBeenSelected = true }
+            }
+            .onAppear {
+                if isSelected { hasBeenSelected = true }
+            }
+        }
+
+        private var map: some View {
             GridMapViewWrapper(
                 locators: viewModel.workedLocators,
                 countries: viewModel.workedCountryPairs,
@@ -442,7 +463,9 @@ struct ContentView: View {
     // MARK: - Progress bar subview
 
     private var progressBar: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+        // Once a second: the seconds counter changes no faster, and the bar
+        // animates itself between checks (see CycleProgressBar).
+        TimelineView(.periodic(from: .now, by: 1.0)) { _ in
             let cycleLength = ProgressViewModel.cycleLengthForMode(isFT4: root.isFT4)
             let progress = progressVM.cycleProgress(isFT4: root.isFT4)
             let seconds = min(Int(progress * cycleLength), Int(cycleLength))
@@ -451,11 +474,9 @@ struct ContentView: View {
                 Text("\(seconds)/\(Int(cycleLength))")
                     .font(.caption)
                     .foregroundStyle(.gray)
-                ProgressView(value: progress)
-                    .progressViewStyle(.linear)
-                    .tint(.green)
+                CycleProgressBar(progress: progress, cycleLength: cycleLength)
+                    .frame(height: CycleProgressBarView.height)
             }
-            .animation(.linear(duration: 0.1), value: progress)
         }
     }
 
