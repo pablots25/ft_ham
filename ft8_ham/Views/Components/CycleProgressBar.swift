@@ -130,8 +130,11 @@ final class CycleProgressBarView: UIView {
 
         let group = CAAnimationGroup()
         group.animations = [first, repeating]
-        group.duration = .infinity
+        // Core Animation clips a group to its duration and treats an infinite
+        // one as the 0.25 s default, which froze the bar; a year is plenty.
+        group.duration = 365 * 24 * 3600
         group.isRemovedOnCompletion = false
+        group.fillMode = .forwards
         fill.add(group, forKey: Self.animationKey)
     }
 }
