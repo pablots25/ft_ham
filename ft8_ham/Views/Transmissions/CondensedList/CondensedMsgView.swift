@@ -12,6 +12,8 @@ import SwiftUI
 struct CondensedMsgView: View {
     let msg: FT8Message
     var needed: NeededStatus = []
+    /// Calling you or watched station: bold text and a marker.
+    var highlight: RowHighlight = .none
     
     var body: some View {
         if msg.msgType == .internalTimestamp {
@@ -58,8 +60,11 @@ struct CondensedMsgView: View {
                             .foregroundStyle(.blue)
                     }
                     
+                    RowHighlightMarker(highlight: highlight)
+
                     Text(msg.text)
                         .font(.caption)
+                        .fontWeight(highlight == .none ? .regular : .bold)
                         .foregroundStyle((msg.forMe && !msg.isTX) ? Color.blue.opacity(0.85) : .primary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)

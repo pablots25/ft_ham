@@ -68,6 +68,918 @@
         }
       }
     },
+    "%@ is calling you" : {
+      "comment" : "Notification title: the station (callsign) that called the operator.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ruft dich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is calling you"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ te está llamando"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ vous appelle"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ti sta chiamando"
+          }
+        }
+      }
+    },
+    "%@ is on the air" : {
+      "comment" : "Notification title: a station on the watchlist was heard.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist QRV"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is on the air"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ está en el aire"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est en l'air"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ è in aria"
+          }
+        }
+      }
+    },
+    "A station calling you" : {
+      "comment" : "Color legend: red row tint for messages where another station calls the operator.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Station ruft dich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una estación te llama"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une station vous appelle"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una stazione ti chiama"
+          }
+        }
+      }
+    },
+    "A station is calling you" : {
+      "comment" : "Notification title when the calling station's callsign is unknown.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Station ruft dich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una estación te está llamando"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une station vous appelle"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una stazione ti sta chiamando"
+          }
+        }
+      }
+    },
+    "A station on your watchlist" : {
+      "comment" : "Color legend and color setting: rows sent by a watched station.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Station auf deiner Beobachtungsliste"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una estación de tu lista de vigilancia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une station de votre liste de veille"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una stazione della tua lista di osservazione"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "comment" : "Button: add the typed callsign to the watchlist.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinzufügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi"
+          }
+        }
+      }
+    },
+    "Alert when a watched station is heard" : {
+      "comment" : "Toggle label: raise the alerts when a watched station is decoded.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinweis, wenn eine beobachtete Station gehört wird"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisar cuando se oiga una estación vigilada"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alerter lorsqu'une station surveillée est entendue"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisa quando si sente una stazione osservata"
+          }
+        }
+      }
+    },
+    "Alerts" : {
+      "comment" : "Settings section header: sound, vibration and notification alerts.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinweise"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alertes"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi"
+          }
+        }
+      }
+    },
+    "Alerts fire when a station calls you and no QSO is in progress, and when a watched station is heard, at most once every 10 minutes per station. They work while the app is open, because reception pauses in the background." : {
+      "comment" : "Footnote under the alert toggles.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinweise erscheinen, wenn dich eine Station ruft und kein QSO läuft, und wenn eine beobachtete Station gehört wird, höchstens alle 10 Minuten pro Station. Sie funktionieren bei geöffneter App, da der Empfang im Hintergrund pausiert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los avisos saltan cuando una estación te llama y no hay ningún QSO en curso, y cuando se oye una estación vigilada, como mucho una vez cada 10 minutos por estación. Funcionan con la app abierta, porque la recepción se pausa en segundo plano."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les alertes se déclenchent lorsqu'une station vous appelle et qu'aucun QSO n'est en cours, et lorsqu'une station surveillée est entendue, au plus une fois toutes les 10 minutes par station. Elles fonctionnent lorsque l'app est ouverte, car la réception se met en pause en arrière-plan."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gli avvisi scattano quando una stazione ti chiama e non c'è un QSO in corso, e quando si sente una stazione osservata, al massimo una volta ogni 10 minuti per stazione. Funzionano con l'app aperta, perché la ricezione si ferma in background."
+          }
+        }
+      }
+    },
+    "Call alert haptic help" : {
+      "comment" : "Help text for the call alert vibration toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibriert, wenn dich eine Station ruft oder eine beobachtete Station gehört wird."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibrates when a station calls you or a watched station is heard."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibra cuando una estación te llama o se oye una estación vigilada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibre lorsqu'une station vous appelle ou qu'une station surveillée est entendue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibra quando una stazione ti chiama o si sente una stazione osservata."
+          }
+        }
+      }
+    },
+    "Call alert notification help" : {
+      "comment" : "Help text for the call alert notification toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt ein Banner mit der Nachricht, wenn dich eine Station ruft oder eine beobachtete Station gehört wird. Nützlich, wenn die App einen anderen Bildschirm zeigt, etwa die Karte oder das Logbuch."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows a banner with the message when a station calls you or a watched station is heard. Useful when the app is open on another screen, such as the map or the logbook."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra un aviso con el mensaje cuando una estación te llama o se oye una estación vigilada. Útil cuando la app está en otra pantalla, como el mapa o el logbook."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiche une bannière avec le message lorsqu'une station vous appelle ou qu'une station surveillée est entendue. Utile lorsque l'app affiche un autre écran, comme la carte ou le carnet de trafic."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra un banner con il messaggio quando una stazione ti chiama o si sente una stazione osservata. Utile quando l'app è su un'altra schermata, come la mappa o il log."
+          }
+        }
+      }
+    },
+    "Call alert sound help" : {
+      "comment" : "Help text for the call alert sound toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spielt einen kurzen Ton ab, wenn dich eine Station ruft oder eine beobachtete Station gehört wird. Beim Senden und wenn der Ton über ein USB- oder Line-Interface ausgegeben wird, bleibt er stumm, damit er nie ins Funkgerät gelangt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plays a short sound when a station calls you or a watched station is heard. It stays silent while you transmit and when the audio goes to a USB or line interface, so it never reaches the radio."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reproduce un sonido corto cuando una estación te llama o se oye una estación vigilada. No suena mientras transmites ni cuando el audio sale por una interfaz USB o de línea, así nunca llega a la radio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Émet un son bref lorsqu'une station vous appelle ou qu'une station surveillée est entendue. Il reste muet pendant l'émission et lorsque l'audio passe par une interface USB ou ligne, pour ne jamais atteindre la radio."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riproduce un breve suono quando una stazione ti chiama o si sente una stazione osservata. Resta muto mentre trasmetti e quando l'audio esce da un'interfaccia USB o di linea, così non arriva mai alla radio."
+          }
+        }
+      }
+    },
+    "Calling you" : {
+      "comment" : "Accessibility label of the bell shown on rows where another station calls the operator.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruft dich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te llama"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous appelle"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ti chiama"
+          }
+        }
+      }
+    },
+    "Calls to Me" : {
+      "comment" : "Settings section header: alerts when another station calls the operator.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anrufe an mich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llamadas a mí"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appels pour moi"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiamate a me"
+          }
+        }
+      }
+    },
+    "Enter a valid callsign that is not already on the list." : {
+      "comment" : "Warning under the watchlist field.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib ein gültiges Rufzeichen ein, das noch nicht auf der Liste steht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce un indicativo válido que no esté ya en la lista."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez un indicatif valide qui n'est pas déjà dans la liste."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci un nominativo valido che non sia già nella lista."
+          }
+        }
+      }
+    },
+    "Highlight calls to me" : {
+      "comment" : "Toggle label: tint and bold decoded messages that call the operator's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anrufe an mich hervorheben"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resaltar llamadas a mí"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surligner les appels pour moi"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Evidenzia le chiamate a me"
+          }
+        }
+      }
+    },
+    "Highlight calls to me help" : {
+      "comment" : "Help text for the Highlight calls to me toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Färbt jede dekodierte Nachricht, in der eine andere Station dein Rufzeichen ruft, ein, zeigt sie fett und mit einer Glocke daneben."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tints and bolds every decoded message where another station calls your callsign, with a bell next to it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colorea y pone en negrita cada mensaje decodificado en el que otra estación llama a tu indicativo, con una campana al lado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colore et met en gras chaque message décodé où une autre station appelle votre indicatif, avec une cloche à côté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colora e mette in grassetto ogni messaggio decodificato in cui un'altra stazione chiama il tuo nominativo, con una campanella accanto."
+          }
+        }
+      }
+    },
+    "No watched stations." : {
+      "comment" : "Shown when the watchlist is empty.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine beobachteten Stationen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay estaciones vigiladas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune station surveillée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna stazione osservata."
+          }
+        }
+      }
+    },
+    "Notifications are turned off for FT Ham. Turn them on in the Settings app." : {
+      "comment" : "Warning shown when the call notification is on but the system permission is denied.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mitteilungen sind für FT Ham ausgeschaltet. Schalte sie in der Einstellungen-App ein."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las notificaciones de FT Ham están desactivadas. Actívalas en la app Ajustes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les notifications sont désactivées pour FT Ham. Activez-les dans l'app Réglages."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le notifiche di FT Ham sono disattivate. Attivale nell'app Impostazioni."
+          }
+        }
+      }
+    },
+    "Play a sound" : {
+      "comment" : "Toggle label: play a sound when another station calls the operator.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ton abspielen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reproducir un sonido"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Émettre un son"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riproduci un suono"
+          }
+        }
+      }
+    },
+    "Received CQ from a station not yet in your log" : {
+      "comment" : "Color legend and color setting: CQ from a station never worked.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empfangener CQ einer Station, die noch nicht im Log ist"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CQ recibido de una estación que aún no está en tu log"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CQ reçu d'une station pas encore dans votre carnet"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CQ ricevuto da una stazione non ancora nel tuo log"
+          }
+        }
+      }
+    },
+    "Remove %@" : {
+      "comment" : "Accessibility label: remove a callsign from the watchlist.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ entfernen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rimuovi %@"
+          }
+        }
+      }
+    },
+    "Reset colors" : {
+      "comment" : "Button: restore the default message row colors.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farben zurücksetzen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer colores"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser les couleurs"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina i colori"
+          }
+        }
+      }
+    },
+    "Show a notification" : {
+      "comment" : "Toggle label: show a notification banner when another station calls the operator.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mitteilung anzeigen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar una notificación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher une notification"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra una notifica"
+          }
+        }
+      }
+    },
+    "Stations to spot in the RX list, such as a DXpedition. Their messages get their own color and a star." : {
+      "comment" : "Footnote explaining the watchlist.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stationen, die in der RX-Liste auffallen sollen, etwa eine DXpedition. Ihre Nachrichten bekommen eine eigene Farbe und einen Stern."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estaciones que quieres ver en la lista de RX, como una expedición DX. Sus mensajes llevan su propio color y una estrella."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stations à repérer dans la liste RX, comme une DXpédition. Leurs messages ont leur propre couleur et une étoile."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stazioni da individuare nella lista RX, come una DXpedition. I loro messaggi hanno un colore proprio e una stella."
+          }
+        }
+      }
+    },
+    "Vibrate" : {
+      "comment" : "Toggle label: vibrate when another station calls the operator.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibrieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibrar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibrer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibra"
+          }
+        }
+      }
+    },
+    "Watch alert help" : {
+      "comment" : "Help text for the watched-station alert toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nutzt die Einstellungen für Ton, Vibration und Mitteilung weiter unten, wenn eine beobachtete Station gehört wird. Jede Station löst höchstens alle 10 Minuten einen Hinweis aus, und nicht, während du sie arbeitest."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses the sound, vibration and notification settings below when a watched station is heard. Each station alerts at most once every 10 minutes, and not while you are working it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa los ajustes de sonido, vibración y notificación de abajo cuando se oye una estación vigilada. Cada estación avisa como mucho una vez cada 10 minutos, y no mientras estás en QSO con ella."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilise les réglages de son, de vibration et de notification ci-dessous lorsqu'une station surveillée est entendue. Chaque station alerte au plus une fois toutes les 10 minutes, et pas pendant que vous la contactez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa le impostazioni di suono, vibrazione e notifica qui sotto quando si sente una stazione osservata. Ogni stazione avvisa al massimo una volta ogni 10 minuti, e non mentre la stai collegando."
+          }
+        }
+      }
+    },
+    "Watched station" : {
+      "comment" : "Accessibility label of the star shown on rows sent by a watched station.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beobachtete Station"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estación vigilada"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Station surveillée"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stazione osservata"
+          }
+        }
+      }
+    },
+    "Watched Stations" : {
+      "comment" : "Settings section header: callsigns the operator wants to spot.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beobachtete Stationen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estaciones vigiladas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stations surveillées"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stazioni osservate"
+          }
+        }
+      }
+    },
+    "You can change these colors in Settings, under Display." : {
+      "comment" : "Footer of the color legend.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du kannst diese Farben in den Einstellungen unter Anzeige ändern."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes cambiar estos colores en Ajustes, en Visualización."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous pouvez modifier ces couleurs dans Réglages, sous Affichage."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puoi cambiare questi colori in Impostazioni, alla voce Visualizzazione."
+          }
+        }
+      }
+    },
     "… and %lld more" : {
       "comment" : "A note at the bottom of the preview section that indicates there are more QSO entries that are being skipped.",
       "isCommentAutoGenerated" : true,

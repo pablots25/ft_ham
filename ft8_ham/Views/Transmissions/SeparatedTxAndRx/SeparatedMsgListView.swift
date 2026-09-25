@@ -11,6 +11,7 @@ import SwiftUI
 
 struct SeparatedMsgListView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @ObservedObject private var rowColors = RowColorStore.shared
     let messages: [FT8Message]
     let allowReply: Bool
 
@@ -64,14 +65,15 @@ struct SeparatedMsgListView: View {
                                         .padding(.vertical, 2)
                                         .id(msg.id)
                                 } else {
-                                    CondensedMsgView(msg: msg, needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [])
+                                    let highlight = viewModel.rowHighlight(for: msg)
+                                    CondensedMsgView(msg: msg, needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [], highlight: highlight)
                                         .font(.body)
                                         .dynamicTypeSize(.medium ... .accessibility5)
                                         .lineLimit(1)
                                         .fixedSize(horizontal: false, vertical: true)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.vertical, 4)
-                                        .background(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg)))
+                                        .background(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg), highlight: highlight, colors: rowColors))
                                         .swipeToReply(
                                             allowReply: allowReply && msg.allowsReply,
                                             messageID: msg.id,

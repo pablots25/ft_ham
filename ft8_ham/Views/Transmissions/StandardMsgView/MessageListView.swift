@@ -11,6 +11,7 @@ import SwiftUI
 
 struct MessageListView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @ObservedObject private var rowColors = RowColorStore.shared
     let messages: [FT8Message]
     let allowReply: Bool
 
@@ -59,7 +60,8 @@ struct MessageListView: View {
                                     .listRowBackground(Color.clear)
                                     .id(msg.id)
                             } else {
-                                MessageView(msg: msg, needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [])
+                                let highlight = viewModel.rowHighlight(for: msg)
+                                MessageView(msg: msg, needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [], highlight: highlight)
                                     .font(.caption2)
                                     .dynamicTypeSize(.medium ... .accessibility5)
                                     .lineLimit(1)
@@ -76,7 +78,7 @@ struct MessageListView: View {
                                         viewModel.reply(to: msg)
                                     }
                                     .listRowInsets(EdgeInsets())
-                                    .listRowBackground(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg)))
+                                    .listRowBackground(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg), highlight: highlight, colors: rowColors))
                                     .id(msg.id)
                             }
                         }

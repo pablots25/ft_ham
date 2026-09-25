@@ -11,6 +11,7 @@ import SwiftUI
 struct MessageColorLegendView: View {
 
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var rowColors = RowColorStore.shared
 
     var body: some View {
         NavigationStack {
@@ -18,18 +19,9 @@ struct MessageColorLegendView: View {
 
                 // MARK: - Colors
                 Section {
-                    legendRow(fill: .yellow.opacity(0.2), stroke: .yellow,
-                              label: "Your own CQ and free-text transmissions")
-                    legendRow(fill: .purple.opacity(0.2), stroke: .purple,
-                              label: "Received CQ from another station")
-                    legendRow(fill: .blue.opacity(0.2), stroke: .blue,
-                              label: "Message directed to you (grid exchange)")
-                    legendRow(fill: .orange.opacity(0.2), stroke: .orange,
-                              label: "Message directed to you (signal report)")
-                    legendRow(fill: .purple.opacity(0.2), stroke: .purple,
-                              label: "Final exchange \u{2014} RR73 / RRR / 73")
-                    legendRow(fill: .gray.opacity(0.2), stroke: .gray,
-                              label: "Unknown message type")
+                    ForEach(MessageRowColor.allCases) { kind in
+                        legendRow(fill: rowColors.tint(kind), stroke: rowColors.color(kind), label: kind.label)
+                    }
                     HStack(spacing: 14) {
                         RoundedRectangle(cornerRadius: 4)
                             .stroke(
@@ -42,6 +34,8 @@ struct MessageColorLegendView: View {
                     }
                 } header: {
                     Text("Message Colors")
+                } footer: {
+                    Text("You can change these colors in Settings, under Display.")
                 }
 
                 // MARK: - Filter

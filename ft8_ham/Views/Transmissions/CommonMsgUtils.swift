@@ -17,48 +17,81 @@ func rowTint(_ color: Color) -> Color {
     })
 }
 
-/// The row tints, created once. `rowTint` builds a dynamic UIColor provider and
-/// bridges `UIColor(Color)` on every call; doing that per row per body pass was
-/// one of the main per-row costs of the message lists.
-private enum RowTints {
-    static let yellow = rowTint(.yellow)
-    static let green = rowTint(.green)
-    static let purple = rowTint(.purple)
-    static let blue = rowTint(.blue)
-    static let orange = rowTint(.orange)
-    static let gray = rowTint(.gray)
-    static let systemBackground = Color(UIColor.systemBackground)
+/// A highlight that overrides the message-type tint of a decoded row.
+enum RowHighlight: Equatable {
+    case none
+    /// Another station calls our callsign.
+    case callingMe
+    /// The sender is on the operator's watchlist.
+    case watched
 }
+
+private let systemBackgroundTint = Color(UIColor.systemBackground)
 
 // Color selector based on FT8 message type with adaptive colors for dark mode.
 // `isNewCallsign` highlights an incoming CQ from a station not yet worked.
-func backgroundColor(for msg: FT8Message, isNewCallsign: Bool = false) -> Color {
-    switch msg.msgType {
+// `highlight` (calling you, watched station) wins over the message type.
+// The colors come from `RowColorStore`, which the operator can customize.
+func backgroundColor(
+    for msg: FT8Message,
+    isNewCallsign: Bool = false,
+    highlight: RowHighlight = .none,
+    colors: RowColorStore = .shared
+) -> Color {
+    switch highlight {
+    case .callingMe: return colors.tint(.callingMe)
+    case .watched: return colors.tint(.watched)
+    case .none: break
+    }
+    return switch msg.msgType {
     case .internalTimestamp:
-        RowTints.systemBackground
+        systemBackgroundTint
     case .cq:
         if msg.isTX {
-            RowTints.yellow
+            colors.tint(.ownTX)
         } else if isNewCallsign {
-            RowTints.green // new (unworked) callsign
+            colors.tint(.newCallsign) // new (unworked) callsign
         } else {
-            RowTints.purple
+            colors.tint(.cq)
         }
     case .gridExchange:
         if msg.forMe {
-            RowTints.blue
+            colors.tint(.gridToMe)
         } else {
-            RowTints.systemBackground
+            systemBackgroundTint
         }
     case .standardSignalReport, .rSignalReport:
         if msg.forMe {
-            RowTints.orange
+            colors.tint(.reportToMe)
         } else {
-            RowTints.systemBackground
+            systemBackgroundTint
         }
     case .rr73, .rrr, .final73:
-        RowTints.purple
+        colors.tint(.finals)
     case .unknown:
-        msg.isTX ? RowTints.yellow : RowTints.gray // own free text is yellow
+        msg.isTX ? colors.tint(.ownTX) : colors.tint(.unknown) // own free text is own-TX color
+    }
+}
+
+/// Bell for a station calling you, star for a watched station, in the
+/// operator's chosen highlight color.
+struct RowHighlightMarker: View {
+    let highlight: RowHighlight
+
+    var body: some View {
+        switch highlight {
+        case .none:
+            EmptyView()
+        case .callingMe:
+            Image(systemName: "bell.fill")
+                .font(.caption2)
+                .foregroundStyle(RowColorStore.shared.color(.callingMe))
+                .accessibilityLabel(Text("Calling you"))
+        case .watched:
+            Image(systemName: "star.fill")
+                .font(.caption2)
+                .foregroundStyle(RowColorStore.shared.color(.watched))
+                .accessibilityLabel(Text("Watched station"))
+        }
     }
 }

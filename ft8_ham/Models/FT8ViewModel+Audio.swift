@@ -133,6 +133,10 @@ extension FT8ViewModel {
             }
         }
 
+        // Read before the loop: answering our CQ moves the QSO manager out of
+        // `.callingCQ`, which would otherwise suppress the alert for that call.
+        let qsoStateBeforeSlot = qsoManager.qsoState
+
         for message in orderedMessages {
             if message.isTX {
                 continue
@@ -159,6 +163,8 @@ extension FT8ViewModel {
             }
         }
         
+        raiseAlerts(in: result.messages, qsoStateBeforeSlot: qsoStateBeforeSlot)
+
         // After processing all messages in the slot, check for timeout
         // Only trigger timeout if this was an RX slot (not our TX slot)
         // DX's response will come in the slot AFTER we transmit

@@ -121,6 +121,13 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     let txLogger = AppLogger(category: "TX")
     internal let appLogger = AppLogger(category: "APP")
 
+    /// Plays the "calling you" alerts. Replaced by a mock in tests.
+    internal var callAlerter: any CallAlerting = CallAlertService()
+    /// Limits watched-station alerts to one per station every few minutes.
+    internal var watchAlertThrottle = WatchAlertThrottle()
+    /// Parsed `watchedCallsignsStorage`, rebuilt only when the string changes.
+    internal var watchListCache = (storage: "", list: WatchList())
+
     // MARK: - CAT (uses protocol-based dependency injection)
     internal let catController = PremiumFeatures.catController
     internal var catFrequencyUpdateWorkItem: DispatchWorkItem?
@@ -282,6 +289,16 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @AppStorage("highlightNewCallsigns") var highlightNewCallsigns: Bool = true
     /// Show NEW GRID / NEW DXCC badges on decoded rows (per band/mode).
     @AppStorage("showNeededBadges") var showNeededBadges: Bool = true
+    /// Tint and bold decoded rows where another station calls our callsign.
+    @AppStorage("highlightMyCallsign") var highlightMyCallsign: Bool = true
+    /// Alerts when a station calls us while no QSO is in progress.
+    @AppStorage("callAlertSound") var callAlertSound: Bool = false
+    @AppStorage("callAlertHaptic") var callAlertHaptic: Bool = false
+    @AppStorage("callAlertNotification") var callAlertNotification: Bool = false
+    /// Callsigns to spot in the RX list (comma-separated, see `WatchList`).
+    @AppStorage("watchedCallsigns") var watchedCallsignsStorage: String = ""
+    /// Raise the enabled alerts when a watched station is heard.
+    @AppStorage("watchAlertEnabled") var watchAlertEnabled: Bool = true
 
     @AppStorage("catEnabled") var catEnabled = false {
         didSet {

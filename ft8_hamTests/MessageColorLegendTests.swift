@@ -21,6 +21,8 @@ final class MessageColorLegendTests: XCTestCase {
     override func setUp() {
         super.setUp()
         UserDefaults.standard.set(myCallsign, forKey: "callsign")
+        // Row colors are user-configurable; these tests check the defaults.
+        RowColorStore.shared.resetToDefaults()
     }
 
     override func tearDown() {
@@ -158,5 +160,32 @@ final class MessageColorLegendTests: XCTestCase {
         let msg = FT8Message(text: "2026-04-05 12:00:00 - 20m", mode: .ft8, timestamp: timestamp)
         XCTAssertEqual(msg.msgType, .internalTimestamp)
         XCTAssertEqual(backgroundColor(for: msg), Color(UIColor.systemBackground))
+    }
+
+    // MARK: - Calling-you highlight: red wins over every other tint
+
+    func test_backgroundColor_callingMe_isRed() {
+        let grid = FT8Message(text: "\(myCallsign) EA2BBB IN76", mode: .ft8, isTX: false)
+        assertTint(backgroundColor(for: grid, highlight: .callingMe), matches: .red)
+
+        let final = FT8Message(text: "\(myCallsign) EA2BBB RR73", mode: .ft8, isTX: false)
+        assertTint(backgroundColor(for: final, isNewCallsign: true, highlight: .callingMe), matches: .red)
+    }
+
+    func test_backgroundColor_watched_isCyan() {
+        let cq = FT8Message(text: "CQ 3Y0J JD15", mode: .ft8, isTX: false)
+        assertTint(backgroundColor(for: cq, isNewCallsign: true, highlight: .watched), matches: .cyan)
+    }
+
+    func test_backgroundColor_usesCustomColor() {
+        let defaults = UserDefaults(suiteName: "MessageColorLegendTests.custom")!
+        defaults.removePersistentDomain(forName: "MessageColorLegendTests.custom")
+        let store = RowColorStore(defaults: defaults)
+        store.setColor(.green, for: .finals)
+
+        let final = FT8Message(text: "\(myCallsign) EA2BBB RR73", mode: .ft8, isTX: false)
+        let expected = RowColorStore.color(fromHex: RowColorStore.hex(from: .green))!
+        assertTint(backgroundColor(for: final, colors: store), matches: expected)
+        defaults.removePersistentDomain(forName: "MessageColorLegendTests.custom")
     }
 }
