@@ -26,12 +26,17 @@ struct MessageListView: View {
     var body: some View {
         // Filter once per body pass (this used to be evaluated three times).
         let filtered = filteredMessages
+        // Read once per body pass. FT8ViewModel forwards lockedDXCallsign
+        // changes through objectWillChange, so rows never observe qsoManager.
+        let activeCallsign = DecodeRowLayout.activeCallsign(from: viewModel.qsoManager.lockedDXCallsign)
+        let isFT4 = viewModel.isFT4
         return VStack(spacing: 0) {
             // MARK: - Header
 
             MessageListHeaderView(
                 allowReply: allowReply
             )
+            .dynamicTypeSize(.medium ... .accessibility5)
 
             Divider()
                 .padding(.vertical, 2)
@@ -61,12 +66,17 @@ struct MessageListView: View {
                                     .id(msg.id)
                             } else {
                                 let highlight = viewModel.rowHighlight(for: msg)
-                                MessageView(msg: msg, needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [], highlight: highlight)
+                                MessageView(
+                                    msg: msg,
+                                    needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [],
+                                    highlight: highlight,
+                                    showsMode: DecodeRowLayout.showsModeSuffix(for: msg, isFT4: isFT4),
+                                    isActiveQSO: DecodeRowLayout.isActiveQSO(msg, activeCallsign: activeCallsign)
+                                )
                                     .font(.caption2)
                                     .dynamicTypeSize(.medium ... .accessibility5)
                                     .lineLimit(1)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .frame(maxWidth: .infinity, minHeight: 0, alignment: .center)
+                                    .frame(maxWidth: .infinity, minHeight: 0, alignment: .leading)
                                     .contentShape(Rectangle())
                                     .onTapGesture(count: replyTapGesture.tapCount) {
                                         guard msg.allowsReply && allowReply else { return }

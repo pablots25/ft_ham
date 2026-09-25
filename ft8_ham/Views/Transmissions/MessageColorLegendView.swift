@@ -20,7 +20,11 @@ struct MessageColorLegendView: View {
                 // MARK: - Colors
                 Section {
                     ForEach(MessageRowColor.allCases) { kind in
-                        legendRow(fill: rowColors.tint(kind), stroke: rowColors.color(kind), label: kind.label)
+                        if kind.isRowMarker {
+                            markerLegendRow(color: rowColors.color(kind), label: kind.label)
+                        } else {
+                            legendRow(fill: rowColors.tint(kind), stroke: rowColors.color(kind), label: kind.label)
+                        }
                     }
                     HStack(spacing: 14) {
                         RoundedRectangle(cornerRadius: 4)
@@ -163,6 +167,26 @@ struct MessageColorLegendView: View {
                         .stroke(stroke.opacity(0.7), lineWidth: 1.5)
                 )
                 .frame(width: 28, height: 16)
+            Text(label)
+                .font(.subheadline)
+        }
+    }
+
+    /// Swatch for a row marker: an outlined row with the leading bar the
+    /// decode lists draw.
+    @ViewBuilder
+    private func markerLegendRow(color: Color, label: LocalizedStringKey) -> some View {
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(color)
+                        .frame(width: DecodeRowMetrics.activeQSOBarWidth)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .frame(width: 28, height: 16)
+                .accessibilityHidden(true)
             Text(label)
                 .font(.subheadline)
         }

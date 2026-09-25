@@ -14,7 +14,27 @@ struct CondensedMsgView: View {
     var needed: NeededStatus = []
     /// Calling you or watched station: bold text and a marker.
     var highlight: RowHighlight = .none
-    
+    /// Show "(FT4)" / "(FT8)" when the row's mode differs from the current one.
+    var showsMode: Bool = false
+    /// The row belongs to the QSO in progress: draws a leading bar.
+    var isActiveQSO: Bool = false
+
+    private var metrics = DecodeRowMetrics()
+
+    init(
+        msg: FT8Message,
+        needed: NeededStatus = [],
+        highlight: RowHighlight = .none,
+        showsMode: Bool = false,
+        isActiveQSO: Bool = false
+    ) {
+        self.msg = msg
+        self.needed = needed
+        self.highlight = highlight
+        self.showsMode = showsMode
+        self.isActiveQSO = isActiveQSO
+    }
+
     var body: some View {
         if msg.msgType == .internalTimestamp {
             HStack {
@@ -26,65 +46,40 @@ struct CondensedMsgView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
             }
-            .padding(.horizontal, 5)
+            .padding(.horizontal, DecodeRowMetrics.horizontalPadding)
             .background(Color(UIColor.systemBackground).opacity(0.001))
         } else {
-            HStack(alignment: .top, spacing: 10) {
-                HStack(spacing: 15) {
-                    Text(DateFormatter.utcFormatterClock.string(from: msg.timestamp))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    
-                    Text(!msg.measuredSNR.isNaN ? String(format: "%.0f", msg.measuredSNR) : "0.0")
-                        .font(.caption2)
-                        .foregroundStyle(!msg.measuredSNR.isNaN ? Color.secondary : Color.secondary.opacity(0))
-                    
-                    Text(!msg.frequency.isNaN ? String(format: "%.0f", msg.frequency) : "0.0")
-                        .font(.caption2)
-                        .foregroundStyle(!msg.frequency.isNaN ? Color.secondary : Color.secondary.opacity(0))
-                    
-                    Text(!msg.timeOffset.isNaN ? String(format: "%.2fs", msg.timeOffset) : "0.00")
-                        .font(.caption2)
-                        .foregroundStyle(
-                            !msg.timeOffset.isNaN
-                            ? (msg.timeOffset > 0.2 ? Color.red : .secondary)
-                            : .secondary.opacity(0)
-                        )
-                }
-                .frame(minWidth: 60, alignment: .trailing)
-                
-                HStack(alignment: .top, spacing: 4) {
-                    if msg.isTX {
-                        Text("TX")
-                            .font(.caption)
-                            .foregroundStyle(.blue)
-                    }
-                    
-                    RowHighlightMarker(highlight: highlight)
+            // One line: fixed-width metadata columns, then the message column,
+            // which takes the rest of the width.
+            HStack(alignment: .firstTextBaseline, spacing: metrics.columnSpacing) {
+                DecodeRowColumns(msg: msg)
 
-                    Text(msg.text)
-                        .font(.caption)
-                        .fontWeight(highlight == .none ? .regular : .bold)
-                        .foregroundStyle((msg.forMe && !msg.isTX) ? Color.blue.opacity(0.85) : .primary)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                    
-                    NeededBadgeView(status: needed)
-                    Text("(\(msg.mode.rawValue.uppercased()))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                DecodeRowMessage(
+                    msg: msg,
+                    needed: needed,
+                    highlight: highlight,
+                    showsMode: showsMode,
+                    font: .caption,
+                    forMeColor: Color.blue.opacity(0.85)
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 5)
+            .padding(.horizontal, DecodeRowMetrics.horizontalPadding)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .activeQSOBar(isActiveQSO)
             .background(Color(UIColor.systemBackground).opacity(0.001))
         }
     }
 }
 
 #Preview("CondensedMsgView") {
-    CondensedMsgView(msg: PreviewMocks.rxMessages[0])
-    CondensedMsgView(msg: PreviewMocks.rxMessages[0])
-    CondensedMsgView(msg: PreviewMocks.rxMessages[0])
-    CondensedMsgView(msg: PreviewMocks.rxMessages[0])
+    VStack(spacing: 0) {
+        MessageListHeaderView(allowReply: true)
+        CondensedMsgView(msg: PreviewMocks.rxMessages[0])
+        CondensedMsgView(msg: PreviewMocks.rxMessages[1], needed: [.dxcc, .grid], showsMode: true)
+        CondensedMsgView(msg: PreviewMocks.rxMessages[0], highlight: .callingMe, isActiveQSO: true)
+        CondensedMsgView(msg: PreviewMocks.rxMessages[2])
+    }
+    .frame(width: 393)
 }

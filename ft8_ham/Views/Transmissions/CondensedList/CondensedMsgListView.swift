@@ -28,10 +28,15 @@ struct CondensedMsgListView: View {
     var body: some View {
         // Filter once per body pass (this used to be evaluated three times).
         let filtered = filteredMessages
+        // Read once per body pass. FT8ViewModel forwards lockedDXCallsign
+        // changes through objectWillChange, so rows never observe qsoManager.
+        let activeCallsign = DecodeRowLayout.activeCallsign(from: viewModel.qsoManager.lockedDXCallsign)
+        let isFT4 = viewModel.isFT4
         return VStack(alignment: .leading, spacing: 0) {
             MessageListHeaderView(
                 allowReply: allowReply
             )
+            .dynamicTypeSize(.medium ... .accessibility5)
 
             Divider()
                 .padding(.vertical, 2)
@@ -63,13 +68,17 @@ struct CondensedMsgListView: View {
                                         .id(msg.id)
                                 } else {
                                     let highlight = viewModel.rowHighlight(for: msg)
-                                    CondensedMsgView(msg: msg, needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [], highlight: highlight)
+                                    CondensedMsgView(
+                                        msg: msg,
+                                        needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [],
+                                        highlight: highlight,
+                                        showsMode: DecodeRowLayout.showsModeSuffix(for: msg, isFT4: isFT4),
+                                        isActiveQSO: DecodeRowLayout.isActiveQSO(msg, activeCallsign: activeCallsign)
+                                    )
                                         .font(.body)
                                         .dynamicTypeSize(.medium ... .accessibility5)
                                         .lineLimit(1)
-                                        .fixedSize(horizontal: false, vertical: true)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.vertical, 4)
                                         .background(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg), highlight: highlight, colors: rowColors))
                                         .swipeToReply(
                                             allowReply: allowReply && msg.allowsReply,
