@@ -555,7 +555,7 @@ struct LogbookView: View {
             }
         }
 
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Haptics.success()
 
         if !deleted.isEmpty {
             recentlyDeletedEntries = deleted
@@ -579,7 +579,7 @@ struct LogbookView: View {
             let safeIndex = min(item.index, viewModel.qsoList.count)
             viewModel.qsoList.insert(item.entry, at: safeIndex)
         }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Haptics.success()
         withAnimation {
             showUndoBanner = false
             recentlyDeletedEntries.removeAll()
@@ -616,7 +616,7 @@ struct LogbookView: View {
             viewModel.qsoList.remove(at: item.index)
         }
 
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Haptics.success()
 
         selectedIDs.removeAll()
         isSelecting = false

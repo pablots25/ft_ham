@@ -288,7 +288,7 @@ struct QSOEditView: View {
         )
 
         onSave(updated)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Haptics.success()
         dismiss()
     }
 }

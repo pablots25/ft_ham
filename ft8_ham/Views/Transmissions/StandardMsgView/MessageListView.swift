@@ -70,7 +70,7 @@ struct MessageListView: View {
                                     .contentShape(Rectangle())
                                     .onTapGesture(count: replyTapGesture.tapCount) {
                                         guard msg.allowsReply && allowReply else { return }
-                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                        Haptics.light()
                                         viewModel.reply(to: msg)
                                     }
                                     .accessibilityIdentifier("decodeRow_\(msg.callsign ?? "")")

@@ -76,7 +76,7 @@ struct SwipeToReplyModifier: ViewModifier {
                 .offset(x: dragOffset[messageID] ?? 0)
                 .onTapGesture(count: replyTapGesture.tapCount) {
                     guard allowReply else { return }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.light()
                     onTap()
                 }
                 // simultaneousGesture lets the parent ScrollView still scroll vertically
@@ -99,7 +99,7 @@ struct SwipeToReplyModifier: ViewModifier {
 
                             if (dragOffset[messageID] ?? 0) <= triggerThreshold &&
                                didTriggerHaptic[messageID] != true {
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                Haptics.medium()
                                 didTriggerHaptic[messageID] = true
                             }
                         }
