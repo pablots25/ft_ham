@@ -150,4 +150,5 @@ struct WaterfallDashboardView: View {
                 rxMessages: PreviewMocks.rxMessages
             )
         )
+        .environmentObject(FeatureFlagManager.shared)
 }

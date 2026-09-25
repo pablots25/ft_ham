@@ -11,6 +11,7 @@ struct WaterfallView: View {
     @ObservedObject var viewModel: WaterfallViewModel
     @ObservedObject var ft8ViewModel: FT8ViewModel
     @ObservedObject private var overlayState: WaterfallOverlayState
+    @EnvironmentObject private var flags: FeatureFlagManager
 
     @Binding var isSettingFrequency: Bool
 
@@ -71,6 +72,8 @@ struct WaterfallView: View {
                         .zIndex(1)
                 }
             }
+            .onAppear { syncSlotContextFlag() }
+            .onChange(of: flags.values) { _ in syncSlotContextFlag() }
             .contentShape(Rectangle())
             .gesture(
                 // One gesture, three outcomes: a drag shows the cursor (and,
@@ -115,6 +118,15 @@ struct WaterfallView: View {
                         lingerCursor()
                     }
             )
+        }
+    }
+
+    /// The slot stripe and greyed-out transmit rows live behind a feature
+    /// flag; the model is told about it rather than reading it itself.
+    private func syncSlotContextFlag() {
+        let enabled = flags.isEnabled(.waterfallSlotContext)
+        if viewModel.slotContextEnabled != enabled {
+            viewModel.slotContextEnabled = enabled
         }
     }
 

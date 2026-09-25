@@ -43,6 +43,13 @@ struct DebugSettingsView: View {
                 }
 
                 Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.waterfallSlotContext) },
+                    set: { flags.setOverride(.waterfallSlotContext, value: $0) }
+                )) {
+                    Label("Waterfall Slot Context", systemImage: "waveform.path.ecg.rectangle")
+                }
+
+                Toggle(isOn: Binding(
                     get: { flags.isEnabled(.enableBandHopping) },
                     set: { flags.setOverride(.enableBandHopping, value: $0) }
                 )) {

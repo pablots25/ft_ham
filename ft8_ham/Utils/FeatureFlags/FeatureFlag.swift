@@ -22,6 +22,8 @@ enum FeatureFlag: String, CaseIterable {
     case enableICloudSync
     /// Premium: "users online" presence on the map.
     case enablePresence
+    /// Waterfall: even/odd slot stripe and greyed-out transmit rows.
+    case waterfallSlotContext
 
     var defaultValue: Bool {
         switch self {
@@ -39,6 +41,8 @@ enum FeatureFlag: String, CaseIterable {
         // Off everywhere, including debug builds: switch it on from the
         // Debug screen (or Remote Config in release) when wanted.
         case .enableFreeText: return false
+        // Off everywhere until the look is settled.
+        case .waterfallSlotContext: return false
         case .enableBandHopping, .enableICloudSync, .enablePresence:
             #if DEBUG
             return true

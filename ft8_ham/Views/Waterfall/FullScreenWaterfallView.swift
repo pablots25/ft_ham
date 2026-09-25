@@ -325,6 +325,7 @@ private extension FullScreenWaterfallView {
 #Preview("FullScreenWaterfallView") {
     FullScreenWaterfallView()
         .environmentObject(FT8ViewModel(txMessages: PreviewMocks.txMessages, rxMessages: PreviewMocks.rxMessages))
+        .environmentObject(FeatureFlagManager.shared)
 }
 
 // MARK: - TipKit Support (iOS 17+ isolated)

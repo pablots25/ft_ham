@@ -51,7 +51,8 @@ protocol WaterfallRenderSink: AnyObject {
         writeRow: Int,
         absoluteRow: Int,
         timestamps: [(absoluteRow: Int, text: String)],
-        labels: [WaterfallPlacedLabel]
+        labels: [WaterfallPlacedLabel],
+        slots: [WaterfallSlotMark]
     )
     /// One new row, already coloured. `absoluteRow` counts rows since start.
     func append(row: UnsafeBufferPointer<UInt32>, ringRow: Int, absoluteRow: Int)
@@ -59,6 +60,9 @@ protocol WaterfallRenderSink: AnyObject {
     /// Labels decoded together; the renderer lays the batch out so labels
     /// on neighbouring frequencies do not cover each other.
     func addLabels(_ labels: [WaterfallPlacedLabel])
+    /// Every slot still on the ring, oldest first. Sent when a slot starts
+    /// and when one is marked as ours to transmit in.
+    func setSlots(_ slots: [WaterfallSlotMark])
 }
 
 /// Scrolling spectrogram fed by `FT8SlotMonitor`: one row per analysed
@@ -142,7 +146,8 @@ final class WaterfallViewModel: ObservableObject {
                 writeRow: writeRow,
                 absoluteRow: absoluteRowCounter,
                 timestamps: timestampRows.map { (absoluteRow: $0.key, text: $0.value) },
-                labels: placedLabels
+                labels: placedLabels,
+                slots: slotContextEnabled ? slotMarks : []
             )
         }
     }
@@ -230,6 +235,22 @@ final class WaterfallViewModel: ObservableObject {
     /// Absolute row at which each monitor slot started, by slot sequence.
     /// Filled as rows arrive; a decode looks its slot up here.
     private var slotStartRows: [UInt: Int] = [:]
+    /// The slots covering the ring, oldest first. See `WaterfallSlotMark`.
+    private var slotMarks: [WaterfallSlotMark] = []
+    /// True while we are transmitting: those rows are our own signal (or the
+    /// silence of a line feed), so they are greyed out and left out of the
+    /// level trackers.
+    private(set) var isTransmitting: Bool = false
+    /// Draw the slot stripe and grey out transmit rows. Behind the
+    /// `waterfallSlotContext` feature flag, which the view pushes in; the
+    /// model never reads the flag itself so tests stay deterministic.
+    var slotContextEnabled: Bool = false {
+        didSet {
+            guard slotContextEnabled != oldValue else { return }
+            if !slotContextEnabled { slotMarks.removeAll() }
+            forEachSink { $0.setSlots(slotMarks) }
+        }
+    }
 
     private let wfLogger = AppLogger(category: "WF")
     var config: Config
@@ -244,7 +265,7 @@ final class WaterfallViewModel: ObservableObject {
     /// Rows produced since start; also the absolute index of the next row.
     var absoluteRowCount: Int { absoluteRowCounter }
 
-    /// Baked colour table for `config.display.palette`.
+    /// Baked color table for `config.display.palette`.
     private var paletteLUT: [UInt32] = WaterfallPalette.default.lookupTable
     private var paletteLUTFor: WaterfallPalette = .default
 
@@ -442,7 +463,7 @@ final class WaterfallViewModel: ObservableObject {
         guard pixelWidth > 0, binCount > 0, binHz > 0, maxDisplayHz > minDisplayHz else { return [] }
         let spanHz = maxDisplayHz - minDisplayHz
         return (0 ..< pixelWidth).map { x in
-            // Sample the centre of the column.
+            // Sample the center of the column.
             let hz = minDisplayHz + (Float(x) + 0.5) / Float(pixelWidth) * spanHz
             let bin = Int(((hz - firstBinHz) / binHz).rounded())
             return bin.clamped(to: 0 ... (binCount - 1))
@@ -472,11 +493,20 @@ final class WaterfallViewModel: ObservableObject {
                 let oldest = slotStartRows.keys.min()!
                 slotStartRows[oldest] = nil
             }
+            if slotContextEnabled {
+                beginSlot(slotSequence, startRow: absoluteRowCounter - slotRow)
+            }
         }
 
         if isInBackground && showBlackWhenBackgrounded {
             // Write a full black row
             for x in 0 ..< w { pixelRing[rowOffset + x] = 0xFF000000 }
+        } else if isTransmitting && slotContextEnabled {
+            // Our own transmission tells the operator nothing about the band,
+            // and feeding it to the trackers would lift the noise floor for
+            // seconds after we stop. Grey, and left out of the levelling.
+            for x in 0 ..< w { pixelRing[rowOffset + x] = Self.transmitRowColor }
+            markCurrentSlotAsTransmit()
         } else {
             guard row.count > 1 else { return }
 
@@ -523,7 +553,7 @@ final class WaterfallViewModel: ObservableObject {
         finishRow()
     }
 
-    /// Colours one row from per-column dB values and writes it to `pixels`.
+    /// Colors one row from per-column dB values and writes it to `pixels`.
     /// `db` is consumed as scratch space.
     private func paintRow(fromDB db: inout [Float], into pixels: UnsafeMutablePointer<UInt32>) {
         let w = width
@@ -536,14 +566,14 @@ final class WaterfallViewModel: ObservableObject {
             flatten(&db)
         }
 
-        // 2. Pick the colour window: tracking the noise floor, or fixed
+        // 2. Pick the color window: tracking the noise floor, or fixed
         let minDB: Float
         if display.autoLevel {
             let floor = trackNoiseFloor(rowDB: db, count: w)
             minDB = floor - display.zeroDB
         } else {
             // Manual: `zeroDB` is the level (relative to the noise once
-            // flattened, absolute otherwise) that maps to the bottom colour.
+            // flattened, absolute otherwise) that maps to the bottom color.
             minDB = display.manualFloorDB
         }
         let range = max(display.gainDB, 1)
@@ -628,6 +658,55 @@ final class WaterfallViewModel: ObservableObject {
         vDSP_vsub(baselineDB, 1, db, 1, &db, 1, vDSP_Length(w))
     }
 
+    // MARK: - Slots
+
+    /// Neutral grey for the rows we spend transmitting.
+    private static let transmitRowColor: UInt32 = 0xFF3A3A3A
+
+    /// Records a slot starting at `startRow` and closes the previous one.
+    private func beginSlot(_ slotSequence: UInt, startRow: Int) {
+        let cycleLength = mode.timestampInterval
+        if let lastIndex = slotMarks.indices.last {
+            slotMarks[lastIndex].rowCount = max(1, startRow - slotMarks[lastIndex].startRow)
+        }
+        let expectedRows = rowPeriod > 0 ? Int((cycleLength / rowPeriod).rounded()) : 1
+        slotMarks.append(
+            WaterfallSlotMark(
+                slotSequence: slotSequence,
+                startRow: startRow,
+                rowCount: max(1, expectedRows),
+                isEvenCycle: WaterfallSlotMark.isEvenCycle(at: Date(), cycleLength: cycleLength),
+                isTransmit: isTransmitting
+            )
+        )
+        pruneSlotMarks()
+        forEachSink { $0.setSlots(slotMarks) }
+    }
+
+    /// Drops slots that have scrolled off the ring.
+    private func pruneSlotMarks() {
+        let cutoff = absoluteRowCounter - height
+        slotMarks.removeAll { $0.startRow + $0.rowCount < cutoff }
+    }
+
+    /// Tells the waterfall whether we are transmitting. Its rows are greyed
+    /// out until we stop, and the slots they fall in are marked as ours.
+    func setTransmitting(_ transmitting: Bool) {
+        isTransmitting = transmitting
+    }
+
+    /// Marks the slot the row being written belongs to. Doing this per row
+    /// rather than when transmission starts keeps the mark on the slot whose
+    /// rows are actually ours, even when TX begins on a slot boundary.
+    private func markCurrentSlotAsTransmit() {
+        guard let lastIndex = slotMarks.indices.last, !slotMarks[lastIndex].isTransmit else { return }
+        slotMarks[lastIndex].isTransmit = true
+        forEachSink { $0.setSlots(slotMarks) }
+    }
+
+    /// The slots covering the ring, oldest first.
+    var slots: [WaterfallSlotMark] { slotMarks }
+
     /// Bookkeeping shared by every row: slot timestamps, ring advance,
     /// overlay pruning, and pushing the row to the renderers.
     private func finishRow() {
@@ -660,6 +739,7 @@ final class WaterfallViewModel: ObservableObject {
             let cutoff = absoluteRowCounter - height
             timestampRows = timestampRows.filter { $0.key >= cutoff }
             placedLabels.removeAll { $0.anchorRow + $0.spanRows < cutoff }
+            pruneSlotMarks()
         }
     }
 
@@ -778,7 +858,7 @@ final class WaterfallViewModel: ObservableObject {
         }
     }
 
-    /// Adjusts colour and axis settings. The ring's dimensions are fixed at
+    /// Adjusts color and axis settings. The ring's dimensions are fixed at
     /// init and are not affected.
     func updateConfig(_ update: (inout Config) -> Void) {
         var c = config

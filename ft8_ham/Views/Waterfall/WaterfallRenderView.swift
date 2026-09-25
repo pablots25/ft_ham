@@ -49,6 +49,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
     /// Timestamp lines and message labels, in absolute-row coordinates
     /// (y = −absoluteRow × pointsPerRow); shifted as rows arrive.
     private let scrollLayer = CALayer()
+    private let slotsLayer = CALayer()
     private let timestampsLayer = CALayer()
     private let labelsLayer = CALayer()
     private let headerHeight: CGFloat = 15
@@ -75,10 +76,11 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         metalView.autoResizeDrawable = true
         addSubview(metalView)
 
-        for l in [scrollLayer, timestampsLayer, labelsLayer, staticLayer] {
+        for l in [scrollLayer, slotsLayer, timestampsLayer, labelsLayer, staticLayer] {
             l.contentsScale = UIScreen.main.scale
             l.masksToBounds = false
         }
+        scrollLayer.addSublayer(slotsLayer)
         scrollLayer.addSublayer(timestampsLayer)
         scrollLayer.addSublayer(labelsLayer)
         layer.addSublayer(scrollLayer)
@@ -101,6 +103,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         rebuildStaticLayer()
         // Label geometry depends on the width; simplest to lay them out again.
         relayoutAllLabels()
+        rebuildSlotStripes()
         for sub in timestampsLayer.sublayers ?? [] { layoutTimestampLayer(sub) }
         updateScrollTransform()
         CATransaction.commit()
@@ -125,6 +128,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         CATransaction.setDisableActions(true)
         rebuildStaticLayer()
         scrollLayer.isHidden = !newStyle.showOverlay
+        slotsLayer.isHidden = !newStyle.showTimestamps
         timestampsLayer.isHidden = !newStyle.showTimestamps
         labelsLayer.isHidden = !newStyle.showVerticalLabels
         if axisChanged { relayoutAllLabels() }
@@ -145,7 +149,8 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         writeRow: Int,
         absoluteRow: Int,
         timestamps: [(absoluteRow: Int, text: String)],
-        labels: [WaterfallPlacedLabel]
+        labels: [WaterfallPlacedLabel],
+        slots: [WaterfallSlotMark]
     ) {
         ringHeight = height
         topAbsoluteRow = absoluteRow - 1
@@ -158,6 +163,8 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         for t in timestamps { addTimestampLayer(t.text, absoluteRow: t.absoluteRow) }
         allLabels = labels
         relayoutAllLabels()
+        allSlots = slots
+        rebuildSlotStripes()
         updateScrollTransform()
         CATransaction.commit()
         metalView.setNeedsDisplay()
@@ -187,6 +194,50 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         allLabels.append(contentsOf: labels)
         layoutLabelBatch(labels)
         CATransaction.commit()
+    }
+
+    func setSlots(_ slots: [WaterfallSlotMark]) {
+        guard slots != allSlots else { return }
+        allSlots = slots
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        rebuildSlotStripes()
+        CATransaction.commit()
+    }
+
+    // MARK: Slot stripes
+
+    /// Width of the stripe down the left edge that shows the slots.
+    private static let slotStripeWidth: CGFloat = 6
+
+    /// Colors of the stripe. The two cycles differ enough to tell apart at a
+    /// glance without competing with the signals, and our own transmissions
+    /// stand out in red.
+    private static func slotStripeColor(for slot: WaterfallSlotMark) -> CGColor {
+        if slot.isTransmit {
+            return UIColor.systemRed.withAlphaComponent(0.85).cgColor
+        }
+        return UIColor.white.withAlphaComponent(slot.isEvenCycle ? 0.30 : 0.10).cgColor
+    }
+
+    /// One layer per slot, in absolute-row coordinates like the rest of the
+    /// scrolling overlay, so they move with a single transform.
+    private func rebuildSlotStripes() {
+        for sub in slotsLayer.sublayers ?? [] { sub.removeFromSuperlayer() }
+        guard bounds.width > 1 else { return }
+        for slot in allSlots {
+            let stripe = CALayer()
+            stripe.backgroundColor = Self.slotStripeColor(for: slot)
+            // Rows grow upward on screen: the slot runs from its start row up.
+            let top = -CGFloat(slot.startRow + slot.rowCount) * Self.pointsPerRow
+            stripe.frame = CGRect(
+                x: 0,
+                y: top,
+                width: Self.slotStripeWidth,
+                height: CGFloat(slot.rowCount) * Self.pointsPerRow
+            )
+            slotsLayer.addSublayer(stripe)
+        }
     }
 
     // MARK: Scrolling overlay
@@ -230,6 +281,8 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
     /// Every label still on the ring, as data, so they can be laid out again
     /// after a resize or an axis change.
     private var allLabels: [WaterfallPlacedLabel] = []
+    /// The slots covering the ring, for the stripe down the left edge.
+    private var allSlots: [WaterfallSlotMark] = []
 
     private func addTimestampLayer(_ text: String, absoluteRow: Int) {
         let group = CALayer()
@@ -330,13 +383,13 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
             label.addSublayer(strike)
         }
 
-        // Rotated −90° around its centre, so position it as an upright box.
+        // Rotated −90° around its center, so position it as an upright box.
         // Rows grow upward on screen (y = −row), so the signal's start is at
         // anchorY and it runs to anchorY − span.
         let anchorY = -CGFloat(placed.anchorRow) * Self.pointsPerRow
         let centreY: CGFloat
         if placed.spanRows > 0 {
-            // Centre the label on its lane's share of the signal.
+            // Center the label on its lane's share of the signal.
             let span = CGFloat(placed.spanRows) * Self.pointsPerRow
             let laneTop = anchorY - span * CGFloat(lane + 1) / CGFloat(lanes)
             let laneBottom = anchorY - span * CGFloat(lane) / CGFloat(lanes)
@@ -512,7 +565,7 @@ final class WaterfallMetalRenderer: NSObject, MTKViewDelegate {
         // oldest shown; the ring wraps.
         float row = u.writeRow - 1e-4 - in.uv.y * u.visibleRows;
         row = fmod(row + u.ringHeight, u.ringHeight);
-        // Linear in x; sampling at the row centre keeps rows crisp in y.
+        // Linear in x; sampling at the row center keeps rows crisp in y.
         constexpr sampler s(filter::linear, address::clamp_to_edge);
         return tex.sample(s, float2(in.uv.x, (floor(row) + 0.5) / u.ringHeight));
     }
