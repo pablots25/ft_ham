@@ -127,6 +127,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     internal var watchAlertThrottle = WatchAlertThrottle()
     /// Parsed `watchedCallsignsStorage`, rebuilt only when the string changes.
     internal var watchListCache = (storage: "", list: WatchList())
+    /// Keeps a repeating audio error from showing the same toast every slot.
+    internal var audioErrorToastThrottle = RepeatThrottle(interval: 10)
 
     // MARK: - CAT (uses protocol-based dependency injection)
     internal let catController = PremiumFeatures.catController
@@ -538,6 +540,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         
         setupLogbook()
         setupAudioSubscriptions()
+        setupAudioErrorSubscription()
         setupQSOSubscriptions()
         setupMessageRefreshSubscriptions()
         setupPreviewData()
@@ -649,6 +652,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         ])
         .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
         .sink { [weak self] _ in
+            // Onboarding writes the callsign and locator straight to
+            // UserDefaults, which skips the property observers above.
+            self?.syncSettingsLoaded()
             self?.refreshMessagesIfNeeded(reason: "message-relevant state changed")
         }
         .store(in: &cancellables)

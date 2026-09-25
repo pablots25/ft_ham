@@ -178,7 +178,7 @@ struct WaterfallView: View {
         ft8ViewModel.frequency = target
         cursorX = viewModel.xPosition(for: target, in: width)
         cursorFrequency = target
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.light()
         ft8ViewModel.toast = .info(String(localized: "TX frequency set to \(Int(target)) Hz"), duration: 2)
     }
 
@@ -225,7 +225,7 @@ struct WaterfallView: View {
     @discardableResult
     private func replyToLabel(at point: CGPoint, in size: CGSize) -> Bool {
         guard let message = replyableMessage(at: point, in: size) else { return false }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.medium()
         ft8ViewModel.reply(to: message)
         return true
     }

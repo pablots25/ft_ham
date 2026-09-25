@@ -41,7 +41,7 @@ final class CallAlertService: CallAlerting {
             }
         }
         if haptic {
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            Haptics.warning()
         }
         if notification {
             NotificationHelper.sendCallAlertNotification(

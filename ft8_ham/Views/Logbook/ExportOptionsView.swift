@@ -294,7 +294,7 @@ struct ExportOptionsView: View {
             isExporting = false
             showingShareSheet = true
             
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            Haptics.success()
             
             // Save timestamp of successful export
             lastExportTimestamp = Date().timeIntervalSince1970

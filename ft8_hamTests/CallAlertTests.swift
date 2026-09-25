@@ -110,6 +110,17 @@ final class CallAlertSoundRouteTests: XCTestCase {
         XCTAssertTrue(CallAlertService.isSafeRouteForAlertSound([.bluetoothA2DP]))
     }
 
+    func test_receiverAndAllBluetoothProfilesAreSafe() {
+        XCTAssertTrue(CallAlertService.isSafeRouteForAlertSound([.builtInReceiver]))
+        XCTAssertTrue(CallAlertService.isSafeRouteForAlertSound([.bluetoothHFP]))
+        XCTAssertTrue(CallAlertService.isSafeRouteForAlertSound([.bluetoothLE]))
+    }
+
+    func test_otherRoutesAreNotSafe() {
+        XCTAssertFalse(CallAlertService.isSafeRouteForAlertSound([.airPlay]))
+        XCTAssertFalse(CallAlertService.isSafeRouteForAlertSound([.carAudio]))
+    }
+
     func test_radioInterfacesAreNotSafe() {
         XCTAssertFalse(CallAlertService.isSafeRouteForAlertSound([.usbAudio]))
         XCTAssertFalse(CallAlertService.isSafeRouteForAlertSound([.lineOut]))
@@ -249,6 +260,36 @@ final class CallAlertViewModelTests: XCTestCase {
         await decode(["EA1AAA DL2XYZ JO62"])
 
         XCTAssertEqual(alerter.calls.count, 1)
+    }
+
+    func test_alert_firesAfterCompletedOrTimedOutQSO() async {
+        viewModel.callAlertHaptic = true
+        viewModel.qsoManager.qsoState = .completed(dxCallsign: "F4ABC")
+        await decode(["EA1AAA DL2XYZ JO62"])
+        XCTAssertEqual(alerter.calls.count, 1)
+
+        viewModel.qsoManager.qsoState = .timeout(dxCallsign: "F4ABC")
+        await decode(["EA1AAA G0ABC IO91"])
+        XCTAssertEqual(alerter.calls.count, 2)
+    }
+
+    func test_alert_whenOurCQIsAnsweredWithAutoReplyOn() async {
+        viewModel.callAlertHaptic = true
+        viewModel.autoSequencingEnabled = true
+        viewModel.autoCQReplyEnabled = true
+        viewModel.qsoManager.qsoState = .callingCQ
+
+        await decode(["EA1AAA DL2XYZ JO62"])
+
+        XCTAssertEqual(alerter.calls.count, 1)
+        XCTAssertEqual(alerter.calls.first?.kind, .callingMe)
+    }
+
+    func test_noAlert_forOurOwnEchoInSlot() async {
+        viewModel.callAlertHaptic = true
+        let echo = FT8Message(text: "EA1AAA DL2XYZ JO62", mode: .ft8, isTX: true)
+        await viewModel.applyBatchUpdates(.test(messages: [echo]), slotIndex: nil)
+        XCTAssertTrue(alerter.calls.isEmpty)
     }
 
     func test_alert_soundHeldBackWhileTransmitting() async {

@@ -181,6 +181,11 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .navigateToConfiguration)) { _ in
                 selectedTab = 4
             }
+            // Deferred a run loop turn: `@Published` emits before the value is
+            // stored, so `consume()` would still read the old one.
+            .onReceive(TabRouter.shared.$pendingTab.compactMap { $0 }.receive(on: RunLoop.main)) { _ in
+                if let tab = TabRouter.shared.consume() { selectedTab = tab.rawValue }
+            }
 
             .onAppear {
                 AnalyticsManager.shared.trackScreen(.home)

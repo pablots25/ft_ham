@@ -75,6 +75,7 @@ private extension AppDelegate {
     func configureNotifications() {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
+        NotificationHelper.registerCategories()
     }
 }
 
@@ -86,7 +87,25 @@ extension AppDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound])
+        completionHandler(NotificationHelper.foregroundPresentationOptions(
+            identifier: notification.request.identifier,
+            categoryIdentifier: notification.request.content.categoryIdentifier
+        ))
+    }
+
+    func userNotificationCenter(
+        _: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let opensLogbook = NotificationHelper.opensLogbook(
+            actionIdentifier: response.actionIdentifier,
+            categoryIdentifier: response.notification.request.content.categoryIdentifier
+        )
+        Task { @MainActor in
+            if opensLogbook { TabRouter.shared.open(.logbook) }
+            completionHandler()
+        }
     }
 }
 
@@ -146,6 +165,7 @@ struct ft8_hamApp: App {
                 }
             case .active:
                 NotificationHelper.cancelSequencerPausedNotification()
+                NotificationHelper.clearBadge()
                 Task { await ClockSyncManager.shared.syncNow() }
                 Task {
                     await CloudLogbookSyncManager.shared.pull()
