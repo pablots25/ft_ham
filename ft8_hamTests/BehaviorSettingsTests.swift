@@ -2,7 +2,7 @@
 //  BehaviorSettingsTests.swift
 //  ft8_hamTests
 //
-//  Created by GitHub Copilot on 04/04/26.
+//  Created by Pablo Turrion on 04/04/26.
 //
 
 import XCTest

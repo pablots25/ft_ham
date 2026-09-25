@@ -155,7 +155,14 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @Published var logbookLoadError: String?
     
     @Published var isListening = false
-    @Published var isTransmitting = false
+    @Published var isTransmitting = false {
+        didSet {
+            guard isTransmitting != oldValue else { return }
+            // The waterfall greys out the rows we spend transmitting and
+            // marks the slot as ours.
+            waterfallVM.setTransmitting(isTransmitting)
+        }
+    }
     @Published var transmitLoopActive = false
     /// Forwarded to `rootState` so only the root toast host observes it.
     var toast: ToastMessage? {

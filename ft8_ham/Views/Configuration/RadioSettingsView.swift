@@ -132,7 +132,7 @@ struct RadioSettingsContent: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     if let error = clockSync.lastError {
-                        Text("Clock sync failed; using the device clock")
+                        Text("Clock sync failed, using the device clock")
                             .foregroundStyle(.orange)
                         Text(error)
                             .font(.caption2)

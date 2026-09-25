@@ -112,7 +112,7 @@ final class HeardMeStore: ObservableObject {
             lastError = nil
         } catch PSKReporterRetrieveError.rateLimited {
             currentInterval = min(currentInterval * 2, Self.maxInterval)
-            lastError = String(localized: "PSK Reporter is busy; trying again later")
+            lastError = String(localized: "PSK Reporter is busy, trying again later")
         } catch {
             lastError = String(describing: error)
         }

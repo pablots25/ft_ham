@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-/// Colour scales for the waterfall. Each maps a level in 0…1 (bottom of the
-/// colour window to its top) to a colour; `lookupTable` bakes it into 256
+/// Color scales for the waterfall. Each maps a level in 0…1 (bottom of the
+/// color window to its top) to a color; `lookupTable` bakes it into 256
 /// BGRA entries for the row painter.
 enum WaterfallPalette: String, CaseIterable, Identifiable, Sendable {
     /// Dark blue floor, cyan and white signals: the classic digital-mode look.
@@ -36,7 +36,7 @@ enum WaterfallPalette: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Colour stops as (position 0…1, r, g, b) with channels in 0…255.
+    /// Color stops as (position 0…1, r, g, b) with channels in 0…255.
     private var stops: [(Double, Double, Double, Double)] {
         switch self {
         case .blue:
@@ -56,7 +56,7 @@ enum WaterfallPalette: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The colour at `level` (clamped to 0…1) as 0…255 channels.
+    /// The color at `level` (clamped to 0…1) as 0…255 channels.
     func rgb(at level: Double) -> (r: Double, g: Double, b: Double) {
         let t = min(max(level, 0), 1)
         let s = stops

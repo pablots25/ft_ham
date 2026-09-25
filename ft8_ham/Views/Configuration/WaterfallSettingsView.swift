@@ -16,7 +16,7 @@ struct WaterfallSettingsContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Colour")
+            Text("Color")
                 .font(.headline)
 
             paletteView
@@ -66,7 +66,7 @@ struct WaterfallSettingsContent: View {
                 format: { String(format: "%.0f dB range", $0) }
             )
 
-            Text("Zero is where the darkest colour starts; Gain is how many dB the scale covers. Lower the gain to make weak signals stand out, raise it if strong ones saturate.")
+            Text("Zero is where the darkest color starts. Gain is how many dB the scale covers. Lower the gain to make weak signals stand out, raise it if strong ones saturate.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 

@@ -119,7 +119,7 @@ private static func resolve(_ upperCall: String, original callsign: String) -> C
     }
 
     // A compound call is looked up through its modifier: "I/VE6XAD" is worked
-    // as Italy, not Canada. Anything the parser does not recognise (a partially
+    // as Italy, not Canada. Anything the parser does not recognize (a partially
     // decoded call, say) falls back to the raw text, unchanged from before.
     let lookupCall = CompoundCallsign.fromDecodedToken(upperCall)?.countryLookupToken ?? upperCall
 

@@ -90,7 +90,7 @@ enum HelpTip: Identifiable {
         case .waterfallPalette:
             return String(
                 localized: "Waterfall palette help",
-                defaultValue: "Colour scale of the waterfall. Blue keeps the noise dark and shows signals in cyan and white; Classic is the scale earlier versions used."
+                defaultValue: "Color scale of the waterfall. Blue keeps the noise dark and shows signals in cyan and white. Classic is the scale earlier versions used."
             )
         case .waterfallFlatten:
             return String(
@@ -100,7 +100,7 @@ enum HelpTip: Identifiable {
         case .waterfallLevel:
             return String(
                 localized: "Waterfall level help",
-                defaultValue: "Auto level follows the noise floor so the display looks the same with a microphone or a sound card. Zero sets where the darkest colour starts below the noise; Gain sets how many dB the colour scale spans."
+                defaultValue: "Auto level follows the noise floor so the display looks the same with a microphone or a sound card. Zero sets where the darkest color starts below the noise. Gain sets how many dB the color scale spans."
             )
         }
     }

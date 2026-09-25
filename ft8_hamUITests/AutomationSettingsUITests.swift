@@ -2,7 +2,7 @@
 //  AutomationSettingsUITests.swift
 //  ft8_hamUITests
 //
-//  Created by GitHub Copilot on 04/04/26.
+//  Created by Pablo Turrion on 04/04/26.
 //
 
 import XCTest

@@ -2,7 +2,7 @@
 //  DonationPremiumPromptView.swift
 //  ft_ham
 //
-//  Created by GitHub Copilot on 6/4/26.
+//  Created by Pablo Turrion on 6/4/26.
 //
 
 import SwiftUI
@@ -25,7 +25,7 @@ struct DonationPremiumPromptView: View {
                     .bold()
                     .multilineTextAlignment(.center)
 
-                Text("As a donor, you now have full access to all premium features — at no extra cost.\n\nYour contribution helps keep FT Ham growing. 73!")
+                Text("As a donor, you now have full access to all premium features, at no extra cost.\n\nYour contribution helps keep FT Ham growing. 73!")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -38,7 +38,7 @@ struct DonationPremiumPromptView: View {
                 premiumManager.didShowDonationPremiumPrompt = true
                 dismiss()
             } label: {
-                Text("Got It!")
+                Text("Got it")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)

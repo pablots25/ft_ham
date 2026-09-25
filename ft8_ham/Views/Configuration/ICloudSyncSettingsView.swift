@@ -42,7 +42,7 @@ struct ICloudSyncSettingsView: View {
 
                 Divider()
 
-                Text("Your QSOs are stored in your own private iCloud database. Nobody else can read them, and they do not count towards the app's servers — only your iCloud storage.")
+                Text("Your QSOs are stored in your own private iCloud database. Nobody else can read them, and they do not count towards the app's servers, only your iCloud storage.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

@@ -62,7 +62,7 @@ struct FreeTextTXView: View {
                 } header: {
                     Text("Free Text")
                 } footer: {
-                    Text("Up to 13 characters: letters, digits, space and + - . / ?. Sent as-is on every one of your slots until you stop it. A free-text message does not carry your callsign — identify yourself regularly.")
+                    Text("Up to 13 characters: letters, digits, space and + - . / ?. Sent as-is on every one of your slots until you stop it. A free-text message does not carry your callsign, so identify yourself regularly.")
                 }
 
                 Section {

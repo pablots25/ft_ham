@@ -550,10 +550,10 @@ struct ClockOffsetChip: View {
 
     private var helpText: String {
         if clockSync.lastError != nil {
-            return String(localized: "Clock sync failed; using the device clock")
+            return String(localized: "Clock sync failed, using the device clock")
         }
         return String(
-            format: String(localized: "Device clock is off by %@ s; FT8 needs less than 1 s"),
+            format: String(localized: "Device clock is off by %@ s. FT8 needs less than 1 s"),
             String(format: "%+.2f", clockSync.offset)
         )
     }

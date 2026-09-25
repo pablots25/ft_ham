@@ -38,7 +38,7 @@ struct CallsignFieldView: View {
         }
         // Looks like an 11 m call but the operator has not opted in.
         if !isElevenMeterEnabled && CompoundCallsign.isElevenMeterFormat(text) {
-            return "This looks like an 11 m / CB callsign. Turn on “11 m / CB callsign” below to use it."
+            return "This looks like an 11 m / CB callsign. Turn on \"11 m / CB callsign\" below to use it."
         }
         return "Enter a valid callsign (e.g. EA4IQL)"
     }
@@ -89,7 +89,7 @@ struct CallsignFieldView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             } else if isElevenMeterCallsign {
-                Text("11 m / CB callsign — not a standard FT8/FT4 amateur callsign. It is sent as a non-standard callsign, and FT8/FT4 on the 11 m band may not be permitted where you operate.")
+                Text("This is not a standard FT8/FT4 amateur callsign. It is sent as a non-standard callsign, and FT8/FT4 on the 11 m band may not be permitted where you operate.")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             } else {

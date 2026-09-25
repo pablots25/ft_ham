@@ -27,7 +27,7 @@ struct MessageColorLegendView: View {
                     legendRow(fill: .orange.opacity(0.2), stroke: .orange,
                               label: "Message directed to you (signal report)")
                     legendRow(fill: .purple.opacity(0.2), stroke: .purple,
-                              label: "Final exchange \u{2014} RR73 / RRR / 73")
+                              label: "Final exchange: RR73 / RRR / 73")
                     legendRow(fill: .gray.opacity(0.2), stroke: .gray,
                               label: "Unknown message type")
                     HStack(spacing: 14) {
@@ -80,7 +80,7 @@ struct MessageColorLegendView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("My messages + CQ calls")
                                 .font(.subheadline)
-                            Text("Shows messages involving you, your own transmissions, and all CQ calls — useful for monitoring new contacts while keeping noise down.")
+                            Text("Shows messages involving you, your own transmissions, and all CQ calls. Useful for monitoring new contacts while keeping noise down.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

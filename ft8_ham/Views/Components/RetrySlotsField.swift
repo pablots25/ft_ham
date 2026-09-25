@@ -2,7 +2,7 @@
 //  RetrySlotsField.swift
 //  ft_ham
 //
-//  Created by GitHub Copilot on 03/04/26.
+//  Created by Pablo Turrion on 03/04/26.
 //
 
 import SwiftUI

@@ -83,7 +83,7 @@ struct LogbookImportView: View {
                         Text("Preview")
                     } footer: {
                         if previewEntries.isEmpty {
-                            Text("Nothing new to import — all records are duplicates.")
+                            Text("Nothing new to import. All records are duplicates.")
                         }
                     }
 

@@ -77,7 +77,7 @@ struct PremiumPaywallView: View {
                 Text(errorMessage)
             }
             .alert("🎉 Welcome to Premium!", isPresented: $showPurchaseSuccess) {
-                Button("Let's Go!") { dismiss() }
+                Button("Let's Go") { dismiss() }
             } message: {
                 Text("All premium features are now unlocked. Thank you for your support!")
             }

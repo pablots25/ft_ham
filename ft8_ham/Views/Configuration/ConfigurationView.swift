@@ -398,7 +398,7 @@ struct ConfigurationView: View {
             .init(.waterfall,
                   title: String(localized: "Waterfall"),
                   systemImage: "waveform",
-                  keywords: ["waterfall", "spectrum", "palette", "colour", "color",
+                  keywords: ["waterfall", "spectrum", "palette", "color", "colour",
                              "gain", "zero", "level", "flatten", "noise"]),
             .init(.reporting,
                   title: String(localized: "Reporting"),

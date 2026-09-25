@@ -2,7 +2,7 @@
 //  QSOEditView.swift
 //  ft_ham
 //
-//  Created by GitHub Copilot on 6/4/26.
+//  Created by Pablo Turrion on 6/4/26.
 //
 
 import SwiftUI

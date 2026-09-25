@@ -7,22 +7,22 @@
 
 import Foundation
 
-/// How the waterfall levels and colours its rows. Edited from the Waterfall
+/// How the waterfall levels and colors its rows. Edited from the Waterfall
 /// settings screen, persisted in UserDefaults, applied by the view model.
 struct WaterfallDisplaySettings: Equatable, Sendable {
     var palette: WaterfallPalette = .default
     /// Remove the passband's shape so the noise reads level across the band.
     var flatten: Bool = true
-    /// Track the noise floor and keep the colour window on it; the built-in
+    /// Track the noise floor and keep the color window on it; the built-in
     /// mic and a line-level sound card differ by tens of dB, and no single
     /// fixed window suits both.
     var autoLevel: Bool = true
-    /// Auto: how far below the tracked floor the bottom colour starts.
-    /// Manual: the level, in dB, that maps to the bottom colour (relative
+    /// Auto: how far below the tracked floor the bottom color starts.
+    /// Manual: the level, in dB, that maps to the bottom color (relative
     /// to the noise once flattened; absolute in ft8_lib's scale otherwise).
     var zeroDB: Float = 6
     var manualFloorDB: Float = -6
-    /// dB from the bottom colour to the top one.
+    /// dB from the bottom color to the top one.
     var gainDB: Float = 40
 
     static let zeroRange: ClosedRange<Float> = 0 ... 20

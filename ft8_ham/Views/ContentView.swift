@@ -444,7 +444,7 @@ struct ContentView: View {
         }
 
         // MARK: - Pane Picker
-        // The message-colour legend is reachable from the column header inside
+        // The message-color legend is reachable from the column header inside
         // SeparatedTransmissionView, so no info button is repeated here.
         private var panePicker: some View {
             Picker("Pane", selection: $selectedPane) {

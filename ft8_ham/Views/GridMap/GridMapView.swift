@@ -538,7 +538,7 @@ enum MaidenheadGrid {
         return locator
     }
 
-    /// Centre of a 4- or 6-character Maidenhead locator; nil when malformed.
+    /// Center of a 4- or 6-character Maidenhead locator; nil when malformed.
     static func center(for locator: String) -> CLLocationCoordinate2D? {
         guard let corners = gridPolygon(for: locator), corners.count == 4 else { return nil }
         let lat = corners.map(\.latitude).reduce(0, +) / 4

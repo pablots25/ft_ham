@@ -52,7 +52,7 @@ enum PremiumFeature: String, CaseIterable {
 
     var paywallDescription: String {
         switch self {
-        case .iPadDashboard: return "Multitask with a layout optimised for iPad"
+        case .iPadDashboard: return "Multitask with a layout optimized for iPad"
         case .pskReporter: return "See in real-time where your signals are received by others"
         case .catControl: return "Control your radio over the network via CAT/UDP"
         case .qrzLogbook: return "Sync QSOs to your QRZ.com logbook automatically"

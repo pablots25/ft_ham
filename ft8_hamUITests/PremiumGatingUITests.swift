@@ -2,7 +2,7 @@
 //  PremiumGatingUITests.swift
 //  ft8_hamUITests
 //
-//  Created by GitHub Copilot on 05/04/26.
+//  Created by Pablo Turrion on 05/04/26.
 //
 
 import XCTest

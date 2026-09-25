@@ -8,7 +8,7 @@
 import Foundation
 
 /// A decoded message as the waterfall shows it: the text, where it was, and
-/// what it means to the operator (which decides its colour).
+/// what it means to the operator (which decides its color).
 struct WaterfallLabel: Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         /// Addressed to, or from a QSO with, our own callsign.

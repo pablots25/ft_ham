@@ -2,7 +2,7 @@
 //  StatisticsEngine.swift
 //  ft_ham
 //
-//  Created by Copilot on 13/04/26.
+//  Created by Pablo Turrion on 13/04/26.
 //
 
 import Foundation

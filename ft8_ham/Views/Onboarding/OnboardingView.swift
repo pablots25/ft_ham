@@ -230,7 +230,7 @@ struct OnboardingView: View {
     //
     // These pages explain WHY the permission is needed.
     // Tapping "Continue" fires the real iOS system permission dialog.
-    // Tapping "Not Now" skips the OS dialog and advances without requesting.
+    // Tapping "Not now" skips the OS dialog and advances without requesting.
     @ViewBuilder
     private func permissionPage(for step: InitialPermissionStep) -> some View {
         VStack(spacing: 24) {
@@ -278,8 +278,8 @@ struct OnboardingView: View {
                 .controlSize(.large)
                 .disabled(permissionInProgress)
                 
-                // "Not Now" skips the OS dialog for this step.
-                Button("Not Now") {
+                // "Not now" skips the OS dialog for this step.
+                Button("Not now") {
                     advancePage()
                 }
                 .foregroundStyle(.secondary)
