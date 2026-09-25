@@ -225,6 +225,41 @@
         }
       }
     },
+    "Active QSO" : {
+      "comment" : "Legend and color setting label for the bar marking rows of the station you are in a QSO with.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktives QSO"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active QSO"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO activo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO actif"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO attivo"
+          }
+        }
+      }
+    },
     "Add" : {
       "comment" : "Button: add the typed callsign to the watchlist.",
       "localizations" : {
@@ -533,6 +568,41 @@
         }
       }
     },
+    "Gestures" : {
+      "comment" : "Waterfall settings section heading.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestures"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestes"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesti"
+          }
+        }
+      }
+    },
     "Highlight calls to me" : {
       "comment" : "Toggle label: tint and bold decoded messages that call the operator's callsign.",
       "localizations" : {
@@ -684,6 +754,461 @@
         }
       }
     },
+    "qso_peer_unknown" : {
+      "comment" : "QSO status placeholder when the other station is not known.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "die Gegenstation"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "the other station"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "la otra estación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "l’autre station"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "l’altra stazione"
+          }
+        }
+      }
+    },
+    "qso_state_calling_cq" : {
+      "comment" : "QSO status. The app is calling CQ.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rufe CQ…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calling CQ…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llamando CQ…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel CQ…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiamata CQ…"
+          }
+        }
+      }
+    },
+    "qso_state_completed" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO mit %@ abgeschlossen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO with %@ complete"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO con %@ completado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO avec %@ terminé"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO con %@ completato"
+          }
+        }
+      }
+    },
+    "qso_state_idle" : {
+      "comment" : "QSO status. No contact is in progress.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Kontakt begonnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No contact started"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún contacto iniciado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun contact en cours"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun contatto avviato"
+          }
+        }
+      }
+    },
+    "qso_state_listening_r_report" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warte auf RRR oder RR73 von %@…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for RRR or RR73 from %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando RRR o RR73 de %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente de RRR ou RR73 de %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In attesa di RRR o RR73 da %@…"
+          }
+        }
+      }
+    },
+    "qso_state_listening_report" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warte auf Signalrapport von %@…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a signal report from %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando reporte de señal de %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente du report de signal de %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In attesa del rapporto del segnale da %@…"
+          }
+        }
+      }
+    },
+    "qso_state_listening_rrr" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warte auf 73 von %@…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for 73 from %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando 73 de %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente du 73 de %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In attesa del 73 da %@…"
+          }
+        }
+      }
+    },
+    "qso_state_sending_73" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sende 73 an %@…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending 73 to %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando 73 a %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi du 73 à %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invio 73 a %@…"
+          }
+        }
+      }
+    },
+    "qso_state_sending_grid" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sende Locator an %@…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending grid to %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando locator a %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi du locator à %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invio locator a %@…"
+          }
+        }
+      }
+    },
+    "qso_state_sending_r_report" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sende R-Rapport an %@…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending R report to %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando reporte R a %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi du report R à %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invio rapporto R a %@…"
+          }
+        }
+      }
+    },
+    "qso_state_sending_report" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sende Signalrapport an %@…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending signal report to %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando reporte de señal a %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi du report de signal à %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invio rapporto del segnale a %@…"
+          }
+        }
+      }
+    },
+    "qso_state_sending_rrr" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sende RRR an %@…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending RRR to %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando RRR a %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoi de RRR à %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invio RRR a %@…"
+          }
+        }
+      }
+    },
+    "qso_state_timeout" : {
+      "comment" : "QSO status. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Antwort von %@, Wiederholungen aufgebraucht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reply from %@, retries used up"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin respuesta de %@, reintentos agotados"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas de réponse de %@, essais épuisés"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna risposta da %@, tentativi esauriti"
+          }
+        }
+      }
+    },
     "Received CQ from a station not yet in your log" : {
       "comment" : "Color legend and color setting: CQ from a station never worked.",
       "localizations" : {
@@ -742,6 +1267,76 @@
         }
       }
     },
+    "Reply" : {
+      "comment" : "Swipe action that replies to a decoded message.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antworten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reply"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Responder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Répondre"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rispondi"
+          }
+        }
+      }
+    },
+    "Replying to %@" : {
+      "comment" : "Toast shown when the operator replies to a station. The argument is the callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antworte %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replying to %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respondiendo a %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réponse à %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Risposta a %@"
+          }
+        }
+      }
+    },
     "Reset colors" : {
       "comment" : "Button: restore the default message row colors.",
       "localizations" : {
@@ -767,6 +1362,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ripristina i colori"
+          }
+        }
+      }
+    },
+    "Review QSO" : {
+      "comment" : "Notification action that opens the logbook.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSO ansehen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review QSO"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisar QSO"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir le QSO"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rivedi QSO"
           }
         }
       }
@@ -825,6 +1455,76 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stazioni da individuare nella lista RX, come una DXpedition. I loro messaggi hanno un colore proprio e una stella."
+          }
+        }
+      }
+    },
+    "Tap a signal to reply" : {
+      "comment" : "Waterfall settings toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signal antippen zum Antworten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a signal to reply"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar una señal para responder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toucher un signal pour répondre"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocca un segnale per rispondere"
+          }
+        }
+      }
+    },
+    "The sound stays muted when audio goes to a USB or line interface, so it never reaches the radio." : {
+      "comment" : "Footnote in the callsign alert settings.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Ton bleibt stumm, wenn das Audio über eine USB- oder Line-Schnittstelle läuft, damit er nie das Funkgerät erreicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sound stays muted when audio goes to a USB or line interface, so it never reaches the radio."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El sonido se silencia cuando el audio sale por una interfaz USB o de línea, así nunca llega a la radio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le son reste coupé quand l’audio passe par une interface USB ou ligne, pour qu’il n’atteigne jamais la radio."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il suono resta disattivato quando l’audio passa da un’interfaccia USB o di linea, così non arriva mai alla radio."
           }
         }
       }
@@ -951,6 +1651,76 @@
         }
       }
     },
+    "Waterfall tap to reply help" : {
+      "comment" : "Help text for the waterfall tap to reply toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Tippen auf die Beschriftung eines dekodierten Signals im Wasserfall antwortet dieser Station. Ob einfaches oder doppeltes Tippen nötig ist, folgt der Einstellung Antwortgeste unter Anzeige. Ein Tippen an anderer Stelle setzt die Sendefrequenz. Halten auf einem Signal antwortet immer."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapping the label of a decoded signal on the waterfall replies to that station. Whether it takes a single or a double tap follows the Reply gesture setting in Display. Tapping anywhere else sets the transmit frequency. Holding a signal always replies."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocar la etiqueta de una señal decodificada en la cascada responde a esa estación. Si hace falta un toque o dos depende del ajuste Gesto de respuesta en Visualización. Tocar en cualquier otro sitio fija la frecuencia de transmisión. Mantener pulsada una señal siempre responde."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toucher l’étiquette d’un signal décodé sur le waterfall répond à cette station. Un toucher simple ou double selon le réglage Geste de réponse dans Affichage. Toucher ailleurs règle la fréquence d’émission. Maintenir le doigt sur un signal répond toujours."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toccare l’etichetta di un segnale decodificato sul waterfall risponde a quella stazione. Tocco singolo o doppio secondo l’impostazione Gesto di risposta in Visualizzazione. Toccare altrove imposta la frequenza di trasmissione. Tenere premuto un segnale risponde sempre."
+          }
+        }
+      }
+    },
+    "With this off, a tap only sets the transmit frequency. Holding a signal still replies." : {
+      "comment" : "Footnote under the waterfall tap to reply toggle.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ist dies aus, setzt ein Tippen nur die Sendefrequenz. Halten auf einem Signal antwortet weiterhin."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With this off, a tap only sets the transmit frequency. Holding a signal still replies."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si está desactivado, un toque solo fija la frecuencia de transmisión. Mantener pulsada una señal sigue respondiendo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désactivé, un toucher règle seulement la fréquence d’émission. Maintenir le doigt sur un signal répond toujours."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se disattivato, un tocco imposta solo la frequenza di trasmissione. Tenere premuto un segnale risponde comunque."
+          }
+        }
+      }
+    },
     "You can change these colors in Settings, under Display." : {
       "comment" : "Footer of the color legend.",
       "localizations" : {
@@ -976,6 +1746,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Puoi cambiare questi colori in Impostazioni, alla voce Visualizzazione."
+          }
+        }
+      }
+    },
+    "You can skip this and add them later in the Configuration tab." : {
+      "comment" : "Onboarding station step footnote.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du kannst das überspringen und sie später im Tab Konfiguration eintragen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can skip this and add them later in the Configuration tab."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes saltarte este paso y añadirlos más tarde en la pestaña Configuración."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous pouvez passer cette étape et les ajouter plus tard dans l’onglet Configuration."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puoi saltare questo passaggio e aggiungerli più tardi nella scheda Configurazione."
           }
         }
       }
@@ -9416,42 +10221,6 @@
         }
       }
     },
-    "iCloud account available" : {
-      "comment" : "iCloud settings status.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iCloud-Konto verfügbar"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iCloud account available"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cuenta de iCloud disponible"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compte iCloud disponible"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Account iCloud disponibile"
-          }
-        }
-      }
-    },
     "iCloud is restricted on this device." : {
       "comment" : "iCloud settings status.",
       "extractionState" : "manual",
@@ -13271,41 +14040,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Scorri per continuare →"
-          }
-        }
-      }
-    },
-    "onb_station_text1" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lege vor dem Senden Rufzeichen und Grid-Locator in den Einstellungen fest."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Before transmitting, set your callsign and grid locator in Settings."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antes de transmitir, configura tu indicativo y tu locator en Ajustes."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avant de transmettre, définissez votre indicatif et votre locator dans Réglages."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prima di trasmettere, imposta nominativo e locator nelle Impostazioni."
           }
         }
       }

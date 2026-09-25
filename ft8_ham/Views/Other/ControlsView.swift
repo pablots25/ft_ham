@@ -494,7 +494,7 @@ struct QSOStatusView: View {
                 
                 // Status + (x/y)
                 HStack(spacing: 4) {
-                    Text(viewModel.qsoManager.qsoState.description)
+                    Text(viewModel.qsoManager.qsoState.localizedStatus)
                         .foregroundStyle(statusColor)
                         .lineLimit(density == .compact ? 1 : 2)
                         .minimumScaleFactor(0.5)
