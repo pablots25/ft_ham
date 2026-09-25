@@ -28,7 +28,7 @@ final class LogSyncManagerTests: XCTestCase {
     override func tearDown() async throws {
         // Remove UserDefaults keys written during tests.
         for key in ["qrzAutoUpload", "lotwAutoUpload", "eqslAutoUpload",
-                    "qrzConfirmationIntervalHours",
+                    "qrzConfirmationIntervalHours", "lotwConfirmationIntervalHours",
                     "pendingQRZIDs", "pendingLoTWIDs", "pendingEQSLIDs"] {
             UserDefaults.standard.removeObject(forKey: key)
         }
@@ -395,6 +395,8 @@ final class LogSyncManagerTests: XCTestCase {
 
     func testCheckConfirmations_CallsFetchOnAllServices() async throws {
         UserDefaults.standard.set(3, forKey: "qrzConfirmationIntervalHours")
+        // LoTW has its own interval setting.
+        UserDefaults.standard.set(3, forKey: "lotwConfirmationIntervalHours")
 
         manager.checkConfirmations()
         try await Task.sleep(for: .milliseconds(100))

@@ -43,10 +43,36 @@ final class LogSyncManager: ObservableObject {
     private var qrzAutoUpload: Bool { UserDefaults.standard.bool(forKey: "qrzAutoUpload") }
     private var lotwAutoUpload: Bool { UserDefaults.standard.bool(forKey: "lotwAutoUpload") }
     private var eqslAutoUpload: Bool { UserDefaults.standard.bool(forKey: "eqslAutoUpload") }
-    private var confirmIntervalHours: Int {
-        let v = UserDefaults.standard.integer(forKey: "qrzConfirmationIntervalHours")
-        return v > 0 ? v : 6
+
+    /// Services that poll for confirmations on their own schedule.
+    enum ConfirmationService {
+        case qrz
+        case lotw
+
+        /// UserDefaults key backing the `@AppStorage` setting in `FT8ViewModel`.
+        var intervalKey: String {
+            switch self {
+            case .qrz:  return "qrzConfirmationIntervalHours"
+            case .lotw: return "lotwConfirmationIntervalHours"
+            }
+        }
     }
+
+    /// Hours used when a confirmation interval setting is unset or invalid.
+    nonisolated static let defaultConfirmationIntervalHours = 6
+
+    /// Polling interval (and look-back window) for a service's confirmations.
+    /// eQSL has no setting of its own and follows the QRZ interval.
+    nonisolated static func confirmationIntervalHours(
+        for service: ConfirmationService,
+        defaults: UserDefaults = .standard
+    ) -> Int {
+        let v = defaults.integer(forKey: service.intervalKey)
+        return v > 0 ? v : defaultConfirmationIntervalHours
+    }
+
+    private var qrzConfirmIntervalHours: Int { Self.confirmationIntervalHours(for: .qrz) }
+    private var lotwConfirmIntervalHours: Int { Self.confirmationIntervalHours(for: .lotw) }
 
     // MARK: - Pending upload queue (indexed by LogEntry.id string)
     @Published private(set) var pendingQRZIDs: Set<String> = []
@@ -57,7 +83,8 @@ final class LogSyncManager: ObservableObject {
     @Published private(set) var totalPendingCount: Int = 0
 
     private let logger = AppLogger(category: "SYNC")
-    private var confirmationTimer: Task<Void, Never>?
+    private var qrzConfirmationTimer: Task<Void, Never>?
+    private var lotwConfirmationTimer: Task<Void, Never>?
 
     private init() {
         loadPendingIDs()
@@ -80,7 +107,8 @@ final class LogSyncManager: ObservableObject {
     }
 
     deinit {
-        confirmationTimer?.cancel()
+        qrzConfirmationTimer?.cancel()
+        lotwConfirmationTimer?.cancel()
     }
 
     // MARK: - Public: Called after a QSO is logged
@@ -180,14 +208,28 @@ final class LogSyncManager: ObservableObject {
         }
     }
 
-    /// Trigger a confirmation check on demand.
+    /// Trigger a confirmation check on demand for every service.
     func checkConfirmations() {
-        let since = Date(timeIntervalSinceNow: -Double(confirmIntervalHours) * 3600)
+        checkQRZAndEQSLConfirmations()
+        checkLoTWConfirmations()
+    }
+
+    /// QRZ and eQSL look back over the QRZ confirmation interval.
+    private func checkQRZAndEQSLConfirmations() {
+        let since = Date(timeIntervalSinceNow: -Double(qrzConfirmIntervalHours) * 3600)
         Task {
             _ = await qrzService.fetchConfirmations(since: since)
-            _ = await lotwService.fetchConfirmations(since: since)
             _ = await eqslService.fetchConfirmations(since: since)
-            logger.info("Confirmation check completed")
+            logger.info("QRZ and eQSL confirmation check completed")
+        }
+    }
+
+    /// LoTW looks back over its own confirmation interval.
+    private func checkLoTWConfirmations() {
+        let since = Date(timeIntervalSinceNow: -Double(lotwConfirmIntervalHours) * 3600)
+        Task {
+            _ = await lotwService.fetchConfirmations(since: since)
+            logger.info("LoTW confirmation check completed")
         }
     }
 
@@ -279,13 +321,24 @@ final class LogSyncManager: ObservableObject {
     // MARK: - Private: Confirmation timer
 
     private func startConfirmationTimer() {
-        confirmationTimer?.cancel()
-        confirmationTimer = Task {
+        // Each service polls on its own user-configured interval.
+        qrzConfirmationTimer?.cancel()
+        qrzConfirmationTimer = Task {
             while !Task.isCancelled {
-                let intervalSeconds = Double(confirmIntervalHours) * 3600
+                let intervalSeconds = Double(qrzConfirmIntervalHours) * 3600
                 try? await Task.sleep(for: .seconds(intervalSeconds))
                 guard !Task.isCancelled else { break }
-                checkConfirmations()
+                checkQRZAndEQSLConfirmations()
+            }
+        }
+
+        lotwConfirmationTimer?.cancel()
+        lotwConfirmationTimer = Task {
+            while !Task.isCancelled {
+                let intervalSeconds = Double(lotwConfirmIntervalHours) * 3600
+                try? await Task.sleep(for: .seconds(intervalSeconds))
+                guard !Task.isCancelled else { break }
+                checkLoTWConfirmations()
             }
         }
     }
