@@ -20,14 +20,16 @@ struct OnboardingView: View {
     @State private var showTermsSafari = false
     @State private var showPrivacySafari = false
     
-    private let contentPageCount = 10
-    // After content pages: 1 terms page + permission pages + 1 finish page
+    private let contentPageCount = 9
+    // After content pages: 1 terms page + 1 station page + permission pages + 1 finish page
     private var permissionSteps: [InitialPermissionStep] {
         [.location, .notifications, .microphone]
     }
     
     private var termsPageIndex: Int { contentPageCount }
-    private var finishPageIndex: Int { contentPageCount + 1 + permissionSteps.count }
+    private var stationPageIndex: Int { contentPageCount + 1 }
+    private var firstPermissionPageIndex: Int { stationPageIndex + 1 }
+    private var finishPageIndex: Int { firstPermissionPageIndex + permissionSteps.count }
     private var totalPages: Int { finishPageIndex + 1 }
     
     var body: some View {
@@ -66,8 +68,10 @@ struct OnboardingView: View {
             contentPage(for: index)
         } else if index == termsPageIndex {
             termsPage()
+        } else if index == stationPageIndex {
+            OnboardingStationStep(onContinue: advancePage)
         } else if index < finishPageIndex {
-            permissionPage(for: permissionSteps[index - contentPageCount - 1])
+            permissionPage(for: permissionSteps[index - firstPermissionPageIndex])
         } else {
             finishPage()
         }
@@ -142,14 +146,6 @@ struct OnboardingView: View {
                     Text("onb_autosequencing_text1")
                     Text("onb_autosequencing_text2")
                     Text("onb_autosequencing_text3")
-                }
-            }
-        case 9:
-            
-            onboardingPage(image: "person.crop.circle.badge.checkmark", color: .indigo, title: "onb_title_station") {
-                VStack(spacing: 8) {
-                    Text("onb_station_text1")
-                    Text("onb_station_text2")
                 }
             }
         default:
@@ -390,6 +386,115 @@ struct OnboardingView: View {
         withAnimation {
             currentPage = min(currentPage + 1, totalPages - 1)
         }
+    }
+}
+
+// MARK: - Station Step
+
+/// Asks for the callsign and locator with the same fields and validation as
+/// the Station settings screen. Both are optional here: the launch alert in
+/// `ContentView` still points to Configuration when they are missing.
+private struct OnboardingStationStep: View {
+    var onContinue: () -> Void
+
+    @AppStorage("callsign") private var callsign = ""
+    @AppStorage("locator") private var locator = ""
+    @AppStorage("stationCallsignIsElevenMeter") private var isElevenMeter = false
+
+    @State private var callsignText = ""
+    @State private var locatorText = ""
+    @State private var validCallsign = false
+    @State private var validLocator = false
+
+    var body: some View {
+        VStack(spacing: 24) {
+            ScrollView {
+                VStack(spacing: 24) {
+                    Image(systemName: "person.crop.circle.badge.checkmark")
+                        .font(.system(size: 100))
+                        .foregroundStyle(.indigo)
+                        .padding(.top, 40)
+
+                    Text("onb_title_station")
+                        .font(.largeTitle)
+                        .bold()
+
+                    Text("onb_station_text2")
+                        .multilineTextAlignment(.center)
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        CallsignFieldView(
+                            callsignText: $callsignText,
+                            validCallsign: $validCallsign,
+                            isElevenMeterEnabled: isElevenMeter,
+                            onCommit: commitCallsign
+                        )
+
+                        Toggle(isOn: $isElevenMeter) {
+                            Text("11 m / CB callsign")
+                        }
+                        .onChange(of: isElevenMeter) { _ in commitCallsign() }
+
+                        LocatorFieldView(
+                            locatorText: $locatorText,
+                            validLocator: $validLocator,
+                            onCommit: commitLocator
+                        )
+                    }
+
+                    Text("You can skip this and add them later in the Configuration tab.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 32)
+            }
+            .scrollDismissesKeyboard(.interactively)
+
+            VStack(spacing: 12) {
+                Button {
+                    commitCallsign()
+                    commitLocator()
+                    onContinue()
+                } label: {
+                    Text("Continue")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.indigo)
+                .controlSize(.large)
+
+                Button("Not now") {
+                    onContinue()
+                }
+                .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 40)
+            .padding(.bottom, 60)
+        }
+        .onAppear {
+            callsignText = callsign
+            locatorText = locator
+            validCallsign = isValidStationCallsign(callsign, allowElevenMeter: isElevenMeter)
+            validLocator = isValidLocator(locator)
+        }
+    }
+
+    /// Stores the callsign when it passes the Station settings validation.
+    private func commitCallsign() {
+        let text = callsignText.uppercased()
+        callsignText = text
+        validCallsign = isValidStationCallsign(text, allowElevenMeter: isElevenMeter)
+        if validCallsign { callsign = text }
+    }
+
+    /// Stores the 4-character grid when valid, trimmed like Station settings.
+    private func commitLocator() {
+        var text = locatorText.uppercased()
+        text.removeAll(where: { $0.isWhitespace })
+        if text.count > 4 { text = String(text.prefix(4)) }
+        locatorText = text
+        if isValidLocator(text) { locator = text }
     }
 }
 

@@ -60,6 +60,14 @@ struct LegacyConfigurationView: View {
                         } label: {
                             Label("Open CAT settings", systemImage: "dot.radiowaves.left.and.right")
                         }
+
+                        if flags.isEnabled(.enableBandHopping) {
+                            NavigationLink {
+                                BandHopSettingsView(allowedBands: ConfigurationView.bandHopBands)
+                            } label: {
+                                Label("Band Hopping", systemImage: "arrow.triangle.2.circlepath")
+                            }
+                        }
                     } else {
                         Button {
                             showPremium = true
@@ -73,6 +81,21 @@ struct LegacyConfigurationView: View {
                             }
                         }
                         .foregroundStyle(.secondary)
+
+                        if flags.isEnabled(.enableBandHopping) {
+                            Button {
+                                showPremium = true
+                            } label: {
+                                HStack {
+                                    Label("Band Hopping", systemImage: "arrow.triangle.2.circlepath")
+                                    Spacer()
+                                    Image(systemName: "lock.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 #endif
@@ -80,6 +103,14 @@ struct LegacyConfigurationView: View {
                 #if canImport(FTHamPremium)
                 section("Log Syncing") {
                     if premiumManager.isPremiumUnlocked {
+                        if flags.isEnabled(.enableICloudSync) {
+                            NavigationLink {
+                                ICloudSyncSettingsView()
+                            } label: {
+                                Label("iCloud Sync", systemImage: "icloud")
+                            }
+                        }
+
                         NavigationLink {
                             ScrollView {
                                 QRZSettingsView()
@@ -116,6 +147,21 @@ struct LegacyConfigurationView: View {
                             Label("eQSL", systemImage: "envelope.badge.shield.half.filled")
                         }
                     } else {
+                        if flags.isEnabled(.enableICloudSync) {
+                            Button {
+                                showPremium = true
+                            } label: {
+                                HStack {
+                                    Label("iCloud Sync", systemImage: "icloud")
+                                    Spacer()
+                                    Image(systemName: "lock.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+
                         Button {
                             showPremium = true
                         } label: {

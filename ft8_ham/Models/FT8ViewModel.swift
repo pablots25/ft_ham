@@ -652,6 +652,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         ])
         .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
         .sink { [weak self] _ in
+            // Onboarding writes the callsign and locator straight to
+            // UserDefaults, which skips the property observers above.
+            self?.syncSettingsLoaded()
             self?.refreshMessagesIfNeeded(reason: "message-relevant state changed")
         }
         .store(in: &cancellables)

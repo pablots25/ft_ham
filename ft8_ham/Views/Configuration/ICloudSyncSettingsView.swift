@@ -65,10 +65,6 @@ struct ICloudSyncSettingsView: View {
     @ViewBuilder
     private var accountRow: some View {
         switch sync.accountStatus {
-        case .available:
-            Label("iCloud account available", systemImage: "checkmark.seal.fill")
-                .font(.footnote)
-                .foregroundStyle(.green)
         case .noAccount:
             Label("No iCloud account. Sign in from the Settings app to sync.", systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote)
@@ -77,7 +73,7 @@ struct ICloudSyncSettingsView: View {
             Label("iCloud is restricted on this device.", systemImage: "lock.fill")
                 .font(.footnote)
                 .foregroundStyle(.orange)
-        case .unknown:
+        case .available, .unknown:
             EmptyView()
         }
     }
