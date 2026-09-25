@@ -119,7 +119,7 @@ struct SeparatedTransmissionDashboardView: View {
             .padding(.horizontal, LayoutConstants.compactPadding)
             .padding(.vertical, 4)
             
-            SeparatedMsgListView(
+            CondensedMsgListView(
                 messages: messages,
                 allowReply: showFilter,
                 filterMode: $filterMode
