@@ -9,52 +9,132 @@ import Foundation
 
 extension FT8ViewModel {
     
+    // MARK: - TX Message Indices
+
+    /// Positions in `allMessages` (see `FT8MessageComposer.generateMessages`).
+    enum TXMessageIndex {
+        static let cq = 0
+        static let grid = 1
+        static let report = 2
+        static let rReport = 3
+        static let rrr = 4
+        static let final73 = 5
+        static let rr73 = 6
+    }
+
     // MARK: - Reply Management
+
+    /// Starts a QSO with the station that sent `message` because the operator
+    /// tapped it. The QSO manager picks the first message to send (a grid for
+    /// a CQ, a report when the station already sent me its grid), and the
+    /// result goes through the same path the automatic sequencer uses.
+    ///
+    /// Does not change `autoSequencingEnabled`, which is a user setting.
     @MainActor
     func reply(to message: FT8Message) {
-        appLogger.info("Initializing reply to \(message.callsign ?? "unknown")")
-        
-        alignTXFrequencyForQSOStart(from: message)
+        let dxCall = message.callsign?.uppercased() ?? ""
+        appLogger.info("Initializing reply to \(dxCall.isEmpty ? "unknown" : dxCall)")
+
+        // Same safety checks the automatic path applies before starting a QSO.
+        guard settingsLoaded else {
+            appLogger.warning("Reply to \(dxCall) ignored: station callsign or locator not configured")
+            return
+        }
+        guard isValidCallsign(dxCall) else {
+            appLogger.warning("Reply ignored: invalid callsign '\(dxCall)'")
+            return
+        }
+
+        // Tapping the station we are already working (common in pileups)
+        // should not pop a toast every time.
+        let isAlreadyLockedDX = qsoManager.lockedDXCallsign.caseInsensitiveCompare(dxCall) == .orderedSame
 
         qsoManager.isFT4Mode = isFT4
         qsoManager.currentBand = effectiveBand
         qsoManager.currentCustomFrequencyHz = selectedBand == .custom ? customDialFrequencyHz : nil
-        // Start the reply in QSOManager - state is synced via computed properties
-        _ = qsoManager.startReply(to: message, myCallsign: callsign, myLocator: locator)
-        
-        self.autoSequencingEnabled = true
-        if autoSequencingEnabled {
-            appLogger.info("Auto-sequencing enabled, determining initial message index for reply")
-            selectedMessageIndex = 1 // TX1: Grid
+
+        let action = qsoManager.startReply(to: message, myCallsign: callsign, myLocator: locator)
+        guard action != .ignore else {
+            appLogger.info("Reply to \(dxCall) ignored by the QSO manager")
+            return
         }
-        
-        txSlotPreference = (message.cycle == .even) ? .forceOdd : .forceEven
-        invalidatePendingTX(reason: "Reply slot alignment")
-        
-        allMessages = generateMessages()
-        
-        if !transmitLoopActive {
-            self.toggleTransmit()
+
+        handleRXAction(action, operatorMessage: message)
+
+        if !isAlreadyLockedDX {
+            toast = .info(
+                String(
+                    localized: "Replying to \(dxCall)",
+                    comment: "Toast shown when the operator taps a station to reply. The argument is the other station's callsign."
+                ),
+                duration: 2
+            )
         }
-        
-        self.isReadyForTX = true
-        
+
         appLogger.log(
             .info,
-            "Reply initialized for DX=\(dxCallsign) in \(evenCycle ? "even" : "odd") cycle (synced to message slot)"
+            "QSO sequence started: state=\(qsoManager.qsoState), messageIndex=\(selectedMessageIndex ?? -1), evenCycle=\(evenCycle)"
         )
+    }
 
-        // NEW: try immediate TX inside current slot if possible
-        self.lastTransmittedSlotIndex = nil
-        
+    // MARK: - QSO Start
+
+    /// Points TX at the DX station and gets the transmit loop going.
+    ///
+    /// Frequency and slot both come from the same DX message, so we answer on
+    /// the station's frequency in the opposite cycle. Shared by `reply(to:)`
+    /// and every sending case of `handleRXAction(_:operatorMessage:)`.
+    ///
+    /// - Parameters:
+    ///   - message: The DX station's message. When nil, the current frequency
+    ///     and slot are kept.
+    ///   - messageIndex: The `allMessages` entry to send (`TXMessageIndex`).
+    ///   - alignFrequency: Move the TX frequency to the DX message frequency.
+    ///   - reason: Logged when the pending TX is invalidated.
+    @MainActor
+    internal func startQSO(
+        from message: FT8Message?,
+        messageIndex: Int,
+        alignFrequency: Bool,
+        reason: String
+    ) {
+        if let message {
+            if alignFrequency {
+                alignTXFrequencyForQSOStart(from: message)
+            }
+            alignTXSlot(toOppositeOf: message)
+        }
+
+        invalidatePendingTX(reason: reason)
+        selectedMessageIndex = messageIndex
+        allMessages = generateMessages()
+
+        if !transmitLoopActive {
+            appLogger.info("Starting TX loop...")
+            toggleTransmit()
+        }
+        isReadyForTX = true
+
         Task { @MainActor in
             await tryImmediateTXIfPossible()
         }
+    }
 
-        appLogger.log(
-            .info,
-            "QSO sequence started: state=\(qsoManager.qsoState), messageIndex=\(selectedMessageIndex ?? -1)"
-        )
+    /// Transmit in the cycle opposite to the one `message` was received in.
+    @MainActor
+    internal func alignTXSlot(toOppositeOf message: FT8Message) {
+        txSlotPreference = (message.cycle == .even) ? .forceOdd : .forceEven
+        evenCycle = (message.cycle == .odd)
+    }
+
+    /// The most recent decode sent by `callsign` (case-insensitive).
+    @MainActor
+    internal func lastDecodedMessage(from callsign: String) -> FT8Message? {
+        guard !callsign.isEmpty else { return nil }
+        return receivedMessages.last { msg in
+            !msg.isTX && msg.msgType != .internalTimestamp &&
+            msg.callsign?.caseInsensitiveCompare(callsign) == .orderedSame
+        }
     }
     
     // MARK: - QSO Subscriptions

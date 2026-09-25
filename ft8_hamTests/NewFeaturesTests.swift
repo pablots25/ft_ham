@@ -74,16 +74,17 @@ final class FeatureDTapReplyTests: XCTestCase {
 
     /// Verifies that reply(to:) correctly configures the viewModel for an active QSO.
     @MainActor
-    func testReplyToMessageSetsAutoSequencing() {
+    func testReplyToMessageStartsTXWithoutChangingAutoSequencing() {
         let vm = FT8ViewModel()
         vm.callsign = "EA4IQL"
         vm.locator = "IM88"
+        let autoSequencingBefore = vm.autoSequencingEnabled
 
         let cqMsg = makeRXMessage(text: "CQ EA2ABC IN83")
         vm.reply(to: cqMsg)
 
-        XCTAssertTrue(vm.autoSequencingEnabled,
-                      "Auto-sequencing must be enabled after reply(to:)")
+        XCTAssertEqual(vm.autoSequencingEnabled, autoSequencingBefore,
+                       "reply(to:) must not change the auto-sequencing user setting")
         XCTAssertTrue(vm.transmitLoopActive,
                       "TX loop must activate after reply(to:)")
     }

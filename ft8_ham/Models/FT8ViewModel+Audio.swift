@@ -141,12 +141,9 @@ extension FT8ViewModel {
             if message.isTX {
                 continue
             } else if message.msgType != .internalTimestamp && message.msgType != .unknown {
-                let currentMode = isFT4 ? "FT4" : "FT8"
-                let shouldAutoReplyToCQ = autoCQReplyEnabled && !hasConfirmedQSO(
-                    with: message.callsign,
-                    band: selectedBand.rawValue,
-                    mode: currentMode,
-                    matchBandModeOnly: autoCQReplyOnlyNewBandMode
+                let shouldAutoReplyToCQ = autoCQReplyEnabled && !isWorked(
+                    message.callsign,
+                    scope: autoCQReplyOnlyNewBandMode ? .currentBandAndMode : .anyBand
                 )
                 let effectiveAutoCQReplyEnabled = (message.msgType == .cq)
                 ? shouldAutoReplyToCQ
@@ -190,10 +187,9 @@ extension FT8ViewModel {
         
         // Mark stations already in the log, then place the labels on the
         // rows their signals occupy.
-        let worked = workedCallsigns
         let labels = result.labels.map { label -> WaterfallLabel in
             var l = label
-            if let call = label.callsign { l.isWorked = worked.contains(call.uppercased()) }
+            l.isWorked = isWorked(label.callsign, scope: .anyBand)
             return l
         }
         waterfallVM.addLabels(
@@ -264,119 +260,79 @@ extension FT8ViewModel {
         rxLogger.info("PSK Reporter: Submitted \(reportableMessages.count) reports")
     }
     
+    /// Applies a QSO state-machine action.
+    ///
+    /// - Parameters:
+    ///   - action: What the QSO manager decided to do next.
+    ///   - operatorMessage: The message the operator tapped to reply to, when
+    ///     the action comes from `reply(to:)`. On the automatic path it is nil
+    ///     and the DX station's most recent decode is used instead.
     @MainActor
-    internal func handleRXAction(_ action: QSOAction) {
+    internal func handleRXAction(_ action: QSOAction, operatorMessage: FT8Message? = nil) {
+        // The operator picked a station, so always move to its frequency. On
+        // the automatic path only a new grid exchange moves the TX frequency,
+        // mid-QSO steps keep it where it is.
+        let operatorStarted = operatorMessage != nil
+
         switch action {
         case .sendGrid(let dxCall, let dxLoc):
             appLogger.info("Applying action: sendGrid for \(dxCall)")
-            
-            if let rxMessage = receivedMessages.last(
-                where: { !$0.isTX && $0.callsign == dxCall }
-            ) {
-                alignTXFrequencyForQSOStart(from: rxMessage)
-            }
-            
-            invalidatePendingTX(reason: "RX action: sendGrid")
             dxCallsign = dxCall
             dxLocator = dxLoc
-            selectedMessageIndex = 1
-            
-            // Align TX slot with RX (FT8 canonical)
-            if let last = receivedMessages.last(where: { !$0.isTX && $0.msgType != .internalTimestamp }) {
-                txSlotPreference = (last.cycle == .even) ? .forceOdd : .forceEven
-                evenCycle = (last.cycle == .odd)
-            }
-            
-            if !transmitLoopActive {
-                appLogger.info("Restarting TX loop...")
-                toggleTransmit()
-            }
-            isReadyForTX = true
-            Task { @MainActor in
-                await tryImmediateTXIfPossible()
-            }
-            
+            startQSO(
+                from: operatorMessage ?? lastDecodedMessage(from: dxCall),
+                messageIndex: TXMessageIndex.grid,
+                alignFrequency: true,
+                reason: "RX action: sendGrid"
+            )
+
         case .sendReport(let dxCall, _):
             appLogger.info("Applying action: sendReport for \(dxCall)")
-            invalidatePendingTX(reason: "RX action: sendReport")
-            selectedMessageIndex = 2
-            
-            if let last = receivedMessages.last(where: { !$0.isTX && $0.msgType != .internalTimestamp }) {
-                txSlotPreference = (last.cycle == .even) ? .forceOdd : .forceEven
-                evenCycle = (last.cycle == .odd)
-            }
-            
-            if !transmitLoopActive {
-                appLogger.info("Restarting TX loop...")
-                toggleTransmit()
-            }
-            isReadyForTX = true
-            Task { @MainActor in
-                await tryImmediateTXIfPossible()
-            }
-            
+            startQSO(
+                from: operatorMessage ?? lastDecodedMessage(from: dxCall),
+                messageIndex: TXMessageIndex.report,
+                alignFrequency: operatorStarted,
+                reason: "RX action: sendReport"
+            )
+
         case .sendRReport(let dxCall, _):
             appLogger.info("Applying action: sendRReport for \(dxCall)")
-            invalidatePendingTX(reason: "RX action: sendRReport")
-            selectedMessageIndex = 3
-            
-            if let last = receivedMessages.last(where: { !$0.isTX && $0.msgType != .internalTimestamp }) {
-                txSlotPreference = (last.cycle == .even) ? .forceOdd : .forceEven
-                evenCycle = (last.cycle == .odd)
-            }
-            
-            if !transmitLoopActive {
-                appLogger.info("Restarting TX loop...")
-                toggleTransmit()
-            }
-            isReadyForTX = true
-            Task { @MainActor in
-                await tryImmediateTXIfPossible()
-            }
-            
-        case .sendRRR:
-            appLogger.info("Applying action: sendRRR for \(dxCallsign)")
-            invalidatePendingTX(reason: "RX action: sendRRR")
-            selectedMessageIndex = 4
-            if !transmitLoopActive {
-                appLogger.info("Restarting TX loop...")
-                toggleTransmit()
-            }
-            isReadyForTX = true
-            Task { @MainActor in
-                await tryImmediateTXIfPossible()
-            }
-            
+            startQSO(
+                from: operatorMessage ?? lastDecodedMessage(from: dxCall),
+                messageIndex: TXMessageIndex.rReport,
+                alignFrequency: operatorStarted,
+                reason: "RX action: sendRReport"
+            )
+
+        case .sendRRR(let dxCall):
+            appLogger.info("Applying action: sendRRR for \(dxCall)")
+            startQSO(
+                from: operatorMessage ?? lastDecodedMessage(from: dxCall),
+                messageIndex: TXMessageIndex.rrr,
+                alignFrequency: operatorStarted,
+                reason: "RX action: sendRRR"
+            )
+
         case .sendRR73(let dxCall):
             appLogger.info("Applying action: sendRR73 for \(dxCall)")
             dxCallsign = dxCall
-            allMessages = generateMessages()
-            selectedMessageIndex = 6
-            invalidatePendingTX(reason: "RX action: sendRR73")
-            if !transmitLoopActive {
-                appLogger.info("Restarting TX loop...")
-                toggleTransmit()
-            }
-            isReadyForTX = true
-            Task { @MainActor in
-                await tryImmediateTXIfPossible()
-            }
-            
+            startQSO(
+                from: operatorMessage ?? lastDecodedMessage(from: dxCall),
+                messageIndex: TXMessageIndex.rr73,
+                alignFrequency: operatorStarted,
+                reason: "RX action: sendRR73"
+            )
+
         case .send73(let dxCall):
             appLogger.info("Applying action: send73 for \(dxCall)")
             dxCallsign = dxCall
-            allMessages = generateMessages()
-            selectedMessageIndex = 5
-            invalidatePendingTX(reason: "RX action: send73")
-            if !transmitLoopActive {
-                appLogger.info("Restarting TX loop...")
-                toggleTransmit()
-            }
-            isReadyForTX = true
-            Task { @MainActor in
-                await tryImmediateTXIfPossible()
-            }
-            
+            startQSO(
+                from: operatorMessage ?? lastDecodedMessage(from: dxCall),
+                messageIndex: TXMessageIndex.final73,
+                alignFrequency: operatorStarted,
+                reason: "RX action: send73"
+            )
+
         case .completeQSO:
             appLogger.info("Applying action: completeQSO for \(dxCallsign)")
 
