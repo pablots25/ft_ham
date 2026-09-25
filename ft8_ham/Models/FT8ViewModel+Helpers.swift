@@ -118,6 +118,83 @@ extension FT8ViewModel{
         return !workedCallsigns.contains(call)
     }
 
+    /// True when a decoded row should get the "calling you" highlight.
+    internal func isCallingMeHighlighted(_ msg: FT8Message) -> Bool {
+        highlightMyCallsign && CallAlertDetector.isCallingMe(msg, myCallsign: callsign)
+    }
+
+    /// The operator's watchlist, parsed once per change of the stored string.
+    internal var watchList: WatchList {
+        get {
+            if watchListCache.storage != watchedCallsignsStorage {
+                watchListCache = (watchedCallsignsStorage, WatchList(storage: watchedCallsignsStorage))
+            }
+            return watchListCache.list
+        }
+        set {
+            objectWillChange.send()
+            watchedCallsignsStorage = newValue.storage
+        }
+    }
+
+    /// True when a received row was sent by a station on the watchlist.
+    internal func isWatched(_ msg: FT8Message) -> Bool {
+        guard !msg.isTX,
+              msg.msgType != .internalTimestamp, msg.msgType != .unknown else { return false }
+        return watchList.contains(msg.callsign)
+    }
+
+    /// The highlight for a decoded row. A call to us wins over a watched sender.
+    internal func rowHighlight(for msg: FT8Message) -> RowHighlight {
+        if isCallingMeHighlighted(msg) { return .callingMe }
+        if isWatched(msg) { return .watched }
+        return .none
+    }
+
+    /// Raises the enabled alerts at most once per slot:
+    /// - a station calls us and no QSO was in progress at the start of the slot;
+    /// - otherwise, a watched station is heard, at most once per station every
+    ///   few minutes, and not while we are already working it.
+    /// The sound is held back while we transmit so it cannot go on air.
+    @MainActor
+    internal func raiseAlerts(in messages: [FT8Message], qsoStateBeforeSlot: QSOState) {
+        guard callAlertSound || callAlertHaptic || callAlertNotification else { return }
+
+        let kind: CallAlertKind
+        let message: FT8Message
+        if let call = CallAlertDetector.alertMessage(
+            in: messages, myCallsign: callsign, qsoState: qsoStateBeforeSlot
+        ) {
+            kind = .callingMe
+            message = call
+        } else if watchAlertEnabled, let watched = firstWatchedToAlert(in: messages) {
+            kind = .watched
+            message = watched
+        } else {
+            return
+        }
+
+        callAlerter.alert(
+            kind,
+            for: message,
+            sound: callAlertSound && !isTransmitting,
+            haptic: callAlertHaptic,
+            notification: callAlertNotification
+        )
+    }
+
+    /// The first watched station in the slot that is due an alert.
+    private func firstWatchedToAlert(in messages: [FT8Message]) -> FT8Message? {
+        guard !watchList.isEmpty else { return nil }
+        let working = qsoManager.qsoState.lockedCallsign?.uppercased()
+        let now = AppClock.now()
+        for msg in messages where isWatched(msg) {
+            guard let call = msg.callsign?.uppercased(), call != working else { continue }
+            if watchAlertThrottle.shouldAlert(for: call, at: now) { return msg }
+        }
+        return nil
+    }
+
     /// What a decoded station would still add to the logbook on the current
     /// band and mode: an unworked callsign, an unworked 4-char grid, an
     /// unworked country. Empty for our own TX rows and non-station rows.

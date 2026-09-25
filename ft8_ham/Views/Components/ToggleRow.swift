@@ -36,6 +36,11 @@ enum HelpTip: Identifiable {
     case waterfallPalette
     case waterfallFlatten
     case waterfallLevel
+    case highlightMyCallsign
+    case callAlertSound
+    case callAlertHaptic
+    case callAlertNotification
+    case watchAlert
 
     var id: Self { self }
 
@@ -101,6 +106,31 @@ enum HelpTip: Identifiable {
             return String(
                 localized: "Waterfall level help",
                 defaultValue: "Auto level follows the noise floor so the display looks the same with a microphone or a sound card. Zero sets where the darkest color starts below the noise. Gain sets how many dB the color scale spans."
+            )
+        case .highlightMyCallsign:
+            return String(
+                localized: "Highlight calls to me help",
+                defaultValue: "Tints and bolds every decoded message where another station calls your callsign, with a bell next to it."
+            )
+        case .callAlertSound:
+            return String(
+                localized: "Call alert sound help",
+                defaultValue: "Plays a short sound when a station calls you or a watched station is heard. It stays silent while you transmit and when the audio goes to a USB or line interface, so it never reaches the radio."
+            )
+        case .callAlertHaptic:
+            return String(
+                localized: "Call alert haptic help",
+                defaultValue: "Vibrates when a station calls you or a watched station is heard."
+            )
+        case .callAlertNotification:
+            return String(
+                localized: "Call alert notification help",
+                defaultValue: "Shows a banner with the message when a station calls you or a watched station is heard. Useful when the app is open on another screen, such as the map or the logbook."
+            )
+        case .watchAlert:
+            return String(
+                localized: "Watch alert help",
+                defaultValue: "Uses the sound, vibration and notification settings below when a watched station is heard. Each station alerts at most once every 10 minutes, and not while you are working it."
             )
         }
     }

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 /// How decoded traffic is presented and how the operator interacts with it.
 /// Nothing here changes what the app transmits.
@@ -13,6 +14,7 @@ struct DisplaySettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @State private var activeHelp: HelpTip?
     @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
+    @State private var notificationsDenied = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -67,6 +69,87 @@ struct DisplaySettingsContent: View {
 
             Divider()
 
+            Text("Calls to Me")
+                .font(.headline)
+
+            ToggleRow(
+                labelKey: "Highlight calls to me",
+                helpTip: .highlightMyCallsign,
+                isOn: $viewModel.highlightMyCallsign,
+                activeHelp: $activeHelp
+            )
+            .accessibilityIdentifier("toggle_highlightMyCallsign")
+
+            Divider()
+
+            Text("Watched Stations")
+                .font(.headline)
+
+            Text("Stations to spot in the RX list, such as a DXpedition. Their messages get their own color and a star.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            WatchListEditor()
+
+            ToggleRow(
+                labelKey: "Alert when a watched station is heard",
+                helpTip: .watchAlert,
+                isOn: $viewModel.watchAlertEnabled,
+                activeHelp: $activeHelp
+            )
+            .accessibilityIdentifier("toggle_watchAlertEnabled")
+
+            Divider()
+
+            Text("Alerts")
+                .font(.headline)
+
+            ToggleRow(
+                labelKey: "Play a sound",
+                helpTip: .callAlertSound,
+                isOn: $viewModel.callAlertSound,
+                activeHelp: $activeHelp
+            )
+            .accessibilityIdentifier("toggle_callAlertSound")
+
+            ToggleRow(
+                labelKey: "Vibrate",
+                helpTip: .callAlertHaptic,
+                isOn: $viewModel.callAlertHaptic,
+                activeHelp: $activeHelp
+            )
+            .accessibilityIdentifier("toggle_callAlertHaptic")
+
+            ToggleRow(
+                labelKey: "Show a notification",
+                helpTip: .callAlertNotification,
+                isOn: $viewModel.callAlertNotification,
+                activeHelp: $activeHelp
+            )
+            .accessibilityIdentifier("toggle_callAlertNotification")
+
+            if viewModel.callAlertNotification && notificationsDenied {
+                Text("Notifications are turned off for FT Ham. Turn them on in the Settings app.")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+
+            Text("Alerts fire when a station calls you and no QSO is in progress, and when a watched station is heard, at most once every 10 minutes per station. They work while the app is open, because reception pauses in the background.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            DisclosureGroup {
+                MessageColorSettings()
+            } label: {
+                Text("Message Colors")
+                    .font(.headline)
+            }
+            .accessibilityIdentifier("disclosure_messageColors")
+
+            Divider()
+
             Text("Interaction")
                 .font(.headline)
 
@@ -87,6 +170,23 @@ struct DisplaySettingsContent: View {
             }
         }
         .onAppear { activeHelp = nil }
+        .task { await refreshNotificationStatus(requestIfNeeded: false) }
+        .onChange(of: viewModel.callAlertNotification) { isOn in
+            guard isOn else { return }
+            Task { await refreshNotificationStatus(requestIfNeeded: true) }
+        }
+    }
+
+    /// Asks for notification permission the first time the alert is turned on
+    /// and remembers whether the user has turned notifications off.
+    private func refreshNotificationStatus(requestIfNeeded: Bool) async {
+        let center = UNUserNotificationCenter.current()
+        var status = await center.notificationSettings().authorizationStatus
+        if status == .notDetermined && requestIfNeeded {
+            _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+            status = await center.notificationSettings().authorizationStatus
+        }
+        notificationsDenied = status == .denied
     }
 }
 
