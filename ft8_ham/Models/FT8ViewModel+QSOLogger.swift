@@ -107,8 +107,7 @@ extension FT8ViewModel  {
         content.title = "QSO Completed ✅"
         content.body = "QSO with \(qso.callsign) has been logged successfully."
         content.sound = .default
-        content.badge = NSNumber(value: qsoList.count)
-        content.categoryIdentifier = "QSO_CATEGORY"
+        content.categoryIdentifier = NotificationHelper.qsoLoggedCategoryID
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
 
@@ -127,22 +126,6 @@ extension FT8ViewModel  {
                     )
             }
         }
-
-        // Define actions and category for persistent notifications
-        let reviewAction = UNNotificationAction(
-            identifier: "REVIEW_QSO",
-            title: "Review QSO",
-            options: [.foreground] // opens the app when tapped
-        )
-
-        let category = UNNotificationCategory(
-            identifier: "QSO_CATEGORY",
-            actions: [reviewAction],
-            intentIdentifiers: [],
-            options: []
-        )
-
-        UNUserNotificationCenter.current().setNotificationCategories([category])
 
         qsoManager.qsoAlreadyLogged = true // TODO - Review if needed
         finalizeQSOAfterLogging()
