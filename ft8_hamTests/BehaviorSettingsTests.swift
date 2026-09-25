@@ -28,6 +28,10 @@ final class BehaviorSettingsTests: XCTestCase {
         "autoQSOLogging",
         "holdTXFrequency",
         "pskReporterEnabled",
+        "highlightMyCallsign",
+        "callAlertSound",
+        "callAlertHaptic",
+        "callAlertNotification",
     ]
 
     override func setUp() async throws {
@@ -80,6 +84,22 @@ final class BehaviorSettingsTests: XCTestCase {
 
     func testPSKReporterEnabledDefaultIsFalse() {
         XCTAssertFalse(viewModel.pskReporterEnabled, "pskReporterEnabled should default to false")
+    }
+
+    func testHighlightMyCallsignDefaultIsTrue() {
+        XCTAssertTrue(viewModel.highlightMyCallsign, "highlightMyCallsign should default to true")
+    }
+
+    func testCallAlertSoundDefaultIsFalse() {
+        XCTAssertFalse(viewModel.callAlertSound, "callAlertSound should default to false")
+    }
+
+    func testCallAlertHapticDefaultIsFalse() {
+        XCTAssertFalse(viewModel.callAlertHaptic, "callAlertHaptic should default to false")
+    }
+
+    func testCallAlertNotificationDefaultIsFalse() {
+        XCTAssertFalse(viewModel.callAlertNotification, "callAlertNotification should default to false")
     }
 
     // MARK: - Mutation Tests

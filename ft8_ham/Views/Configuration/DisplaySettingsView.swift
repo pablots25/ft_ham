@@ -138,6 +138,10 @@ struct DisplaySettingsContent: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
+            Text("The sound stays muted when audio goes to a USB or line interface, so it never reaches the radio.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
             Divider()
 
             DisclosureGroup {
