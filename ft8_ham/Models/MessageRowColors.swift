@@ -10,6 +10,7 @@ import SwiftUI
 
 /// Each kind of decoded row that gets its own background tint. The operator
 /// can change the base color of every one in Display settings.
+/// `activeQSO` is the exception: it colors a leading bar, not the background.
 enum MessageRowColor: String, CaseIterable, Identifiable {
     case ownTX
     case cq
@@ -20,8 +21,15 @@ enum MessageRowColor: String, CaseIterable, Identifiable {
     case unknown
     case callingMe
     case watched
+    case activeQSO
 
     var id: Self { self }
+
+    /// Drawn as a thin leading bar on top of the row tint rather than as the
+    /// row background.
+    var isRowMarker: Bool {
+        self == .activeQSO
+    }
 
     var defaultColor: Color {
         switch self {
@@ -34,6 +42,7 @@ enum MessageRowColor: String, CaseIterable, Identifiable {
         case .unknown: .gray
         case .callingMe: .red
         case .watched: .cyan
+        case .activeQSO: .indigo
         }
     }
 
@@ -49,6 +58,7 @@ enum MessageRowColor: String, CaseIterable, Identifiable {
         case .unknown: "Unknown message type"
         case .callingMe: "A station calling you"
         case .watched: "A station on your watchlist"
+        case .activeQSO: "Active QSO"
         }
     }
 }

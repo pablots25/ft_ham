@@ -187,7 +187,7 @@ struct SeparatedTransmissionView: View {
                     .padding(.horizontal)
                     .padding(.vertical, 6)
                     if showTutorial, allowReply {
-                        SeparatedMsgListView(
+                        CondensedMsgListView(
                             messages: tutorialSampleMessages(from: messages),
                             allowReply: allowReply, filterMode: $filterMode
                         )
@@ -203,7 +203,7 @@ struct SeparatedTransmissionView: View {
                             }
                         )
                     } else {
-                        SeparatedMsgListView(messages: messages, allowReply: allowReply, filterMode: $filterMode)
+                        CondensedMsgListView(messages: messages, allowReply: allowReply, filterMode: $filterMode)
                     }
                 
             }

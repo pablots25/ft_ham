@@ -177,6 +177,27 @@ final class MessageColorLegendTests: XCTestCase {
         assertTint(backgroundColor(for: cq, isNewCallsign: true, highlight: .watched), matches: .cyan)
     }
 
+    // MARK: - Active QSO: indigo leading bar, not a background tint
+
+    func test_activeQSO_defaultIsIndigoAndDistinct() {
+        let kind = MessageRowColor.activeQSO
+        XCTAssertEqual(RowColorStore.hex(from: kind.defaultColor), RowColorStore.hex(from: .indigo))
+        let others = MessageRowColor.allCases.filter { $0 != kind }
+        for other in others {
+            XCTAssertNotEqual(RowColorStore.hex(from: other.defaultColor),
+                              RowColorStore.hex(from: kind.defaultColor), "\(other)")
+        }
+    }
+
+    func test_activeQSO_isTheOnlyRowMarker() {
+        XCTAssertEqual(MessageRowColor.allCases.filter(\.isRowMarker), [.activeQSO])
+    }
+
+    func test_activeQSO_doesNotChangeRowBackground() {
+        let msg = FT8Message(text: "\(myCallsign) EA2BBB -07", mode: .ft8, isTX: false)
+        assertTint(backgroundColor(for: msg), matches: .orange)
+    }
+
     func test_backgroundColor_usesCustomColor() {
         let defaults = UserDefaults(suiteName: "MessageColorLegendTests.custom")!
         defaults.removePersistentDomain(forName: "MessageColorLegendTests.custom")
