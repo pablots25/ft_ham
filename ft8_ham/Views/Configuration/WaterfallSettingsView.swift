@@ -13,6 +13,7 @@ struct WaterfallSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @State private var settings = WaterfallDisplaySettings()
     @State private var activeHelp: HelpTip?
+    @AppStorage("waterfallTapToReply") private var tapToReply = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -74,6 +75,22 @@ struct WaterfallSettingsContent: View {
                 settings = WaterfallDisplaySettings()
             }
             .font(.footnote)
+
+            Divider()
+
+            Text("Gestures")
+                .font(.headline)
+
+            ToggleRow(
+                labelKey: "Tap a signal to reply",
+                helpTip: .waterfallTapToReply,
+                isOn: $tapToReply,
+                activeHelp: $activeHelp
+            )
+
+            Text("With this off, a tap only sets the transmit frequency. Holding a signal still replies.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
         .onAppear {
             settings = viewModel.waterfallVM.displaySettings

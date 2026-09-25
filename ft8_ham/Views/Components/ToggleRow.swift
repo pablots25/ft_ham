@@ -36,6 +36,7 @@ enum HelpTip: Identifiable {
     case waterfallPalette
     case waterfallFlatten
     case waterfallLevel
+    case waterfallTapToReply
     case highlightMyCallsign
     case callAlertSound
     case callAlertHaptic
@@ -106,6 +107,11 @@ enum HelpTip: Identifiable {
             return String(
                 localized: "Waterfall level help",
                 defaultValue: "Auto level follows the noise floor so the display looks the same with a microphone or a sound card. Zero sets where the darkest color starts below the noise. Gain sets how many dB the color scale spans."
+            )
+        case .waterfallTapToReply:
+            return String(
+                localized: "Waterfall tap to reply help",
+                defaultValue: "Tapping the label of a decoded signal on the waterfall replies to that station. Whether it takes a single or a double tap follows the Reply gesture setting in Display. Tapping anywhere else sets the transmit frequency. Holding a signal always replies."
             )
         case .highlightMyCallsign:
             return String(
