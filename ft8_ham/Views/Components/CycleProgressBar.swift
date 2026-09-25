@@ -20,13 +20,16 @@ struct CycleProgressBar: UIViewRepresentable {
     let progress: Double
     /// Seconds per cycle (15 for FT8, 7.5 for FT4).
     let cycleLength: Double
+    /// Bump to restart the animation at `progress` unconditionally, e.g.
+    /// when the app comes back to the foreground.
+    var resyncToken: Int = 0
 
     func makeUIView(context: Context) -> CycleProgressBarView {
         CycleProgressBarView()
     }
 
     func updateUIView(_ view: CycleProgressBarView, context: Context) {
-        view.sync(progress: progress, cycleLength: cycleLength)
+        view.sync(progress: progress, cycleLength: cycleLength, resyncToken: resyncToken)
     }
 
     @available(iOS 16.0, *)
@@ -44,6 +47,11 @@ final class CycleProgressBarView: UIView {
     /// How far out of phase the running animation may be before it is
     /// restarted; the sync runs once a second.
     private let tolerance: Double = 0.03
+    /// Last `resyncToken` seen; a different one forces a restart.
+    private var resyncToken = 0
+    /// `CACurrentMediaTime()` at which the running animation's cycle began,
+    /// so the phase it shows can be computed without a presentation layer.
+    private var cycleOrigin: CFTimeInterval?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -71,7 +79,7 @@ final class CycleProgressBarView: UIView {
         fill.position = CGPoint(x: 0, y: bounds.midY)
         CATransaction.commit()
         // The animation is in points; a new width needs a new one.
-        restart(from: currentPhase())
+        restart(from: currentPhase() ?? scheduledPhase())
     }
 
     override func traitCollectionDidChange(_ previous: UITraitCollection?) {
@@ -82,23 +90,46 @@ final class CycleProgressBarView: UIView {
 
     /// Brings the animation in phase with `progress` if it has drifted (clock
     /// realignment, mode change, app resumed from the background).
-    func sync(progress: Double, cycleLength: Double) {
+    func sync(progress: Double, cycleLength: Double, resyncToken: Int = 0) {
         let lengthChanged = cycleLength != self.cycleLength
+        let forced = resyncToken != self.resyncToken
         self.cycleLength = cycleLength
+        self.resyncToken = resyncToken
         guard bounds.width > 0 else { return }
         let running = fill.animation(forKey: Self.animationKey) != nil
-        if lengthChanged || !running || abs(currentPhase() - progress) > tolerance {
+        if lengthChanged || forced || !running {
+            restart(from: progress)
+            return
+        }
+        // Without a presentation layer (off screen, another tab, just back
+        // from the background) there is nothing to measure. Reading the model
+        // width instead reports a full bar and restarts it every second.
+        guard let shown = currentPhase() else { return }
+        if Self.needsRestart(shownPhase: shown, targetPhase: progress, tolerance: tolerance) {
             restart(from: progress)
         }
     }
 
+    /// Whether the phase on screen is far enough from the target to restart.
+    static func needsRestart(shownPhase: Double?, targetPhase: Double, tolerance: Double) -> Bool {
+        guard let shownPhase else { return false }
+        return abs(shownPhase - targetPhase) > tolerance
+    }
+
     private static let animationKey = "cycle"
 
-    /// The fill's current fraction as the render server is showing it.
-    private func currentPhase() -> Double {
-        guard bounds.width > 0 else { return 0 }
-        let shown = fill.presentation()?.bounds.width ?? fill.bounds.width
-        return Double(shown / bounds.width)
+    /// The fill's current fraction as the render server is showing it, or
+    /// `nil` when there is no presentation layer to read.
+    private func currentPhase() -> Double? {
+        guard bounds.width > 0, let presentation = fill.presentation() else { return nil }
+        return Double(presentation.bounds.width / bounds.width)
+    }
+
+    /// Where the running animation should be now, from when it started.
+    private func scheduledPhase() -> Double {
+        guard let cycleOrigin, cycleLength > 0 else { return 0 }
+        let elapsed = (CACurrentMediaTime() - cycleOrigin) / cycleLength
+        return elapsed - elapsed.rounded(.down)
     }
 
     /// One linear run to the end of this cycle, then a repeating full cycle.
@@ -114,6 +145,7 @@ final class CycleProgressBarView: UIView {
         CATransaction.commit()
 
         let remaining = (1 - start) * cycleLength
+        cycleOrigin = CACurrentMediaTime() - start * cycleLength
         let first = CABasicAnimation(keyPath: "bounds.size.width")
         first.fromValue = start * width
         first.toValue = width
