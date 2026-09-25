@@ -157,6 +157,12 @@ final class QSOStatusManager: ObservableObject {
             return .ignore
         }
 
+        // Never start a QSO with ourselves (e.g. tapping a decode of our own TX).
+        guard dx.caseInsensitiveCompare(myCallsign) != .orderedSame else {
+            appLogger.debug("startReply: Message is from my own callsign, ignoring.")
+            return .ignore
+        }
+
         let cqModifier = message.msgType == .cq ? message.cqModifier : nil
         setupNewQSO(dx: dx, locator: message.locator ?? "", initialSNR: message.measuredSNR, cqModifier: cqModifier)
 

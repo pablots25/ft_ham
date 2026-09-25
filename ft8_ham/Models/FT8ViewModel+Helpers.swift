@@ -74,38 +74,51 @@ extension FT8ViewModel{
         workedCountryPairs.append(contentsOf: additions)
     }
 
-    internal func hasConfirmedQSO(
-        with callsign: String?,
-        band: String,
-        mode: String,
-        matchBandModeOnly: Bool
-    ) -> Bool {
-        guard let callsign = callsign?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !callsign.isEmpty else {
+    // MARK: - Worked checks
+
+    /// Where to look when asking whether a station is already in the log.
+    enum WorkedScope: Equatable {
+        /// Any band, any mode.
+        case anyBand
+        /// The band and mode the operator is on now (`effectiveBand`, FT8/FT4).
+        case currentBandAndMode
+        /// A specific band and mode ("FT8" or "FT4").
+        case bandAndMode(FT8Message.Band, mode: String)
+    }
+
+    /// Single source of truth for "is this station already in the logbook?".
+    /// Case-insensitive and whitespace-tolerant. Uses the O(1) `workedIndex`
+    /// lookups rebuilt from `qsoList`. Defaults to the current band and mode.
+    internal func isWorked(_ callsign: String?, scope: WorkedScope = .currentBandAndMode) -> Bool {
+        guard let trimmed = callsign?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
             return false
         }
+        let call = trimmed.uppercased()
 
-        // "Worked ever" is an O(1) Set lookup; only the band/mode-specific
-        // variant needs to scan the log.
-        if !matchBandModeOnly {
-            return workedCallsigns.contains(callsign.uppercased())
-        }
-
-        return qsoList.contains { entry in
-            guard entry.callsign.caseInsensitiveCompare(callsign) == .orderedSame else {
-                return false
-            }
-            return entry.band == band && entry.mode == mode
+        switch scope {
+        case .anyBand:
+            return workedIndex.callsigns.contains(call)
+        case .currentBandAndMode:
+            return workedIndex.callsignBandMode.contains(
+                WorkedIndex.key(call, band: effectiveBand.rawValue, mode: currentModeName)
+            )
+        case .bandAndMode(let band, let mode):
+            return workedIndex.callsignBandMode.contains(
+                WorkedIndex.key(call, band: band.rawValue, mode: mode.uppercased())
+            )
         }
     }
 
+    /// Mode name as stored in the logbook ("FT8" or "FT4").
+    internal var currentModeName: String { isFT4 ? "FT4" : "FT8" }
+
     /// True when a callsign is not yet in the logbook (any band/mode).
     internal func isNewCallsign(_ callsign: String?) -> Bool {
-        guard let callsign = callsign?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !callsign.isEmpty else {
+        guard let callsign, !callsign.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return false
         }
-        return !workedCallsigns.contains(callsign.uppercased())
+        return !isWorked(callsign, scope: .anyBand)
     }
 
     /// True when a decoded row should get the "new callsign" highlight: an
@@ -113,9 +126,7 @@ extension FT8ViewModel{
     internal func isNewCQCallsign(_ msg: FT8Message) -> Bool {
         guard highlightNewCallsigns, msg.msgType == .cq, !msg.isTX,
               let call = msg.callsign, !call.isEmpty else { return false }
-        // Decoded callsigns are already uppercased and whitespace-free
-        // (`FT8Message.splitParts`), so no per-row String allocations here.
-        return !workedCallsigns.contains(call)
+        return !isWorked(call, scope: .anyBand)
     }
 
     /// True when a decoded row should get the "calling you" highlight.

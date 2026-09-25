@@ -16,8 +16,10 @@ final class MessageReplyTests: XCTestCase {
         try await super.setUp()
         await MainActor.run {
             self.viewModel = FT8ViewModel()
-            self.viewModel.callsign = "MYCALL"
-            self.viewModel.locator = "JN18aa"
+            // reply(to:) requires a valid station callsign and locator
+            // (settingsLoaded) and a valid DX callsign.
+            self.viewModel.callsign = "EA4XYZ"
+            self.viewModel.locator = "JN18"
         }
     }
 
@@ -35,17 +37,17 @@ final class MessageReplyTests: XCTestCase {
         let text: String
         switch msgType {
         case .cq:
-            text = "CQ MYCALL"
+            text = "CQ K1ABC FN31"
         case .gridExchange:
-            text = "MYCALL OTHERCALL IM99"
+            text = "EA4XYZ K1ABC FN31"
         case .standardSignalReport:
-            text = "OTHERCALL MYCALL +10"
+            text = "EA4XYZ K1ABC +10"
         case .rrr:
-            text = "OTHERCALL MYCALL RRR"
+            text = "EA4XYZ K1ABC RRR"
         case .final73:
-            text = "OTHERCALL MYCALL 73"
+            text = "EA4XYZ K1ABC 73"
         default:
-            text = "CQ MYCALL"
+            text = "CQ K1ABC FN31"
         }
 
         return FT8Message(
@@ -90,13 +92,18 @@ final class MessageReplyTests: XCTestCase {
 
     @MainActor
     func testMessageIndexSelection() async {
-        // The current implementation sets the selected message index to 1 on reply
+        // A grid addressed to me is answered with the report (TX2). Every
+        // other message starts the exchange with my grid (TX1).
         viewModel.autoSequencingEnabled = true
-        let variants: [FT8MessageType] = [.cq, .gridExchange, .standardSignalReport, .rrr, .final73]
-        for t in variants {
+        let expectations: [(FT8MessageType, Int)] = [
+            (.cq, 1), (.gridExchange, 2), (.standardSignalReport, 1), (.rrr, 1), (.final73, 1)
+        ]
+        for (t, expectedIndex) in expectations {
             let m = makeMessage(msgType: t)
             await MainActor.run { viewModel.reply(to: m) }
-            await MainActor.run { XCTAssertEqual(viewModel.selectedMessageIndex, 1) }
+            await MainActor.run {
+                XCTAssertEqual(viewModel.selectedMessageIndex, expectedIndex, "Reply to \(t)")
+            }
         }
     }
 }
