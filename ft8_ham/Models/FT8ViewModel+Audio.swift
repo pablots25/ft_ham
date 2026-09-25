@@ -63,6 +63,38 @@ extension FT8ViewModel {
 
     }
     
+    // MARK: - Audio Errors
+
+    /// Surfaces audio engine errors, and any other `audioError` the view model
+    /// records, as a warning toast. The same message shows at most once every
+    /// 10 seconds. Runs in unit tests too, since it touches no audio hardware.
+    @MainActor
+    internal func setupAudioErrorSubscription() {
+        audioManager.audioErrorPublisher
+            .sink { [weak self] message in
+                Task { @MainActor [weak self] in
+                    self?.audioError = message
+                }
+            }
+            .store(in: &cancellables)
+
+        $audioError
+            .compactMap { $0 }
+            .sink { [weak self] message in
+                self?.showAudioErrorToast(message, at: Date())
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Shows `message` as a warning toast unless it was shown within the
+    /// throttle interval.
+    @MainActor
+    internal func showAudioErrorToast(_ message: String, at now: Date) {
+        guard audioErrorToastThrottle.shouldShow(message, at: now) else { return }
+        appLogger.warning("Audio error shown to the user: \(message)")
+        toast = .warning(message)
+    }
+
     // MARK: - Optimized RX Decode Handling
     // Called from setupAudioSubscriptions when a buffer is ready
     @MainActor
