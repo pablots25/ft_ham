@@ -128,7 +128,7 @@ private extension View {
         if allowReply {
             swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(action: action) {
-                    Label("", systemImage: "arrowshape.turn.up.left")
+                    Label("Reply", systemImage: "arrowshape.turn.up.left")
                 }
                 .tint(.green)
             }
