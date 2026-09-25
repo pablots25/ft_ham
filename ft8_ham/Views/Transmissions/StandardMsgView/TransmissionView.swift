@@ -107,7 +107,7 @@ private extension TransmissionView {
                 //                DXInfoFields()
                 MessageSelector()
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, LayoutConstants.largePadding)
             .padding(.bottom, 10)
         }
     }

@@ -82,7 +82,7 @@ struct CondensedTransmissionView: View {
 //                DXInfoFields()
                 MessageSelector()
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, LayoutConstants.largePadding)
             .padding(.bottom, 10)
         }
     }
@@ -110,7 +110,7 @@ struct CondensedTransmissionView: View {
                 .padding(.leading,50)
                 .multilineTextAlignment(.center)
 
-            QSOStatusView()
+            QSOStatusView(density: .compact)
                 .frame(maxWidth: .infinity)
                 .padding(.leading,30)
                 .multilineTextAlignment(.center)

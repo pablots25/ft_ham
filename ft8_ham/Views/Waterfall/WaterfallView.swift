@@ -23,10 +23,17 @@ struct WaterfallView: View {
     @State private var lastTouch: CGPoint = .zero
     @State private var longPressTask: Task<Void, Never>?
     @State private var longPressFired = false
+    /// Where and when the previous tap ended, to recognize a double tap.
+    @State private var lastTapEnd: (time: Date, location: CGPoint)?
+
+    @AppStorage("waterfallTapToReply") private var tapToReply = true
+    @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
 
     /// A touch that moves less than this is a tap (or a long press).
     private static let tapSlop: CGFloat = 8
     private static let longPressSeconds: TimeInterval = 0.5
+    /// A second tap within this time (and `tapSlop * 2`) counts as a double tap.
+    private static let doubleTapSeconds: TimeInterval = 0.35
     private static let cursorLinger: TimeInterval = 8
     /// A tap this close to a decoded signal lands exactly on it.
     private static let snapToleranceHz = 40.0
@@ -77,9 +84,10 @@ struct WaterfallView: View {
             .contentShape(Rectangle())
             .gesture(
                 // One gesture, three outcomes: a drag shows the cursor (and,
-                // in adjust mode, moves the TX frequency with it); a tap sets
-                // the TX frequency where it landed, snapped to a decoded
-                // signal nearby; holding on a label replies to that message.
+                // in adjust mode, moves the TX frequency with it); a tap on a
+                // label replies (when enabled, honoring the reply gesture),
+                // otherwise it sets the TX frequency where it landed, snapped
+                // to a decoded signal nearby; holding on a label always replies.
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let w = max(geo.size.width, 1)
@@ -108,12 +116,11 @@ struct WaterfallView: View {
                     .onEnded { value in
                         defer { touchStart = nil }
                         longPressTask?.cancel()
-                        let w = max(geo.size.width, 1)
                         let moved = touchStart.map { distance($0.location, value.location) } ?? .infinity
                         if isSettingFrequency {
                             isSettingFrequency = false
                         } else if !longPressFired, moved <= Self.tapSlop {
-                            setTXFrequency(fromTapAt: min(max(value.location.x, 0), w), width: w)
+                            handleTap(at: value.location, in: geo.size)
                         }
                         lingerCursor()
                     }
@@ -175,9 +182,31 @@ struct WaterfallView: View {
         ft8ViewModel.toast = .info(String(localized: "TX frequency set to \(Int(target)) Hz"), duration: 2)
     }
 
-    /// Holding a finger on a decoded message's label replies to it, as a
-    /// tap on the message list would.
-    private func replyToLabel(at point: CGPoint, in size: CGSize) {
+    /// Routes a plain tap to a reply or a TX frequency change.
+    private func handleTap(at point: CGPoint, in size: CGSize) {
+        let now = Date()
+        let isSecondTap = lastTapEnd.map {
+            now.timeIntervalSince($0.time) <= Self.doubleTapSeconds
+                && distance($0.location, point) <= Self.tapSlop * 2
+        } ?? false
+        let outcome = WaterfallTapRouter.outcome(
+            tapToReply: tapToReply,
+            gesture: replyTapGesture,
+            isSecondTap: isSecondTap,
+            hasReplyableLabel: tapToReply && replyableMessage(at: point, in: size) != nil
+        )
+        switch outcome {
+        case .reply:
+            replyToLabel(at: point, in: size)
+        case .setFrequency:
+            let w = max(size.width, 1)
+            setTXFrequency(fromTapAt: min(max(point.x, 0), w), width: w)
+        }
+        lastTapEnd = (now, point)
+    }
+
+    /// The replyable decoded message whose label sits under `point`, if any.
+    private func replyableMessage(at point: CGPoint, in size: CGSize) -> FT8Message? {
         let hz = viewModel.frequencyAtPixel(x: point.x, width: max(size.width, 1))
         let rowFromTop = Int(point.y / WaterfallRenderView.pointsPerRow)
         guard
@@ -185,9 +214,20 @@ struct WaterfallView: View {
             let id = placed.label.messageID,
             let message = ft8ViewModel.receivedMessages.last(where: { $0.id == id }),
             message.allowsReply, !message.isTX
-        else { return }
+        else { return nil }
+        return message
+    }
+
+    /// Replies to the decoded message whose label is under `point`, as a tap
+    /// on the message list would. Holding a label always lands here,
+    /// whatever the tap-to-reply setting says.
+    /// - Returns: Whether a reply was started.
+    @discardableResult
+    private func replyToLabel(at point: CGPoint, in size: CGSize) -> Bool {
+        guard let message = replyableMessage(at: point, in: size) else { return false }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         ft8ViewModel.reply(to: message)
+        return true
     }
 }
 

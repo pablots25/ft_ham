@@ -42,6 +42,9 @@ struct ContentView: View {
     @State private var isPresentingWhatsNew = false
     @State private var isPresentingDonationPrompt = false
     @State private var isPresentingRevocationAlert = false
+    /// Bumped when the app becomes active so the slot bar resyncs at once.
+    @State private var progressResyncToken = 0
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         mainLayout
@@ -474,9 +477,12 @@ struct ContentView: View {
                 Text("\(seconds)/\(Int(cycleLength))")
                     .font(.caption)
                     .foregroundStyle(.gray)
-                CycleProgressBar(progress: progress, cycleLength: cycleLength)
+                CycleProgressBar(progress: progress, cycleLength: cycleLength, resyncToken: progressResyncToken)
                     .frame(height: CycleProgressBarView.height)
             }
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active { progressResyncToken &+= 1 }
         }
     }
 

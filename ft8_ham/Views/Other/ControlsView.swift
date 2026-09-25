@@ -377,8 +377,18 @@ struct TransmissionControlPanel: View {
 }
 
 
+/// How much room the QSO strip gets. Chosen by the caller rather than
+/// measured, so the strip does not change shape as the status text changes.
+enum QSOStripDensity {
+    /// Portrait and wide layouts: the Log QSO button shows its title.
+    case regular
+    /// Narrow columns, such as the condensed landscape grid: icons only.
+    case compact
+}
+
 struct QSOStatusView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    var density: QSOStripDensity = .regular
     
     private var statusColor: Color {
         switch viewModel.qsoManager.qsoState {
@@ -446,6 +456,38 @@ struct QSOStatusView: View {
         min(viewModel.qsoManager.retryCounter, viewModel.qsoManager.maxRetrySlots)
     }
     
+    // MARK: - QSO actions
+
+    /// Log QSO is the rescue action for a QSO the sequencer did not finish,
+    /// so it gets the prominent button. Stop is a small secondary icon.
+    private var qsoActions: some View {
+        HStack(spacing: 6) {
+            Button {
+                viewModel.forceLogCurrentQSO()
+            } label: {
+                Label("Log QSO", systemImage: "book")
+            }
+            .modifier(QSOStripLabelStyle(density: density))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .buttonStyle(.borderedProminent)
+            .disabled(!viewModel.qsoManager.isQSOOngoing())
+            .accessibilityIdentifier("button_forceLogQSO")
+
+            Button {
+                viewModel.resetQSOState()
+            } label: {
+                Label("Stop QSO", systemImage: "xmark.circle")
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.bordered)
+            .tint(.secondary)
+            .disabled(!viewModel.qsoManager.isQSOOngoing())
+            .accessibilityLabel("Stop QSO")
+            .accessibilityIdentifier("button_stopQSO")
+        }
+    }
+
     var body: some View {
         HStack {
             VStack(spacing: 2) {
@@ -454,7 +496,7 @@ struct QSOStatusView: View {
                 HStack(spacing: 4) {
                     Text(viewModel.qsoManager.qsoState.description)
                         .foregroundStyle(statusColor)
-                        .lineLimit(1)
+                        .lineLimit(density == .compact ? 1 : 2)
                         .minimumScaleFactor(0.5)
                         .layoutPriority(1)
                     
@@ -497,24 +539,23 @@ struct QSOStatusView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            VStack(spacing: 4) {
-                Button("Stop QSO") {
-                    viewModel.resetQSOState()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!viewModel.qsoManager.isQSOOngoing())
-
-                Button("Log QSO") {
-                    viewModel.forceLogCurrentQSO()
-                }
-                .font(.footnote)
-                .buttonStyle(.bordered)
-                .disabled(!viewModel.qsoManager.isQSOOngoing())
-                .accessibilityIdentifier("button_forceLogQSO")
-            }
+            qsoActions
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 5)
+    }
+}
+
+/// Title only in regular density, icon only in compact. VoiceOver reads
+/// the title either way.
+private struct QSOStripLabelStyle: ViewModifier {
+    let density: QSOStripDensity
+
+    func body(content: Content) -> some View {
+        switch density {
+        case .regular: content.labelStyle(.titleOnly)
+        case .compact: content.labelStyle(.iconOnly)
+        }
     }
 }
 
