@@ -221,6 +221,15 @@ struct LegacyConfigurationView: View {
                 }
                 #endif
 
+                section("Premium") {
+                    Button {
+                        showPremium = true
+                    } label: {
+                        Label("Become Premium", systemImage: "star")
+                    }
+                    .accessibilityIdentifier("button_become_premium")
+                }
+
                 section("Help") {
                     Button {
                         showHelp = true
@@ -233,12 +242,6 @@ struct LegacyConfigurationView: View {
                             .padding(.horizontal)
                     } label: {
                         Label("Tutorials", systemImage: "graduationcap")
-                    }
-
-                    Button {
-                        showPremium = true
-                    } label: {
-                        Label("Become Premium", systemImage: "star")
                     }
 
                     if flags.isEnabled(.donationsEnabled) {
@@ -288,17 +291,8 @@ struct LegacyConfigurationView: View {
             .presentationDetents([.medium])
         }
         .sheet(isPresented: $showPremium) {
-            NavigationStack {
-                PremiumPaywallView(source: .screen("configuration"))
-                    .navigationTitle("Become Premium")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { showPremium = false }
-                        }
-                    }
-            }
-            .presentationDetents([.large])
+            // The paywall brings its own navigation bar and close button.
+            PremiumPaywallView(source: .screen("configuration"))
         }
         .sheet(isPresented: $showHelp) {
             SafariView(url: URL(string: "https://ftham.turrion.dev/#getting-started")!)
