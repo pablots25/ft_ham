@@ -185,6 +185,16 @@ extension FT8ViewModel {
         self.startSequencer()
     }
     
+    /// Lag past the slot start beyond which the slot is skipped.
+    nonisolated static let maxSlotLag: TimeInterval = 2.0
+
+    /// `true` when `lag` covers at least a whole slot (15 s FT8, 7.5 s FT4).
+    /// That only happens when the app was suspended and resumed, so it is
+    /// logged as a warning instead of a Crashlytics non-fatal.
+    nonisolated static func isSuspensionGap(lag: TimeInterval, isFT4: Bool) -> Bool {
+        lag >= (isFT4 ? 7.5 : 15.0)
+    }
+
     @MainActor
     internal func determineAction(for slot: SlotInfo) -> SequencerAction {
         if case .completed = qsoManager.qsoState {
@@ -192,8 +202,14 @@ extension FT8ViewModel {
         }
         
         let lag = AppClock.now().timeIntervalSince(slot.startTime)
-        if lag > 2.0 {
-            appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
+        if lag > Self.maxSlotLag {
+            if Self.isSuspensionGap(lag: lag, isFT4: slot.isFT4) {
+                // A whole slot or more went by: the app was suspended (screen
+                // lock, background) and just resumed. Expected, not a bug.
+                appLogger.warning("Slot \(slot.slotIndex) skipped after resuming (\(lag)s late)")
+            } else {
+                appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
+            }
             return .skip
         }
         
@@ -366,7 +382,7 @@ extension FT8ViewModel {
             }
             guard isValidCallsign(callsign) else {
                 audioError = "Invalid callsign/locator"
-                txLogger.error("Invalid callsign: \(callsign)")
+                txLogger.warning("Invalid callsign: \(callsign)")
                 return
             }
             guard let data = engine.generateFreeText(text, frequency: Float(frequency), isFT4: isFT4) else {
@@ -388,8 +404,9 @@ extension FT8ViewModel {
             txLogger.debug("TX message selection: index=\(selectedIndex), message='\(message)', dxCallsign='\(dxCallsign)'")
 
             guard isValidCallsign(callsign), isValidLocator(locator) else {
+                // Station setup problem, not a bug: the user sees audioError.
                 audioError = "Invalid callsign/locator"
-                txLogger.error("Invalid callsign/locator: \(callsign)/\(locator)")
+                txLogger.warning("Invalid callsign/locator: \(callsign)/\(locator)")
                 return
             }
 
