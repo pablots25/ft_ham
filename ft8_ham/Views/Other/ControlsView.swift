@@ -27,6 +27,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(viewModel.transmitLoopActive ? .red : .blue)
             .buttonStyle(.borderedProminent)
+            .accessibilityShowsLargeContentViewer()
             .disabled(!settingsLoaded)
 
             if flags.isEnabled(.enableFreeText) {
@@ -43,6 +44,7 @@ struct TransmissionButtonsBar: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .tint(viewModel.freeTextLoopActive ? .red : .blue)
                 .buttonStyle(.borderedProminent)
+            .accessibilityShowsLargeContentViewer()
                 .disabled(!settingsLoaded)
                 .accessibilityIdentifier("button_freeText")
             }
@@ -55,6 +57,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(viewModel.isTransmitting ? .red : .blue)
             .buttonStyle(.borderedProminent)
+            .accessibilityShowsLargeContentViewer()
             .disabled(!settingsLoaded || !viewModel.isTransmitting)
 
             Button(viewModel.isListening ? "Stop RX" : "Start RX") {
@@ -71,6 +74,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(viewModel.isListening ? .red : .green)
             .buttonStyle(.borderedProminent)
+            .accessibilityShowsLargeContentViewer()
             .disabled(!settingsLoaded)
 
             Button("Stop all") {
@@ -84,6 +88,7 @@ struct TransmissionButtonsBar: View {
             .fixedSize(horizontal: true, vertical: false)
             .tint(.red)
             .buttonStyle(.borderedProminent)
+            .accessibilityShowsLargeContentViewer()
             .disabled(!settingsLoaded || (!viewModel.isListening && !viewModel.isTransmitting && !viewModel.transmitLoopActive && !viewModel.freeTextLoopActive))
             }
             .padding(.horizontal)
@@ -96,6 +101,7 @@ struct TransmissionButtonsBar: View {
                     .onChange(of: geo.size.width) { containerWidth = $0 }
             }
         )
+        .operatingChromeTypeSize()
     }
 }
 
@@ -203,9 +209,12 @@ struct MessageSelector: View {
                         Image(systemName: "list.bullet")
                     }
                     .buttonStyle(.borderedProminent)
+                    .accessibilityShowsLargeContentViewer()
                 }
             }
         }
+        // Capped before the sheet so the Quick config sheet keeps full size.
+        .operatingChromeTypeSize()
         .sheet(isPresented: $showGenMessages) {
             NavigationStack {
                 ScrollView {
@@ -329,6 +338,10 @@ struct StatusView: View {
                 .foregroundStyle(statusColor)
         }
         .font(.body)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .operatingChromeTypeSize()
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -344,8 +357,11 @@ struct ClockView: View {
                 Text("UTC: \(currentUTC)")
                     .foregroundStyle(.gray)
                     .font(.body)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 ClockOffsetChip()
             }
+            .operatingChromeTypeSize()
         }
     }
 }
@@ -543,6 +559,7 @@ struct QSOStatusView: View {
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 5)
+        .operatingChromeTypeSize()
     }
 }
 

@@ -78,18 +78,19 @@ struct TutorialOverlay: View {
                     Spacer()
                         .frame(height: spotlightFrame.maxY + 12)
 
-                    Text(LocalizedStringKey(text))
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding()
-                        .background(Color.black.opacity(0.85))
-                        .cornerRadius(12)
-                        .frame(maxWidth: geo.size.width * 0.8)
-                        .shadow(radius: 5)
+                    // At large text sizes the hint can outgrow the room left
+                    // below the spotlight; it then scrolls so Got it stays
+                    // on screen.
+                    ViewThatFits(in: .vertical) {
+                        hint
+                        ScrollView { hint }
+                    }
+                    .background(Color.black.opacity(0.85))
+                    .cornerRadius(12)
+                    .frame(maxWidth: geo.size.width * 0.8)
+                    .shadow(radius: 5)
 
-                    Spacer()
+                    Spacer(minLength: 0)
 
                     Button(action: onDismiss) {
                         Text("tutorial_got_it")
@@ -104,6 +105,15 @@ struct TutorialOverlay: View {
             .transition(.opacity)
             .animation(.easeInOut(duration: 0.25), value: highlightedFrame)
         }
+    }
+
+    private var hint: some View {
+        Text(LocalizedStringKey(text))
+            .font(.headline)
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding()
     }
 
     private func animateCircleLoop(from start: CGPoint, to end: CGPoint) {

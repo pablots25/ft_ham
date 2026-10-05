@@ -496,13 +496,15 @@ struct ContentView: View {
     private func headerPortrait(geo: GeometryProxy) -> some View {
         HStack(spacing: 10) {
             Text("FT Ham")
-                .multilineTextAlignment(.center)
                 .font(.title)
+                .lineLimit(1)
+                .fixedSize()
             Spacer()
             progressBar
                 .padding(.vertical)
         }
         .padding(.horizontal, 40)
+        .operatingChromeTypeSize()
     }
 
     // MARK: - Header landscape
@@ -519,6 +521,7 @@ struct ContentView: View {
         }
         .padding(.top, 15)
         .padding(.bottom, 10)
+        .operatingChromeTypeSize()
     }
     
     // MARK: - Header iPad
@@ -541,6 +544,7 @@ struct ContentView: View {
         }
         .padding(.horizontal, LayoutConstants.ipadPadding)
         .padding(.vertical, 15)
+        .operatingChromeTypeSize()
     }
 }
 

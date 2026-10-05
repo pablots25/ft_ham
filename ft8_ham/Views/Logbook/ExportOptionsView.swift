@@ -160,6 +160,9 @@ struct ExportOptionsView: View {
                 }
             }
             .pickerStyle(.inline)
+            // The section header already names the choice; shown, the label
+            // reads as a first option that cannot be picked.
+            .labelsHidden()
         } header: {
             Text("Select Export Type")
         }

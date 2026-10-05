@@ -248,6 +248,25 @@ struct FullScreenWaterfallView: View {
 
 }
 
+// MARK: - Safe Area
+
+extension FullScreenWaterfallView {
+    /// Edges the waterfall may extend past. Never the bottom: the Liquid Glass
+    /// tab bar picks its icon contrast from what is behind it, and it cannot
+    /// read the Metal layer on device, so its icons vanished over the
+    /// waterfall. Only `tabBarBackdrop` sits under the tab bar.
+    static func waterfallEdges(isLandscape: Bool) -> Edge.Set {
+        isLandscape ? [.top, .leading, .trailing] : [.leading, .trailing]
+    }
+
+    /// Plain fill behind the tab bar. The system background, as on every
+    /// other tab: over black the bar turned dark in light mode and kept that
+    /// look on the next tab, with dark icons on a dark bar.
+    static var tabBarBackdrop: some View {
+        Color(uiColor: .systemBackground).ignoresSafeArea(.container, edges: .bottom)
+    }
+}
+
 // MARK: - Layouts
 private extension FullScreenWaterfallView {
     // MARK: - Portrait layout
@@ -262,7 +281,10 @@ private extension FullScreenWaterfallView {
                 isSettingFrequency: $isSettingFrequency
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .ignoresSafeArea(.container, edges: [.leading, .trailing, .bottom])
+            .ignoresSafeArea(.container, edges: Self.waterfallEdges(isLandscape: false))
+            // On the waterfall itself, not the stack: it only reaches down
+            // under the tab bar, and not into the gap above the waterfall.
+            .background(Self.tabBarBackdrop)
         }
     }
 
@@ -274,7 +296,8 @@ private extension FullScreenWaterfallView {
                 isSettingFrequency: $isSettingFrequency
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .modifier(MapSafeAreaModifier())
+            .ignoresSafeArea(.container, edges: Self.waterfallEdges(isLandscape: true))
+            .background(Self.tabBarBackdrop)
 
             controlPanel
                 .frame(width: width * 0.45)
@@ -316,6 +339,7 @@ private extension FullScreenWaterfallView {
 
             TransmissionButtonsBar()
                 .padding(.horizontal)
+                .padding(.bottom, 4)
         }
         .background(Color(UIColor.systemBackground))
     }

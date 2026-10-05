@@ -40,7 +40,7 @@ struct MessageView: View {
                     needed: needed,
                     highlight: highlight,
                     showsMode: showsMode,
-                    font: .system(size: 12),
+                    font: .caption,
                     forMeColor: .blue
                 )
             }
