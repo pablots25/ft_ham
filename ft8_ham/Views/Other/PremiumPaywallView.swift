@@ -124,26 +124,14 @@ struct PremiumPaywallView: View {
 
     private var featuresView: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ForEach(PremiumFeature.allCases, id: \.self) { feature in
+            ForEach(PaywallBenefit.all) { benefit in
                 FeatureRow(
-                    icon: feature.icon,
-                    iconColor: feature.paywallIconColor,
-                    title: feature.displayName,
-                    description: feature.paywallDescription
+                    icon: benefit.icon,
+                    iconColor: benefit.color,
+                    title: benefit.title,
+                    description: benefit.summary
                 )
             }
-            FeatureRow(
-                icon: "envelope.circle.fill",
-                iconColor: .blue,
-                title: "Priority Support",
-                description: "Direct email support for technical questions"
-            )
-            FeatureRow(
-                icon: "sparkles",
-                iconColor: .pink,
-                title: "Future Features",
-                description: "Get all upcoming premium features at no extra cost"
-            )
         }
         .padding(.horizontal, 4)
     }
@@ -186,19 +174,28 @@ struct PremiumPaywallView: View {
 
     // MARK: - Restore Button
 
+    /// Secondary to the purchase button but still a full-width button, so
+    /// users who already bought premium find it without hunting.
     private var restoreButton: some View {
         Button {
             Task { await handleRestore() }
         } label: {
-            if isRestoring {
-                ProgressView()
-            } else {
-                Text("Restore Purchase")
+            HStack {
+                if isRestoring {
+                    ProgressView()
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Restore Purchase")
+                }
             }
+            .frame(maxWidth: .infinity)
         }
-        .font(.subheadline)
-        .foregroundColor(.secondary)
+        .buttonStyle(.bordered)
+        .tint(.green)
+        .controlSize(.large)
+        .padding(.horizontal)
         .disabled(isPurchasing || isRestoring)
+        .accessibilityIdentifier("paywall_restore")
     }
 
     // MARK: - Disclaimer
@@ -242,11 +239,63 @@ struct PremiumPaywallView: View {
         do {
             try await premiumManager.restorePurchases()
             showRestoreSuccess = true
+        } catch StoreKitError.userCancelled {
+            // User cancelled the Apple Account sign-in - no error needed
+            return
         } catch {
             errorMessage = error.localizedDescription
             showError = true
         }
     }
+}
+
+// MARK: - Benefits
+
+/// A paywall row grouping related premium features, so the sheet lists a few
+/// benefits instead of one row per feature. Every `PremiumFeature` belongs to
+/// exactly one group.
+struct PaywallBenefit: Identifiable {
+    let title: String
+    let icon: String
+    let color: Color
+    let features: [PremiumFeature]
+    /// Perks that are not gated features, listed after the feature names.
+    var extras: [String] = []
+
+    var id: String { title }
+
+    /// Feature names and extras as a localized list, e.g. "A, B and C".
+    var summary: String {
+        (features.map(\.displayName) + extras).formatted(.list(type: .and))
+    }
+
+    static let all: [PaywallBenefit] = [
+        PaywallBenefit(
+            title: String(localized: "Radio Control"),
+            icon: "slider.horizontal.3",
+            color: .orange,
+            features: [.catControl, .bandHopping]
+        ),
+        PaywallBenefit(
+            title: String(localized: "Logbook Sync"),
+            icon: "arrow.triangle.2.circlepath",
+            color: .teal,
+            features: [.qrzLogbook, .lotwSync, .eqslSync, .iCloudSync]
+        ),
+        PaywallBenefit(
+            title: String(localized: "Insights"),
+            icon: "chart.bar.fill",
+            color: .purple,
+            features: [.pskReporter, .statistics, .presence]
+        ),
+        PaywallBenefit(
+            title: String(localized: "Extras"),
+            icon: "sparkles",
+            color: .pink,
+            features: [.iPadDashboard],
+            extras: [String(localized: "Priority Support"), String(localized: "Future Features")]
+        ),
+    ]
 }
 
 // MARK: - Feature Row Component

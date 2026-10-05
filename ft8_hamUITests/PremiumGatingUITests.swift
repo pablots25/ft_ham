@@ -84,8 +84,7 @@ final class PremiumGatingUITests: XCTestCase {
         }
     }
 
-    /// Opens the paywall through the locked CAT Control row; there is no
-    /// standalone "Become Premium" entry in the list.
+    /// Opens the paywall through the locked CAT Control row.
     @MainActor
     private func openPaywallFromLockedRow() {
         let lockedRow = app.buttons["premiumLocked_cat_control"]
@@ -295,7 +294,8 @@ final class PremiumGatingUITests: XCTestCase {
         openPaywallFromLockedRow()
 
         XCTAssertTrue(
-            app.staticTexts["PSK Reporter"].waitForExistence(timeout: 5),
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "PSK Reporter"))
+                .firstMatch.waitForExistence(timeout: 5),
             "Paywall should list PSK Reporter as a premium feature"
         )
     }
@@ -307,7 +307,8 @@ final class PremiumGatingUITests: XCTestCase {
         openPaywallFromLockedRow()
 
         XCTAssertTrue(
-            app.staticTexts["CAT Control"].waitForExistence(timeout: 5),
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "CAT Control"))
+                .firstMatch.waitForExistence(timeout: 5),
             "Paywall should list CAT Control as a premium feature"
         )
     }
@@ -358,6 +359,47 @@ final class PremiumGatingUITests: XCTestCase {
         XCTAssertTrue(
             app.buttons["premiumLocked_cat_control"].waitForExistence(timeout: 5),
             "CAT Control should still be locked after dismissing the paywall without purchasing"
+        )
+    }
+
+    // MARK: - Premium Section
+
+    @MainActor
+    func testPremiumButtonOpensPaywallWithRestoreOption() throws {
+        openSettingsTab()
+
+        let becomePremium = app.buttons["button_become_premium"]
+        XCTAssertTrue(becomePremium.waitForExistence(timeout: 5), "Free users should see Become Premium")
+        scrollToVisible(becomePremium, maxSwipes: 10)
+        becomePremium.tap()
+
+        let restore = app.buttons["paywall_restore"]
+        XCTAssertTrue(
+            restore.waitForExistence(timeout: 5),
+            "The paywall opened from settings should offer Restore Purchase"
+        )
+    }
+
+    @MainActor
+    func testPaywallFromPremiumSectionHasSingleCloseButton() throws {
+        openSettingsTab()
+
+        let becomePremium = app.buttons["button_become_premium"]
+        XCTAssertTrue(becomePremium.waitForExistence(timeout: 5))
+        scrollToVisible(becomePremium, maxSwipes: 10)
+        becomePremium.tap()
+
+        XCTAssertTrue(
+            app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 5),
+            "Paywall should appear"
+        )
+        let closeButtons = app.navigationBars.buttons.matching(
+            NSPredicate(format: "label IN %@", ["Close", "Done"])
+        )
+        XCTAssertEqual(
+            closeButtons.count,
+            1,
+            "The paywall sheet should show exactly one close button"
         )
     }
 }

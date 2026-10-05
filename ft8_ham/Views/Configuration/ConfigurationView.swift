@@ -114,17 +114,8 @@ struct ConfigurationView: View {
             .presentationDetents([.medium])
         }
         .sheet(isPresented: $showPremium) {
-            NavigationStack {
-                PremiumPaywallView(source: paywallFeature.map(PaywallSource.feature) ?? .screen("configuration"))
-                    .navigationTitle("Become Premium")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            CloseButton()
-                        }
-                    }
-            }
-            .presentationDetents([.large])
+            // The paywall brings its own navigation bar and close button.
+            PremiumPaywallView(source: paywallFeature.map(PaywallSource.feature) ?? .screen("configuration"))
         }
         .sheet(isPresented: $showHelp) {
             SafariView(url: URL(string: "https://ftham.turrion.dev/#getting-started")!)
@@ -157,6 +148,10 @@ struct ConfigurationView: View {
             #if canImport(FTHamPremium)
             section(for: logbookGroup)
             #endif
+
+            if !premiumManager.isPremiumUnlocked {
+                premiumSection
+            }
 
             // MARK: Help
             Section {
@@ -252,6 +247,22 @@ struct ConfigurationView: View {
         .listRowSeparator(.hidden, edges: .top)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("row_account")
+    }
+
+    /// Entry point for free users. The paywall it opens also restores a
+    /// purchase made on another device or before a reinstall.
+    private var premiumSection: some View {
+        Section {
+            Button {
+                paywallFeature = nil
+                showPremium = true
+            } label: {
+                Label("Become Premium", systemImage: "star")
+            }
+            .accessibilityIdentifier("button_become_premium")
+        } header: {
+            Text("Premium")
+        }
     }
 
     // MARK: - Rows
