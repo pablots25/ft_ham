@@ -48,6 +48,12 @@ extension FT8ViewModel  {
 
         // Stop auto-sequencing from also logging/continuing this QSO, then end it.
         qsoManager.qsoAlreadyLogged = true
+        // A repeat of this station's report must not start the QSO (and the log) again.
+        qsoManager.rememberEndedQSO(
+            dxCallsign: qsoManager.lockedDXCallsign,
+            dxLocator: qsoManager.lockedDXLocator,
+            reason: .completed
+        )
         invalidatePendingTX(reason: "manual force-log")
         dxCallsign = ""
         dxLocator = ""

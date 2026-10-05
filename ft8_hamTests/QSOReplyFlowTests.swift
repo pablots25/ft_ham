@@ -110,6 +110,22 @@ final class QSOReplyFlowTests: XCTestCase {
         XCTAssertTrue(viewModel.isReadyForTX)
     }
 
+    func testReplyToReportAddressedToMe_selectsRReportMessage() {
+        viewModel.reply(to: message("\(myCall) \(dxCall) -07"))
+
+        XCTAssertEqual(viewModel.selectedMessageIndex, FT8ViewModel.TXMessageIndex.rReport,
+                       "Tapping a report sent to me answers it (TX3), not with my grid again")
+        XCTAssertEqual(viewModel.qsoManager.qsoState, .sendingRReport(dxCallsign: dxCall))
+        XCTAssertTrue(viewModel.transmitLoopActive)
+    }
+
+    func testReplyToRReportAddressedToMe_selectsRR73Message() {
+        viewModel.reply(to: message("\(myCall) \(dxCall) R-07"))
+
+        XCTAssertEqual(viewModel.selectedMessageIndex, FT8ViewModel.TXMessageIndex.rr73)
+        XCTAssertEqual(viewModel.qsoManager.qsoState, .sending73(dxCallsign: dxCall))
+    }
+
     func testReplyToOwnCallsign_isIgnoredAndDoesNotStartTX() {
         XCTAssertFalse(viewModel.transmitLoopActive)
 

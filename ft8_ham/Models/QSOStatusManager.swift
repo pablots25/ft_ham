@@ -130,6 +130,52 @@ final class QSOStatusManager: ObservableObject {
     var courtesy73SentAfterQSO = false
     var courtesyDeadline: Date?
     
+    // MARK: Ended QSO memory
+
+    /// How the last QSO ended. A signal report can reach us after its QSO is
+    /// over: the station answers late, after our retries ran out, or repeats
+    /// its report because it missed our RR73. This record tells the two apart.
+    struct EndedQSO: Equatable {
+        enum Reason: Equatable {
+            /// Logged, or offered for logging.
+            case completed
+            /// Stopped by the operator.
+            case stopped
+            /// Dropped after the retries ran out. Keeps the report we sent so
+            /// a late answer logs the same RST_SENT.
+            case abandoned(sentSNR: Int)
+        }
+
+        let dxCallsign: String
+        let dxLocator: String
+        let reason: Reason
+        let date: Date
+
+        /// A report from a station whose QSO was just logged or stopped is a
+        /// repeat, not a new call. Restarting would log the contact twice or
+        /// override the operator. A station we gave up on may always answer.
+        func blocksRestart(at now: Date) -> Bool {
+            if case .abandoned = reason { return false }
+            return now.timeIntervalSince(date) < QSOStatusManager.endedQSOBlockInterval
+        }
+    }
+
+    /// How long a logged or stopped station cannot restart a QSO with a report.
+    static let endedQSOBlockInterval: TimeInterval = 120
+
+    var lastEndedQSO: EndedQSO?
+
+    /// Records how the QSO with `dxCallsign` ended. See `EndedQSO`.
+    func rememberEndedQSO(dxCallsign: String, dxLocator: String, reason: EndedQSO.Reason) {
+        guard !dxCallsign.isEmpty else { return }
+        lastEndedQSO = EndedQSO(
+            dxCallsign: dxCallsign.uppercased(),
+            dxLocator: dxLocator,
+            reason: reason,
+            date: Date()
+        )
+    }
+
     // Slot-based timeout tracking
     // Reset at start of each RX slot, set to true when valid response advances state
     var responseReceivedThisSlot = false
@@ -161,6 +207,13 @@ final class QSOStatusManager: ObservableObject {
         guard dx.caseInsensitiveCompare(myCallsign) != .orderedSame else {
             appLogger.debug("startReply: Message is from my own callsign, ignoring.")
             return .ignore
+        }
+
+        // A report addressed to me means the station already has my call (and
+        // maybe my grid). Answer the report, never restart with my grid.
+        if isReportAddressed(to: myCallsign, message) {
+            appLogger.debug("startReply: answering report from \(dx)")
+            return answerReport(message, from: dx.uppercased())
         }
 
         let cqModifier = message.msgType == .cq ? message.cqModifier : nil
@@ -283,6 +336,22 @@ final class QSOStatusManager: ObservableObject {
                     return .ignore
                 }
                 return .sendReport(dxCallsign: dxCallUpper, report: lastSentSNR)
+            }
+
+            // A report while no QSO is running: the station answered my CQ
+            // with a report (skipping its grid), or answered my call after the
+            // retries ran out.
+            if isReportAddressed(to: myCallUpper, message) {
+                guard isValidCallsign(dxCallUpper) else {
+                    appLogger.warning("Ignoring report with invalid callsign: \(dxCallUpper)")
+                    return .ignore
+                }
+                if let ended = lastEndedQSO, ended.dxCallsign == dxCallUpper,
+                   ended.blocksRestart(at: Date()) {
+                    appLogger.debug("Ignoring report from \(dxCallUpper): QSO already \(String(describing: ended.reason))")
+                    return .ignore
+                }
+                return answerReport(message, from: dxCallUpper)
             }
         }
 
@@ -464,6 +533,55 @@ final class QSOStatusManager: ObservableObject {
         return isFromLocked
     }
     
+    /// True when `message` is a signal report (plain or with R) sent to `myCallsign`.
+    internal func isReportAddressed(to myCallsign: String, _ message: FT8Message) -> Bool {
+        guard message.msgType == .standardSignalReport || message.msgType == .rSignalReport else {
+            return false
+        }
+        return message.dxCallsign?.uppercased() == myCallsign.uppercased()
+    }
+
+    /// Starts a QSO from a report the station sent me, at the step the report
+    /// implies: my R-report after a plain report, RR73 after an R-report.
+    ///
+    /// When it answers a QSO we gave up on, the locator and the report we sent
+    /// come from that QSO, so the log matches what went on the air.
+    @MainActor
+    internal func answerReport(_ message: FT8Message, from dx: String) -> QSOAction {
+        var locator = ""
+        var abandonedSentSNR: Int?
+        if let ended = lastEndedQSO, ended.dxCallsign == dx {
+            locator = ended.dxLocator
+            if case .abandoned(let sentSNR) = ended.reason {
+                abandonedSentSNR = sentSNR
+            }
+        }
+
+        setupNewQSO(dx: dx, locator: locator, initialSNR: message.measuredSNR)
+        if let abandonedSentSNR, abandonedSentSNR != invalidSNR {
+            lastSentSNR = abandonedSentSNR
+        }
+        lastReceivedSNR = safeDoubleToInt(message.messageTxtSNR)
+        responseReceivedThisSlot = true
+
+        if message.msgType == .rSignalReport {
+            // The station already copied my report: confirm and sign off.
+            dxHasConfirmedMyReport = true
+            qsoState = .sending73(dxCallsign: dx)
+            courtesy73SentDuringQSO = true
+            appLogger.debug("R-report from \(dx) with no QSO running, sending RR73")
+            return .sendRR73(dxCallsign: dx)
+        }
+
+        qsoState = .sendingRReport(dxCallsign: dx)
+        guard lastSentSNR != invalidSNR else {
+            appLogger.error("Attempting to send R-report without valid RST_SENT")
+            return .ignore
+        }
+        appLogger.debug("Report from \(dx) with no QSO running, sending R-report")
+        return .sendRReport(dxCallsign: dx, report: lastSentSNR)
+    }
+
     @MainActor
     internal func setupNewQSO(dx: String, locator: String, initialSNR: Double?, cqModifier: String? = nil) {
         lockedDXCallsign = dx
@@ -574,10 +692,15 @@ final class QSOStatusManager: ObservableObject {
             qsoAlreadyLogged = true
             lastCompletedDXCallsign = dx
             lastCompletedDXLocator = lockedDXLocator
+            rememberEndedQSO(dxCallsign: dx, dxLocator: lockedDXLocator, reason: .completed)
             return .offerLogQSO(dxCallsign: dx)
         }
 
+        // A late answer from this station can still pick the QSO back up.
+        let abandonedLocator = lockedDXLocator
+        let abandonedSentSNR = lastSentSNR
         resetQSO()
+        rememberEndedQSO(dxCallsign: dx, dxLocator: abandonedLocator, reason: .abandoned(sentSNR: abandonedSentSNR))
         return .abortQSO
     }
 
@@ -586,6 +709,9 @@ final class QSOStatusManager: ObservableObject {
     @MainActor
     func resetQSO() {
         appLogger.debug("Resetting QSO, clearing state and DX lock")
+        if !lockedDXCallsign.isEmpty {
+            rememberEndedQSO(dxCallsign: lockedDXCallsign, dxLocator: lockedDXLocator, reason: .stopped)
+        }
         qsoState = .idle
         lockedDXCallsign = ""
         lockedDXLocator = ""
@@ -697,6 +823,7 @@ final class QSOStatusManager: ObservableObject {
 
         lastCompletedDXCallsign = dxCallsign
         lastCompletedDXLocator = lockedDXLocator
+        rememberEndedQSO(dxCallsign: dxCallsign, dxLocator: lockedDXLocator, reason: .completed)
 
         if openCourtesyWindow && courtesyListeningEnabled {
             lastCourtesyDXCallsign = dxCallsign
