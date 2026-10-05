@@ -14,41 +14,70 @@ struct LogbookCompactRow: View {
     let displayLocalTime: Bool
     var onActivationTap: ((String) -> Void)? = nil
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+            if dynamicTypeSize.isAccessibilitySize {
+                // One piece per line: side by side, the callsign and the
+                // badges were squeezed until they broke letter by letter.
+                Text(entry.callsign)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(entry.callsign)
-                        .font(.headline)
-                        .lineLimit(1)
                     Text(entry.grid)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Spacer()
                     if let flag = entry.flag {
                         Text(flag).font(.subheadline)
                     }
-                    if let country = entry.country, !country.isEmpty {
-                        Text(country)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
                 }
-                Spacer(minLength: 8)
-                HStack(spacing: 4) {
-                    if !entry.mode.isEmpty {
-                        LogbookBadge(text: entry.mode, color: LogbookBadgeColors.mode(entry.mode))
+                if let country = entry.country, !country.isEmpty {
+                    Text(country)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                badges
+            } else {
+                HStack(spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(entry.callsign)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Text(entry.grid)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if let flag = entry.flag {
+                            Text(flag).font(.subheadline)
+                        }
+                        if let country = entry.country, !country.isEmpty {
+                            Text(country)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
                     }
-                    if entry.band != "Unknown" && !entry.band.isEmpty {
-                        LogbookBadge(text: entry.band, color: LogbookBadgeColors.band(entry.band))
-                    }
+                    Spacer(minLength: 8)
+                    badges
                 }
             }
             Text(LogbookRowFormatters.dateString(from: entry.date, local: displayLocalTime))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private var badges: some View {
+        HStack(spacing: 4) {
+            if !entry.mode.isEmpty {
+                LogbookBadge(text: entry.mode, color: LogbookBadgeColors.mode(entry.mode))
+            }
+            if entry.band != "Unknown" && !entry.band.isEmpty {
+                LogbookBadge(text: entry.band, color: LogbookBadgeColors.band(entry.band))
+            }
         }
     }
 }
@@ -60,16 +89,32 @@ struct LogbookExpandedRow: View {
     let displayLocalTime: Bool
     var onActivationTap: ((String) -> Void)? = nil
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// At accessibility sizes each pair of details stacks instead of sharing
+    /// a line, and the badges move under the details.
+    private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
+
+    private var pairLayout: AnyLayout {
+        isStacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout())
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        let outerLayout = isStacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+        outerLayout {
             VStack(alignment: .leading, spacing: 4) {
 
                 // Row 1: callsign + flag + country
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                pairLayout {
                     Text(entry.callsign)
                         .font(.headline)
                         .lineLimit(1)
-                    Spacer(minLength: 8)
+                        .minimumScaleFactor(isStacked ? 0.7 : 1)
+                    if !isStacked { Spacer(minLength: 8) }
                     if let flag = entry.flag {
                         Text(flag).font(.headline)
                     }
@@ -83,24 +128,24 @@ struct LogbookExpandedRow: View {
                 }
 
                 // Row 2: grid + SNR
-                HStack {
+                pairLayout {
                     Text(entry.grid)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Spacer(minLength: 8)
-                    HStack(spacing: 2) {
-                        Text("SNR:").font(.caption).foregroundStyle(.primary)
-                        Text(entry.rstSent).font(.caption).foregroundStyle(.primary)
-                        Text("(TX)").font(.caption).foregroundStyle(.secondary)
-                        Text("/").font(.caption).foregroundStyle(.primary)
-                        Text(entry.rstRcvd).font(.caption).foregroundStyle(.primary)
-                        Text("(RX)").font(.caption).foregroundStyle(.secondary)
-                    }
-                    .lineLimit(1)
+                    if !isStacked { Spacer(minLength: 8) }
+                    // One Text so it wraps as a sentence when stacked
+                    // instead of truncating each piece.
+                    (Text("SNR:").foregroundColor(.primary)
+                     + Text(verbatim: " \(entry.rstSent) ").foregroundColor(.primary)
+                     + Text("(TX)").foregroundColor(.secondary)
+                     + Text(verbatim: " / \(entry.rstRcvd) ").foregroundColor(.primary)
+                     + Text("(RX)").foregroundColor(.secondary))
+                        .font(.caption)
+                        .lineLimit(isStacked ? nil : 1)
                 }
 
                 // Row 3: station + frequency
-                HStack {
+                pairLayout {
                     if let station = entry.stationCallsign, !station.isEmpty {
                         Text("Station: \(station)")
                             .font(.caption)
@@ -108,7 +153,7 @@ struct LogbookExpandedRow: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
-                    Spacer(minLength: 8)
+                    if !isStacked { Spacer(minLength: 8) }
                     if let hz = entry.frequencyHz {
                         Text(String(format: "%.3f MHz", hz / 1_000_000))
                             .font(.caption)
@@ -144,8 +189,10 @@ struct LogbookExpandedRow: View {
 
                 // Row 5: date/time (always visible)
                 HStack {
-                    Spacer(minLength: 8)
-                    HStack(spacing: 4) {
+                    if !isStacked { Spacer(minLength: 8) }
+                    (isStacked
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+                        : AnyLayout(HStackLayout(spacing: 4))) {
                         Text(LogbookRowFormatters.dateString(from: entry.date, local: displayLocalTime))
                         Text(LogbookRowFormatters.timeString(from: entry.date, local: displayLocalTime))
                         if displayLocalTime { Text("(Local)") }
@@ -156,17 +203,20 @@ struct LogbookExpandedRow: View {
                 }
             }
 
-            // Badges column
-            VStack(alignment: .trailing) {
-                Spacer(minLength: 0)
+            // Badges column, or a row under the details when stacked
+            let badgeLayout = isStacked
+                ? AnyLayout(HStackLayout(spacing: 4))
+                : AnyLayout(VStackLayout(alignment: .trailing))
+            badgeLayout {
+                if !isStacked { Spacer(minLength: 0) }
                 if !entry.mode.isEmpty {
                     LogbookBadge(text: entry.mode, color: LogbookBadgeColors.mode(entry.mode))
                 }
-                Spacer(minLength: 0)
+                if !isStacked { Spacer(minLength: 0) }
                 if entry.band != "Unknown" && !entry.band.isEmpty {
                     LogbookBadge(text: entry.band, color: LogbookBadgeColors.band(entry.band))
                 }
-                Spacer(minLength: 0)
+                if !isStacked { Spacer(minLength: 0) }
             }
             .fixedSize(horizontal: true, vertical: false)
         }
@@ -182,6 +232,8 @@ struct LogbookBadge: View {
     var body: some View {
         Text(text)
             .font(.caption)
+            .lineLimit(1)
+            .fixedSize()
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
             .background(color.opacity(0.2))

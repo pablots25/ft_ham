@@ -17,14 +17,30 @@ import SwiftUI
 /// the nested `@ScaledMetric`s against that view's environment.
 struct DecodeRowMetrics: DynamicProperty {
     /// "HH:mm:ss"
-    @ScaledMetric(relativeTo: .caption2) var timeWidth: CGFloat = 48
+    @ScaledMetric(relativeTo: .caption2) var timeWidth: CGFloat = Self.baseTimeWidth
     /// "-24"
-    @ScaledMetric(relativeTo: .caption2) var snrWidth: CGFloat = 22
+    @ScaledMetric(relativeTo: .caption2) var snrWidth: CGFloat = Self.baseSNRWidth
     /// "2950"
-    @ScaledMetric(relativeTo: .caption2) var frequencyWidth: CGFloat = 30
+    @ScaledMetric(relativeTo: .caption2) var frequencyWidth: CGFloat = Self.baseFrequencyWidth
     /// "-0.20s"
-    @ScaledMetric(relativeTo: .caption2) var timeOffsetWidth: CGFloat = 38
-    @ScaledMetric(relativeTo: .caption2) var columnSpacing: CGFloat = 6
+    @ScaledMetric(relativeTo: .caption2) var timeOffsetWidth: CGFloat = Self.baseTimeOffsetWidth
+    @ScaledMetric(relativeTo: .caption2) var columnSpacing: CGFloat = Self.baseColumnSpacing
+
+    static let baseTimeWidth: CGFloat = 48
+    static let baseSNRWidth: CGFloat = 22
+    static let baseFrequencyWidth: CGFloat = 30
+    static let baseTimeOffsetWidth: CGFloat = 38
+    static let baseColumnSpacing: CGFloat = 6
+
+    /// Width of the four metadata columns plus the row insets at the default
+    /// text size. Scale it relative to `.caption2` for other sizes.
+    static let baseRowWidth: CGFloat = baseTimeWidth + baseSNRWidth + baseFrequencyWidth
+        + baseTimeOffsetWidth + 3 * baseColumnSpacing + 2 * horizontalPadding
+
+    /// Type sizes for the metadata columns and their header. The columns have
+    /// fixed widths, so past `.accessibility1` they would outgrow a phone
+    /// screen. Header and rows share the range so the titles stay aligned.
+    static let typeSizeRange: ClosedRange<DynamicTypeSize> = .medium ... .accessibility1
 
     /// Gap between the pieces of the message column (TX tag, text, badges, mode).
     static let messageSpacing: CGFloat = 4
@@ -38,6 +54,12 @@ struct DecodeRowMetrics: DynamicProperty {
 
 /// Pure decisions behind a decode row, kept out of the views so they are testable.
 enum DecodeRowLayout {
+
+    /// One line keeps the list dense. At accessibility sizes a single line
+    /// holds only a callsign or two, so the message wraps instead.
+    static func messageLineLimit(for size: DynamicTypeSize) -> Int {
+        size.isAccessibilitySize ? 3 : 1
+    }
 
     /// Normalizes the locked DX callsign once per list body pass.
     /// An empty callsign means no QSO is in progress.
@@ -79,6 +101,17 @@ enum DecodeRowLayout {
 /// Missing values keep their slot but are drawn clear so columns stay aligned.
 struct DecodeRowColumns: View {
     let msg: FT8Message
+
+    var body: some View {
+        // The clamp goes on the outside: the widths are @ScaledMetric values,
+        // which resolve against the environment of the view that holds them.
+        DecodeRowColumnsContent(msg: msg)
+            .dynamicTypeSize(DecodeRowMetrics.typeSizeRange)
+    }
+}
+
+private struct DecodeRowColumnsContent: View {
+    let msg: FT8Message
     private var metrics = DecodeRowMetrics()
 
     init(msg: FT8Message) {
@@ -89,6 +122,10 @@ struct DecodeRowColumns: View {
         HStack(spacing: metrics.columnSpacing) {
             Text(DateFormatter.utcFormatterClock.string(from: msg.timestamp))
                 .foregroundStyle(.secondary)
+                // "HH:mm:ss" is a hair wider than the column in some fonts;
+                // shrinking a little beats truncating the seconds, which
+                // tell the slots apart.
+                .minimumScaleFactor(0.8)
                 .frame(width: metrics.timeWidth, alignment: .leading)
 
             Text(DecodeRowLayout.snrText(msg))
@@ -125,6 +162,8 @@ struct DecodeRowMessage: View {
     var font: Font = .caption
     var forMeColor: Color = .blue
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: DecodeRowMetrics.messageSpacing) {
             if msg.isTX {
@@ -141,7 +180,7 @@ struct DecodeRowMessage: View {
                 .font(font)
                 .fontWeight(highlight == .none ? .regular : .bold)
                 .foregroundStyle((msg.forMe && !msg.isTX) ? forMeColor : Color.primary)
-                .lineLimit(1)
+                .lineLimit(DecodeRowLayout.messageLineLimit(for: dynamicTypeSize))
                 .truncationMode(.tail)
                 .layoutPriority(1)
 
@@ -149,11 +188,16 @@ struct DecodeRowMessage: View {
                 .layoutPriority(0)
 
             if showsMode {
-                Text(verbatim: "(\(msg.mode.rawValue.uppercased()))")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .layoutPriority(-1)
+                // Shown whole or not at all: a clipped "(F…" says nothing.
+                ViewThatFits(in: .horizontal) {
+                    Text(verbatim: "(\(msg.mode.rawValue.uppercased()))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                    Color.clear.frame(width: 0, height: 0)
+                }
+                .layoutPriority(-1)
             }
         }
     }

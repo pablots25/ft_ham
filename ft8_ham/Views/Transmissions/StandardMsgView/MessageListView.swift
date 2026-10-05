@@ -58,8 +58,10 @@ struct MessageListView: View {
                                     .dynamicTypeSize(.medium ... .accessibility5)
                                     .foregroundStyle(.primary)
                                     .underline()
-                                    .lineLimit(1)
-                                    .fixedSize()
+                                    // Wraps rather than running off screen at
+                                    // accessibility text sizes.
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .frame(maxWidth: .infinity, minHeight: 0, alignment: .center)
                                     .listRowInsets(EdgeInsets())
                                     .listRowBackground(Color.clear)

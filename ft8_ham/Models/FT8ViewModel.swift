@@ -606,7 +606,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @MainActor
     private func setupPreviewData() {
         #if DEBUG
-        if isPreview {
+        // `--mock-data` fills the lists at launch, for UI checks in the simulator.
+        if isPreview || ProcessInfo.processInfo.arguments.contains("--mock-data") {
             loadMockData()
         }
         #endif

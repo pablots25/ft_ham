@@ -20,6 +20,12 @@ struct TransmissionView: View {
 
     @State private var showLegend: Bool = false
 
+    /// Width a decode row needs at the current text size.
+    @ScaledMetric(relativeTo: .caption2) private var decodeRowWidth = DecodeRowMetrics.baseRowWidth
+    /// The one list shown when the two do not fit side by side.
+    @State private var visibleSection: TransmissionSection = .received
+    private let sectionSpacing: CGFloat = 12
+
     private var needsTutorial: Bool {
         !hasSeenTutorial
     }
@@ -35,7 +41,7 @@ struct TransmissionView: View {
                     if isLandscape {
                         landscapeLayout(width: geo.size.width)
                     } else {
-                        portraitLayout()
+                        portraitLayout(width: geo.size.width)
                     }
                 }
                 .animation(.easeInOut(duration: 0.25), value: isLandscape)
@@ -75,7 +81,7 @@ private extension TransmissionView {
         )
     }
     
-    func portraitLayout() -> some View {
+    func portraitLayout(width: CGFloat) -> some View {
         VStack(spacing: 10) {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
             
@@ -91,7 +97,8 @@ private extension TransmissionView {
                 .padding(.horizontal)
                 .padding(.bottom)
             
-            messagesSection
+            // 16 pt of horizontal padding on each side.
+            messagesSection(width: width - 32)
                 .padding(.horizontal)
             
             //            WaterfallView(
@@ -118,7 +125,8 @@ private extension TransmissionView {
                 .frame(width: width * 0.45)
             Divider()
             
-            messagesSection
+            // Leading padding plus the doubled trailing padding: 48 pt.
+            messagesSection(width: width * 0.55 - 48)
                 .frame(width: width * 0.55)
                 .padding(.horizontal)
                 .padding(.trailing)
@@ -135,22 +143,54 @@ private extension TransmissionView {
         }
     }
     
-    var messagesSection: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Filtering by `filterMode` happens once, inside the list views.
-            messagesColumn(
-                section: .received,
-                messages: viewModel.receivedMessages,
-                clearAction: viewModel.clearReceived,
-                allowReply: true
-            )
-            Divider()
-            messagesColumn(
-                section: .transmitted,
-                messages: viewModel.transmittedMessages,
-                clearAction: viewModel.clearTransmitted
-            )
+    @ViewBuilder
+    func messagesSection(width: CGFloat) -> some View {
+        let layout = TransmissionSectionLayout(
+            availableWidth: width,
+            rowWidth: decodeRowWidth,
+            spacing: sectionSpacing * 2 + 1
+        )
+        if layout == .single {
+            // At larger text sizes two lists side by side leave each too
+            // narrow for the decode columns, so show one at a time.
+            VStack(spacing: 8) {
+                Picker("Messages", selection: $visibleSection) {
+                    Text(TransmissionSection.received.localizedName).tag(TransmissionSection.received)
+                    Text(TransmissionSection.transmitted.localizedName).tag(TransmissionSection.transmitted)
+                }
+                .pickerStyle(.segmented)
+                .operatingChromeTypeSize()
+
+                switch visibleSection {
+                case .received: receivedColumn
+                case .transmitted: transmittedColumn
+                }
+            }
+        } else {
+            HStack(alignment: .top, spacing: sectionSpacing) {
+                receivedColumn
+                Divider()
+                transmittedColumn
+            }
         }
+    }
+
+    // Filtering by `filterMode` happens once, inside the list views.
+    var receivedColumn: some View {
+        messagesColumn(
+            section: .received,
+            messages: viewModel.receivedMessages,
+            clearAction: viewModel.clearReceived,
+            allowReply: true
+        )
+    }
+
+    var transmittedColumn: some View {
+        messagesColumn(
+            section: .transmitted,
+            messages: viewModel.transmittedMessages,
+            clearAction: viewModel.clearTransmitted
+        )
     }
     
     func messagesColumn(

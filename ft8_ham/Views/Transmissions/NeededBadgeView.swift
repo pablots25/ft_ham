@@ -13,34 +13,70 @@ import SwiftUI
 ///
 /// The visible text is the short, untranslated tag ("DXCC", "GRID") so the
 /// badges stay narrow in every language. VoiceOver reads the full localized
-/// phrase. The badges are not fixed-size: in a tight row they truncate before
-/// the message text does.
+/// phrase. In a tight row the tags step down to their initials, then to
+/// colored dots, instead of being clipped into unreadable fragments. The
+/// message text keeps priority over them.
 struct NeededBadgeView: View {
     let status: NeededStatus
 
     var body: some View {
         if status.contains(.grid) || status.contains(.dxcc) {
-            HStack(spacing: 3) {
-                if status.contains(.dxcc) {
-                    badge("DXCC", accessibilityLabel: "NEW DXCC", color: .red)
-                }
-                if status.contains(.grid) {
-                    badge("GRID", accessibilityLabel: "NEW GRID", color: .teal)
-                }
+            ViewThatFits(in: .horizontal) {
+                badges(style: .full)
+                badges(style: .initial)
+                badges(style: .dot)
             }
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityText)
         }
     }
 
-    private func badge(_ tag: String, accessibilityLabel: LocalizedStringKey, color: Color) -> some View {
-        Text(verbatim: tag)
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(color)
-            .lineLimit(1)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(color.opacity(0.15), in: Capsule())
-            .accessibilityLabel(Text(accessibilityLabel))
+    enum Style { case full, initial, dot }
+
+    /// Visible text of a badge in each style; `nil` draws a dot.
+    static func label(for tag: String, style: Style) -> String? {
+        switch style {
+        case .full: tag
+        case .initial: String(tag.prefix(1))
+        case .dot: nil
+        }
+    }
+
+    private var accessibilityText: Text {
+        switch (status.contains(.dxcc), status.contains(.grid)) {
+        case (true, true): Text("NEW DXCC") + Text(verbatim: ", ") + Text("NEW GRID")
+        case (true, false): Text("NEW DXCC")
+        default: Text("NEW GRID")
+        }
+    }
+
+    private func badges(style: Style) -> some View {
+        HStack(spacing: 3) {
+            if status.contains(.dxcc) {
+                badge("DXCC", color: .red, style: style)
+            }
+            if status.contains(.grid) {
+                badge("GRID", color: .teal, style: style)
+            }
+        }
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private func badge(_ tag: String, color: Color, style: Style) -> some View {
+        if let label = Self.label(for: tag, style: style) {
+            Text(verbatim: label)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(color.opacity(0.15), in: Capsule())
+        } else {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+        }
     }
 }
 
