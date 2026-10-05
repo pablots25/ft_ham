@@ -209,8 +209,9 @@ final class SimulQSO_AdditionalTests: XCTestCase {
             autoSequencingEnabled: true,
             autoCQReplyEnabled: true
         )
-        XCTAssertEqual(action1, .ignore)
-        XCTAssertEqual(viewModel.qsoManager.qsoState, .idle)
+        // A station that answers with a report (skipping its grid) gets my R-report.
+        XCTAssertEqual(action1, .sendRReport(dxCallsign: "EA2ABC", report: -7))
+        XCTAssertEqual(viewModel.qsoManager.qsoState, .sendingRReport(dxCallsign: "EA2ABC"))
 
         // DX then sends RR73
         let rr73 = FT8Message(
@@ -230,8 +231,8 @@ final class SimulQSO_AdditionalTests: XCTestCase {
             autoCQReplyEnabled: true
         )
 
-        XCTAssertEqual(action2, .ignore)
-        XCTAssertEqual(viewModel.qsoManager.qsoState, .idle)
+        XCTAssertEqual(action2, .send73(dxCallsign: "EA2ABC"))
+        XCTAssertEqual(viewModel.qsoManager.qsoState, .sending73(dxCallsign: "EA2ABC"))
     }
 
     // 6) After completion, a new unrelated grid from another DX should be handled as a fresh start

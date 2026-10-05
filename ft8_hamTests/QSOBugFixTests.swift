@@ -199,4 +199,183 @@ final class QSOBugFixTests: XCTestCase {
         XCTAssertEqual(manager.qsoState, .idle, "Should remain idle, not restart")
         XCTAssertTrue(manager.courtesy73SentAfterQSO, "Should mark courtesy sent")
     }
+
+    // MARK: - Bug Fix: a report with no QSO running is answered, not ignored
+
+    private func report(_ text: String, measuredSNR: Double = -12) -> FT8Message {
+        FT8Message(
+            text: text,
+            mode: .ft8,
+            isRealtime: false,
+            timestamp: Date(),
+            measuredSNR: measuredSNR,
+            frequency: 14074000,
+            band: .band20m
+        )
+    }
+
+    private func receive(_ message: FT8Message, autoSequencing: Bool = true) -> QSOAction {
+        manager.handleIncomingMessage(
+            message,
+            myCallsign: myCallsign,
+            autoSequencingEnabled: autoSequencing,
+            autoCQReplyEnabled: false
+        )
+    }
+
+    func testReportAnsweringMyCQ_sendsRReport() {
+        manager.startCallingCQ()
+
+        let action = receive(report("EA1ABC K1ABC -07", measuredSNR: -12))
+
+        XCTAssertEqual(action, .sendRReport(dxCallsign: "K1ABC", report: -12),
+                       "A caller that skips its grid gets my R-report")
+        XCTAssertEqual(manager.qsoState, .sendingRReport(dxCallsign: "K1ABC"))
+        XCTAssertEqual(manager.lockedDXCallsign, "K1ABC")
+        XCTAssertEqual(manager.lastReceivedSNR, -7)
+        XCTAssertEqual(manager.lastSentSNR, -12)
+    }
+
+    func testRReportWithNoQSORunning_sendsRR73() {
+        manager.startCallingCQ()
+
+        let action = receive(report("EA1ABC K1ABC R-07"))
+
+        XCTAssertEqual(action, .sendRR73(dxCallsign: "K1ABC"))
+        XCTAssertEqual(manager.qsoState, .sending73(dxCallsign: "K1ABC"))
+        XCTAssertTrue(manager.dxHasConfirmedMyReport)
+        XCTAssertEqual(manager.lastReceivedSNR, -7)
+    }
+
+    func testReportWhileIdle_autoSequencingOff_isIgnored() {
+        let action = receive(report("EA1ABC K1ABC -07"), autoSequencing: false)
+
+        XCTAssertEqual(action, .ignore)
+        XCTAssertEqual(manager.qsoState, .idle)
+        XCTAssertEqual(manager.lockedDXCallsign, "")
+    }
+
+    func testReportForAnotherStation_isIgnored() {
+        manager.startCallingCQ()
+
+        let action = receive(report("DL1XYZ K1ABC -07"))
+
+        XCTAssertEqual(action, .ignore)
+        XCTAssertEqual(manager.qsoState, .callingCQ)
+        XCTAssertEqual(manager.lockedDXCallsign, "")
+    }
+
+    func testLateReportAfterRetriesRanOut_resumesQSOWithSameSentReport() {
+        manager.setupNewQSO(dx: "K1ABC", locator: "FN31", initialSNR: -10)
+        manager.qsoState = .listeningReport(dxCallsign: "K1ABC")
+        manager.maxRetrySlots = 1
+
+        XCTAssertEqual(manager.handleQSOTimeout(), .sendGrid(dxCallsign: "K1ABC", dxLocator: "FN31"))
+        XCTAssertEqual(manager.handleQSOTimeout(), .abortQSO)
+        XCTAssertEqual(manager.qsoState, .idle)
+
+        // The station answers after we gave up, now heard at a different SNR.
+        let action = receive(report("EA1ABC K1ABC -07", measuredSNR: -3))
+
+        XCTAssertEqual(action, .sendRReport(dxCallsign: "K1ABC", report: -10),
+                       "The late answer resumes the QSO with the report we already sent")
+        XCTAssertEqual(manager.qsoState, .sendingRReport(dxCallsign: "K1ABC"))
+        XCTAssertEqual(manager.lockedDXLocator, "FN31", "The grid of the dropped QSO is kept")
+    }
+
+    func testRepeatedReportAfterQSOLoggedWithoutCourtesyWindow_isIgnored() {
+        manager.setupNewQSO(dx: "K1ABC", locator: "FN31", initialSNR: -10)
+        manager.qsoState = .sending73(dxCallsign: "K1ABC")
+        _ = manager.closeQSO(dxCallsign: "K1ABC", openCourtesyWindow: false)
+        manager.resetRadioStateAfterCompletion()
+
+        let action = receive(report("EA1ABC K1ABC -07"))
+
+        XCTAssertEqual(action, .ignore, "A repeat must not start (and log) the same QSO again")
+        XCTAssertEqual(manager.qsoState, .idle)
+    }
+
+    func testReportFromStationTheOperatorStopped_isIgnored() {
+        manager.setupNewQSO(dx: "K1ABC", locator: "FN31", initialSNR: -10)
+        manager.qsoState = .listeningReport(dxCallsign: "K1ABC")
+        manager.resetQSO()
+
+        let action = receive(report("EA1ABC K1ABC -07"))
+
+        XCTAssertEqual(action, .ignore)
+        XCTAssertEqual(manager.lastEndedQSO?.reason, .stopped)
+    }
+
+    func testReportFromStoppedStation_isAnsweredOnceBlockIntervalPassed() {
+        manager.lastEndedQSO = QSOStatusManager.EndedQSO(
+            dxCallsign: "K1ABC",
+            dxLocator: "FN31",
+            reason: .stopped,
+            date: Date().addingTimeInterval(-QSOStatusManager.endedQSOBlockInterval - 1)
+        )
+
+        let action = receive(report("EA1ABC K1ABC -07", measuredSNR: -12))
+
+        XCTAssertEqual(action, .sendRReport(dxCallsign: "K1ABC", report: -12))
+    }
+
+    func testReportFromOtherStationAfterLoggedQSO_isAnswered() {
+        manager.setupNewQSO(dx: "K1ABC", locator: "FN31", initialSNR: -10)
+        manager.qsoState = .sending73(dxCallsign: "K1ABC")
+        _ = manager.closeQSO(dxCallsign: "K1ABC", openCourtesyWindow: true)
+        manager.resetRadioStateAfterCompletion()
+
+        let action = receive(report("EA1ABC DL1XYZ -07", measuredSNR: -12))
+
+        XCTAssertEqual(action, .sendRReport(dxCallsign: "DL1XYZ", report: -12))
+    }
+
+    // MARK: - Bug Fix: tapping a report answers it instead of resending the grid
+
+    func testStartReply_toReportAddressedToMe_sendsRReport() {
+        let action = manager.startReply(
+            to: report("EA1ABC K1ABC -07", measuredSNR: -12),
+            myCallsign: myCallsign,
+            myLocator: "IN80"
+        )
+
+        XCTAssertEqual(action, .sendRReport(dxCallsign: "K1ABC", report: -12))
+        XCTAssertEqual(manager.qsoState, .sendingRReport(dxCallsign: "K1ABC"))
+        XCTAssertEqual(manager.lastReceivedSNR, -7)
+    }
+
+    func testStartReply_toRReportAddressedToMe_sendsRR73() {
+        let action = manager.startReply(
+            to: report("EA1ABC K1ABC R-07"),
+            myCallsign: myCallsign,
+            myLocator: "IN80"
+        )
+
+        XCTAssertEqual(action, .sendRR73(dxCallsign: "K1ABC"))
+        XCTAssertEqual(manager.qsoState, .sending73(dxCallsign: "K1ABC"))
+    }
+
+    func testStartReply_toReportForAnotherStation_stillSendsGrid() {
+        let action = manager.startReply(
+            to: report("DL1XYZ K1ABC -07"),
+            myCallsign: myCallsign,
+            myLocator: "IN80"
+        )
+
+        XCTAssertEqual(action, .sendGrid(dxCallsign: "K1ABC", dxLocator: ""))
+        XCTAssertEqual(manager.qsoState, .sendingGrid(dxCallsign: "K1ABC"))
+    }
+
+    func testStartReply_toReportFromJustLoggedStation_isHonored() {
+        manager.rememberEndedQSO(dxCallsign: "K1ABC", dxLocator: "FN31", reason: .completed)
+
+        let action = manager.startReply(
+            to: report("EA1ABC K1ABC -07", measuredSNR: -12),
+            myCallsign: myCallsign,
+            myLocator: "IN80"
+        )
+
+        XCTAssertEqual(action, .sendRReport(dxCallsign: "K1ABC", report: -12),
+                       "A tap is the operator's choice, the repeat guard only applies to the automatic path")
+    }
 }
