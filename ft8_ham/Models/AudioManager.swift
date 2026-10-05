@@ -7,6 +7,7 @@
 
 import AVFoundation
 import Combine
+import UIKit
 import Foundation
 import Accelerate
 import os.lock
@@ -96,6 +97,15 @@ final class AudioManager: NSObject, AudioManaging {
     private(set) var isListening = false {
         didSet { rxStatusPublisher.send(isListening) }
     }
+
+    /// `true` once `configureAudioSession()` has succeeded. Activation can fail
+    /// at launch (a phone call or another app holds the session), so every
+    /// entry point that needs audio retries the setup while this is `false`.
+    private(set) var isSessionConfigured = false
+
+    /// `true` between `startMicInput()` and `stopMicInput()`, even when the tap
+    /// could not be installed. Recovery paths use it to bring RX back.
+    private(set) var wantsMicInput = false
 
     // MARK: - Digital input gain (Thread Safe)
 
@@ -212,25 +222,24 @@ final class AudioManager: NSObject, AudioManaging {
 
         super.init()
 
-        do {
-            try configureAudioSession()
-        } catch {
-            audioLogger.log(.error, "AudioSession configuration failed: \(error.localizedDescription)")
-            audioErrorPublisher.send(error.localizedDescription)
-            return
-        }
-
+        // The playback chain and the observers must exist even when the session
+        // cannot be activated yet. Bailing out here left the player node
+        // unattached (stereo by default), and the first TX then crashed in
+        // scheduleBuffer on a channel count mismatch.
         attachPlaybackChain()
 
         do {
+            try configureSessionIfNeeded()
             try startEngineIfNeeded()
         } catch {
-            audioLogger.log(.warning, "Engine not started during init (will retry): \(error.localizedDescription)")
+            audioLogger.log(.warning, "Audio not ready during init (will retry): \(error.localizedDescription)")
+            audioErrorPublisher.send(error.localizedDescription)
         }
 
         observeAudioSessionInterruptions()
         observeAudioSessionRouteChanges()
         observeEngineConfigurationChanges()
+        observeAppDidBecomeActive()
 
         audioLogger.log(
             .info,
@@ -241,6 +250,7 @@ final class AudioManager: NSObject, AudioManaging {
     // MARK: - Audio Session
 
     private func configureAudioSession() throws {
+        isSessionConfigured = false
         let session = AVAudioSession.sharedInstance()
 
         do {
@@ -275,22 +285,57 @@ final class AudioManager: NSObject, AudioManaging {
             throw AudioManagerError.sessionActivationFailed(underlying: error)
         }
 
+        isSessionConfigured = true
         audioLogger.log(
             .info,
             "AVAudioSession active. HW SR: \(session.sampleRate)"
         )
     }
 
+    /// Configures the session only when an earlier attempt failed or none ran.
+    /// A failure here is an expected OS condition (call in progress, another
+    /// app owns the session), so it is a warning rather than a non-fatal.
+    private func configureSessionIfNeeded() throws {
+        guard !isSessionConfigured else { return }
+        do {
+            try configureAudioSession()
+        } catch {
+            audioLogger.log(.warning, "Audio session not available: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    /// Brings the session and the engine up, whichever of them is missing.
+    private func ensureSessionAndEngine() throws {
+        try configureSessionIfNeeded()
+        try startEngineIfNeeded()
+    }
+
     // MARK: - Playback Chain
 
+    /// Attaches the player node (if needed) and connects it in mono to the
+    /// main mixer. Safe to call again to repair a broken chain.
     private func attachPlaybackChain() {
         guard let monoFormat = AVAudioFormat(
             standardFormatWithSampleRate: sampleRate,
             channels: 1
         ) else { return }
 
-        audioEngine.attach(playerNode)
+        if playerNode.engine == nil {
+            audioEngine.attach(playerNode)
+        }
         audioEngine.connect(playerNode, to: audioEngine.mainMixerNode, format: monoFormat)
+    }
+
+    /// `true` when scheduling a buffer on the player would raise an
+    /// NSException: the node is not in the engine, or its output channel
+    /// count differs from the buffer's.
+    static func playbackChainNeedsRepair(
+        isAttached: Bool,
+        playerChannels: AVAudioChannelCount,
+        bufferChannels: AVAudioChannelCount
+    ) -> Bool {
+        !isAttached || playerChannels != bufferChannels
     }
 
     // MARK: - Engine Control
@@ -333,9 +378,11 @@ final class AudioManager: NSObject, AudioManaging {
             return
         }
 
-        // Ensure engine is started BEFORE attempting to tap
+        wantsMicInput = true
+
+        // Ensure session and engine are up BEFORE attempting to tap
         do {
-            try startEngineIfNeeded()
+            try ensureSessionAndEngine()
         } catch {
             audioErrorPublisher.send(error.localizedDescription)
             return
@@ -344,12 +391,14 @@ final class AudioManager: NSObject, AudioManaging {
         // Remove any existing tap
         inputNode.removeTap(onBus: 0)
 
-        let hwFormat = inputNode.inputFormat(forBus: 0)
-
-        guard hwFormat.sampleRate > 0, hwFormat.channelCount > 0 else {
+        guard let hwFormat = Self.tapFormat(
+            output: inputNode.outputFormat(forBus: 0),
+            input: inputNode.inputFormat(forBus: 0)
+        ) else {
+            let format = inputNode.outputFormat(forBus: 0)
             let error = AudioManagerError.invalidInputFormat(
-                sampleRate: hwFormat.sampleRate,
-                channels: hwFormat.channelCount
+                sampleRate: format.sampleRate,
+                channels: format.channelCount
             )
             audioLogger.log(.error, error.localizedDescription)
             audioErrorPublisher.send(error.localizedDescription)
@@ -359,12 +408,28 @@ final class AudioManager: NSObject, AudioManaging {
         micSampleRate = hwFormat.sampleRate
         audioLogger.log(.info, "Mic format validated: \(micSampleRate) Hz")
 
-        installInputTap(on: inputNode, format: hwFormat)
+        guard installInputTap(on: inputNode, format: hwFormat) else {
+            isListening = false
+            return
+        }
         isListening = true
         audioLogger.log(.info, "Mic input tap installed successfully")
     }
 
-    private func installInputTap(on inputNode: AVAudioInputNode, format: AVAudioFormat) {
+    /// Format for the input tap. The tap sits on the node's output bus, so its
+    /// format has to match `outputFormat(forBus: 0)`; tapping with the
+    /// hardware-side input format fails with -10868 when the two differ. The
+    /// input format is only a fallback while the output side is not ready.
+    static func tapFormat(output: AVAudioFormat, input: AVAudioFormat) -> AVAudioFormat? {
+        if output.sampleRate > 0, output.channelCount > 0 { return output }
+        if input.sampleRate > 0, input.channelCount > 0 { return input }
+        return nil
+    }
+
+    /// Installs the mic tap. Returns `false` when it could not be installed;
+    /// the error is already logged and published.
+    @discardableResult
+    private func installInputTap(on inputNode: AVAudioInputNode, format: AVAudioFormat) -> Bool {
         // Identity rates need no converter; anything else goes through one.
         let decimator = format.sampleRate == sampleRate
             ? nil
@@ -376,10 +441,31 @@ final class AudioManager: NSObject, AudioManaging {
             )
             audioLogger.log(.error, "Cannot resample \(format.sampleRate) Hz to \(sampleRate) Hz")
             audioErrorPublisher.send(error.localizedDescription)
-            return
+            return false
         }
         self.decimator = decimator
 
+        // installTap raises an NSException (e.g. "Failed to initialize active
+        // nodes in input chain", -10868) when the format no longer matches the
+        // hardware. Swift cannot catch it, so route it through the catcher.
+        do {
+            try ObjCExceptionCatcher.catchException {
+                self.installTapBlock(on: inputNode, format: format, decimator: decimator)
+            }
+            return true
+        } catch {
+            let wrapped = AudioManagerError.tapInstallationFailed(underlying: error)
+            audioLogger.log(.error, wrapped.localizedDescription)
+            audioErrorPublisher.send(wrapped.localizedDescription)
+            return false
+        }
+    }
+
+    private func installTapBlock(
+        on inputNode: AVAudioInputNode,
+        format: AVAudioFormat,
+        decimator: AudioDecimator?
+    ) {
         inputNode.installTap(
             onBus: 0,
             bufferSize: AVAudioFrameCount(waterfallFFTSize),
@@ -438,6 +524,7 @@ final class AudioManager: NSObject, AudioManaging {
     @MainActor
     func stopMicInput() {
         audioLogger.log(.info, "stopMicInput called")
+        wantsMicInput = false
 
         if !environment.shouldDisableAudio {
             inputNode?.removeTap(onBus: 0)
@@ -504,9 +591,10 @@ final class AudioManager: NSObject, AudioManaging {
         // app is backgrounded; in that case the engine has no IO cycle and
         // -[AVAudioPlayerNode play] would throw, so abort instead of crashing.
         do {
+            try configureSessionIfNeeded()
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            audioLogger.log(.error, "Audio session activation failed, skipping playback: \(error.localizedDescription)")
+            audioLogger.log(.warning, "Audio session activation failed, skipping playback: \(error.localizedDescription)")
             audioErrorPublisher.send(error.localizedDescription)
             return
         }
@@ -525,13 +613,33 @@ final class AudioManager: NSObject, AudioManaging {
             return
         }
 
-        playerNode.scheduleBuffer(buffer) { [weak self] in
-            DispatchQueue.main.async {
-                self?.isPlaying = false
-                // Playback completed successfully — reset the failure gate so a future
-                // genuine engine failure gets a fresh Crashlytics event.
-                self?.engineStartFirstFailureDate = nil
+        if Self.playbackChainNeedsRepair(
+            isAttached: playerNode.engine != nil,
+            playerChannels: playerNode.outputFormat(forBus: 0).channelCount,
+            bufferChannels: buffer.format.channelCount
+        ) {
+            audioLogger.log(.warning, "Playback chain not ready, reattaching the player node")
+            attachPlaybackChain()
+        }
+
+        // scheduleBuffer raises an NSException on a channel count mismatch or a
+        // detached node. Catch it so a broken chain skips this TX instead of
+        // crashing the app.
+        do {
+            try ObjCExceptionCatcher.catchException {
+                self.playerNode.scheduleBuffer(buffer) { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.isPlaying = false
+                        // Playback completed successfully — reset the failure gate so a future
+                        // genuine engine failure gets a fresh Crashlytics event.
+                        self?.engineStartFirstFailureDate = nil
+                    }
+                }
             }
+        } catch {
+            audioLogger.log(.error, "playerNode.scheduleBuffer threw: \(error.localizedDescription)")
+            audioErrorPublisher.send(error.localizedDescription)
+            return
         }
 
         // play() raises an NSException ("player did not see an IO cycle") when the
@@ -642,7 +750,7 @@ final class AudioManager: NSObject, AudioManaging {
 
         audioLogger.log(.info, "Audio route: \(reason) — reconfiguring engine")
 
-        let wasListening = isListening
+        let wasListening = isListening || wantsMicInput
 
         if wasListening {
             inputNode?.removeTap(onBus: 0)
@@ -652,21 +760,64 @@ final class AudioManager: NSObject, AudioManaging {
             try configureAudioSession()
             try startEngineIfNeeded()
         } catch {
-            audioLogger.log(.error, "Failed to reconfigure after route change: \(error.localizedDescription)")
+            audioLogger.log(.warning, "Failed to reconfigure after route change: \(error.localizedDescription)")
             audioErrorPublisher.send(error.localizedDescription)
+            // The tap is gone; let recoverAudioIfNeeded() reinstall it later.
+            if wasListening { isListening = false }
             return
         }
 
         guard wasListening, let inputNode else { return }
 
-        let hwFormat = inputNode.inputFormat(forBus: 0)
-        guard hwFormat.sampleRate > 0, hwFormat.channelCount > 0 else {
+        guard let hwFormat = Self.tapFormat(
+            output: inputNode.outputFormat(forBus: 0),
+            input: inputNode.inputFormat(forBus: 0)
+        ) else {
             audioLogger.log(.error, "Hardware format invalid after route change — mic tap not reinstalled")
+            isListening = false
             return
         }
         micSampleRate = hwFormat.sampleRate
         audioLogger.log(.info, "Reinstalling mic tap after route change: \(micSampleRate) Hz")
-        installInputTap(on: inputNode, format: hwFormat)
+        isListening = installInputTap(on: inputNode, format: hwFormat)
+    }
+
+    // MARK: - App Lifecycle Recovery
+
+    private func observeAppDidBecomeActive() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppDidBecomeActive(_:)),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleAppDidBecomeActive(_ notification: Notification) {
+        Task { @MainActor [weak self] in
+            self?.recoverAudioIfNeeded()
+        }
+    }
+
+    /// Retries the audio setup when the app comes back to the foreground after
+    /// the session could not be activated (typically a call at launch), and
+    /// brings RX back if it was requested in the meantime.
+    /// Exposed as `internal` for deterministic unit testing. Do not call from app code.
+    @MainActor
+    func recoverAudioIfNeeded() {
+        guard !environment.shouldDisableAudio, inputNode != nil else { return }
+        guard !isSessionConfigured || (wantsMicInput && !isListening) else { return }
+
+        audioLogger.log(.info, "App active, retrying audio setup")
+        do {
+            try ensureSessionAndEngine()
+        } catch {
+            return
+        }
+
+        if wantsMicInput && !isListening {
+            startMicInput()
+        }
     }
 
     // MARK: - Engine Configuration Change Recovery
@@ -725,7 +876,7 @@ final class AudioManager: NSObject, AudioManaging {
                     try configureAudioSession()
                     try startEngineIfNeeded()
                 } catch {
-                    audioLogger.log(.error, "Failed to recover from interruption: \(error.localizedDescription)")
+                    audioLogger.log(.warning, "Failed to recover from interruption: \(error.localizedDescription)")
                     audioErrorPublisher.send(error.localizedDescription)
                 }
             } else {
@@ -743,6 +894,7 @@ final class AudioManager: NSObject, AudioManaging {
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name.AVAudioEngineConfigurationChange, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIApplication.didBecomeActiveNotification, object: nil)
         inputNode?.removeTap(onBus: 0)
         playerNode.stop()
         audioEngine.stop()

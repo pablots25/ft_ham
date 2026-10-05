@@ -552,7 +552,11 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
       ftx_message_offsets_t offsets;
       ftx_message_rc_t rc = ftx_message_decode(&msg, &hash_if, text, &offsets);
 
-      if (rc == FTX_MESSAGE_RC_OK) {
+      // stringWithUTF8String: returns nil on bytes that are not valid UTF-8;
+      // a nil text would crash both the literal below and the dedup map.
+      NSString *messageText =
+          rc == FTX_MESSAGE_RC_OK ? [NSString stringWithUTF8String:text] : nil;
+      if (messageText != nil) {
         float snr = compute_snr_db(wf, &candidates[i]);
 
         float timeSec = (candidates[i].time_offset +
@@ -567,7 +571,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
             [now timeIntervalSince1970]; // seconds since 1970
 
         NSDictionary *msgDict = @{
-          @"text" : [NSString stringWithUTF8String:text],
+          @"text" : messageText,
           @"snr" : @(snr),
           @"timeDelta" : @(timeSec),
           @"time" : @(timeSec),
@@ -587,6 +591,9 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
       [NSMutableDictionary dictionary];
   for (NSDictionary *msg in results) {
     NSString *text = msg[@"text"];
+    if (text == nil) {
+      continue;
+    }
     double snr = [msg[@"snr"] doubleValue];
 
     NSDictionary *existing = bestResults[text];

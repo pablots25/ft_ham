@@ -270,7 +270,9 @@ final class RemoteConfigProvider: FeatureFlagProvider {
             self.cachedWhatsNewConfig = nil  // Clear cache to fetch fresh config
             
             if let error = error {
-                logger.error("Firebase Remote Config fetch failed: \(error.localizedDescription)")
+                // Usually offline or a flaky network. The cached config stays in use,
+                // so this is not worth a Crashlytics non-fatal.
+                logger.warning("Firebase Remote Config fetch failed: \(error.localizedDescription)")
             } else {
                 logger.debug("Firebase Remote Config fetch completed successfully")
                 logger.debug("Status: \(status == .successFetchedFromRemote ? "Fetched from Remote" : "Fetched from Cache")")

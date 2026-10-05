@@ -57,18 +57,13 @@ struct AppLogger {
     
     /// Sanitize message by removing callsigns and grid locators before sending to Crashlytics
     /// Keeps original message for local logging
-    private func sanitize(_ message: String) -> String {
+    /// Strips callsigns and grid locators before a message reaches Crashlytics.
+    /// Grids go first so they come out as `[GRID]`. A callsign must contain a
+    /// letter, which keeps numbers such as OSStatus codes (-10868) readable.
+    /// `internal` for unit testing.
+    func sanitize(_ message: String) -> String {
         var sanitized = message
-        
-        // Remove amateur radio callsigns (e.g., EA4IQL, K1ABC, G0XYZ, etc.)
-        // Pattern: 1-2 alphanumeric prefix + digit + 1-4 alphanumeric suffix
-        let callsignPattern = "\\b[A-Z0-9]{1,2}[0-9][A-Z0-9]{1,4}\\b"
-        sanitized = sanitized.replacingOccurrences(
-            of: callsignPattern,
-            with: "[CALLSIGN]",
-            options: .regularExpression
-        )
-        
+
         // Remove grid locators (e.g., FN42, JO62ab)
         // Pattern: 2 letters + 2 digits + optional 2 letters
         let gridPattern = "\\b[A-R]{2}[0-9]{2}([a-x]{2})?\\b"
@@ -77,7 +72,17 @@ struct AppLogger {
             with: "[GRID]",
             options: [.regularExpression, .caseInsensitive]
         )
-        
+
+        // Remove amateur radio callsigns (e.g., EA4IQL, K1ABC, G0XYZ, etc.)
+        // Pattern: 1-2 alphanumeric prefix + digit + 1-4 alphanumeric suffix,
+        // with at least one letter somewhere
+        let callsignPattern = "\\b(?=[A-Z0-9]*[A-Z])[A-Z0-9]{1,2}[0-9][A-Z0-9]{1,4}\\b"
+        sanitized = sanitized.replacingOccurrences(
+            of: callsignPattern,
+            with: "[CALLSIGN]",
+            options: .regularExpression
+        )
+
         return sanitized
     }
 
