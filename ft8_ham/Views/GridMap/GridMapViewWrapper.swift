@@ -21,6 +21,9 @@ struct GridMapViewWrapper: View {
     @ObservedObject var presence: PresenceManager = .shared
     var myCallsign: String = ""
     var myLocator: String = ""
+    /// False while the map's tab is not selected: data changes are held back
+    /// and applied once it is shown again.
+    var isActive: Bool = true
     /// Called when the device location resolves to a grid square not yet shown.
     var onUserLocator: ((String) -> Void)? = nil
     @State private var userTrackingMode: MKUserTrackingMode = .none
@@ -53,6 +56,7 @@ struct GridMapViewWrapper: View {
                 showAnnotations: mapSettings.showAnnotations,
                 showHeardMe: mapSettings.showHeardMe,
                 showPresence: mapSettings.showPresence,
+                isActive: isActive,
                 userTrackingMode: $userTrackingMode,
                 onUserLocator: onUserLocator
             )
@@ -249,5 +253,23 @@ struct GridMapViewWrapper: View {
         )
         .frame(height: 40)
         .animation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0.3), value: isControlsExpanded)
+    }
+}
+
+/// Compares the inputs that come from the parent so `.equatable()` can skip
+/// this body when an unrelated `FT8ViewModel` property publishes. The stores
+/// are still observed directly, and `onUserLocator` always forwards to the
+/// same view model, so it is left out.
+extension GridMapViewWrapper: Equatable {
+    static func == (lhs: GridMapViewWrapper, rhs: GridMapViewWrapper) -> Bool {
+        lhs.isActive == rhs.isActive
+            && lhs.locators == rhs.locators
+            && lhs.countries == rhs.countries
+            && lhs.routePoints.count == rhs.routePoints.count
+            && lhs.myCallsign == rhs.myCallsign
+            && lhs.myLocator == rhs.myLocator
+            && lhs.mapSettings === rhs.mapSettings
+            && lhs.heardMe === rhs.heardMe
+            && lhs.presence === rhs.presence
     }
 }

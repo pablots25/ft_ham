@@ -355,10 +355,12 @@ struct ContentView: View {
                 heardMe: HeardMeStore.shared,
                 myCallsign: viewModel.callsign,
                 myLocator: viewModel.locator,
+                isActive: isSelected,
                 onUserLocator: { [weak viewModel] locator in
                     viewModel?.addUserLocator(locator)
                 }
             )
+            .equatable()
         }
     }
 
