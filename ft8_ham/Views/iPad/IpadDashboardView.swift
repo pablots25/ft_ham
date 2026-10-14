@@ -76,6 +76,7 @@ struct IpadDashboardView: View {
                 viewModel?.addUserLocator(locator)
             }
         )
+        .equatable()
         .clipShape(RoundedRectangle(cornerRadius: LayoutConstants.standardCornerRadius, style: .continuous))
     }
 

@@ -584,7 +584,8 @@ final class GridMapViewRenderingTests: XCTestCase {
         XCTAssertFalse(mapView.overlays.isEmpty)
         XCTAssertFalse(mapView.annotations.isEmpty)
 
-        let hasPolygon = mapView.overlays.contains { $0 is MKPolygon }
+        // All grid squares share one multi-polygon overlay (one renderer).
+        let hasPolygon = mapView.overlays.contains { $0 is MKMultiPolygon }
         XCTAssertTrue(hasPolygon)
 
         let annotation = mapView.annotations.first { !($0 is MKUserLocation) }
