@@ -177,19 +177,9 @@ struct MessageSelector: View {
                 if let index = viewModel.selectedMessageIndex,
                    index >= 0,
                    index < viewModel.allMessages.count {
-                    TextField("",text: $viewModel.allMessages[index])
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
-                        .textCase(.uppercase)
-                        .disabled(true)
-                        .foregroundStyle(.gray)
+                    SelectedTXMessageField(message: viewModel.allMessages[index])
                 } else {
-                    TextField("", text: .constant(""))
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
-                        .textCase(.uppercase)
-                        .disabled(true)
-                        .foregroundStyle(.gray)
+                    SelectedTXMessageField(message: "")
                 }
                 
                 
@@ -285,6 +275,44 @@ struct MessageSelector: View {
         }
     }
 
+}
+
+// MARK: - Selected TX message
+
+/// Read-only display of the message the next slot will transmit.
+///
+/// A disabled `TextField` clipped the tail of long messages without an
+/// ellipsis, so "CQ SOTA VE7ZAX CN89" read as "... CN8" on a phone even though
+/// the full grid went on the air. The text shrinks to fit instead, so the
+/// operator always sees exactly what is sent.
+struct SelectedTXMessageField: View {
+    let message: String
+
+    var body: some View {
+        Text(message.isEmpty ? " " : message)
+            .textCase(.uppercase)
+            .lineLimit(1)
+            .minimumScaleFactor(Self.minimumScaleFactor)
+            .foregroundStyle(.gray)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(Color(.systemBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .stroke(Color(.separator), lineWidth: 0.5)
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Next message"))
+            .accessibilityValue(Text(message))
+    }
+
+    /// Low enough for the longest generated message (a modifier CQ with an
+    /// 11-character compound call) to fit between the selector buttons.
+    static let minimumScaleFactor: CGFloat = 0.5
 }
 
 struct StatusView: View {
