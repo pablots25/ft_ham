@@ -1483,7 +1483,11 @@ final class WaterfallViewModelTests: XCTestCase {
         XCTAssertTrue(sink.slots.isEmpty)
         XCTAssertEqual(vm.pixelRowForTesting(ringRow: 1), vm.pixelRowForTesting(ringRow: 0), "no grey transmit row")
 
-        // Labels still need the slot bookkeeping, which is not gated.
+        // Labels still need the slot bookkeeping, which is not gated. The
+        // span is clamped to the rows already drawn, so draw the whole signal.
+        for i in 0 ..< 200 {
+            vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125, slotSequence: 1, slotRow: 2 + i)
+        }
         vm.addLabels([WaterfallLabel(text: "CQ W1AW FN31", frequency: 1000, kind: .cq, timeOffset: 0.08)],
                      slotSequence: 1, signalDuration: 12.64)
         XCTAssertEqual(sink.labels.last?.spanRows ?? 0, 158, "decodes are still anchored to their slot")

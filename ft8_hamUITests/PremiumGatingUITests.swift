@@ -52,44 +52,20 @@ final class PremiumGatingUITests: XCTestCase {
         }
     }
 
-    /// Scrolls until `element` is hittable, or gives up after `maxSwipes` attempts.
-    /// Waits for any in-flight navigation animation to settle before starting to swipe.
+    /// Scrolls the settings list until `element` exists and is hittable.
+    /// Rows further down the list only exist once scrolled to, so tests
+    /// scroll first rather than waiting for the row.
     @MainActor
-    private func scrollToVisible(_ element: XCUIElement, maxSwipes: Int = 5) {
-        guard !element.isHittable else { return }
-        // Let the navigation slide-in animation finish before touching the scroll view.
-        let hittablePredicate = NSPredicate(format: "isHittable == true")
-        let expectation = XCTNSPredicateExpectation(predicate: hittablePredicate, object: element)
-        if XCTWaiter().wait(for: [expectation], timeout: 1.5) == .completed { return }
-        // iOS 16+ SwiftUI List renders as UICollectionView, not UITableView.
-        // Try UITableView first, then UICollectionView, then an explicit ScrollView.
-        // If none exist, fall back to a whole-screen swipe so we never crash.
-        let table = app.tables.firstMatch
-        let collectionView = app.collectionViews.firstMatch
-        let scrollView = app.scrollViews.firstMatch
-        let container: XCUIElement? = {
-            if table.exists { return table }
-            if collectionView.exists { return collectionView }
-            if scrollView.exists { return scrollView }
-            return nil
-        }()
-        var attempts = 0
-        while !element.isHittable && attempts < maxSwipes {
-            if let container {
-                container.swipeUp()
-            } else {
-                app.swipeUp()
-            }
-            attempts += 1
-        }
+    @discardableResult
+    private func scrollToVisible(_ element: XCUIElement, maxSwipes: Int = 15) -> Bool {
+        app.scrollToElement(element, maxSteps: maxSwipes)
     }
 
     /// Opens the paywall through the locked CAT Control row.
     @MainActor
     private func openPaywallFromLockedRow() {
         let lockedRow = app.buttons["premiumLocked_cat_control"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         lockedRow.tap()
     }
 
@@ -117,8 +93,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_cat_control"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         XCTAssertTrue(
             lockedRow.isHittable,
             "CAT Control should appear as a locked premium row for non-premium users"
@@ -130,8 +105,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_qrz_logbook_sync"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         XCTAssertTrue(
             lockedRow.isHittable,
             "QRZ Logbook should appear as a locked premium row for non-premium users"
@@ -143,8 +117,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_lotw_sync"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         XCTAssertTrue(
             lockedRow.isHittable,
             "LoTW Sync should appear as a locked premium row for non-premium users"
@@ -156,8 +129,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_eqsl_sync"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         XCTAssertTrue(
             lockedRow.isHittable,
             "eQSL Sync should appear as a locked premium row for non-premium users"
@@ -171,8 +143,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_cat_control"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         lockedRow.tap()
 
         let paywallTitle = app.staticTexts["Unlock Premium Features"]
@@ -187,8 +158,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_qrz_logbook_sync"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         lockedRow.tap()
 
         let paywallTitle = app.staticTexts["Unlock Premium Features"]
@@ -203,8 +173,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_lotw_sync"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         lockedRow.tap()
 
         let paywallTitle = app.staticTexts["Unlock Premium Features"]
@@ -219,8 +188,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_eqsl_sync"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         lockedRow.tap()
 
         let paywallTitle = app.staticTexts["Unlock Premium Features"]
@@ -237,8 +205,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_psk_reporter"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         XCTAssertTrue(
             lockedRow.isHittable,
             "Reporting should appear as a locked premium row for non-premium users"
@@ -254,8 +221,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_psk_reporter"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         lockedRow.tap()
 
         let paywallTitle = app.staticTexts["Unlock Premium Features"]
@@ -340,8 +306,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let lockedRow = app.buttons["premiumLocked_cat_control"]
-        XCTAssertTrue(lockedRow.waitForExistence(timeout: 5))
-        scrollToVisible(lockedRow)
+        XCTAssertTrue(scrollToVisible(lockedRow))
         lockedRow.tap()
 
         XCTAssertTrue(
@@ -369,8 +334,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let becomePremium = app.buttons["button_become_premium"]
-        XCTAssertTrue(becomePremium.waitForExistence(timeout: 5), "Free users should see Become Premium")
-        scrollToVisible(becomePremium, maxSwipes: 10)
+        XCTAssertTrue(scrollToVisible(becomePremium), "Free users should see Become Premium")
         becomePremium.tap()
 
         let restore = app.buttons["paywall_restore"]
@@ -385,8 +349,7 @@ final class PremiumGatingUITests: XCTestCase {
         openSettingsTab()
 
         let becomePremium = app.buttons["button_become_premium"]
-        XCTAssertTrue(becomePremium.waitForExistence(timeout: 5))
-        scrollToVisible(becomePremium, maxSwipes: 10)
+        XCTAssertTrue(scrollToVisible(becomePremium))
         becomePremium.tap()
 
         XCTAssertTrue(

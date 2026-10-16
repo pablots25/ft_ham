@@ -92,11 +92,12 @@ final class MessageReplyTests: XCTestCase {
 
     @MainActor
     func testMessageIndexSelection() async {
-        // A grid addressed to me is answered with the report (TX2). Every
-        // other message starts the exchange with my grid (TX1).
+        // A grid addressed to me is answered with the report (TX2) and a
+        // report addressed to me with the R-report (TX3). Every other
+        // message starts the exchange with my grid (TX1).
         viewModel.autoSequencingEnabled = true
         let expectations: [(FT8MessageType, Int)] = [
-            (.cq, 1), (.gridExchange, 2), (.standardSignalReport, 1), (.rrr, 1), (.final73, 1)
+            (.cq, 1), (.gridExchange, 2), (.standardSignalReport, 3), (.rrr, 1), (.final73, 1)
         ]
         for (t, expectedIndex) in expectations {
             let m = makeMessage(msgType: t)
