@@ -34,11 +34,10 @@ final class ICloudSyncUITests: XCTestCase {
         XCTAssertTrue(settingsTab.waitForExistence(timeout: 5))
         settingsTab.tap()
 
+        // The Logbook section sits below the fold, so its rows only exist
+        // once the list is scrolled to them.
         let row = app.cells.staticTexts["iCloud Sync"]
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "iCloud Sync row should be listed under Logbook")
-        if !row.isHittable {
-            app.swipeUp()
-        }
+        XCTAssertTrue(app.scrollToElement(row), "iCloud Sync row should be listed under Logbook")
         row.tap()
 
         let toggle = app.switches["toggle_iCloudLogbookSync"]
