@@ -133,6 +133,43 @@ final class PremiumFeaturePaywallPropertiesTests: XCTestCase {
     func test_countIsTenFeatures() {
         XCTAssertEqual(PremiumFeature.allCases.count, 10)
     }
+
+    func test_featureFlag_mapsRemotelyGatedFeatures() {
+        XCTAssertEqual(PremiumFeature.iPadDashboard.featureFlag, .enableIpadDashboard)
+        XCTAssertEqual(PremiumFeature.bandHopping.featureFlag, .enableBandHopping)
+        XCTAssertEqual(PremiumFeature.iCloudSync.featureFlag, .enableICloudSync)
+        XCTAssertEqual(PremiumFeature.presence.featureFlag, .enablePresence)
+    }
+
+    func test_featureFlag_isNilForAlwaysAvailableFeatures() {
+        for feature in [PremiumFeature.pskReporter, .catControl, .qrzLogbook, .lotwSync, .eqslSync, .statistics] {
+            XCTAssertNil(feature.featureFlag, "\(feature) is not behind a remote flag")
+        }
+    }
+}
+
+// MARK: - Which products unlock premium
+
+@MainActor
+final class PremiumGrantTests: XCTestCase {
+
+    func test_premiumProduct_grantsPremium() {
+        XCTAssertTrue(PremiumManager.grantsPremium(productID: PremiumManager.premiumProductID))
+    }
+
+    func test_betaAccess_grantsPremium() {
+        XCTAssertTrue(PremiumManager.grantsPremium(productID: PremiumManager.betaProductID))
+    }
+
+    func test_tips_doNotGrantPremium() {
+        for id in PremiumManager.donationProductIDs {
+            XCTAssertFalse(PremiumManager.grantsPremium(productID: id), "Tip \(id) must not unlock premium")
+        }
+    }
+
+    func test_unknownProduct_doesNotGrantPremium() {
+        XCTAssertFalse(PremiumManager.grantsPremium(productID: "something_else"))
+    }
 }
 
 // MARK: - Notification.Name.premiumRevoked

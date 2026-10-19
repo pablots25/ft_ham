@@ -40,6 +40,46 @@ final class PaywallBenefitTests: XCTestCase {
         }
     }
 
+    func test_visible_hidesFeaturesWhoseFlagIsOff() {
+        let visible = PaywallBenefit.visible { _ in false }.flatMap(\.features)
+        for feature in PremiumFeature.allCases {
+            XCTAssertEqual(
+                visible.contains(feature), feature.featureFlag == nil,
+                "\(feature) visibility must follow its flag"
+            )
+        }
+    }
+
+    func test_visible_showsEveryFeatureWhenAllFlagsAreOn() {
+        let visible = PaywallBenefit.visible { _ in true }
+        XCTAssertEqual(visible.map(\.title), PaywallBenefit.all.map(\.title))
+        XCTAssertEqual(visible.flatMap(\.features), PaywallBenefit.all.flatMap(\.features))
+    }
+
+    func test_visible_honorsEachFlagIndependently() {
+        let visible = PaywallBenefit.visible { $0 == .enableICloudSync }.flatMap(\.features)
+        XCTAssertTrue(visible.contains(.iCloudSync))
+        XCTAssertFalse(visible.contains(.bandHopping))
+        XCTAssertFalse(visible.contains(.presence))
+        XCTAssertFalse(visible.contains(.iPadDashboard))
+    }
+
+    func test_visible_keepsBenefitWithOnlyExtrasLeft() {
+        let extras = PaywallBenefit.visible { _ in false }.first { $0.features.isEmpty }
+        XCTAssertEqual(extras?.extras, [String(localized: "Priority Support")])
+    }
+
+    func test_visible_neverListsAnEmptyBenefit() {
+        for benefit in PaywallBenefit.visible(isEnabled: { _ in false }) {
+            XCTAssertFalse(benefit.features.isEmpty && benefit.extras.isEmpty, "\(benefit.title) is empty")
+        }
+    }
+
+    func test_paywall_doesNotPromiseFutureFeatures() {
+        let extras = PaywallBenefit.all.flatMap(\.extras)
+        XCTAssertFalse(extras.contains("Future Features"))
+    }
+
     func test_summary_joinsItemsAsAList() {
         let benefit = PaywallBenefit(
             title: "Test",

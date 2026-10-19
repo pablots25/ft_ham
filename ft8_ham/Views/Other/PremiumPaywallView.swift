@@ -26,6 +26,7 @@ enum PaywallSource {
 struct PremiumPaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var premiumManager: PremiumManager
+    @ObservedObject private var flags = FeatureFlagManager.shared
 
     let source: PaywallSource
 
@@ -124,7 +125,7 @@ struct PremiumPaywallView: View {
 
     private var featuresView: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ForEach(PaywallBenefit.all) { benefit in
+            ForEach(PaywallBenefit.visible { flags.isEnabled($0) }) { benefit in
                 FeatureRow(
                     icon: benefit.icon,
                     iconColor: benefit.color,
@@ -258,7 +259,7 @@ struct PaywallBenefit: Identifiable {
     let title: String
     let icon: String
     let color: Color
-    let features: [PremiumFeature]
+    var features: [PremiumFeature]
     /// Perks that are not gated features, listed after the feature names.
     var extras: [String] = []
 
@@ -293,9 +294,21 @@ struct PaywallBenefit: Identifiable {
             icon: "sparkles",
             color: .pink,
             features: [.iPadDashboard],
-            extras: [String(localized: "Priority Support"), String(localized: "Future Features")]
+            extras: [String(localized: "Priority Support")]
         ),
     ]
+
+    /// The benefits a buyer can actually reach: features whose remote flag is
+    /// off are left out, and a benefit with nothing left is dropped.
+    static func visible(isEnabled: (FeatureFlag) -> Bool) -> [PaywallBenefit] {
+        all.compactMap { benefit in
+            var filtered = benefit
+            filtered.features = benefit.features.filter { feature in
+                feature.featureFlag.map(isEnabled) ?? true
+            }
+            return filtered.features.isEmpty && filtered.extras.isEmpty ? nil : filtered
+        }
+    }
 }
 
 // MARK: - Feature Row Component

@@ -23,7 +23,7 @@ final class PremiumManager: ObservableObject {
     // Beta access granted via promo offer code FTHAMBETAUSER
     static let betaProductID = "beta_users"
 
-    // Donation (consumable) product IDs — any verified donation also grants premium
+    // Donation (consumable) tip product IDs. Tips are optional and never unlock premium.
     static let donationProductIDs: Set<String> = ["coffe_small", "coffe_medium", "coffee_large"]
 
     // MARK: - Published State
@@ -31,15 +31,8 @@ final class PremiumManager: ObservableObject {
     @Published private(set) var premiumProduct: Product?
     @Published private(set) var isLoading: Bool = false
 
-    /// Whether the user's purchases include a donation transaction.
-    /// Checked asynchronously at launch; use alongside `isPremiumUnlocked`.
-    @Published private(set) var isDonor: Bool = false
-
     /// Whether the user redeemed a beta access offer code.
     @Published private(set) var isBetaUser: Bool = false
-
-    /// Prevents the one-time "donors now have premium" prompt from showing more than once.
-    @AppStorage("didShowDonationPremiumPrompt") var didShowDonationPremiumPrompt: Bool = false
 
     #if DEBUG
     /// Debug-only override: when true, premium is treated as unlocked regardless of purchases.
@@ -47,7 +40,8 @@ final class PremiumManager: ObservableObject {
     #endif
 
     // MARK: - Keychain
-    private static let donationKeychainKey = "com.ea4iql.ftham.donation.granted"
+    /// Written by 1.3.0 beta builds, when tips unlocked premium. Only ever deleted now.
+    private static let legacyDonationKeychainKey = "com.ea4iql.ftham.donation.granted"
 
     // MARK: - Transaction Listener
     private var transactionListener: Task<Void, Never>?
@@ -55,6 +49,7 @@ final class PremiumManager: ObservableObject {
     private init() {
         // Start listening for transactions on init
         transactionListener = listenForTransactions()
+        Self.removeLegacyDonationKeychainFlag()
 
         Task {
             await loadPremiumStatus()
@@ -67,9 +62,8 @@ final class PremiumManager: ObservableObject {
 
     // MARK: - Load Premium Status
 
-    /// Grants premium if the user has purchased the premium product OR made any donation.
-    /// - Premium product (non-consumable): checked via `Transaction.currentEntitlements`
-    /// - Donations (consumable): checked via `Transaction.all` (consumables don't appear in entitlements)
+    /// Grants premium if the user owns the premium product or redeemed beta access,
+    /// both checked via `Transaction.currentEntitlements`. Tips never grant premium.
     func loadPremiumStatus() async {
         logger.info("Loading premium status...")
 
@@ -84,7 +78,7 @@ final class PremiumManager: ObservableObject {
 
         let previouslyUnlocked = isPremiumUnlocked
 
-        // 1. Check non-consumable / subscription products via entitlements
+        // Non-consumable products via entitlements
         for await result in Transaction.currentEntitlements {
             if case let .verified(transaction) = result {
                 if transaction.productID == Self.premiumProductID {
@@ -101,26 +95,6 @@ final class PremiumManager: ObservableObject {
             }
         }
 
-        // 2. Check Keychain for persisted donation grant (survives device restores)
-        if Self.hasDonationKeychainFlag() {
-            logger.info("Premium unlocked via persisted donation flag (Keychain)")
-            isDonor = true
-            isPremiumUnlocked = true
-            return
-        }
-
-        // 3. Check consumable donations via Transaction.all as fallback
-        for await result in Transaction.all {
-            if case let .verified(transaction) = result,
-               Self.donationProductIDs.contains(transaction.productID) {
-                logger.info("Premium unlocked via donation: \(transaction.productID)")
-                Self.setDonationKeychainFlag()
-                isDonor = true
-                isPremiumUnlocked = true
-                return
-            }
-        }
-
         logger.info("No qualifying purchase found — premium not unlocked")
         isPremiumUnlocked = false
         isBetaUser = false
@@ -129,6 +103,12 @@ final class PremiumManager: ObservableObject {
         if previouslyUnlocked {
             NotificationCenter.default.post(name: .premiumRevoked, object: nil)
         }
+    }
+
+    /// Whether owning `productID` unlocks premium. Only the premium product and
+    /// beta access do. Tips (`donationProductIDs`) are optional and unlock nothing.
+    static func grantsPremium(productID: String) -> Bool {
+        productID == premiumProductID || productID == betaProductID
     }
 
     // MARK: - Fetch Product
@@ -226,7 +206,17 @@ final class PremiumManager: ObservableObject {
                     let isBetaTx = transaction.productID == Self.betaProductID
                     let isDonationTx = Self.donationProductIDs.contains(transaction.productID)
 
-                    if isPremiumTx || isBetaTx || isDonationTx {
+                    // Tips completing outside purchase() (Ask to Buy, interrupted purchases)
+                    // are logged and finished, but do not touch premium state.
+                    if isDonationTx {
+                        if transaction.revocationDate == nil {
+                            logExternalPurchase(transaction)
+                        }
+                        await transaction.finish()
+                        continue
+                    }
+
+                    if Self.grantsPremium(productID: transaction.productID) {
                         // Check for refund / subscription expiry
                         if transaction.revocationDate != nil {
                             logger.info("Revoked transaction detected: \(transaction.productID)")
@@ -236,9 +226,6 @@ final class PremiumManager: ObservableObject {
                         }
 
                         logger.info("Transaction update received: \(transaction.productID)")
-                        if isDonationTx {
-                            Self.setDonationKeychainFlag()
-                        }
                         if isBetaTx {
                             isBetaUser = true
                         }
@@ -247,7 +234,7 @@ final class PremiumManager: ObservableObject {
                         // Log revenue for purchases completing outside the direct purchase() call
                         // (Ask to Buy approval, family sharing, cross-device sync). Excludes beta
                         // access, which is a promotional grant rather than a paid transaction.
-                        if isPremiumTx || isDonationTx {
+                        if isPremiumTx {
                             logExternalPurchase(transaction)
                         }
 
@@ -287,35 +274,15 @@ final class PremiumManager: ObservableObject {
 
     // MARK: - Keychain Helpers
 
-    /// Persist donation grant in Keychain, synced via iCloud Keychain so it transfers
-    /// to new devices and survives device restores.
-    private static func setDonationKeychainFlag() {
-        let deleteQuery: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrAccount: donationKeychainKey,
-            kSecAttrSynchronizable: kCFBooleanTrue!
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
-
-        let addQuery: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrAccount: donationKeychainKey,
-            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
-            kSecAttrSynchronizable: kCFBooleanTrue!,
-            kSecValueData: Data("granted".utf8)
-        ]
-        SecItemAdd(addQuery as CFDictionary, nil)
-    }
-
-    /// Check if donation grant flag exists in Keychain (local or iCloud-synced).
-    private static func hasDonationKeychainFlag() -> Bool {
+    /// Deletes the donation grant that 1.3.0 beta builds stored (locally and in
+    /// iCloud Keychain). Harmless when the item does not exist.
+    private static func removeLegacyDonationKeychainFlag() {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
-            kSecAttrAccount: donationKeychainKey,
-            kSecAttrSynchronizable: kSecAttrSynchronizableAny,
-            kSecReturnData: false
+            kSecAttrAccount: legacyDonationKeychainKey,
+            kSecAttrSynchronizable: kSecAttrSynchronizableAny
         ]
-        return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
+        SecItemDelete(query as CFDictionary)
     }
 
     // MARK: - Debug Helpers
