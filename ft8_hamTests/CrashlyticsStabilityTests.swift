@@ -11,8 +11,10 @@
 //      ObjCExceptionCatcher around scheduleBuffer.
 //
 //   2. 2344367c — AudioManager.installInputTap: "Failed to initialize active
-//      nodes in input chain, err -10868". Defence: tap with the node's output
-//      format, plus ObjCExceptionCatcher around installTap.
+//      nodes in input chain, err -10868". Defence: ObjCExceptionCatcher around
+//      installTap, trying the hardware input format first and the node's
+//      output format second (output-first broke RX after route changes in
+//      1.3.0 build 15).
 //
 //   3. Non-fatal noise: suspend/resume lag, and the sanitizer redacting
 //      OSStatus codes as callsigns (-10868 showed up as -[CALLSIGN]).
@@ -87,22 +89,37 @@ final class CrashlyticsStabilityTests: XCTestCase {
 
     // MARK: - 2. Tap format selection
 
-    func test_tapFormat_prefersTheOutputFormat() {
+    /// Regression for 1.3.0 (15): after a route change the output side kept
+    /// 44.1 kHz while the hardware ran at 48 kHz, and tapping with the output
+    /// format failed with "format.sampleRate == inputHWFormat.sampleRate".
+    /// The hardware-side input format must be tried first.
+    func test_tapFormatCandidates_triesTheInputFormatFirst() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        let output = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+
+        let candidates = AudioManager.tapFormatCandidates(input: input, output: output)
+
+        XCTAssertEqual(candidates.map(\.sampleRate), [48_000, 44_100])
+    }
+
+    func test_tapFormatCandidates_dropsADuplicateOutputFormat() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
         let output = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
-        let input = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
 
-        XCTAssertEqual(AudioManager.tapFormat(output: output, input: input), output)
+        XCTAssertEqual(AudioManager.tapFormatCandidates(input: input, output: output).count, 1)
     }
 
-    func test_tapFormat_fallsBackToInputWhenOutputIsNotReady() {
-        let output = AVAudioFormat()
-        let input = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+    func test_tapFormatCandidates_usesTheOutputWhenTheInputIsNotReady() {
+        let output = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
 
-        XCTAssertEqual(AudioManager.tapFormat(output: output, input: input), input)
+        let candidates = AudioManager.tapFormatCandidates(input: AVAudioFormat(), output: output)
+
+        XCTAssertEqual(candidates, [output])
     }
 
-    func test_tapFormat_isNilWhenNeitherFormatIsValid() {
-        XCTAssertNil(AudioManager.tapFormat(output: AVAudioFormat(), input: AVAudioFormat()))
+    func test_tapFormatCandidates_isEmptyWhenNeitherFormatIsValid() {
+        XCTAssertTrue(AudioManager.tapFormatCandidates(
+            input: AVAudioFormat(), output: AVAudioFormat()).isEmpty)
     }
 
     // MARK: - Recovery in test mode
@@ -132,6 +149,20 @@ final class CrashlyticsStabilityTests: XCTestCase {
     func test_isSuspensionGap_FT4_usesTheShorterSlot() {
         XCTAssertTrue(FT8ViewModel.isSuspensionGap(lag: 8.0, isFT4: true))
         XCTAssertFalse(FT8ViewModel.isSuspensionGap(lag: 8.0, isFT4: false))
+    }
+
+    /// A slot that started a whole period ago (resume after suspension) and
+    /// one that is a few seconds late (a real stall) are both skipped. Only
+    /// the log level differs, which `isSuspensionGap` decides.
+    @MainActor
+    func test_determineAction_skipsLateSlots() {
+        let viewModel = FT8ViewModel(audioManager: MockAudioManager(), engine: MockMessageDecoder())
+
+        for lag in [3.0, 15.5] {
+            let slot = SlotInfo(startTime: AppClock.now().addingTimeInterval(-lag),
+                                slotIndex: 10, isEven: true, isFT4: false)
+            XCTAssertEqual(viewModel.determineAction(for: slot), .skip, "lag \(lag)s")
+        }
     }
 
     // MARK: - 3b. Sanitizer
