@@ -64,9 +64,27 @@ final class PaywallBenefitTests: XCTestCase {
         XCTAssertFalse(visible.contains(.iPadDashboard))
     }
 
+    func test_visible_dropsExtrasBenefitWhenDashboardFlagIsOff() {
+        let titles = PaywallBenefit.visible { _ in false }.map(\.title)
+        XCTAssertFalse(titles.contains(String(localized: "Extras")))
+    }
+
     func test_visible_keepsBenefitWithOnlyExtrasLeft() {
-        let extras = PaywallBenefit.visible { _ in false }.first { $0.features.isEmpty }
-        XCTAssertEqual(extras?.extras, [String(localized: "Priority Support")])
+        let benefit = PaywallBenefit(title: "Test", icon: "star", color: .blue,
+                                     features: [.iCloudSync], extras: ["Example"])
+        var filtered = benefit
+        filtered.features = benefit.features.filter { $0.featureFlag == nil }
+        XCTAssertTrue(filtered.features.isEmpty)
+        XCTAssertFalse(filtered.extras.isEmpty, "extras alone keep a benefit listed")
+    }
+
+    func test_paywall_doesNotPromisePrioritySupport() {
+        let extras = PaywallBenefit.all.flatMap(\.extras)
+        XCTAssertFalse(extras.contains("Priority Support"))
+        XCTAssertFalse(extras.contains(String(localized: "Priority Support")))
+        for benefit in PaywallBenefit.all {
+            XCTAssertFalse(benefit.summary.contains("Priority Support"), "\(benefit.title) promises support")
+        }
     }
 
     func test_visible_neverListsAnEmptyBenefit() {
@@ -86,11 +104,11 @@ final class PaywallBenefitTests: XCTestCase {
             icon: "star",
             color: .blue,
             features: [.catControl, .bandHopping],
-            extras: ["Priority Support"]
+            extras: ["Example"]
         )
         XCTAssertEqual(
             benefit.summary,
-            ["CAT Control", "Band Hopping", "Priority Support"].formatted(.list(type: .and))
+            ["CAT Control", "Band Hopping", "Example"].formatted(.list(type: .and))
         )
     }
 }
