@@ -32,7 +32,7 @@ struct LegacyConfigurationView: View {
                     AudioSettingsContent()
                 }
 
-                section("Automation") {
+                section("Behavior") {
                     AutomationSettingsContent()
                 }
 

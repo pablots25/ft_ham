@@ -71,7 +71,7 @@ final class AutomationSettingsUITests: XCTestCase {
 
     @MainActor
     private func navigateToAutomationSettings() {
-        navigateToSettings(row: "Automation")
+        navigateToSettings(row: "Behavior")
     }
 
     // MARK: - Visibility Tests

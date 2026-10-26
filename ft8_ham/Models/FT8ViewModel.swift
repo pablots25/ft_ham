@@ -356,6 +356,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     internal var activeBandHopSchedule: BandHopSchedule?
     /// Feature flag + entitlement check; tests override it.
     internal var bandHopGate: () -> Bool = FT8ViewModel.defaultBandHopGate
+    /// Signals that `bandHopGate` may have changed; tests override it.
+    internal var bandHopGateChanges: AnyPublisher<Void, Never> = FT8ViewModel.defaultBandHopGateChanges()
 
     @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
     @AppStorage("cqIncludeGrid") var cqIncludeGrid: Bool = true

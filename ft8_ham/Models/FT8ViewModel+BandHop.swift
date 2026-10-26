@@ -22,7 +22,26 @@ extension FT8ViewModel {
     }
 
     static func defaultBandHopGate() -> Bool {
-        FeatureFlagManager.shared.isEnabled(.enableBandHopping) && PremiumManager.shared.isPremiumUnlocked
+        isBandHoppingAllowed(
+            flagEnabled: FeatureFlagManager.shared.isEnabled(.enableBandHopping),
+            premiumUnlocked: PremiumManager.shared.isPremiumUnlocked
+        )
+    }
+
+    /// Band hopping drives the rig over CAT, which is premium, so it needs
+    /// the entitlement as well as the flag.
+    static func isBandHoppingAllowed(flagEnabled: Bool, premiumUnlocked: Bool) -> Bool {
+        flagEnabled && premiumUnlocked
+    }
+
+    /// Fires when the entitlement or the flags change, so the scheduler stops
+    /// as soon as premium is lost and starts once it resolves at launch.
+    static func defaultBandHopGateChanges() -> AnyPublisher<Void, Never> {
+        PremiumManager.shared.$isPremiumUnlocked
+            .removeDuplicates()
+            .map { _ in () }
+            .merge(with: FeatureFlagManager.shared.$values.map { _ in () })
+            .eraseToAnyPublisher()
     }
 
     @MainActor
@@ -52,6 +71,11 @@ extension FT8ViewModel {
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in self?.reconcileBandHopping() }
+            .store(in: &bandHopCancellables)
+
+        bandHopGateChanges
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.reconcileBandHopping() }
             .store(in: &bandHopCancellables)
     }
 

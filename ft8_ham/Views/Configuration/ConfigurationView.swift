@@ -396,11 +396,11 @@ struct ConfigurationView: View {
     private var operatingGroup: SettingsGroup {
         SettingsGroup(title: String(localized: "Operating"), items: [
             .init(.automation,
-                  title: String(localized: "Automation"),
+                  title: String(localized: "Behavior"),
                   systemImage: "gearshape.2",
                   keywords: ["auto rx", "cq", "reply", "auto-sequence", "sequence",
                              "retries", "pile-up", "pileup", "logging", "hold tx",
-                             "transmit", "behavior"]),
+                             "transmit", "automation", "automatic"]),
             .init(.display,
                   title: String(localized: "Display"),
                   systemImage: "rectangle.3.group",
