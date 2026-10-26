@@ -293,8 +293,7 @@ struct PaywallBenefit: Identifiable {
             title: String(localized: "Extras"),
             icon: "sparkles",
             color: .pink,
-            features: [.iPadDashboard],
-            extras: [String(localized: "Priority Support")]
+            features: [.iPadDashboard]
         ),
     ]
 
