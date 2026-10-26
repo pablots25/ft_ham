@@ -98,6 +98,7 @@ final class BandHopViewModelTests: XCTestCase {
     private var savedSchedule: Data?
     private var savedEnabled: Any?
     private var savedCatEnabled: Any?
+    private let gateChanges = PassthroughSubject<Void, Never>()
 
     override func setUp() async throws {
         try await super.setUp()
@@ -111,6 +112,7 @@ final class BandHopViewModelTests: XCTestCase {
         viewModel = FT8ViewModel(audioManager: MockAudioManager(), engine: MockMessageDecoder())
         viewModel.bandHopScheduler = scheduler
         viewModel.bandHopGate = { true }
+        viewModel.bandHopGateChanges = gateChanges.eraseToAnyPublisher()
         viewModel.setupBandHopObserver()
         viewModel.selectedBand = .band20m
         BandHopSchedule(steps: [
@@ -207,5 +209,55 @@ final class BandHopViewModelTests: XCTestCase {
         viewModel.stopBandHopping()
         await Task.yield()
         XCTAssertEqual(viewModel.bandHopState, .stopped)
+    }
+
+    // MARK: Premium gate
+
+    func test_allowed_requiresFlagAndPremium() {
+        XCTAssertTrue(FT8ViewModel.isBandHoppingAllowed(flagEnabled: true, premiumUnlocked: true))
+        XCTAssertFalse(FT8ViewModel.isBandHoppingAllowed(flagEnabled: true, premiumUnlocked: false))
+        XCTAssertFalse(FT8ViewModel.isBandHoppingAllowed(flagEnabled: false, premiumUnlocked: true))
+        XCTAssertFalse(FT8ViewModel.isBandHoppingAllowed(flagEnabled: false, premiumUnlocked: false))
+    }
+
+    func test_losingPremium_stopsRunningScheduler() async {
+        var premium = true
+        viewModel.bandHopGate = { premium }
+        armHopping()
+        XCTAssertEqual(scheduler.startCalls.count, 1)
+
+        premium = false
+        let stops = scheduler.stopCount
+        gateChanges.send()
+        await waitUntil { self.scheduler.stopCount > stops }
+        XCTAssertEqual(scheduler.state, .stopped)
+    }
+
+    func test_premiumResolvingLater_startsScheduler() async {
+        var premium = false
+        viewModel.bandHopGate = { premium }
+        armHopping()
+        XCTAssertTrue(scheduler.startCalls.isEmpty, "no premium yet → no hopping")
+
+        premium = true
+        gateChanges.send()
+        await waitUntil { !self.scheduler.startCalls.isEmpty }
+        XCTAssertEqual(scheduler.startCalls.first?.startingAt, "20m")
+    }
+
+    func test_withoutPremium_hopRequestIsIgnored() {
+        viewModel.bandHopGate = { false }
+        viewModel.catEnabled = true
+        viewModel.bandHopEnabled = true
+        viewModel.isSequencerRunning = true
+        viewModel.applyBandHop(to: "40m")
+        XCTAssertEqual(viewModel.selectedBand, .band20m)
+    }
+
+    /// Lets the main-queue `receive(on:)` hop deliver before asserting.
+    private func waitUntil(_ condition: @escaping () -> Bool) async {
+        for _ in 0..<50 where !condition() {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 }

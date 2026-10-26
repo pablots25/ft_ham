@@ -11,6 +11,8 @@ import SwiftUI
 struct MapLegendView: View {
 
     @Environment(\.dismiss) private var dismiss
+    /// Whether the "heard me" layer exists (`enableHeardMe`).
+    var showsHeardMe: Bool = true
 
     var body: some View {
         NavigationStack {
@@ -44,11 +46,13 @@ struct MapLegendView: View {
                         .font(.system(size: 16, weight: .medium))
                         .frame(width: 18, height: 18)
                 }
-                mapRow(label: "A station that heard you (PSK Reporter)") {
-                    Image(systemName: "ear.fill")
-                        .foregroundStyle(Color.orange)
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(width: 18, height: 18)
+                if showsHeardMe {
+                    mapRow(label: "A station that heard you (PSK Reporter)") {
+                        Image(systemName: "ear.fill")
+                            .foregroundStyle(Color.orange)
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 18, height: 18)
+                    }
                 }
                 mapRow(label: "Another FT Ham operator on the air") {
                     Image(systemName: "person.fill")

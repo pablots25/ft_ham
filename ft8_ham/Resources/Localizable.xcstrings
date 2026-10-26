@@ -11573,6 +11573,41 @@
         }
       }
     },
+    "Next message" : {
+      "comment" : "Accessibility label for the next message to transmit.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nächste Nachricht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next message"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Próximo mensaje"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message suivant"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messaggio successivo"
+          }
+        }
+      }
+    },
     "Next message:" : {
       "comment" : "Label for next message field",
       "localizations" : {
@@ -18767,7 +18802,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stop Auto TX"
+            "value" : "Detener Auto TX"
           }
         },
         "fr" : {
@@ -18803,7 +18838,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Parar texto libre"
+            "value" : "Detener texto libre"
           }
         },
         "fr" : {
@@ -18875,7 +18910,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stop QSO"
+            "value" : "Detener QSO"
           }
         },
         "fr" : {
@@ -18909,7 +18944,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stop RX"
+            "value" : "Detener RX"
           }
         },
         "fr" : {
@@ -18943,7 +18978,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stop TX"
+            "value" : "Detener TX"
           }
         },
         "fr" : {

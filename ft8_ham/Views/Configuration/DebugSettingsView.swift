@@ -70,6 +70,20 @@ struct DebugSettingsView: View {
                     Label("Presence Map", systemImage: "person.2.wave.2")
                 }
 
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.enableHeardMe) },
+                    set: { flags.setOverride(.enableHeardMe, value: $0) }
+                )) {
+                    Label("Heard Me Map Layer", systemImage: "ear")
+                }
+
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.controlsSheet) },
+                    set: { flags.setOverride(.controlsSheet, value: $0) }
+                )) {
+                    Label("Quick Config Sheet", systemImage: "list.bullet")
+                }
+
                 Button {
                     flags.resetOverrides()
                 } label: {

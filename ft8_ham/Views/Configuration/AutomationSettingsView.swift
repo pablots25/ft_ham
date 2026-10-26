@@ -111,7 +111,7 @@ struct AutomationSettingsContent: View {
 struct AutomationSettingsView: View {
     var body: some View {
         SettingsScrollContainer(
-            title: "Automation",
+            title: "Behavior",
             alignment: .leading,
             spacing: 10,
             contentBottomPadding: 20,

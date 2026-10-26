@@ -19,6 +19,7 @@ struct GridMapViewWrapper: View {
     /// Stations that heard us (PSK Reporter). Omit to hide the feature.
     @ObservedObject var heardMe: HeardMeStore = .shared
     @ObservedObject var presence: PresenceManager = .shared
+    @EnvironmentObject private var flags: FeatureFlagManager
     var myCallsign: String = ""
     var myLocator: String = ""
     /// False while the map's tab is not selected: data changes are held back
@@ -54,7 +55,7 @@ struct GridMapViewWrapper: View {
                 showCountryCircles: mapSettings.showCountryCircles,
                 showGeodesics: mapSettings.showGeodesics,
                 showAnnotations: mapSettings.showAnnotations,
-                showHeardMe: mapSettings.showHeardMe,
+                showHeardMe: isHeardMeEnabled && mapSettings.showHeardMe,
                 showPresence: mapSettings.showPresence,
                 isActive: isActive,
                 userTrackingMode: $userTrackingMode,
@@ -66,7 +67,9 @@ struct GridMapViewWrapper: View {
                 .padding(10)
         }
         .onAppear {
-            heardMe.refreshIfAllowed(callsign: myCallsign, myLocator: myLocator)
+            if isHeardMeEnabled {
+                heardMe.refreshIfAllowed(callsign: myCallsign, myLocator: myLocator)
+            }
             presence.mapDidAppear()
         }
         .onDisappear {
@@ -78,6 +81,10 @@ struct GridMapViewWrapper: View {
     }
 
     // MARK: - Floating Map Controls
+
+    private var isHeardMeEnabled: Bool {
+        flags.isEnabled(.enableHeardMe)
+    }
 
     private var trackingModeIcon: String {
         switch userTrackingMode {
@@ -218,9 +225,11 @@ struct GridMapViewWrapper: View {
                     .foregroundStyle(userTrackingMode == .none ? Color.secondary : Color.blue)
             }
 
-            Divider()
+            if isHeardMeEnabled {
+                Divider()
 
-            heardMeButton
+                heardMeButton
+            }
 
             if presence.isActive {
                 Divider()
@@ -237,7 +246,7 @@ struct GridMapViewWrapper: View {
                     .foregroundStyle(.secondary)
             }
             .sheet(isPresented: $showMapLegend) {
-                MapLegendView()
+                MapLegendView(showsHeardMe: isHeardMeEnabled)
             }
         }
         .padding(.horizontal, 10)
