@@ -391,24 +391,7 @@ final class AudioManager: NSObject, AudioManaging {
         // Remove any existing tap
         inputNode.removeTap(onBus: 0)
 
-        guard let hwFormat = Self.tapFormat(
-            output: inputNode.outputFormat(forBus: 0),
-            input: inputNode.inputFormat(forBus: 0)
-        ) else {
-            let format = inputNode.outputFormat(forBus: 0)
-            let error = AudioManagerError.invalidInputFormat(
-                sampleRate: format.sampleRate,
-                channels: format.channelCount
-            )
-            audioLogger.log(.error, error.localizedDescription)
-            audioErrorPublisher.send(error.localizedDescription)
-            return
-        }
-
-        micSampleRate = hwFormat.sampleRate
-        audioLogger.log(.info, "Mic format validated: \(micSampleRate) Hz")
-
-        guard installInputTap(on: inputNode, format: hwFormat) else {
+        guard installMicTap(on: inputNode) else {
             isListening = false
             return
         }
@@ -416,49 +399,87 @@ final class AudioManager: NSObject, AudioManaging {
         audioLogger.log(.info, "Mic input tap installed successfully")
     }
 
-    /// Format for the input tap. The tap sits on the node's output bus, so its
-    /// format has to match `outputFormat(forBus: 0)`; tapping with the
-    /// hardware-side input format fails with -10868 when the two differ. The
-    /// input format is only a fallback while the output side is not ready.
-    static func tapFormat(output: AVAudioFormat, input: AVAudioFormat) -> AVAudioFormat? {
-        if output.sampleRate > 0, output.channelCount > 0 { return output }
-        if input.sampleRate > 0, input.channelCount > 0 { return input }
-        return nil
+    /// Formats to try for the input tap, in order. AVFoundation requires the
+    /// tap rate to equal the hardware input rate, so the hardware-side
+    /// `inputFormat` goes first. After a route change the node's
+    /// `outputFormat` can keep the old rate for a while, and tapping with it
+    /// failed with "format.sampleRate == inputHWFormat.sampleRate" (1.3.0 build
+    /// 15). It stays as a second attempt for the case where the input side is
+    /// rejected instead. Invalid (0 Hz / 0 channel) formats and duplicates are
+    /// dropped.
+    static func tapFormatCandidates(input: AVAudioFormat, output: AVAudioFormat) -> [AVAudioFormat] {
+        var candidates: [AVAudioFormat] = []
+        for format in [input, output] where format.sampleRate > 0 && format.channelCount > 0 {
+            let isDuplicate = candidates.contains {
+                $0.sampleRate == format.sampleRate && $0.channelCount == format.channelCount
+            }
+            if !isDuplicate { candidates.append(format) }
+        }
+        return candidates
     }
 
-    /// Installs the mic tap. Returns `false` when it could not be installed;
-    /// the error is already logged and published.
-    @discardableResult
-    private func installInputTap(on inputNode: AVAudioInputNode, format: AVAudioFormat) -> Bool {
+    /// Installs the mic tap with the first candidate format the node accepts.
+    /// Returns `false` when none worked; the error is already logged and published.
+    private func installMicTap(on inputNode: AVAudioInputNode) -> Bool {
+        let input = inputNode.inputFormat(forBus: 0)
+        let candidates = Self.tapFormatCandidates(
+            input: input,
+            output: inputNode.outputFormat(forBus: 0)
+        )
+
+        guard !candidates.isEmpty else {
+            let error = AudioManagerError.invalidInputFormat(
+                sampleRate: input.sampleRate,
+                channels: input.channelCount
+            )
+            audioLogger.log(.error, error.localizedDescription)
+            audioErrorPublisher.send(error.localizedDescription)
+            return false
+        }
+
+        var lastError: Error = AudioManagerError.invalidInputFormat(
+            sampleRate: input.sampleRate,
+            channels: input.channelCount
+        )
+        for format in candidates {
+            do {
+                try installInputTap(on: inputNode, format: format)
+                micSampleRate = format.sampleRate
+                audioLogger.log(.info, "Mic tap installed at \(format.sampleRate) Hz")
+                return true
+            } catch {
+                lastError = error
+                audioLogger.log(.warning, "Mic tap rejected at \(format.sampleRate) Hz: \(error.localizedDescription)")
+            }
+        }
+
+        let wrapped = AudioManagerError.tapInstallationFailed(underlying: lastError)
+        audioLogger.log(.error, wrapped.localizedDescription)
+        audioErrorPublisher.send(wrapped.localizedDescription)
+        return false
+    }
+
+    /// Installs the mic tap with `format`, or throws without touching the
+    /// current decimator.
+    private func installInputTap(on inputNode: AVAudioInputNode, format: AVAudioFormat) throws {
         // Identity rates need no converter; anything else goes through one.
         let decimator = format.sampleRate == sampleRate
             ? nil
             : AudioDecimator(inputRate: format.sampleRate, outputRate: sampleRate)
         if format.sampleRate != sampleRate && decimator == nil {
-            let error = AudioManagerError.invalidInputFormat(
+            throw AudioManagerError.invalidInputFormat(
                 sampleRate: format.sampleRate,
                 channels: format.channelCount
             )
-            audioLogger.log(.error, "Cannot resample \(format.sampleRate) Hz to \(sampleRate) Hz")
-            audioErrorPublisher.send(error.localizedDescription)
-            return false
+        }
+
+        // installTap raises an NSException (e.g. -10868, or a sample rate that
+        // does not match the hardware). Swift cannot catch it, so route it
+        // through the catcher.
+        try ObjCExceptionCatcher.catchException {
+            self.installTapBlock(on: inputNode, format: format, decimator: decimator)
         }
         self.decimator = decimator
-
-        // installTap raises an NSException (e.g. "Failed to initialize active
-        // nodes in input chain", -10868) when the format no longer matches the
-        // hardware. Swift cannot catch it, so route it through the catcher.
-        do {
-            try ObjCExceptionCatcher.catchException {
-                self.installTapBlock(on: inputNode, format: format, decimator: decimator)
-            }
-            return true
-        } catch {
-            let wrapped = AudioManagerError.tapInstallationFailed(underlying: error)
-            audioLogger.log(.error, wrapped.localizedDescription)
-            audioErrorPublisher.send(wrapped.localizedDescription)
-            return false
-        }
     }
 
     private func installTapBlock(
@@ -769,17 +790,8 @@ final class AudioManager: NSObject, AudioManaging {
 
         guard wasListening, let inputNode else { return }
 
-        guard let hwFormat = Self.tapFormat(
-            output: inputNode.outputFormat(forBus: 0),
-            input: inputNode.inputFormat(forBus: 0)
-        ) else {
-            audioLogger.log(.error, "Hardware format invalid after route change — mic tap not reinstalled")
-            isListening = false
-            return
-        }
-        micSampleRate = hwFormat.sampleRate
-        audioLogger.log(.info, "Reinstalling mic tap after route change: \(micSampleRate) Hz")
-        isListening = installInputTap(on: inputNode, format: hwFormat)
+        audioLogger.log(.info, "Reinstalling mic tap after route change")
+        isListening = installMicTap(on: inputNode)
     }
 
     // MARK: - App Lifecycle Recovery
