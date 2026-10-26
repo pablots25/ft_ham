@@ -40,7 +40,6 @@ struct ContentView: View {
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
     @State private var isPresentingWhatsNew = false
-    @State private var isPresentingDonationPrompt = false
     @State private var isPresentingRevocationAlert = false
     /// Bumped when the app becomes active so the slot bar resyncs at once.
     @State private var progressResyncToken = 0
@@ -66,13 +65,7 @@ struct ContentView: View {
                 WhatsNewView()
                     .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
             }
-            // 4) Donation → Premium upgrade prompt (shown once)
-            .sheet(isPresented: $isPresentingDonationPrompt) {
-                DonationPremiumPromptView()
-                    .environmentObject(PremiumManager.shared)
-                    .interactiveDismissDisabled(true)
-            }
-            // 5) Premium revocation alert
+            // 4) Premium revocation alert
             .alert("Premium Access Removed", isPresented: $isPresentingRevocationAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -104,8 +97,6 @@ struct ContentView: View {
                         isPresentingLicense = true
                     } else if AppVersionManager.shared.shouldShowWhatsNew {
                         isPresentingWhatsNew = true
-                    } else if PremiumManager.shared.isDonor && !PremiumManager.shared.didShowDonationPremiumPrompt {
-                        isPresentingDonationPrompt = true
                     } else if !root.settingsLoaded {
                         showConfigAlert = true
                         shouldNavigateToConfiguration = true
@@ -142,12 +133,8 @@ struct ContentView: View {
             }
             .onChange(of: isPresentingWhatsNew) { isPresented in
                 if !isPresented {
-                    if PremiumManager.shared.isDonor && !PremiumManager.shared.didShowDonationPremiumPrompt {
-                        isPresentingDonationPrompt = true
-                    } else {
-                        scheduleSettingsCheckIfNeeded()
-                        evaluateAutoRX()
-                    }
+                    scheduleSettingsCheckIfNeeded()
+                    evaluateAutoRX()
                 }
             }
             .onChange(of: autoRXAtStart) { enabled in

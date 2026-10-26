@@ -1,0 +1,114 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Privacy - NSLocalNetworkUsageDescription",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham connects to rigctld on your local network to control your radio (CAT)."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham verbindet sich mit rigctld in deinem lokalen Netzwerk, um dein Funkgerät zu steuern (CAT)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham se conecta a rigctld en tu red local para controlar tu radio (CAT)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham se connecte à rigctld sur votre réseau local pour piloter votre radio (CAT)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham si connette a rigctld sulla tua rete locale per controllare la tua radio (CAT)."
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Privacy - NSMicrophoneUsageDescription",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham listens to audio from your radio, through the microphone or a USB audio interface, to decode FT8 and FT4 signals."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham hört das Audiosignal deines Funkgeräts über das Mikrofon oder ein USB-Audio-Interface ab, um FT8- und FT4-Signale zu dekodieren."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham escucha el audio de tu radio, a través del micrófono o de una interfaz de audio USB, para decodificar señales FT8 y FT4."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham écoute l'audio de votre radio, via le microphone ou une interface audio USB, pour décoder les signaux FT8 et FT4."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham ascolta l'audio della tua radio, tramite il microfono o un'interfaccia audio USB, per decodificare i segnali FT8 e FT4."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "comment" : "Privacy - NSLocationWhenInUseUsageDescription",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham needs your location to automatically detect your grid square locator."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham benötigt deinen Standort, um deinen Locator (Grid Square) automatisch zu ermitteln."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham necesita tu ubicación para detectar automáticamente tu locator (cuadrícula)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham a besoin de votre position pour déterminer automatiquement votre locator (carré Maidenhead)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham ha bisogno della tua posizione per rilevare automaticamente il tuo locator (grid square)."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

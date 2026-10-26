@@ -80,6 +80,18 @@ enum PremiumFeature: String, CaseIterable {
         }
     }
 
+    /// Remote feature flag that must also be on for the feature to be reachable.
+    /// `nil` means the feature is always available to Premium users.
+    var featureFlag: FeatureFlag? {
+        switch self {
+        case .iPadDashboard: return .enableIpadDashboard
+        case .bandHopping: return .enableBandHopping
+        case .iCloudSync: return .enableICloudSync
+        case .presence: return .enablePresence
+        case .pskReporter, .catControl, .qrzLogbook, .lotwSync, .eqslSync, .statistics: return nil
+        }
+    }
+
     /// Analytics source string for paywall tracking
     var analyticsSource: String { rawValue }
 }
