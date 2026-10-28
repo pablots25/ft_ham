@@ -28,6 +28,9 @@ final class FT8MessageComposerAdditionalTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "cqModifier")
         UserDefaults.standard.removeObject(forKey: "cqModifierOther")
         UserDefaults.standard.removeObject(forKey: "cqIncludeGrid")
+        // Write "no modifier" explicitly: a removed key can fall through to
+        // settings stored outside the app container (see TestDefaults).
+        UserDefaults.standard.set("NONE", forKey: "cqModifier")
     }
 
     override func tearDown() {

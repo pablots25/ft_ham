@@ -155,6 +155,9 @@ final class FT8ViewModelUnitTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
+        // Keep the GPS auto-locator from replacing the test locator with the
+        // simulator's location (CM87 by default).
+        UserDefaults.standard.set(false, forKey: "autoLocatorFromGPS")
         viewModel = FT8ViewModel()
         viewModel.autoSequencingEnabled = false
         viewModel.callsign = "EA1AAA"
@@ -166,6 +169,7 @@ final class FT8ViewModelUnitTests: XCTestCase {
 
     override func tearDown() async throws {
         viewModel = nil
+        UserDefaults.standard.removeObject(forKey: "autoLocatorFromGPS")
         try await super.tearDown()
     }
 
@@ -860,7 +864,9 @@ final class FT8MessageTests: XCTestCase {
 // MARK: - FT8MessageComposerTests
 final class FT8MessageComposerTests: XCTestCase {
     func testGenerateMessagesFormatting() {
-        UserDefaults.standard.removeObject(forKey: "cqModifier")
+        // Explicit "no modifier": a removed key can fall through to settings
+        // stored outside the app container (see TestDefaults).
+        UserDefaults.standard.set("NONE", forKey: "cqModifier")
         let c = FT8MessageComposer()
         let msgs = c.generateMessages(
             callsign: "ea1aaa",
@@ -951,7 +957,7 @@ final class FT8MessageComposerTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "cqModifier")
     }
     
-    func testGenerateMessagesWithoutModifier() {
+    func testGenerateMessagesWithoutModifier() throws {
         let c = FT8MessageComposer()
         
         // Test with NONE
@@ -967,7 +973,7 @@ final class FT8MessageComposerTests: XCTestCase {
         XCTAssertFalse(noneMsg[0].contains("CQ NONE"))
         
         // Test with no key set
-        UserDefaults.standard.removeObject(forKey: "cqModifier")
+        try TestDefaults.removeOrSkip("cqModifier")
         let noKeyMsg = c.generateMessages(
             callsign: "EA4IQL",
             locator: "IN80",
