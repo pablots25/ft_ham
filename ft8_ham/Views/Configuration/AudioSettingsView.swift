@@ -25,6 +25,7 @@ struct AudioSettingsContent: View {
     @State private var inputGainDb: Float = 0
     @State private var txSliderTempValue: Float = 1.0
     @State private var activeHelp: HelpTip?
+    @StateObject private var deviceVolume = DeviceVolumeMonitor()
 
     private let minInputGain = Float(AudioGainLimits.minInput)
     private let maxInputGain = Float(AudioGainLimits.maxInput)
@@ -225,7 +226,19 @@ struct AudioSettingsContent: View {
                     if !isEditing { viewModel.txOutputGain = Double(txSliderTempValue) }
                 }
             )
+
+            if deviceVolume.showsLowVolumeHint {
+                Label {
+                    Text("Device volume is below maximum. Turn it all the way up with the volume buttons so the TX audio is loud enough to trigger your radio's VOX.")
+                } icon: {
+                    Image(systemName: "speaker.wave.1.fill")
+                }
+                .font(.footnote)
+                .foregroundStyle(.orange)
+                .transition(.opacity)
+            }
         }
+        .animation(.default, value: deviceVolume.showsLowVolumeHint)
     }
 
     // MARK: - Frequency commit
