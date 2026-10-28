@@ -40,7 +40,7 @@ enum AnalyticsParam {
     static let exportType = "export_type"
     static let viewMode = "view_mode"
     static let radioMode = "radio_mode"
-    static let callsign = "callsign"
+    static let prefix = "prefix"
 }
 
 /// Singleton manager to handle anonymous app metrics, App Store compliant.
@@ -204,8 +204,20 @@ final class AnalyticsManager {
 
     // MARK: - Errors
 
-    func logCountryNotFound(callsign: String) {
-        logEvent("country_not_found", parameters: [AnalyticsParam.callsign: callsign])
+    /// Logs a prefix missing from the country table. Only the prefix is sent,
+    /// never the full callsign, so the event carries no personal identifier.
+    func logCountryNotFound(prefix: String) {
+        logEvent("country_not_found", parameters: [AnalyticsParam.prefix: prefix])
+    }
+
+    /// The leading prefix of a callsign (`EA4IQL` → `EA4`, `3DA0XYZ` → `3DA0`).
+    /// Falls back to the first two characters when the call has no prefix shape.
+    static func callsignPrefix(_ callsign: String) -> String {
+        let upper = callsign.uppercased()
+        if let range = upper.range(of: "^[0-9]?[A-Z]+[0-9]+", options: .regularExpression) {
+            return String(upper[range])
+        }
+        return String(upper.prefix(2))
     }
 
     // MARK: - Configuration

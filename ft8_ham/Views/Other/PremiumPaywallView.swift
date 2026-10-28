@@ -47,6 +47,8 @@ struct PremiumPaywallView: View {
 
                         if let product = premiumManager.premiumProduct {
                             purchaseSection(product: product)
+                        } else if premiumManager.productLoadState == .failed {
+                            loadFailedSection
                         } else {
                             ProgressView("Loading...")
                                 .frame(height: 100)
@@ -170,6 +172,30 @@ struct PremiumPaywallView: View {
             .controlSize(.large)
             .disabled(isPurchasing || isRestoring)
         }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Load Failure
+
+    /// Shown when the App Store does not return the premium product, so the
+    /// paywall never sits on an endless spinner.
+    private var loadFailedSection: some View {
+        VStack(spacing: 12) {
+            Text("Couldn't load the price. Check your connection and try again.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                Task { await premiumManager.fetchPremiumProduct() }
+            } label: {
+                Label("Try Again", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .tint(.green)
+            .accessibilityIdentifier("paywall_retry")
+        }
+        .frame(minHeight: 100)
         .padding(.horizontal)
     }
 

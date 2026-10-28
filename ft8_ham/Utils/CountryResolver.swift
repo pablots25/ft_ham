@@ -154,7 +154,7 @@ private static func resolve(_ upperCall: String, original callsign: String) -> C
     cacheLock.unlock()
     if firstTime {
         appLogger.warning("Country not found for callsign: \(callsign)")
-        AnalyticsManager.shared.logCountryNotFound(callsign: callsign)
+        AnalyticsManager.shared.logCountryNotFound(prefix: AnalyticsManager.callsignPrefix(callsign))
     }
     return CountryInfo(country: nil, coordinates: nil)
 }

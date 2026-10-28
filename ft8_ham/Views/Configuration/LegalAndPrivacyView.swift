@@ -30,7 +30,7 @@ struct LegalAndPrivacyView: View {
                     activeHelp: $activeHelp
                 )
 
-                Text("Network services: the clock is checked against time.apple.com. The map's \"heard me\" layer asks pskreporter.info which stations decoded your callsign. Neither request carries anything beyond your callsign.")
+                Text("FT Ham checks the clock against time.apple.com. QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on. The Privacy Policy explains what each one receives.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 

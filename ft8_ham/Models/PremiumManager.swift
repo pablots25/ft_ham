@@ -26,10 +26,22 @@ final class PremiumManager: ObservableObject {
     // Donation (consumable) tip product IDs. Tips are optional and never unlock premium.
     static let donationProductIDs: Set<String> = ["coffe_small", "coffe_medium", "coffee_large"]
 
+    /// Where loading the premium product stands, so the paywall can offer a retry
+    /// instead of spinning forever when the App Store does not answer.
+    enum ProductLoadState: Equatable {
+        case idle
+        case loading
+        case loaded
+        case failed
+    }
+
     // MARK: - Published State
     @Published private(set) var isPremiumUnlocked: Bool = false
     @Published private(set) var premiumProduct: Product?
     @Published private(set) var isLoading: Bool = false
+    @Published private(set) var productLoadState: ProductLoadState = .idle
+
+    private let fetcher: ProductFetching
 
     /// Whether the user redeemed a beta access offer code.
     @Published private(set) var isBetaUser: Bool = false
@@ -46,7 +58,14 @@ final class PremiumManager: ObservableObject {
     // MARK: - Transaction Listener
     private var transactionListener: Task<Void, Never>?
 
-    private init() {
+    /// - Parameters:
+    ///   - fetcher: Loads the premium product. Tests inject a stub.
+    ///   - observesTransactions: When false, skips the transaction listener, the
+    ///     legacy Keychain cleanup and the entitlement check, so tests stay deterministic.
+    init(fetcher: ProductFetching = StoreKitProductFetcher(), observesTransactions: Bool = true) {
+        self.fetcher = fetcher
+        guard observesTransactions else { return }
+
         // Start listening for transactions on init
         transactionListener = listenForTransactions()
         Self.removeLegacyDonationKeychainFlag()
@@ -115,20 +134,27 @@ final class PremiumManager: ObservableObject {
 
     /// Load the premium product from App Store
     func fetchPremiumProduct() async {
-        guard premiumProduct == nil else { return }
+        guard premiumProduct == nil else {
+            productLoadState = .loaded
+            return
+        }
         isLoading = true
+        productLoadState = .loading
         defer { isLoading = false }
 
         do {
-            let products = try await Product.products(for: [Self.premiumProductID])
+            let products = try await fetcher.fetchProducts(for: [Self.premiumProductID])
 
             if let product = products.first {
                 premiumProduct = product
+                productLoadState = .loaded
                 logger.info("Premium product loaded: \(product.displayName) - \(product.displayPrice)")
             } else {
+                productLoadState = .failed
                 logger.error("Premium product not found in App Store Connect")
             }
         } catch {
+            productLoadState = .failed
             logger.error("Failed to fetch premium product: \(error.localizedDescription)")
         }
     }
@@ -316,17 +342,17 @@ enum PremiumError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .productNotLoaded:
-            return "Premium product is not loaded. Please try again."
+            return String(localized: "Premium product is not loaded. Please try again.")
         case .userCancelled:
-            return "Purchase was cancelled."
+            return String(localized: "Purchase was cancelled.")
         case .pending:
-            return "Purchase is pending approval."
+            return String(localized: "Purchase is pending approval.")
         case .verificationFailed:
-            return "Purchase verification failed. Please contact support."
+            return String(localized: "Purchase verification failed. Please contact support.")
         case .noPurchaseToRestore:
-            return "No previous purchase found to restore."
+            return String(localized: "No previous purchase found to restore.")
         case .unknown:
-            return "An unknown error occurred."
+            return String(localized: "An unknown error occurred.")
         }
     }
 }

@@ -8,6 +8,7 @@
 
 import XCTest
 import Combine
+import StoreKit
 @testable import ft8_ham
 
 // MARK: - PremiumError
@@ -255,5 +256,114 @@ final class PremiumManagerDebugTests: XCTestCase {
             "Second fetchPremiumProduct() call must not toggle isLoading — product already cached"
         )
         cancellable.cancel()
+    }
+}
+
+// MARK: - Product load state (paywall retry)
+
+private struct EmptyPremiumFetcher: ProductFetching {
+    /// StoreKit `Product` cannot be built synthetically, so an empty result
+    /// stands in for "product not found in App Store Connect".
+    func fetchProducts(for identifiers: [String]) async throws -> [Product] { [] }
+}
+
+private struct ThrowingPremiumFetcher: ProductFetching {
+    func fetchProducts(for identifiers: [String]) async throws -> [Product] {
+        throw URLError(.notConnectedToInternet)
+    }
+}
+
+/// Fails the first call and suspends on later ones, so a retry can be
+/// observed while it is still loading.
+private final class FailThenHangFetcher: ProductFetching, @unchecked Sendable {
+    private var calls = 0
+
+    func fetchProducts(for identifiers: [String]) async throws -> [Product] {
+        calls += 1
+        if calls == 1 { throw URLError(.timedOut) }
+        try await Task.sleep(nanoseconds: 10_000_000_000)
+        return []
+    }
+}
+
+private struct RecordingPremiumFetcher: ProductFetching {
+    let onFetch: @Sendable ([String]) -> Void
+
+    func fetchProducts(for identifiers: [String]) async throws -> [Product] {
+        onFetch(identifiers)
+        return []
+    }
+}
+
+@MainActor
+final class PremiumManagerLoadStateTests: XCTestCase {
+
+    func test_initialState_isIdle() {
+        let sut = PremiumManager(fetcher: EmptyPremiumFetcher(), observesTransactions: false)
+        XCTAssertEqual(sut.productLoadState, .idle)
+        XCTAssertNil(sut.premiumProduct)
+    }
+
+    func test_emptyResult_isFailed() async {
+        let sut = PremiumManager(fetcher: EmptyPremiumFetcher(), observesTransactions: false)
+
+        await sut.fetchPremiumProduct()
+
+        XCTAssertEqual(sut.productLoadState, .failed)
+        XCTAssertNil(sut.premiumProduct)
+        XCTAssertFalse(sut.isLoading)
+    }
+
+    func test_thrownError_isFailed() async {
+        let sut = PremiumManager(fetcher: ThrowingPremiumFetcher(), observesTransactions: false)
+
+        await sut.fetchPremiumProduct()
+
+        XCTAssertEqual(sut.productLoadState, .failed)
+        XCTAssertNil(sut.premiumProduct)
+        XCTAssertFalse(sut.isLoading)
+    }
+
+    func test_retryAfterFailure_goesBackToLoading() async {
+        let sut = PremiumManager(fetcher: FailThenHangFetcher(), observesTransactions: false)
+        await sut.fetchPremiumProduct()
+        XCTAssertEqual(sut.productLoadState, .failed)
+
+        let retry = Task { await sut.fetchPremiumProduct() }
+        await Task.yield()
+
+        XCTAssertEqual(sut.productLoadState, .loading, "Try Again must leave the failed state right away")
+        XCTAssertTrue(sut.isLoading)
+        retry.cancel()
+    }
+
+    func test_consecutiveFailures_stayFailed() async {
+        let sut = PremiumManager(fetcher: ThrowingPremiumFetcher(), observesTransactions: false)
+
+        await sut.fetchPremiumProduct()
+        await sut.fetchPremiumProduct()
+
+        XCTAssertEqual(sut.productLoadState, .failed)
+    }
+
+    func test_requestsOnlyThePremiumProduct() async {
+        let expectation = expectation(description: "fetch called")
+        let sut = PremiumManager(
+            fetcher: RecordingPremiumFetcher { ids in
+                XCTAssertEqual(ids, [PremiumManager.premiumProductID])
+                expectation.fulfill()
+            },
+            observesTransactions: false
+        )
+
+        await sut.fetchPremiumProduct()
+
+        await fulfillment(of: [expectation], timeout: 1)
+    }
+
+    func test_withoutObservingTransactions_premiumStaysLocked() {
+        let sut = PremiumManager(fetcher: EmptyPremiumFetcher(), observesTransactions: false)
+        XCTAssertFalse(sut.isPremiumUnlocked)
+        XCTAssertFalse(sut.isBetaUser)
     }
 }

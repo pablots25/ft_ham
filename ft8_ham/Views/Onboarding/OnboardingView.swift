@@ -190,7 +190,7 @@ struct OnboardingView: View {
 
                     Divider()
 
-                    Text("Anonymous usage metrics may be collected via Firebase Analytics to improve the app. No personally identifiable information (PII) is collected.")
+                    Text("FT Ham collects anonymous usage statistics with Firebase Analytics to improve the app. You can turn this off in Configuration, under Legal & Licenses. Optional services such as QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
