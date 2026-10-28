@@ -20,12 +20,18 @@ final class OnboardingStationTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+        // Start from an explicitly empty station: a removed key can fall
+        // through to settings stored outside the app container (see TestDefaults).
+        keys.forEach { UserDefaults.standard.set("", forKey: $0) }
+        // Keep the GPS auto-locator from filling the empty locator with the
+        // simulator's location, which would make the station valid.
+        UserDefaults.standard.set(false, forKey: "autoLocatorFromGPS")
         viewModel = FT8ViewModel(txMessages: [], rxMessages: [])
     }
 
     override func tearDown() async throws {
         keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+        UserDefaults.standard.removeObject(forKey: "autoLocatorFromGPS")
         cancellables.removeAll()
         viewModel = nil
         try await super.tearDown()

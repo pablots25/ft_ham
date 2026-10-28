@@ -54,7 +54,10 @@ final class BehaviorSettingsTests: XCTestCase {
         XCTAssertFalse(viewModel.autoRXAtStart, "autoRXAtStart should default to false")
     }
 
-    func testAutoSequencingEnabledDefaultIsTrue() {
+    func testAutoSequencingEnabledDefaultIsTrue() throws {
+        // Checks the declared @AppStorage default, so the key must really be absent.
+        try TestDefaults.removeOrSkip("autoSequencingEnabled")
+        viewModel = FT8ViewModel(txMessages: [], rxMessages: [])
         XCTAssertTrue(viewModel.autoSequencingEnabled, "autoSequencingEnabled should default to true")
     }
 

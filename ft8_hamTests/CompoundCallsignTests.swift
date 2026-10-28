@@ -316,8 +316,10 @@ final class CompoundCallsignComposerTests: XCTestCase {
     override func setUp() {
         super.setUp()
         sut = FT8MessageComposer()
-        UserDefaults.standard.removeObject(forKey: "cqModifier")
         UserDefaults.standard.removeObject(forKey: "cqModifierOther")
+        // Explicit "no modifier": a removed key can fall through to settings
+        // stored outside the app container (see TestDefaults).
+        UserDefaults.standard.set("NONE", forKey: "cqModifier")
     }
 
     override func tearDown() {
