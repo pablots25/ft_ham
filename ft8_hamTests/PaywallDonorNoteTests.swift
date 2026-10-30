@@ -39,3 +39,32 @@ final class PaywallDonorNoteTests: XCTestCase {
         XCTAssertTrue(PremiumManager.grantsPremium(productID: PremiumManager.premiumProductID))
     }
 }
+
+/// Feature names on the paywall follow the device language.
+final class PremiumFeatureNameLocalizationTests: XCTestCase {
+
+    func testFeatureNamesAreTranslated() throws {
+        // Brand names that stay the same in every language.
+        let brands: Set<PremiumFeature> = [.pskReporter, .lotwSync, .eqslSync]
+        for language in ["de", "es", "fr", "it"] {
+            let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"), language)
+            let bundle = try XCTUnwrap(Bundle(path: path))
+            for feature in PremiumFeature.allCases {
+                let english = feature.displayName
+                let translated = bundle.localizedString(forKey: english, value: nil, table: nil)
+                XCTAssertFalse(translated.isEmpty, "\(language): \(feature)")
+                if !brands.contains(feature) && !(language == "es" && feature == .qrzLogbook) {
+                    XCTAssertNotEqual(translated, english, "\(language): \(feature)")
+                }
+            }
+        }
+    }
+
+    func testSpanishNamesMatchTheSettingsRows() throws {
+        let path = try XCTUnwrap(Bundle.main.path(forResource: "es", ofType: "lproj"))
+        let bundle = try XCTUnwrap(Bundle(path: path))
+        XCTAssertEqual(bundle.localizedString(forKey: PremiumFeature.statistics.displayName, value: nil, table: nil), "Estadísticas")
+        XCTAssertEqual(bundle.localizedString(forKey: PremiumFeature.catControl.displayName, value: nil, table: nil), "Control CAT")
+        XCTAssertEqual(bundle.localizedString(forKey: PremiumFeature.bandHopping.displayName, value: nil, table: nil), "Salto de bandas")
+    }
+}
