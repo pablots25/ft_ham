@@ -55,6 +55,7 @@ struct PremiumPaywallView: View {
                         }
 
                         restoreButton
+                        donorNote
                         disclaimerView
                     }
                     .padding(.horizontal)
@@ -225,6 +226,30 @@ struct PremiumPaywallView: View {
         .accessibilityIdentifier("paywall_restore")
     }
 
+    // MARK: - Past Donors
+
+    /// Tips never unlock premium, and 1.2.x tips cannot be seen by the app, so
+    /// past donors ask by email and get an offer code instead.
+    private var donorNote: some View {
+        VStack(spacing: 6) {
+            Text("💛 Thank You, Donors")
+                .font(.subheadline.bold())
+            // A String, not a key, so the address is not turned into a second link.
+            Text(String(localized: "If you donated in an earlier version, write to ftham@turrion.dev and we will send you a code for free Premium."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Link(PaywallDonorNote.email, destination: PaywallDonorNote.mailURL)
+                .font(.footnote.weight(.semibold))
+                .tint(.green)
+                .accessibilityIdentifier("paywall_donor_email")
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(.yellow.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+    }
+
     // MARK: - Disclaimer
 
     private var disclaimerView: some View {
@@ -333,6 +358,22 @@ struct PaywallBenefit: Identifiable {
             }
             return filtered.features.isEmpty && filtered.extras.isEmpty ? nil : filtered
         }
+    }
+}
+
+// MARK: - Past Donors
+
+/// Where past donors ask for their free Premium offer code.
+enum PaywallDonorNote {
+    static let email = "ftham@turrion.dev"
+    static let subject = "Premium code for a past donation"
+
+    static var mailURL: URL {
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = email
+        components.queryItems = [URLQueryItem(name: "subject", value: subject)]
+        return components.url!
     }
 }
 
