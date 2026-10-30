@@ -90,6 +90,9 @@ struct GridMapView: UIViewRepresentable {
     /// When false (map tab not selected) data changes are not applied; the
     /// latest data is applied once the map becomes active again.
     var isActive: Bool = true
+    /// The station's own locator. The map opens centered on it, or on the
+    /// device location when it is empty.
+    var homeLocator: String = ""
     @Binding var userTrackingMode: MKUserTrackingMode
     /// Invoked (on the main actor) when the device location resolves to a grid
     /// square that is not yet in `locators`.
@@ -144,6 +147,7 @@ struct GridMapView: UIViewRepresentable {
             uiView.setUserTrackingMode(userTrackingMode, animated: true)
         }
         guard isActive else { return }
+        context.coordinator.homeLocator = homeLocator
         let visibility = MapVisibility(
             grids: showGrids,
             countryCircles: showCountryCircles,
@@ -156,6 +160,8 @@ struct GridMapView: UIViewRepresentable {
             uiView, locators: locators, countries: countries,
             heardMe: heardMeStations, presence: presenceStations, visibility: visibility
         )
+        // The station locator can arrive after the layers did.
+        context.coordinator.fitInitialRegionIfNeeded(uiView)
     }
 
     // MARK: - Coordinator
@@ -194,6 +200,8 @@ struct GridMapView: UIViewRepresentable {
         private var annotationsByKey: [MapAnnotationKey: MKAnnotation] = [:]
 
         private var hasEverFitRegion = false
+        /// The station's own locator, set by `updateUIView`.
+        var homeLocator: String = ""
 
         init(onUserLocator: ((String) -> Void)?, trackingMode: Binding<MKUserTrackingMode>) {
             self.onUserLocator = onUserLocator
@@ -255,6 +263,8 @@ struct GridMapView: UIViewRepresentable {
                 if !self.knownLocators.contains(locator) {
                     self.onUserLocator?(locator)
                 }
+                // No station locator yet: the first fix becomes the center.
+                self.fitInitialRegionIfNeeded(mapView)
 
                 if mapView.userTrackingMode == .follow || mapView.userTrackingMode == .followWithHeading {
                     self.zoomToGridSquare(locator: locator, on: mapView, animated: true)
@@ -312,10 +322,33 @@ struct GridMapView: UIViewRepresentable {
             }
             applyAnnotations(MapAnnotationDiff(current: Set(annotationsByKey.keys), desired: desired), on: mapView)
 
+            fitInitialRegionIfNeeded(mapView)
+        }
+
+        /// Opens the map once on the station, showing what is drawn around
+        /// it. Without a station locator or a device fix it falls back to
+        /// fitting everything drawn, as before.
+        @MainActor
+        func fitInitialRegionIfNeeded(_ mapView: MKMapView) {
+            guard !hasEverFitRegion else { return }
             let layers: [MKOverlay] = [gridOverlay, circleOverlay, geodesicOverlay].compactMap { $0 }
-            if !hasEverFitRegion && !layers.isEmpty {
+            let content = layers.reduce(MKMapRect.null) { $0.union($1.boundingMapRect) }
+            if let home = homeCoordinate(on: mapView) {
+                let region = MapInitialRegion.region(home: home, content: content.isNull ? nil : content)
+                mapView.setRegion(region, animated: false)
+                hasEverFitRegion = true
+            } else if !layers.isEmpty {
                 fitAll(mapView, overlays: layers)
             }
+        }
+
+        /// The station's locator center, or the device position.
+        private func homeCoordinate(on mapView: MKMapView) -> CLLocationCoordinate2D? {
+            if let center = MaidenheadGrid.center(for: homeLocator) {
+                return center
+            }
+            guard canShowUserLocation, let location = mapView.userLocation.location else { return nil }
+            return location.coordinate
         }
 
         // MARK: - Helper Methods

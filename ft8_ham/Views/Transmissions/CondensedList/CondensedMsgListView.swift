@@ -70,7 +70,7 @@ struct CondensedMsgListView: View {
                                     let highlight = viewModel.rowHighlight(for: msg)
                                     CondensedMsgView(
                                         msg: msg,
-                                        needed: viewModel.showNeededBadges ? viewModel.neededStatus(for: msg) : [],
+                                        needed: viewModel.neededBadges(for: msg),
                                         highlight: highlight,
                                         showsMode: DecodeRowLayout.showsModeSuffix(for: msg, isFT4: isFT4),
                                         isActiveQSO: DecodeRowLayout.isActiveQSO(msg, activeCallsign: activeCallsign)

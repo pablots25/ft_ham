@@ -14,7 +14,8 @@ enum AppStorageResetter {
     static let tutorialKeys = [
         "hasSeenFloatingButtonTutorial",
         "hasSeenSlideToReplyTutorial",
-        "hasSeenMessageColumnTutorial"
+        "hasSeenMessageColumnTutorial",
+        MessagesGuidePrompt.seenKey
     ]
     
     static func resetTutorials() {

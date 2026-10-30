@@ -206,6 +206,14 @@ extension FT8ViewModel{
         return nil
     }
 
+    /// The GRID / DXCC badges a decoded row shows, per the Display settings.
+    internal func neededBadges(for msg: FT8Message) -> NeededStatus {
+        guard showNeededGridBadge || showNeededDXCCBadge else { return [] }
+        return NeededBadgeSettings.visible(
+            neededStatus(for: msg), showGrid: showNeededGridBadge, showDXCC: showNeededDXCCBadge
+        )
+    }
+
     /// What a decoded station would still add to the logbook on the current
     /// band and mode: an unworked callsign, an unworked 4-char grid, an
     /// unworked country. Empty for our own TX rows and non-station rows.

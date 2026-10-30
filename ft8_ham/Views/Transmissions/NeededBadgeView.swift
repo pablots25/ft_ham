@@ -18,13 +18,22 @@ import SwiftUI
 /// message text keeps priority over them.
 struct NeededBadgeView: View {
     let status: NeededStatus
+    /// Draws one fixed style, as the Messages Guide does to show every form.
+    /// `nil` picks the widest style that fits.
+    var style: Style? = nil
 
     var body: some View {
         if status.contains(.grid) || status.contains(.dxcc) {
-            ViewThatFits(in: .horizontal) {
-                badges(style: .full)
-                badges(style: .initial)
-                badges(style: .dot)
+            Group {
+                if let style {
+                    badges(style: style)
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        badges(style: .full)
+                        badges(style: .initial)
+                        badges(style: .dot)
+                    }
+                }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityText)

@@ -433,7 +433,17 @@ enum QSOStripDensity {
 struct QSOStatusView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     var density: QSOStripDensity = .regular
-    
+
+    /// The status never wraps, in any density.
+    static let statusLineLimit = 1
+    /// Low enough for the longest status with an 11-character compound call.
+    static let statusMinimumScaleFactor: CGFloat = 0.4
+
+    /// Stop QSO turns red while a QSO is running, so the way out is obvious.
+    static func stopQSOTint(isQSOOngoing: Bool) -> Color {
+        isQSOOngoing ? .red : .secondary
+    }
+
     private var statusColor: Color {
         switch viewModel.qsoManager.qsoState {
             // Idle
@@ -525,7 +535,7 @@ struct QSOStatusView: View {
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.bordered)
-            .tint(.secondary)
+            .tint(Self.stopQSOTint(isQSOOngoing: viewModel.qsoManager.isQSOOngoing()))
             .disabled(!viewModel.qsoManager.isQSOOngoing())
             .accessibilityLabel("Stop QSO")
             .accessibilityIdentifier("button_stopQSO")
@@ -538,10 +548,14 @@ struct QSOStatusView: View {
                 
                 // Status + (x/y)
                 HStack(spacing: 4) {
+                    // Always one line: a long status such as "Sending locator
+                    // to EA4XXX" shrinks instead of wrapping, so the strip
+                    // keeps its height while the QSO advances.
                     Text(viewModel.qsoManager.qsoState.localizedStatus)
                         .foregroundStyle(statusColor)
-                        .lineLimit(density == .compact ? 1 : 2)
-                        .minimumScaleFactor(0.5)
+                        .lineLimit(Self.statusLineLimit)
+                        .minimumScaleFactor(Self.statusMinimumScaleFactor)
+                        .allowsTightening(true)
                         .layoutPriority(1)
                     
                     if shouldShowRetry {

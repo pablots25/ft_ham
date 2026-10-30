@@ -107,19 +107,21 @@ struct MessageColorLegendView: View {
                 // MARK: - Badges
                 Section {
                     HStack(spacing: 14) {
-                        NeededBadgeView(status: [.grid])
-                            .frame(width: 60, alignment: .leading)
+                        badgeForms([.grid])
                         Text("Grid square not yet in your log on this band and mode")
                             .font(.subheadline)
                     }
                     HStack(spacing: 14) {
-                        NeededBadgeView(status: [.dxcc])
-                            .frame(width: 60, alignment: .leading)
+                        badgeForms([.dxcc])
                         Text("Country (DXCC) not yet in your log on this band and mode")
                             .font(.subheadline)
                     }
                 } header: {
                     Text("Badges")
+                } footer: {
+                    Text("In narrow rows the badges shorten to G and D, then to colored dots. You can turn each badge on or off in Settings, under Display.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 // MARK: - Reply
@@ -155,6 +157,16 @@ struct MessageColorLegendView: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    /// Every form a badge takes in the decode list: full tag, initial, dot.
+    private func badgeForms(_ status: NeededStatus) -> some View {
+        HStack(spacing: 6) {
+            NeededBadgeView(status: status, style: .full)
+            NeededBadgeView(status: status, style: .initial)
+            NeededBadgeView(status: status, style: .dot)
+        }
+        .frame(width: 90, alignment: .leading)
     }
 
     @ViewBuilder

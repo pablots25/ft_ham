@@ -3,7 +3,8 @@
 //  ft_hamTests
 //
 //  Tests for WaterfallTapRouter: which taps on the waterfall reply to a
-//  decoded label and which only set the TX frequency.
+//  decoded label. A plain tap never moves the TX frequency: that needs
+//  the frequency button.
 //
 
 import XCTest
@@ -27,14 +28,14 @@ final class WaterfallTapRouterTests: XCTestCase {
 
     // MARK: - Setting off
 
-    func testSettingOffAlwaysSetsFrequency() {
+    func testSettingOffNeverReplies() {
         for gesture in ReplyTapGesture.allCases {
             for isSecondTap in [false, true] {
                 for hasLabel in [false, true] {
                     XCTAssertEqual(
                         outcome(tapToReply: false, gesture: gesture,
                                 isSecondTap: isSecondTap, hasReplyableLabel: hasLabel),
-                        .setFrequency,
+                        .ignore,
                         "gesture=\(gesture) second=\(isSecondTap) label=\(hasLabel)"
                     )
                 }
@@ -48,21 +49,21 @@ final class WaterfallTapRouterTests: XCTestCase {
         XCTAssertEqual(outcome(gesture: .single, hasReplyableLabel: true), .reply)
     }
 
-    func testSingleTapOffLabelSetsFrequency() {
-        XCTAssertEqual(outcome(gesture: .single, hasReplyableLabel: false), .setFrequency)
+    func testSingleTapOffLabelDoesNothing() {
+        XCTAssertEqual(outcome(gesture: .single, hasReplyableLabel: false), .ignore)
     }
 
     // MARK: - Double tap
 
-    func testDoubleTapFirstTapSetsFrequency() {
-        XCTAssertEqual(outcome(gesture: .double, isSecondTap: false, hasReplyableLabel: true), .setFrequency)
+    func testDoubleTapFirstTapDoesNothing() {
+        XCTAssertEqual(outcome(gesture: .double, isSecondTap: false, hasReplyableLabel: true), .ignore)
     }
 
     func testDoubleTapSecondTapOnLabelReplies() {
         XCTAssertEqual(outcome(gesture: .double, isSecondTap: true, hasReplyableLabel: true), .reply)
     }
 
-    func testDoubleTapSecondTapOffLabelSetsFrequency() {
-        XCTAssertEqual(outcome(gesture: .double, isSecondTap: true, hasReplyableLabel: false), .setFrequency)
+    func testDoubleTapSecondTapOffLabelDoesNothing() {
+        XCTAssertEqual(outcome(gesture: .double, isSecondTap: true, hasReplyableLabel: false), .ignore)
     }
 }

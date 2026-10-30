@@ -35,8 +35,6 @@ struct WaterfallView: View {
     /// A second tap within this time (and `tapSlop * 2`) counts as a double tap.
     private static let doubleTapSeconds: TimeInterval = 0.35
     private static let cursorLinger: TimeInterval = 8
-    /// A tap this close to a decoded signal lands exactly on it.
-    private static let snapToleranceHz = 40.0
 
     init(viewModel: WaterfallViewModel, ft8ViewModel: FT8ViewModel, isSettingFrequency: Binding<Bool>) {
         self.viewModel = viewModel
@@ -84,10 +82,10 @@ struct WaterfallView: View {
             .contentShape(Rectangle())
             .gesture(
                 // One gesture, three outcomes: a drag shows the cursor (and,
-                // in adjust mode, moves the TX frequency with it); a tap on a
-                // label replies (when enabled, honoring the reply gesture),
-                // otherwise it sets the TX frequency where it landed, snapped
-                // to a decoded signal nearby; holding on a label always replies.
+                // in adjust mode, moves the TX frequency with it); a tap
+                // replies to the label it most likely meant (when enabled,
+                // honoring the reply gesture); holding near a label always
+                // replies. Only adjust mode changes the TX frequency.
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let w = max(geo.size.width, 1)
@@ -164,25 +162,8 @@ struct WaterfallView: View {
         }
     }
 
-    /// A tap sets the TX frequency, snapping to the nearest decoded signal
-    /// still on screen so the finger does not have to hit a 50 Hz slot.
-    private func setTXFrequency(fromTapAt x: CGFloat, width: CGFloat) {
-        let tapped = viewModel.frequencyAtPixel(x: x, width: width)
-        let snapped = viewModel.nearestLabelFrequency(
-            to: tapped, toleranceHz: Self.snapToleranceHz, withinRows: viewModel.height
-        )
-        let target = (snapped ?? tapped)
-            .rounded()
-            .clamped(to: WaterfallViewModel.txFrequencyRange(isFT4: ft8ViewModel.isFT4))
-        guard target != ft8ViewModel.frequency else { return }
-        ft8ViewModel.frequency = target
-        cursorX = viewModel.xPosition(for: target, in: width)
-        cursorFrequency = target
-        Haptics.light()
-        ft8ViewModel.toast = .info(String(localized: "TX frequency set to \(Int(target)) Hz"), duration: 2)
-    }
-
-    /// Routes a plain tap to a reply or a TX frequency change.
+    /// Routes a plain tap to a reply. The TX frequency is left alone: it only
+    /// moves while the frequency button is on.
     private func handleTap(at point: CGPoint, in size: CGSize) {
         let now = Date()
         let isSecondTap = lastTapEnd.map {
@@ -198,20 +179,26 @@ struct WaterfallView: View {
         switch outcome {
         case .reply:
             replyToLabel(at: point, in: size)
-        case .setFrequency:
-            let w = max(size.width, 1)
-            setTXFrequency(fromTapAt: min(max(point.x, 0), w), width: w)
+        case .ignore:
+            break
         }
         lastTapEnd = (now, point)
     }
 
-    /// The replyable decoded message whose label sits under `point`, if any.
+    /// The replyable decoded message the tap most likely meant: the closest
+    /// label still on screen, not only one exactly under the finger.
     private func replyableMessage(at point: CGPoint, in size: CGSize) -> FT8Message? {
         let hz = viewModel.frequencyAtPixel(x: point.x, width: max(size.width, 1))
         let rowFromTop = Int(point.y / WaterfallRenderView.pointsPerRow)
+        let placed = viewModel.bestGuessLabel(
+            nearHz: hz, rowFromTop: rowFromTop, isFT4: ft8ViewModel.isFT4
+        ) { replyableMessage(for: $0) != nil }
+        return placed.flatMap { replyableMessage(for: $0.label) }
+    }
+
+    private func replyableMessage(for label: WaterfallLabel) -> FT8Message? {
         guard
-            let placed = viewModel.placedLabel(nearHz: hz, rowFromTop: rowFromTop, toleranceHz: Self.snapToleranceHz),
-            let id = placed.label.messageID,
+            let id = label.messageID,
             let message = ft8ViewModel.receivedMessages.last(where: { $0.id == id }),
             message.allowsReply, !message.isTX
         else { return nil }
