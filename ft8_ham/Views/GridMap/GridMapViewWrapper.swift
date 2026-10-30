@@ -58,6 +58,7 @@ struct GridMapViewWrapper: View {
                 showHeardMe: isHeardMeEnabled && mapSettings.showHeardMe,
                 showPresence: mapSettings.showPresence,
                 isActive: isActive,
+                homeLocator: myLocator,
                 userTrackingMode: $userTrackingMode,
                 onUserLocator: onUserLocator
             )

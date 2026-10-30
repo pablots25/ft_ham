@@ -32,6 +32,7 @@ struct ContentView: View {
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
+    @AppStorage(MessagesGuidePrompt.seenKey) private var hasSeenMessagesGuide: Bool = false
 
     @State private var selectedTab: Int = 0
     @State private var showConfigAlert = false
@@ -41,6 +42,7 @@ struct ContentView: View {
     @State private var isPresentingLicense = false
     @State private var isPresentingWhatsNew = false
     @State private var isPresentingRevocationAlert = false
+    @State private var isPresentingMessagesGuide = false
     /// Bumped when the app becomes active so the slot bar resyncs at once.
     @State private var progressResyncToken = 0
     @Environment(\.scenePhase) private var scenePhase
@@ -64,6 +66,10 @@ struct ContentView: View {
             .fullScreenCover(isPresented: $isPresentingWhatsNew) {
                 WhatsNewView()
                     .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
+            }
+            // Messages Guide, once, the first time TX/RX is shown
+            .sheet(isPresented: $isPresentingMessagesGuide) {
+                MessageColorLegendView()
             }
             // 4) Premium revocation alert
             .alert("Premium Access Removed", isPresented: $isPresentingRevocationAlert) {
@@ -104,6 +110,7 @@ struct ContentView: View {
                 }
                 // Once UI is ready, evaluate RX start
                 evaluateAutoRX()
+                presentMessagesGuideIfNeeded()
             }
             .onChange(of: hasCompletedOnboarding) { completed in
                 if completed {
@@ -135,7 +142,11 @@ struct ContentView: View {
                 if !isPresented {
                     scheduleSettingsCheckIfNeeded()
                     evaluateAutoRX()
+                    presentMessagesGuideIfNeeded()
                 }
+            }
+            .onChange(of: showConfigAlert) { isShowing in
+                if !isShowing { presentMessagesGuideIfNeeded() }
             }
             .onChange(of: autoRXAtStart) { enabled in
                 if enabled {
@@ -149,6 +160,7 @@ struct ContentView: View {
             }
             .onChange(of: selectedTab) { newTab in
                 lastSelectedTab = newTab
+                presentMessagesGuideIfNeeded()
             }
             .onChange(of: root.settingsLoaded) { loaded in
                 if loaded && autoRXAtStart {
@@ -277,6 +289,35 @@ struct ContentView: View {
     }
     
     // MARK: - Prompt sequencing helpers
+    /// Anything on screen, or still to come, that the guide must not cover.
+    private var isMessagesGuideBlocked: Bool {
+        AppEnvironment.current.isUITest
+            || !hasCompletedOnboarding || !hasAcceptedTerms
+            || isPresentingOnboarding || isPresentingLicense || isPresentingWhatsNew
+            || showConfigAlert || isPresentingMessagesGuide
+    }
+
+    /// Shows the Messages Guide the first time the TX/RX tab is on screen.
+    /// Waits a moment so a dismissing cover or tab switch can finish, then
+    /// checks again in case something else took the screen meanwhile.
+    private func presentMessagesGuideIfNeeded() {
+        guard MessagesGuidePrompt.shouldPresent(
+            tab: AppTab(rawValue: selectedTab),
+            hasSeen: hasSeenMessagesGuide,
+            isBlocked: isMessagesGuideBlocked
+        ) else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: MessagesGuidePrompt.presentationDelay)
+            guard MessagesGuidePrompt.shouldPresent(
+                tab: AppTab(rawValue: selectedTab),
+                hasSeen: hasSeenMessagesGuide,
+                isBlocked: isMessagesGuideBlocked
+            ) else { return }
+            hasSeenMessagesGuide = true
+            isPresentingMessagesGuide = true
+        }
+    }
+
     private func scheduleSettingsCheckIfNeeded() {
         // Avoid showing settings alert while a full-screen cover is presented
         guard !isPresentingOnboarding,

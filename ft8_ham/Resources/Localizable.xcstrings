@@ -68,6 +68,78 @@
         }
       }
     },
+    "12-hour (AM/PM)" : {
+      "comment" : "Hour format option.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 Stunden (AM/PM)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12-hour (AM/PM)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 horas (a. m./p. m.)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 heures (AM/PM)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 ore (AM/PM)"
+          }
+        }
+      }
+    },
+    "24-hour" : {
+      "comment" : "Hour format option.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 Stunden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24-hour"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 horas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 heures"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 ore"
+          }
+        }
+      }
+    },
     "Device volume is below maximum. Turn it all the way up with the volume buttons so the TX audio is loud enough to trigger your radio's VOX." : {
       "comment" : "Shown under the TX output gain slider when the device media volume is turned down.",
       "localizations" : {
@@ -93,6 +165,186 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Il volume del dispositivo non è al massimo. Alzalo del tutto con i tasti del volume così l'audio TX è abbastanza forte da attivare il VOX della radio."
+          }
+        }
+      }
+    },
+    "Hour format" : {
+      "comment" : "Display settings picker for the hour labels in Statistics.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stundenformat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hour format"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formato de hora"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format de l'heure"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formato dell'ora"
+          }
+        }
+      }
+    },
+    "How hours are labeled in the Statistics charts. Hours are always UTC." : {
+      "comment" : "Footnote under the Statistics hour format picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie Stunden in den Statistik-Diagrammen beschriftet werden. Die Stunden sind immer UTC."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How hours are labeled in the Statistics charts. Hours are always UTC."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cómo se muestran las horas en los gráficos de Estadísticas. Las horas siempre son UTC."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comment les heures sont affichées dans les graphiques de Statistiques. Les heures sont toujours en UTC."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Come sono indicate le ore nei grafici delle Statistiche. Le ore sono sempre UTC."
+          }
+        }
+      }
+    },
+    "In narrow rows the badges shorten to G and D, then to colored dots. You can turn each badge on or off in Settings, under Display." : {
+      "comment" : "Messages Guide footer explaining the short forms of the GRID and DXCC badges.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In schmalen Zeilen werden die Marken zu G und D gekürzt, dann zu farbigen Punkten. Du kannst jede Marke in den Einstellungen unter Anzeige ein- oder ausschalten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In narrow rows the badges shorten to G and D, then to colored dots. You can turn each badge on or off in Settings, under Display."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En filas estrechas las etiquetas se acortan a G y D, y después a puntos de color. Puedes activar o desactivar cada etiqueta en Ajustes, en Visualización."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans les lignes étroites, les badges se réduisent à G et D, puis à des points de couleur. Vous pouvez activer ou désactiver chaque badge dans Réglages, sous Affichage."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nelle righe strette le etichette si riducono a G e D, poi a punti colorati. Puoi attivare o disattivare ogni etichetta in Impostazioni, alla voce Visualizzazione."
+          }
+        }
+      }
+    },
+    "Show NEW DXCC badge" : {
+      "comment" : "Display settings toggle for the NEW DXCC badge on decoded rows.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NEUES-DXCC-Marke anzeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show NEW DXCC badge"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar etiqueta DXCC NUEVO"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher le badge NOUVEAU DXCC"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra etichetta NUOVO DXCC"
+          }
+        }
+      }
+    },
+    "Show NEW GRID badge" : {
+      "comment" : "Display settings toggle for the NEW GRID badge on decoded rows.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NEUER-GRID-Marke anzeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show NEW GRID badge"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar etiqueta GRID NUEVO"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher le badge NOUVEAU GRID"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra etichetta NUOVO GRID"
           }
         }
       }
@@ -21764,31 +22016,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ein Tippen auf die Beschriftung eines dekodierten Signals im Wasserfall antwortet dieser Station. Ob einfaches oder doppeltes Tippen nötig ist, folgt der Einstellung Antwortgeste unter Anzeige. Ein Tippen an anderer Stelle setzt die Sendefrequenz. Halten auf einem Signal antwortet immer."
+            "value" : "Ein Tippen in die Nähe eines dekodierten Signals im Wasserfall antwortet dieser Station, auch wenn das Etikett knapp verfehlt wird. Ob ein einfaches oder doppeltes Tippen nötig ist, folgt der Einstellung Antwortgeste unter Anzeige. Um die Sendefrequenz zu ändern, schalte zuerst die Frequenztaste ein. Langes Drücken in der Nähe eines Signals antwortet immer."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tapping the label of a decoded signal on the waterfall replies to that station. Whether it takes a single or a double tap follows the Reply gesture setting in Display. Tapping anywhere else sets the transmit frequency. Holding a signal always replies."
+            "value" : "Tapping near a decoded signal on the waterfall replies to that station, even if the tap misses its label slightly. Whether it takes a single or a double tap follows the Reply gesture setting in Display. To change the transmit frequency, turn on the frequency button first. Holding near a signal always replies."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tocar la etiqueta de una señal decodificada en la cascada responde a esa estación. Si hace falta un toque o dos depende del ajuste Gesto de respuesta en Visualización. Tocar en cualquier otro sitio fija la frecuencia de transmisión. Mantener pulsada una señal siempre responde."
+            "value" : "Tocar cerca de una señal decodificada en la cascada responde a esa estación, aunque el toque no caiga justo en su etiqueta. Si hace falta un toque o dos depende del ajuste Gesto de respuesta en Visualización. Para cambiar la frecuencia de transmisión, activa primero el botón de frecuencia. Mantener pulsado cerca de una señal siempre responde."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toucher l’étiquette d’un signal décodé sur le waterfall répond à cette station. Un toucher simple ou double selon le réglage Geste de réponse dans Affichage. Toucher ailleurs règle la fréquence d’émission. Maintenir le doigt sur un signal répond toujours."
+            "value" : "Toucher près d'un signal décodé sur la cascade répond à cette station, même si le toucher manque légèrement son étiquette. Le choix entre un toucher simple ou double suit le réglage Geste de réponse dans Affichage. Pour changer la fréquence d'émission, activez d'abord le bouton de fréquence. Un appui prolongé près d'un signal répond toujours."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toccare l’etichetta di un segnale decodificato sul waterfall risponde a quella stazione. Tocco singolo o doppio secondo l’impostazione Gesto di risposta in Visualizzazione. Toccare altrove imposta la frequenza di trasmissione. Tenere premuto un segnale risponde sempre."
+            "value" : "Toccare vicino a un segnale decodificato sulla cascata risponde a quella stazione, anche se il tocco manca di poco l'etichetta. Se serve un tocco singolo o doppio dipende dall'impostazione Gesto di risposta in Visualizzazione. Per cambiare la frequenza di trasmissione, attiva prima il pulsante della frequenza. Tenere premuto vicino a un segnale risponde sempre."
           }
         }
       }

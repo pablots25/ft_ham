@@ -296,8 +296,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
     /// Highlight CQ calls from stations not yet in the logbook (green tint).
     @AppStorage("highlightNewCallsigns") var highlightNewCallsigns: Bool = true
-    /// Show NEW GRID / NEW DXCC badges on decoded rows (per band/mode).
-    @AppStorage("showNeededBadges") var showNeededBadges: Bool = true
+    /// Show the NEW GRID badge on decoded rows (per band/mode).
+    @AppStorage(NeededBadgeSettings.gridKey) var showNeededGridBadge: Bool = NeededBadgeSettings.legacyDefault()
+    /// Show the NEW DXCC badge on decoded rows (per band/mode).
+    @AppStorage(NeededBadgeSettings.dxccKey) var showNeededDXCCBadge: Bool = NeededBadgeSettings.legacyDefault()
     /// Tint and bold decoded rows where another station calls our callsign.
     @AppStorage("highlightMyCallsign") var highlightMyCallsign: Bool = true
     /// Alerts when a station calls us while no QSO is in progress.

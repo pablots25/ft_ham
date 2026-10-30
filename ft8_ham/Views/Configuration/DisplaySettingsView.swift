@@ -14,6 +14,7 @@ struct DisplaySettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
     @State private var activeHelp: HelpTip?
     @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
+    @AppStorage(StatisticsHourFormat.storageKey) private var statisticsHourFormat: StatisticsHourFormat = .twentyFourHour
     @State private var notificationsDenied = false
 
     var body: some View {
@@ -60,12 +61,20 @@ struct DisplaySettingsContent: View {
             .accessibilityIdentifier("toggle_highlightNewCallsigns")
 
             ToggleRow(
-                labelKey: "Show NEW GRID / NEW DXCC badges",
+                labelKey: "Show NEW GRID badge",
                 helpTip: .neededBadges,
-                isOn: $viewModel.showNeededBadges,
+                isOn: $viewModel.showNeededGridBadge,
                 activeHelp: $activeHelp
             )
-            .accessibilityIdentifier("toggle_showNeededBadges")
+            .accessibilityIdentifier("toggle_showNeededGridBadge")
+
+            ToggleRow(
+                labelKey: "Show NEW DXCC badge",
+                helpTip: .neededBadges,
+                isOn: $viewModel.showNeededDXCCBadge,
+                activeHelp: $activeHelp
+            )
+            .accessibilityIdentifier("toggle_showNeededDXCCBadge")
 
             Divider()
 
@@ -169,6 +178,27 @@ struct DisplaySettingsContent: View {
                 .accessibilityIdentifier("picker_replyTapGesture")
 
                 Text("How tapping a decoded caller starts a reply. Double tap helps avoid accidental replies.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            Text("Statistics")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hour format")
+                Picker("Hour format", selection: $statisticsHourFormat) {
+                    ForEach(StatisticsHourFormat.allCases) { format in
+                        Text(format.label).tag(format)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .accessibilityIdentifier("picker_statisticsHourFormat")
+
+                Text("How hours are labeled in the Statistics charts. Hours are always UTC.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

@@ -389,6 +389,66 @@ final class WaterfallViewModel: ObservableObject {
             .min { abs($0.label.frequency - frequency) < abs($1.label.frequency - frequency) }
     }
 
+    /// Best guess at the label a tap meant, among the replyable labels still
+    /// on screen. Labels are narrow, so the finger rarely lands exactly on
+    /// one: see `bestGuessLabel(in:tappedHz:tappedRow:oldestVisibleRow:signalWidthHz:isReplyable:)`.
+    func bestGuessLabel(nearHz frequency: Double, rowFromTop: Int, isFT4: Bool,
+                        isReplyable: (WaterfallLabel) -> Bool) -> WaterfallPlacedLabel? {
+        Self.bestGuessLabel(
+            in: placedLabels,
+            tappedHz: frequency,
+            tappedRow: absoluteRowCounter - 1 - rowFromTop,
+            oldestVisibleRow: absoluteRowCounter - height,
+            signalWidthHz: Self.occupiedBandwidthHz(isFT4: isFT4),
+            isReplyable: isReplyable
+        )
+    }
+
+    /// How far, in Hz, a tap may land beside a signal and still pick it.
+    static let bestGuessMaxHz = 150.0
+    /// Rows above or below a label count this much against it, in Hz. A whole
+    /// FT8 slot (about 190 rows) away weighs like 95 Hz to the side, so a
+    /// label in the tapped slot wins over a closer one from another slot.
+    static let bestGuessHzPerRow = 0.5
+
+    /// Scores every replyable, visible label by how far the tap is from its
+    /// signal (the band from the base tone up to `signalWidthHz` above it, and
+    /// the rows the label spans) and returns the closest one, if it lies
+    /// within `bestGuessMaxHz` of the tap.
+    static func bestGuessLabel(
+        in labels: [WaterfallPlacedLabel],
+        tappedHz: Double,
+        tappedRow: Int,
+        oldestVisibleRow: Int,
+        signalWidthHz: Double,
+        isReplyable: (WaterfallLabel) -> Bool
+    ) -> WaterfallPlacedLabel? {
+        func hzGap(_ placed: WaterfallPlacedLabel) -> Double {
+            let low = placed.label.frequency
+            let high = low + signalWidthHz
+            if tappedHz < low { return low - tappedHz }
+            if tappedHz > high { return tappedHz - high }
+            return 0
+        }
+        func rowGap(_ placed: WaterfallPlacedLabel) -> Int {
+            let first = placed.anchorRow - 2
+            let last = placed.anchorRow + max(placed.spanRows, 40) + 2
+            if tappedRow < first { return first - tappedRow }
+            if tappedRow > last { return tappedRow - last }
+            return 0
+        }
+        func score(_ placed: WaterfallPlacedLabel) -> Double {
+            hzGap(placed) + Double(rowGap(placed)) * bestGuessHzPerRow
+        }
+        return labels
+            .filter { placed in
+                placed.anchorRow + max(placed.spanRows, 40) >= oldestVisibleRow
+                    && hzGap(placed) <= bestGuessMaxHz
+                    && isReplyable(placed.label)
+            }
+            .min { score($0) < score($1) }
+    }
+
     /// The decoded signal closest to `frequency`, within `toleranceHz`, among
     /// the labels still on screen — used to snap a tap to a real station.
     func nearestLabelFrequency(to frequency: Double, toleranceHz: Double, withinRows: Int) -> Double? {
