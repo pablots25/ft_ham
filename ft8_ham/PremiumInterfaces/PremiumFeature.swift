@@ -20,18 +20,19 @@ enum PremiumFeature: String, CaseIterable {
     case iCloudSync = "icloud_sync"
     case presence = "presence"
 
+    /// Localized feature name, as shown on the paywall and locked rows.
     var displayName: String {
         switch self {
-        case .catControl: return "CAT Control"
-        case .pskReporter: return "PSK Reporter"
-        case .qrzLogbook: return "QRZ Logbook"
-        case .lotwSync: return "LoTW"
-        case .eqslSync: return "eQSL"
-        case .iPadDashboard: return "iPad Dashboard"
-        case .statistics: return "Statistics"
-        case .bandHopping: return "Band Hopping"
-        case .iCloudSync: return "iCloud Sync"
-        case .presence: return "Operators Online"
+        case .catControl: return String(localized: "CAT Control")
+        case .pskReporter: return String(localized: "PSK Reporter")
+        case .qrzLogbook: return String(localized: "QRZ Logbook")
+        case .lotwSync: return String(localized: "LoTW")
+        case .eqslSync: return String(localized: "eQSL")
+        case .iPadDashboard: return String(localized: "iPad Dashboard")
+        case .statistics: return String(localized: "Statistics")
+        case .bandHopping: return String(localized: "Band Hopping")
+        case .iCloudSync: return String(localized: "iCloud Sync")
+        case .presence: return String(localized: "Operators Online")
         }
     }
 
