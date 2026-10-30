@@ -68,287 +68,6 @@
         }
       }
     },
-    "12-hour (AM/PM)" : {
-      "comment" : "Hour format option.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12 Stunden (AM/PM)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12-hour (AM/PM)"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12 horas (a. m./p. m.)"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12 heures (AM/PM)"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "12 ore (AM/PM)"
-          }
-        }
-      }
-    },
-    "24-hour" : {
-      "comment" : "Hour format option.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "24 Stunden"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "24-hour"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "24 horas"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "24 heures"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "24 ore"
-          }
-        }
-      }
-    },
-    "Device volume is below maximum. Turn it all the way up with the volume buttons so the TX audio is loud enough to trigger your radio's VOX." : {
-      "comment" : "Shown under the TX output gain slider when the device media volume is turned down.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Gerätelautstärke ist nicht auf Maximum. Dreh sie mit den Lautstärketasten ganz auf, damit das TX-Audio laut genug ist, um das VOX deines Funkgeräts auszulösen."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El volumen del dispositivo no está al máximo. Súbelo del todo con los botones de volumen para que el audio TX sea lo bastante fuerte como para activar el VOX de tu radio."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le volume de l'appareil n'est pas au maximum. Montez-le complètement avec les boutons de volume pour que l'audio TX soit assez fort pour déclencher le VOX de votre radio."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il volume del dispositivo non è al massimo. Alzalo del tutto con i tasti del volume così l'audio TX è abbastanza forte da attivare il VOX della radio."
-          }
-        }
-      }
-    },
-    "Hour format" : {
-      "comment" : "Display settings picker for the hour labels in Statistics.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stundenformat"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hour format"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Formato de hora"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Format de l'heure"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Formato dell'ora"
-          }
-        }
-      }
-    },
-    "How hours are labeled in the Statistics charts. Hours are always UTC." : {
-      "comment" : "Footnote under the Statistics hour format picker.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wie Stunden in den Statistik-Diagrammen beschriftet werden. Die Stunden sind immer UTC."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How hours are labeled in the Statistics charts. Hours are always UTC."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cómo se muestran las horas en los gráficos de Estadísticas. Las horas siempre son UTC."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comment les heures sont affichées dans les graphiques de Statistiques. Les heures sont toujours en UTC."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Come sono indicate le ore nei grafici delle Statistiche. Le ore sono sempre UTC."
-          }
-        }
-      }
-    },
-    "In narrow rows the badges shorten to G and D, then to colored dots. You can turn each badge on or off in Settings, under Display." : {
-      "comment" : "Messages Guide footer explaining the short forms of the GRID and DXCC badges.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In schmalen Zeilen werden die Marken zu G und D gekürzt, dann zu farbigen Punkten. Du kannst jede Marke in den Einstellungen unter Anzeige ein- oder ausschalten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In narrow rows the badges shorten to G and D, then to colored dots. You can turn each badge on or off in Settings, under Display."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En filas estrechas las etiquetas se acortan a G y D, y después a puntos de color. Puedes activar o desactivar cada etiqueta en Ajustes, en Visualización."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dans les lignes étroites, les badges se réduisent à G et D, puis à des points de couleur. Vous pouvez activer ou désactiver chaque badge dans Réglages, sous Affichage."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nelle righe strette le etichette si riducono a G e D, poi a punti colorati. Puoi attivare o disattivare ogni etichetta in Impostazioni, alla voce Visualizzazione."
-          }
-        }
-      }
-    },
-    "Show NEW DXCC badge" : {
-      "comment" : "Display settings toggle for the NEW DXCC badge on decoded rows.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "NEUES-DXCC-Marke anzeigen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show NEW DXCC badge"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar etiqueta DXCC NUEVO"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher le badge NOUVEAU DXCC"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostra etichetta NUOVO DXCC"
-          }
-        }
-      }
-    },
-    "Show NEW GRID badge" : {
-      "comment" : "Display settings toggle for the NEW GRID badge on decoded rows.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "NEUER-GRID-Marke anzeigen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show NEW GRID badge"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar etiqueta GRID NUEVO"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher le badge NOUVEAU GRID"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostra etichetta NUOVO GRID"
-          }
-        }
-      }
-    },
     "… and %lld more" : {
       "comment" : "A note at the bottom of the preview section that indicates there are more QSO entries that are being skipped.",
       "isCommentAutoGenerated" : true,
@@ -585,6 +304,78 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Banda %@"
+          }
+        }
+      }
+    },
+    "%@ dB below noise" : {
+      "comment" : "Waterfall Zero slider value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB unter Rauschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB below noise"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB bajo el ruido"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB sous le bruit"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB sotto il rumore"
+          }
+        }
+      }
+    },
+    "%@ dB range" : {
+      "comment" : "Waterfall Gain slider value.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB Bereich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB range"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB de rango"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB de plage"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dB di gamma"
           }
         }
       }
@@ -1277,6 +1068,42 @@
         }
       }
     },
+    "12-hour (AM/PM)" : {
+      "comment" : "Hour format option.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 Stunden (AM/PM)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12-hour (AM/PM)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 horas (a. m./p. m.)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 heures (AM/PM)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 ore (AM/PM)"
+          }
+        }
+      }
+    },
     "15/45" : {
       "localizations" : {
         "en" : {
@@ -1289,6 +1116,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "15/45"
+          }
+        }
+      }
+    },
+    "24-hour" : {
+      "comment" : "Hour format option.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 Stunden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24-hour"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 horas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 heures"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 ore"
           }
         }
       }
@@ -2021,6 +1884,42 @@
         }
       }
     },
+    "An unknown error occurred." : {
+      "comment" : "Premium purchase error.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein unbekannter Fehler ist aufgetreten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An unknown error occurred."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se produjo un error desconocido."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une erreur inconnue s'est produite."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si è verificato un errore sconosciuto."
+          }
+        }
+      }
+    },
     "Analytics help" : {
       "comment" : "A help text for the \"Analytics\" toggle.",
       "isCommentAutoGenerated" : true,
@@ -2053,42 +1952,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aiuta a migliorare l'app condividendo statistiche d'uso anonime. Non vengono raccolti dati personali."
-          }
-        }
-      }
-    },
-    "FT Ham collects anonymous usage statistics with Firebase Analytics to improve the app. You can turn this off in Configuration, under Legal & Licenses. Optional services such as QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on." : {
-      "comment" : "Analytics and optional services note on the onboarding terms page.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham erfasst mit Firebase Analytics anonyme Nutzungsstatistiken, um die App zu verbessern. Du kannst das unter Konfiguration, Rechtliches und Lizenzen ausschalten. Optionale Dienste wie QRZ, LoTW, eQSL und PSK Reporter erhalten erst Daten, wenn du sie einschaltest."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham collects anonymous usage statistics with Firebase Analytics to improve the app. You can turn this off in Configuration, under Legal & Licenses. Optional services such as QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham recopila estadísticas de uso anónimas con Firebase Analytics para mejorar la app. Puedes desactivarlo en Configuración, dentro de Licencias e Información Legal. Los servicios opcionales como QRZ, LoTW, eQSL y PSK Reporter solo reciben datos cuando los activas."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham collecte des statistiques d'utilisation anonymes avec Firebase Analytics pour améliorer l'app. Vous pouvez désactiver cette collecte dans Configuration, sous Mentions légales et licences. Les services facultatifs comme QRZ, LoTW, eQSL et PSK Reporter ne reçoivent des données qu'une fois activés."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham raccoglie statistiche d'uso anonime con Firebase Analytics per migliorare l'app. Puoi disattivarle in Configurazione, sotto Note legali e licenze. I servizi opzionali come QRZ, LoTW, eQSL e PSK Reporter ricevono dati solo dopo che li attivi."
           }
         }
       }
@@ -4907,6 +4770,42 @@
         }
       }
     },
+    "Couldn't load the price. Check your connection and try again." : {
+      "comment" : "Paywall message when the premium product fails to load.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Preis konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't load the price. Check your connection and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cargar el precio. Comprueba tu conexión e inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de charger le prix. Vérifiez votre connexion et réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile caricare il prezzo. Controlla la connessione e riprova."
+          }
+        }
+      }
+    },
     "Country (DXCC) not yet in your log on this band and mode" : {
       "comment" : "Legend row for the NEW DXCC badge.",
       "extractionState" : "manual",
@@ -5766,6 +5665,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Scostamento dell'orologio: %@ s"
+          }
+        }
+      }
+    },
+    "Device volume is below maximum. Turn it all the way up with the volume buttons so the TX audio is loud enough to trigger your radio's VOX." : {
+      "comment" : "Shown under the TX output gain slider when the device media volume is turned down.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Gerätelautstärke ist nicht auf Maximum. Dreh sie mit den Lautstärketasten ganz auf, damit das TX-Audio laut genug ist, um das VOX deines Funkgeräts auszulösen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El volumen del dispositivo no está al máximo. Súbelo del todo con los botones de volumen para que el audio TX sea lo bastante fuerte como para activar el VOX de tu radio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le volume de l'appareil n'est pas au maximum. Montez-le complètement avec les boutons de volume pour que l'audio TX soit assez fort pour déclencher le VOX de votre radio."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il volume del dispositivo non è al massimo. Alzalo del tutto con i tasti del volume così l'audio TX è abbastanza forte da attivare il VOX della radio."
           }
         }
       }
@@ -8473,6 +8401,78 @@
         }
       }
     },
+    "FT Ham checks the clock against time.apple.com. QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on. The Privacy Policy explains what each one receives." : {
+      "comment" : "Privacy note in Legal & Privacy settings.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham gleicht die Uhr mit time.apple.com ab. QRZ, LoTW, eQSL und PSK Reporter erhalten erst Daten, wenn du sie einschaltest. Die Datenschutzerklärung erklärt, was jeder Dienst erhält."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham checks the clock against time.apple.com. QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on. The Privacy Policy explains what each one receives."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham comprueba el reloj con time.apple.com. QRZ, LoTW, eQSL y PSK Reporter solo reciben datos cuando los activas. La Política de privacidad explica qué recibe cada uno."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham vérifie l'horloge auprès de time.apple.com. QRZ, LoTW, eQSL et PSK Reporter ne reçoivent des données qu'une fois activés. La politique de confidentialité précise ce que reçoit chacun d'eux."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham verifica l'orologio con time.apple.com. QRZ, LoTW, eQSL e PSK Reporter ricevono dati solo dopo che li attivi. L'informativa sulla privacy spiega cosa riceve ciascuno."
+          }
+        }
+      }
+    },
+    "FT Ham collects anonymous usage statistics with Firebase Analytics to improve the app. You can turn this off in Configuration, under Legal & Licenses. Optional services such as QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on." : {
+      "comment" : "Analytics and optional services note on the onboarding terms page.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham erfasst mit Firebase Analytics anonyme Nutzungsstatistiken, um die App zu verbessern. Du kannst das unter Konfiguration, Rechtliches und Lizenzen ausschalten. Optionale Dienste wie QRZ, LoTW, eQSL und PSK Reporter erhalten erst Daten, wenn du sie einschaltest."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham collects anonymous usage statistics with Firebase Analytics to improve the app. You can turn this off in Configuration, under Legal & Licenses. Optional services such as QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham recopila estadísticas de uso anónimas con Firebase Analytics para mejorar la app. Puedes desactivarlo en Configuración, dentro de Licencias e Información Legal. Los servicios opcionales como QRZ, LoTW, eQSL y PSK Reporter solo reciben datos cuando los activas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham collecte des statistiques d'utilisation anonymes avec Firebase Analytics pour améliorer l'app. Vous pouvez désactiver cette collecte dans Configuration, sous Mentions légales et licences. Les services facultatifs comme QRZ, LoTW, eQSL et PSK Reporter ne reçoivent des données qu'une fois activés."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham raccoglie statistiche d'uso anonime con Firebase Analytics per migliorare l'app. Puoi disattivarle in Configurazione, sotto Note legali e licenze. I servizi opzionali come QRZ, LoTW, eQSL e PSK Reporter ricevono dati solo dopo che li attivi."
+          }
+        }
+      }
+    },
     "FT Ham Premium" : {
       "comment" : "The title of the premium paywall view.",
       "isCommentAutoGenerated" : true,
@@ -9282,6 +9282,78 @@
         }
       }
     },
+    "Hour format" : {
+      "comment" : "Display settings picker for the hour labels in Statistics.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stundenformat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hour format"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formato de hora"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Format de l'heure"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formato dell'ora"
+          }
+        }
+      }
+    },
+    "How hours are labeled in the Statistics charts. Hours are always UTC." : {
+      "comment" : "Footnote under the Statistics hour format picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie Stunden in den Statistik-Diagrammen beschriftet werden. Die Stunden sind immer UTC."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How hours are labeled in the Statistics charts. Hours are always UTC."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cómo se muestran las horas en los gráficos de Estadísticas. Las horas siempre son UTC."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comment les heures sont affichées dans les graphiques de Statistiques. Les heures sont toujours en UTC."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Come sono indicate le ore nei grafici delle Statistiche. Le ore sono sempre UTC."
+          }
+        }
+      }
+    },
     "How tapping a decoded caller starts a reply. Double tap helps avoid accidental replies." : {
       "comment" : "Footnote under the reply-gesture picker.",
       "localizations" : {
@@ -9618,6 +9690,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Importazione…"
+          }
+        }
+      }
+    },
+    "In narrow rows the badges shorten to G and D, then to colored dots. You can turn each badge on or off in Settings, under Display." : {
+      "comment" : "Messages Guide footer explaining the short forms of the GRID and DXCC badges.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In schmalen Zeilen werden die Marken zu G und D gekürzt, dann zu farbigen Punkten. Du kannst jede Marke in den Einstellungen unter Anzeige ein- oder ausschalten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In narrow rows the badges shorten to G and D, then to colored dots. You can turn each badge on or off in Settings, under Display."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En filas estrechas las etiquetas se acortan a G y D, y después a puntos de color. Puedes activar o desactivar cada etiqueta en Ajustes, en Visualización."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans les lignes étroites, les badges se réduisent à G et D, puis à des points de couleur. Vous pouvez activer ou désactiver chaque badge dans Réglages, sous Affichage."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nelle righe strette le etichette si riducono a G e D, poi a punti colorati. Puoi attivare o disattivare ogni etichetta in Impostazioni, alla voce Visualizzazione."
           }
         }
       }
@@ -10726,7 +10834,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sincronizacion de logs"
+            "value" : "Sincronización de logs"
           }
         },
         "fr" : {
@@ -11622,42 +11730,6 @@
         }
       }
     },
-    "FT Ham checks the clock against time.apple.com. QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on. The Privacy Policy explains what each one receives." : {
-      "comment" : "Privacy note in Legal & Privacy settings.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham gleicht die Uhr mit time.apple.com ab. QRZ, LoTW, eQSL und PSK Reporter erhalten erst Daten, wenn du sie einschaltest. Die Datenschutzerklärung erklärt, was jeder Dienst erhält."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham checks the clock against time.apple.com. QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on. The Privacy Policy explains what each one receives."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham comprueba el reloj con time.apple.com. QRZ, LoTW, eQSL y PSK Reporter solo reciben datos cuando los activas. La Política de privacidad explica qué recibe cada uno."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham vérifie l'horloge auprès de time.apple.com. QRZ, LoTW, eQSL et PSK Reporter ne reçoivent des données qu'une fois activés. La politique de confidentialité précise ce que reçoit chacun d'eux."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FT Ham verifica l'orologio con time.apple.com. QRZ, LoTW, eQSL e PSK Reporter ricevono dati solo dopo che li attivi. L'informativa sulla privacy spiega cosa riceve ciascuno."
-          }
-        }
-      }
-    },
     "NEW DXCC" : {
       "comment" : "Badge on a decoded row: country not yet worked on this band/mode.",
       "extractionState" : "manual",
@@ -12052,6 +12124,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nessuna esportazione precedente trovata. Tutti i QSO verranno esportati."
+          }
+        }
+      }
+    },
+    "No previous purchase found to restore." : {
+      "comment" : "Premium restore error.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es wurde kein früherer Kauf zum Wiederherstellen gefunden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No previous purchase found to restore."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró ninguna compra anterior para restaurar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun achat précédent à restaurer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun acquisto precedente da ripristinare."
           }
         }
       }
@@ -15029,6 +15137,42 @@
         }
       }
     },
+    "Premium product is not loaded. Please try again." : {
+      "comment" : "Premium purchase error.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Premium-Produkt wurde nicht geladen. Bitte versuche es erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium product is not loaded. Please try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El producto Premium no se ha cargado. Inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le produit Premium n'est pas chargé. Veuillez réessayer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il prodotto Premium non è stato caricato. Riprova."
+          }
+        }
+      }
+    },
     "Preparing logs..." : {
       "comment" : "A message displayed while the app is preparing the logs for export.",
       "isCommentAutoGenerated" : true,
@@ -15508,6 +15652,42 @@
         }
       }
     },
+    "Purchase is pending approval." : {
+      "comment" : "Premium purchase error.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Kauf wartet auf Genehmigung."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchase is pending approval."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La compra está pendiente de aprobación."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'achat est en attente d'approbation."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'acquisto è in attesa di approvazione."
+          }
+        }
+      }
+    },
     "Purchase is tied to your Apple ID across all devices" : {
       "comment" : "A description under the \"Payment charged to your Apple ID\" text, explaining that purchases are tied to the user's Apple ID across all devices.",
       "isCommentAutoGenerated" : true,
@@ -15534,6 +15714,78 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "L'acquisto è legato al tuo ID Apple su tutti i dispositivi"
+          }
+        }
+      }
+    },
+    "Purchase verification failed. Please contact support." : {
+      "comment" : "Premium purchase error.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Überprüfung des Kaufs ist fehlgeschlagen. Bitte kontaktiere den Support."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchase verification failed. Please contact support."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo verificar la compra. Ponte en contacto con soporte."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La vérification de l'achat a échoué. Veuillez contacter l'assistance."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifica dell'acquisto non riuscita. Contatta l'assistenza."
+          }
+        }
+      }
+    },
+    "Purchase was cancelled." : {
+      "comment" : "Premium purchase error.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Kauf wurde abgebrochen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchase was cancelled."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se canceló la compra."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'achat a été annulé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'acquisto è stato annullato."
           }
         }
       }
@@ -18066,6 +18318,42 @@
         }
       }
     },
+    "Show NEW DXCC badge" : {
+      "comment" : "Display settings toggle for the NEW DXCC badge on decoded rows.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NEUES-DXCC-Marke anzeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show NEW DXCC badge"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar etiqueta DXCC NUEVO"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher le badge NOUVEAU DXCC"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra etichetta NUOVO DXCC"
+          }
+        }
+      }
+    },
     "Show NEW GRID / NEW DXCC badges" : {
       "comment" : "Behavior settings toggle.",
       "extractionState" : "manual",
@@ -18098,6 +18386,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostra etichette NUOVO GRID / DXCC"
+          }
+        }
+      }
+    },
+    "Show NEW GRID badge" : {
+      "comment" : "Display settings toggle for the NEW GRID badge on decoded rows.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NEUER-GRID-Marke anzeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show NEW GRID badge"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar etiqueta GRID NUEVO"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher le badge NOUVEAU GRID"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra etichetta NUOVO GRID"
           }
         }
       }
@@ -20732,6 +21056,42 @@
         }
       }
     },
+    "Try Again" : {
+      "comment" : "Paywall button that retries loading the premium product.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erneut versuchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riprova"
+          }
+        }
+      }
+    },
     "tutorial_got_it" : {
       "comment" : "A button label that says \"Got it\" when used in a tutorial overlay.",
       "isCommentAutoGenerated" : true,
@@ -20860,6 +21220,7 @@
     },
     "TX frequency set to %lld Hz" : {
       "comment" : "A toast message that appears on the screen for a few seconds.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "de" : {
@@ -23011,37 +23372,38 @@
         }
       }
     },
-    "With this off, a tap only sets the transmit frequency. Holding a signal still replies." : {
-      "comment" : "Footnote under the waterfall tap to reply toggle.",
+    "With this off, a tap does nothing. Holding a signal still replies. To move the transmit frequency, turn on the frequency button first." : {
+      "comment" : "Waterfall settings footnote under Tap a signal to reply.",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ist dies aus, setzt ein Tippen nur die Sendefrequenz. Halten auf einem Signal antwortet weiterhin."
+            "value" : "Wenn das aus ist, bewirkt ein Tippen nichts. Langes Drücken auf ein Signal antwortet weiterhin. Um die Sendefrequenz zu verschieben, schalte zuerst die Frequenztaste ein."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "With this off, a tap only sets the transmit frequency. Holding a signal still replies."
+            "value" : "With this off, a tap does nothing. Holding a signal still replies. To move the transmit frequency, turn on the frequency button first."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si está desactivado, un toque solo fija la frecuencia de transmisión. Mantener pulsada una señal sigue respondiendo."
+            "value" : "Si está desactivado, un toque no hace nada. Mantener pulsada una señal sigue respondiendo. Para mover la frecuencia de transmisión, activa primero el botón de frecuencia."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Désactivé, un toucher règle seulement la fréquence d’émission. Maintenir le doigt sur un signal répond toujours."
+            "value" : "Si cette option est désactivée, un toucher ne fait rien. Un appui prolongé sur un signal répond toujours. Pour déplacer la fréquence d'émission, activez d'abord le bouton de fréquence."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se disattivato, un tocco imposta solo la frequenza di trasmissione. Tenere premuto un segnale risponde comunque."
+            "value" : "Se è disattivato, un tocco non fa nulla. Tenere premuto un segnale risponde comunque. Per spostare la frequenza di trasmissione, attiva prima il pulsante della frequenza."
           }
         }
       }
@@ -23711,294 +24073,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Δt"
-          }
-        }
-      }
-    },
-    "Couldn't load the price. Check your connection and try again." : {
-      "comment" : "Paywall message when the premium product fails to load.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Preis konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't load the price. Check your connection and try again."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo cargar el precio. Comprueba tu conexión e inténtalo de nuevo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossible de charger le prix. Vérifiez votre connexion et réessayez."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossibile caricare il prezzo. Controlla la connessione e riprova."
-          }
-        }
-      }
-    },
-    "Try Again" : {
-      "comment" : "Paywall button that retries loading the premium product.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erneut versuchen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try Again"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reintentar"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Réessayer"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Riprova"
-          }
-        }
-      }
-    },
-    "Premium product is not loaded. Please try again." : {
-      "comment" : "Premium purchase error.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Premium-Produkt wurde nicht geladen. Bitte versuche es erneut."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium product is not loaded. Please try again."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El producto Premium no se ha cargado. Inténtalo de nuevo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le produit Premium n'est pas chargé. Veuillez réessayer."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il prodotto Premium non è stato caricato. Riprova."
-          }
-        }
-      }
-    },
-    "Purchase was cancelled." : {
-      "comment" : "Premium purchase error.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Kauf wurde abgebrochen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Purchase was cancelled."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se canceló la compra."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'achat a été annulé."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'acquisto è stato annullato."
-          }
-        }
-      }
-    },
-    "Purchase is pending approval." : {
-      "comment" : "Premium purchase error.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Kauf wartet auf Genehmigung."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Purchase is pending approval."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La compra está pendiente de aprobación."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'achat est en attente d'approbation."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'acquisto è in attesa di approvazione."
-          }
-        }
-      }
-    },
-    "Purchase verification failed. Please contact support." : {
-      "comment" : "Premium purchase error.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Überprüfung des Kaufs ist fehlgeschlagen. Bitte kontaktiere den Support."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Purchase verification failed. Please contact support."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo verificar la compra. Ponte en contacto con soporte."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La vérification de l'achat a échoué. Veuillez contacter l'assistance."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verifica dell'acquisto non riuscita. Contatta l'assistenza."
-          }
-        }
-      }
-    },
-    "No previous purchase found to restore." : {
-      "comment" : "Premium restore error.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Es wurde kein früherer Kauf zum Wiederherstellen gefunden."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No previous purchase found to restore."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se encontró ninguna compra anterior para restaurar."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun achat précédent à restaurer."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nessun acquisto precedente da ripristinare."
-          }
-        }
-      }
-    },
-    "An unknown error occurred." : {
-      "comment" : "Premium purchase error.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ein unbekannter Fehler ist aufgetreten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "An unknown error occurred."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se produjo un error desconocido."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Une erreur inconnue s'est produite."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Si è verificato un errore sconosciuto."
           }
         }
       }

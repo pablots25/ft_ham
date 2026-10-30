@@ -47,7 +47,7 @@ struct WaterfallSettingsContent: View {
                     value: $settings.zeroDB,
                     range: WaterfallDisplaySettings.zeroRange,
                     step: 1,
-                    format: { String(format: "%.0f dB below noise", $0) }
+                    format: { String(localized: "\($0, format: .number.precision(.fractionLength(0))) dB below noise") }
                 )
             } else {
                 sliderRow(
@@ -64,7 +64,7 @@ struct WaterfallSettingsContent: View {
                 value: $settings.gainDB,
                 range: WaterfallDisplaySettings.gainRange,
                 step: 1,
-                format: { String(format: "%.0f dB range", $0) }
+                format: { String(localized: "\($0, format: .number.precision(.fractionLength(0))) dB range") }
             )
 
             Text("Zero is where the darkest color starts. Gain is how many dB the scale covers. Lower the gain to make weak signals stand out, raise it if strong ones saturate.")
@@ -88,7 +88,7 @@ struct WaterfallSettingsContent: View {
                 activeHelp: $activeHelp
             )
 
-            Text("With this off, a tap only sets the transmit frequency. Holding a signal still replies.")
+            Text("With this off, a tap does nothing. Holding a signal still replies. To move the transmit frequency, turn on the frequency button first.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
