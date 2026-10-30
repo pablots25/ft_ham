@@ -1307,6 +1307,13 @@ final class WaterfallViewModelTests: XCTestCase {
     }
 
     func testLabelKindsFromMessages() {
+        // Other tests leave W1AW as the station callsign, which would make
+        // "CQ W1AW" a message for me. Use a station that is not in the texts.
+        let defaults = UserDefaults.standard
+        let savedCallsign = defaults.object(forKey: "callsign")
+        defaults.set("EA4TST", forKey: "callsign")
+        addTeardownBlock { defaults.set(savedCallsign, forKey: "callsign") }
+
         let cq = FT8Message(text: "CQ W1AW FN31", mode: .ft8, frequency: 1200, timeOffset: 0.3)
         let cqLabel = WaterfallLabel(message: cq)
         XCTAssertEqual(cqLabel.kind, .cq)
