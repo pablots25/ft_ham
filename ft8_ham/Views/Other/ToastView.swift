@@ -47,25 +47,27 @@ struct ToastModifier: ViewModifier {
                 .font(.system(.subheadline, design: .default).weight(.medium))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.leading)
-                .lineLimit(2)
+                // Never cut a warning short: messages are written to fit two
+                // lines, and larger text sizes may need more.
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.leading, 14)
         .padding(.trailing, 20)
         .padding(.vertical, 12)
         .background(
-            Capsule(style: .continuous)
+            ToastShape.shape
                 .fill(.ultraThinMaterial)
                 .environment(\.colorScheme, .dark)
         )
         .background(
-            Capsule(style: .continuous)
+            ToastShape.shape
                 .fill(Color.black.opacity(0.55))
         )
         .overlay(
-            Capsule(style: .continuous)
+            ToastShape.shape
                 .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
         )
-        .clipShape(Capsule(style: .continuous))
+        .clipShape(ToastShape.shape)
         .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 6)
         .padding(.horizontal, 24)
         .accessibilityElement(children: .combine)
@@ -84,6 +86,15 @@ struct ToastModifier: ViewModifier {
         workItem?.cancel()
         workItem = nil
     }
+}
+
+// MARK: - Shape
+
+/// A one-line toast is 44 pt tall, so a 22 pt radius draws it as a capsule,
+/// while a toast that wraps keeps rounded corners instead of a stretched pill.
+enum ToastShape {
+    static let cornerRadius: CGFloat = 22
+    static let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
 }
 
 // MARK: - View Extension
