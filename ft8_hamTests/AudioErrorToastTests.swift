@@ -60,7 +60,7 @@ final class AudioErrorToastTests: XCTestCase {
         await drainMainActor()
 
         XCTAssertEqual(viewModel.audioError, "No audio output available.")
-        XCTAssertEqual(viewModel.toast?.message, "No audio output available.")
+        XCTAssertEqual(viewModel.toast?.message, AudioErrorToastText.message(for: "No audio output available."))
         XCTAssertEqual(viewModel.toast?.systemImage, ToastMessage.warning("").systemImage)
     }
 
@@ -82,7 +82,7 @@ final class AudioErrorToastTests: XCTestCase {
 
         audio.simulateError("Route lost")
         await drainMainActor()
-        XCTAssertEqual(viewModel.toast?.message, "Route lost")
+        XCTAssertEqual(viewModel.toast?.message, AudioErrorToastText.message(for: "Route lost"))
     }
 
     func test_throttleExpiresAfterInterval() {
@@ -94,11 +94,11 @@ final class AudioErrorToastTests: XCTestCase {
         XCTAssertNil(viewModel.toast)
 
         viewModel.showAudioErrorToast("Engine failed", at: t0.addingTimeInterval(11))
-        XCTAssertEqual(viewModel.toast?.message, "Engine failed")
+        XCTAssertEqual(viewModel.toast?.message, AudioErrorToastText.message(for: "Engine failed"))
     }
 
     func test_directAudioErrorWriteAlsoShowsToast() {
         viewModel.audioError = "Invalid callsign/locator"
-        XCTAssertEqual(viewModel.toast?.message, "Invalid callsign/locator")
+        XCTAssertEqual(viewModel.toast?.message, AudioErrorToastText.message(for: "Invalid callsign/locator"))
     }
 }

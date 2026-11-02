@@ -68,6 +68,222 @@
         }
       }
     },
+    "Audio couldn't start. Check your audio device." : {
+      "comment" : "Short audio error shown in a toast. Keep it within two lines.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio startet nicht. Prüfe dein Audiogerät."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio couldn't start. Check your audio device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El audio no arranca. Revisa el dispositivo de audio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'audio ne démarre pas. Vérifiez l'appareil audio."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'audio non si avvia. Controlla il dispositivo audio."
+          }
+        }
+      }
+    },
+    "Audio problem. Check your audio device." : {
+      "comment" : "Short audio error shown in a toast. Keep it within two lines.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audioproblem. Prüfe dein Audiogerät."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio problem. Check your audio device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Problema de audio. Revisa el dispositivo de audio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Problème audio. Vérifiez l'appareil audio."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Problema audio. Controlla il dispositivo audio."
+          }
+        }
+      }
+    },
+    "Can't read the audio input. Check your audio device." : {
+      "comment" : "Short audio error shown in a toast. Keep it within two lines.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audioeingang nicht lesbar. Prüfe dein Audiogerät."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can't read the audio input. Check your audio device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede leer la entrada de audio. Revisa el dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrée audio illisible. Vérifiez l'appareil audio."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile leggere l'ingresso audio. Controlla il dispositivo."
+          }
+        }
+      }
+    },
+    "Check your callsign and locator in Configuration." : {
+      "comment" : "Short audio error shown in a toast. Keep it within two lines.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prüfe Rufzeichen und Locator in der Konfiguration."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your callsign and locator in Configuration."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa tu indicativo y locator en Configuración."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifiez votre indicatif et locator dans Configuration."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controlla nominativo e locator in Configurazione."
+          }
+        }
+      }
+    },
+    "Couldn't create the TX audio." : {
+      "comment" : "Short audio error shown in a toast. Keep it within two lines.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TX-Audio konnte nicht erzeugt werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't create the TX audio."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo generar el audio de TX."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de générer l'audio TX."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile generare l'audio TX."
+          }
+        }
+      }
+    },
+    "Couldn't set up audio. Check your audio device." : {
+      "comment" : "Short audio error shown in a toast. Keep it within two lines.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio konnte nicht eingerichtet werden. Prüfe dein Audiogerät."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't set up audio. Check your audio device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo preparar el audio. Revisa el dispositivo de audio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de préparer l'audio. Vérifiez l'appareil audio."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile preparare l'audio. Controlla il dispositivo audio."
+          }
+        }
+      }
+    },
     "If you donated in an earlier version, write to ftham@turrion.dev and we will send you a code for free Premium." : {
       "comment" : "Paywall note for people who donated in earlier versions.",
       "extractionState" : "manual",
@@ -100,6 +316,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se hai fatto una donazione in una versione precedente, scrivi a ftham@turrion.dev e ti invieremo un codice per avere Premium gratis."
+          }
+        }
+      }
+    },
+    "No audio output. Check your audio device." : {
+      "comment" : "Short audio error shown in a toast. Keep it within two lines.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Audioausgang. Prüfe dein Audiogerät."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No audio output. Check your audio device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay salida de audio. Revisa el dispositivo de audio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune sortie audio. Vérifiez l'appareil audio."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna uscita audio. Controlla il dispositivo audio."
           }
         }
       }
@@ -3946,31 +4198,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CAT-PTT fehlgeschlagen, Senden über Audio. Prüfe rigctld oder nutze VOX am Gerät."
+            "value" : "CAT-PTT fehlgeschlagen, Senden über Audio. Nutze VOX oder rigctld."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CAT PTT failed. Transmitting via audio. Check rigctld or use the rig's VOX."
+            "value" : "CAT PTT failed, sending via audio. Use VOX or check rigctld."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Error de PTT CAT: transmitiendo por audio. Revisa rigctld o usa el VOX de la radio."
+            "value" : "Falló el PTT CAT, se transmite por audio. Usa VOX o revisa rigctld."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Échec du PTT CAT, émission via l'audio. Vérifiez rigctld ou utilisez le VOX de la radio."
+            "value" : "PTT CAT en échec, émission par l'audio. Essayez le VOX ou rigctld."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PTT CAT non riuscito, trasmissione via audio. Controlla rigctld o usa il VOX della radio."
+            "value" : "PTT CAT non riuscito, invio via audio. Usa il VOX o controlla rigctld."
           }
         }
       }

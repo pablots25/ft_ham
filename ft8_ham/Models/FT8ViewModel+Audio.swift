@@ -86,13 +86,13 @@ extension FT8ViewModel {
             .store(in: &cancellables)
     }
 
-    /// Shows `message` as a warning toast unless it was shown within the
-    /// throttle interval.
+    /// Shows `message` as a short warning toast unless it was shown within the
+    /// throttle interval. The log keeps the full technical text.
     @MainActor
     internal func showAudioErrorToast(_ message: String, at now: Date) {
         guard audioErrorToastThrottle.shouldShow(message, at: now) else { return }
         appLogger.warning("Audio error shown to the user: \(message)")
-        toast = .warning(message)
+        toast = .warning(AudioErrorToastText.message(for: message))
     }
 
     // MARK: - Optimized RX Decode Handling
