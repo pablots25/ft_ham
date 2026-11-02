@@ -15,15 +15,18 @@ struct ToastMessage: Equatable {
     let color: Color
     let duration: TimeInterval
 
-    static func success(_ message: String, duration: TimeInterval = 3) -> ToastMessage {
+    /// How long every toast stays on screen.
+    static let defaultDuration: TimeInterval = 5
+
+    static func success(_ message: String, duration: TimeInterval = defaultDuration) -> ToastMessage {
         ToastMessage(message: message, systemImage: "checkmark", color: .black, duration: duration)
     }
 
-    static func warning(_ message: String, duration: TimeInterval = 4) -> ToastMessage {
+    static func warning(_ message: String, duration: TimeInterval = defaultDuration) -> ToastMessage {
         ToastMessage(message: message, systemImage: "exclamationmark", color: .orange, duration: duration)
     }
 
-    static func info(_ message: String, duration: TimeInterval = 3) -> ToastMessage {
+    static func info(_ message: String, duration: TimeInterval = defaultDuration) -> ToastMessage {
         ToastMessage(message: message, systemImage: "info", color: .blue, duration: duration)
     }
 }
