@@ -32,25 +32,43 @@ struct ToastModifier: ViewModifier {
     }
 
     private func toastView(_ toast: ToastMessage) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: toast.systemImage)
-                .foregroundStyle(toast.color)
-                .font(.system(size: 16, weight: .semibold))
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.white)
+                Image(systemName: toast.systemImage)
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundStyle(toast.color)
+            }
+            .frame(width: 22, height: 22)
+            .accessibilityHidden(true)
 
             Text(toast.message)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
+                .font(.system(.subheadline, design: .default).weight(.medium))
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.leading)
+                .lineLimit(2)
         }
-        .padding(.horizontal, 16)
+        .padding(.leading, 14)
+        .padding(.trailing, 20)
         .padding(.vertical, 12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(toast.color.opacity(0.35), lineWidth: 1)
+        .background(
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
         )
-        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
-        .padding(.horizontal, 20)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.black.opacity(0.55))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+        )
+        .clipShape(Capsule(style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 6)
+        .padding(.horizontal, 24)
+        .accessibilityElement(children: .combine)
         .onTapGesture { dismissToast() }
     }
 
