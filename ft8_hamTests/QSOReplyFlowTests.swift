@@ -221,7 +221,7 @@ final class QSOReplyFlowTests: XCTestCase {
 
         let toast = viewModel.toast
         XCTAssertNotNil(toast)
-        XCTAssertEqual(toast?.duration, 2)
+        XCTAssertEqual(toast?.duration, ToastMessage.defaultDuration)
         XCTAssertTrue(toast?.message.contains(dxCall) ?? false)
     }
 

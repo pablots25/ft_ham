@@ -66,8 +66,7 @@ extension FT8ViewModel {
                 String(
                     localized: "Replying to \(dxCall)",
                     comment: "Toast shown when the operator taps a station to reply. The argument is the other station's callsign."
-                ),
-                duration: 2
+                )
             )
         }
 

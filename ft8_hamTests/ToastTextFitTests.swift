@@ -88,6 +88,14 @@ final class ToastTextFitTests: XCTestCase {
         XCTAssertFalse(AudioErrorToastText.message(for: "Something unexpected").isEmpty)
     }
 
+    /// Every toast stays up for five seconds, whatever its kind.
+    func testEveryToastLastsFiveSeconds() {
+        XCTAssertEqual(ToastMessage.defaultDuration, 5)
+        XCTAssertEqual(ToastMessage.info("A").duration, 5)
+        XCTAssertEqual(ToastMessage.warning("A").duration, 5)
+        XCTAssertEqual(ToastMessage.success("A").duration, 5)
+    }
+
     /// One-line toasts are 44 pt tall, so the corner radius keeps the capsule look.
     func testToastCornerRadiusDrawsACapsuleForOneLine() {
         XCTAssertEqual(ToastShape.cornerRadius, 22)
