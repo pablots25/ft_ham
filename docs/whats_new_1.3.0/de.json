@@ -1,0 +1,96 @@
+{
+  "whatsNew": {
+    "enabled": true,
+    "features": [
+      {
+        "id": "premium",
+        "title": "⭐ FT Ham Premium",
+        "description": "Ein einmaliger Kauf schaltet CAT-Steuerung über rigctld mit Frequenzabgleich und PTT, PSK Reporter, Logbuch-Abgleich mit QRZ, LoTW und eQSL, Statistiken und das iPad-Dashboard frei. Alles, was du bisher genutzt hast, bleibt kostenlos."
+      },
+      {
+        "id": "donors",
+        "title": "💛 Danke an alle Spender",
+        "description": "Du hast in einer früheren Version gespendet? Dann ist Premium für dich gratis.\n1. Schreib an ftham@turrion.dev mit der Bestellnummer aus deinem Apple-Beleg.\n2. Wir antworten mit einem einmaligen Code.\n3. Tippe im App Store auf dein Profilbild, dann auf Geschenkkarte oder Code einlösen, und gib ihn ein."
+      },
+      {
+        "id": "statistics",
+        "title": "📊 Statistiken",
+        "description": "Diagramme nach Band und Betriebsart, DXCC-Zähler und Aktivitäts-Heatmaps, mit 12- oder 24-Stunden-Anzeige. Premium."
+      },
+      {
+        "id": "callsigns_bands",
+        "title": "📻 Rufzeichen und Bänder",
+        "description": "Zusammengesetzte Rufzeichen wie I/VE6XAD oder VE6XAD/P mit dem richtigen Land, optionale 11-m- und CB-Rufzeichen sowie die Bänder 2 m, 1,25 m, 70 cm, 33 cm und 23 cm."
+      },
+      {
+        "id": "waterfall",
+        "title": "🌊 Neuer Wasserfall",
+        "description": "Farbpaletten, Pegelregler und eine Beschriftung an jedem Signal. Tippe in die Nähe eines Signals, um zu antworten. Die Sendefrequenz ändert sich nur mit der Frequenztaste."
+      },
+      {
+        "id": "ipad_dashboard",
+        "title": "🖥️ iPad-Dashboard",
+        "description": "Eine Vollbildansicht mit Wasserfall und Nachrichtenliste nebeneinander. Premium."
+      }
+    ],
+    "improvements": [
+      {
+        "id": "sequencer",
+        "title": "🔁 QSO-Ablaufsteuerung",
+        "description": "Tippe oder doppeltippe auf eine dekodierte Nachricht, um zu antworten, und logge Kontakte von Hand mit QSO loggen. QSOs mit beiden Rapporten werden auch nach Zeitablauf geloggt."
+      },
+      {
+        "id": "decode_list",
+        "title": "📋 Dekodierliste",
+        "description": "Neue Rufzeichen in Grün, einzeln schaltbare NEW-GRID- und NEW-DXCC-Markierungen, ein Nachrichtenfilter mit Modus für benötigte Stationen und eine Nachrichtenhilfe, die jede Farbe erklärt."
+      },
+      {
+        "id": "audio_levels",
+        "title": "🎚️ Audiopegel",
+        "description": "Eigene TX-Ausgangsverstärkung, die VOX-Probleme bei QRP-Geräten behebt, und RX-Verstärkung in dB bis -40 dB für pegelstarke Soundkarten."
+      },
+      {
+        "id": "logbook",
+        "title": "📒 Logbuch",
+        "description": "Mehrfachauswahl, Sammellöschen, Rückgängig, Datumsfilter und Bearbeiten jedes QSOs. ADIF-Import und -Export mit Fehlerbericht, Länderflaggen und deutlich schnellerem Laden."
+      },
+      {
+        "id": "interface",
+        "title": "✨ Oberfläche",
+        "description": "Durchsuchbare Einstellungen, eine einheitliche Symbolleiste, echte Hilfe in jeder ?-Blase, ein CAT-Statuschip mit PTT-Fehlerwarnung, besserer Kontrast im Dunkelmodus und eine Karte, die an deinem Standort öffnet."
+      },
+      {
+        "id": "performance",
+        "title": "🚀 Leistung",
+        "description": "Ein vektorisierter Wasserfall, der nur sichtbar gezeichnet wird, und gebündelte Dekodier-Updates für weniger CPU- und Speicherlast."
+      },
+      {
+        "id": "translations",
+        "title": "🌍 Übersetzungen und Bedienungshilfen",
+        "description": "Vollständige Übersetzungen ins Deutsche, Französische, Italienische und Spanische sowie VoiceOver-Beschriftungen."
+      }
+    ],
+    "bugFixes": [
+      {
+        "id": "crashes",
+        "title": "🛡️ Abstürze",
+        "description": "Vier Abstürze bei Audiowiedergabe, Nachrichtenliste, Logbuch-Sicherung und Audioverwaltung behoben."
+      },
+      {
+        "id": "qso_fixes",
+        "title": "⚡ QSO-Korrekturen",
+        "description": "Keine 73-Zeitschleife, kein Anrufen des eigenen Rufzeichens und kein falscher Wiederholungszähler mehr. Band, Frequenz und Betriebsart werden ab Beginn jedes QSOs festgehalten."
+      },
+      {
+        "id": "cat_adif",
+        "title": "📡 CAT und ADIF",
+        "description": "Vier CAT-Fehler bei Band und Frequenz behoben. ADIF BAND wird jetzt aus der Frequenz bestimmt, 144-MHz-QSOs werden nicht mehr als 6 m geloggt."
+      },
+      {
+        "id": "cq_modifiers",
+        "title": "🏔️ SOTA- und POTA-Rufe",
+        "description": "CQ-Nachrichten mit SOTA oder POTA werden nicht mehr abgeschnitten."
+      }
+    ]
+  }
+}

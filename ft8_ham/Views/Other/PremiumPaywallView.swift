@@ -97,6 +97,12 @@ struct PremiumPaywallView: View {
         .onAppear {
             AnalyticsManager.shared.logPremiumPaywallShown(source: source.analyticsValue)
         }
+        // A redeemed offer code unlocks premium outside purchase and restore.
+        .onChange(of: premiumManager.isPremiumUnlocked) { isUnlocked in
+            if isUnlocked && !isPurchasing && !isRestoring {
+                showPurchaseSuccess = true
+            }
+        }
     }
 
     // MARK: - Header
@@ -229,21 +235,48 @@ struct PremiumPaywallView: View {
     // MARK: - Past Donors
 
     /// 1.2.x tips unlock premium on their own only on iOS 18+, where the app can
-    /// see finished tips. Other past donors ask by email and get an offer code.
+    /// see finished tips. Other past donors ask by email and redeem the offer
+    /// code we send them, right here.
     private var donorNote: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
             Text("💛 Thank You, Donors")
                 .font(.subheadline.bold())
-            // A String, not a key, so the address is not turned into a second link.
-            Text(String(localized: "If you donated in an earlier version, write to ftham@turrion.dev and we will send you a code for free Premium."))
+            Text("Donated to an earlier version? Premium is free for you. If it has not unlocked on its own:")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Link(PaywallDonorNote.email, destination: PaywallDonorNote.mailURL)
-                .font(.footnote.weight(.semibold))
-                .tint(.green)
+                .multilineTextAlignment(.center)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(PaywallDonorNote.steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(verbatim: "\(index + 1).")
+                            .monospacedDigit()
+                        // A String, not a key, so the address is not turned into a link.
+                        Text(step)
+                    }
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 10) {
+                Link(destination: PaywallDonorNote.mailURL) {
+                    Label("Email Us", systemImage: "envelope")
+                }
                 .accessibilityIdentifier("paywall_donor_email")
+
+                Button {
+                    Task { await redeemOfferCode() }
+                } label: {
+                    Label("Redeem Code", systemImage: "ticket")
+                }
+                .accessibilityIdentifier("paywall_redeem_code")
+            }
+            .font(.footnote.weight(.semibold))
+            .buttonStyle(.bordered)
+            .tint(.green)
         }
-        .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .padding()
         .background(.yellow.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
@@ -284,6 +317,15 @@ struct PremiumPaywallView: View {
         }
     }
     
+    private func redeemOfferCode() async {
+        do {
+            try await OfferCodeRedeemer.present()
+        } catch {
+            errorMessage = error.localizedDescription
+            showError = true
+        }
+    }
+
     private func handleRestore() async {
         isRestoring = true
         defer { isRestoring = false }
@@ -367,6 +409,15 @@ struct PaywallBenefit: Identifiable {
 enum PaywallDonorNote {
     static let email = "ftham@turrion.dev"
     static let subject = "Premium code for a past donation"
+
+    /// How a past donor gets Premium when it did not unlock on its own.
+    static var steps: [String] {
+        [
+            String(localized: "Email ftham@turrion.dev with the order ID from your Apple receipt for the donation."),
+            String(localized: "We reply with a one-time code."),
+            String(localized: "Tap Redeem Code and enter it."),
+        ]
+    }
 
     static var mailURL: URL {
         var components = URLComponents()

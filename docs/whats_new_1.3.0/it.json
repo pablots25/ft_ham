@@ -1,0 +1,96 @@
+{
+  "whatsNew": {
+    "enabled": true,
+    "features": [
+      {
+        "id": "premium",
+        "title": "⭐ FT Ham Premium",
+        "description": "Un unico acquisto sblocca il controllo CAT tramite rigctld con sincronizzazione della frequenza e PTT, PSK Reporter, la sincronizzazione con QRZ, LoTW ed eQSL, le statistiche e la dashboard per iPad. Tutto ciò che usavi prima resta gratuito."
+      },
+      {
+        "id": "donors",
+        "title": "💛 Grazie a chi ha donato",
+        "description": "Hai fatto una donazione in una versione precedente? Premium è gratis per te.\n1. Scrivi a ftham@turrion.dev con il numero d'ordine della ricevuta Apple.\n2. Ti risponderemo con un codice monouso.\n3. Nell'App Store, tocca la tua foto del profilo, poi Riscatta carta regalo o codice, e inseriscilo."
+      },
+      {
+        "id": "statistics",
+        "title": "📊 Statistiche",
+        "description": "Grafici per banda e modo, contatore DXCC e mappe di calore dell'attività, con ore in formato 12 o 24 h. Premium."
+      },
+      {
+        "id": "callsigns_bands",
+        "title": "📻 Nominativi e bande",
+        "description": "Nominativi composti come I/VE6XAD o VE6XAD/P con il paese corretto, nominativi 11 m e CB opzionali, e le bande 2 m, 1,25 m, 70 cm, 33 cm e 23 cm."
+      },
+      {
+        "id": "waterfall",
+        "title": "🌊 Waterfall ridisegnato",
+        "description": "Palette di colori, controllo dei livelli e un'etichetta su ogni segnale. Tocca vicino a un segnale per rispondere. La frequenza TX cambia solo con il pulsante della frequenza."
+      },
+      {
+        "id": "ipad_dashboard",
+        "title": "🖥️ Dashboard per iPad",
+        "description": "Una vista a schermo intero con il waterfall e l'elenco dei messaggi affiancati. Premium."
+      }
+    ],
+    "improvements": [
+      {
+        "id": "sequencer",
+        "title": "🔁 Sequenziatore QSO",
+        "description": "Tocca o tocca due volte un messaggio decodificato per rispondere e registra un contatto a mano con Registra QSO. I QSO scaduti dopo lo scambio dei due rapporti vengono registrati."
+      },
+      {
+        "id": "decode_list",
+        "title": "📋 Elenco decodifiche",
+        "description": "Nominativi nuovi in verde, badge NEW GRID e NEW DXCC attivabili separatamente, un filtro dei messaggi con modalità stazioni mancanti e una guida ai messaggi che spiega ogni colore."
+      },
+      {
+        "id": "audio_levels",
+        "title": "🎚️ Livelli audio",
+        "description": "Guadagno di uscita TX separato, che risolve il VOX che non scattava sulle radio QRP, e guadagno RX in dB fino a -40 dB per le schede audio con segnale alto."
+      },
+      {
+        "id": "logbook",
+        "title": "📒 Log",
+        "description": "Selezione multipla, eliminazione in blocco, annulla, filtro per data e modifica di qualsiasi QSO. Importazione ed esportazione ADIF con rapporto degli errori, bandiere dei paesi e caricamento molto più veloce."
+      },
+      {
+        "id": "interface",
+        "title": "✨ Interfaccia",
+        "description": "Impostazioni con ricerca, barra degli strumenti unificata, vero aiuto in ogni fumetto ?, indicatore di stato CAT con avviso di errore PTT, miglior contrasto in modalità scura e una mappa che si apre sulla tua posizione."
+      },
+      {
+        "id": "performance",
+        "title": "🚀 Prestazioni",
+        "description": "Un waterfall vettorizzato disegnato solo quando è visibile e aggiornamenti delle decodifiche raggruppati, per meno uso di CPU e memoria."
+      },
+      {
+        "id": "translations",
+        "title": "🌍 Traduzioni e accessibilità",
+        "description": "Traduzioni complete in tedesco, francese, italiano e spagnolo, ed etichette per VoiceOver."
+      }
+    ],
+    "bugFixes": [
+      {
+        "id": "crashes",
+        "title": "🛡️ Arresti anomali",
+        "description": "Risolti quattro arresti anomali nella riproduzione audio, nell'elenco dei messaggi, nel backup del log e nel gestore audio."
+      },
+      {
+        "id": "qso_fixes",
+        "title": "⚡ Correzioni dei QSO",
+        "description": "Niente più ciclo di attesa dopo il 73, chiamate al proprio nominativo o conteggio dei tentativi errato. Banda, frequenza e modo vengono fissati all'inizio di ogni QSO."
+      },
+      {
+        "id": "cat_adif",
+        "title": "📡 CAT e ADIF",
+        "description": "Risolti quattro errori CAT di banda e frequenza. Il campo BAND dell'ADIF ora deriva dalla frequenza, quindi i QSO a 144 MHz non vengono più registrati come 6 m."
+      },
+      {
+        "id": "cq_modifiers",
+        "title": "🏔️ Chiamate SOTA e POTA",
+        "description": "I messaggi CQ con SOTA o POTA non vengono più troncati."
+      }
+    ]
+  }
+}
