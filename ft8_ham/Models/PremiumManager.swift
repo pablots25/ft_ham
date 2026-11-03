@@ -55,6 +55,9 @@ final class PremiumManager: ObservableObject {
 
     private let fetcher: ProductFetching
 
+    /// Tips bought before this unlock premium. `legacyDonationCutoff` unless a test injects one.
+    private let donationCutoff: Date
+
     /// Whether the user redeemed a beta access offer code.
     @Published private(set) var isBetaUser: Bool = false
 
@@ -77,8 +80,15 @@ final class PremiumManager: ObservableObject {
     ///   - fetcher: Loads the premium product. Tests inject a stub.
     ///   - observesTransactions: When false, skips the transaction listener, the
     ///     legacy Keychain cleanup and the entitlement check, so tests stay deterministic.
-    init(fetcher: ProductFetching = StoreKitProductFetcher(), observesTransactions: Bool = true) {
+    ///   - donationCutoff: Tips bought before this unlock premium. Tests move it to
+    ///     cover tips bought in a StoreKit test session, which are always dated now.
+    init(
+        fetcher: ProductFetching = StoreKitProductFetcher(),
+        observesTransactions: Bool = true,
+        donationCutoff: Date = PremiumManager.legacyDonationCutoff
+    ) {
         self.fetcher = fetcher
+        self.donationCutoff = donationCutoff
         guard observesTransactions else { return }
 
         // Start listening for transactions on init
@@ -138,7 +148,8 @@ final class PremiumManager: ObservableObject {
                Self.isLegacyDonation(
                    productID: transaction.productID,
                    purchaseDate: transaction.purchaseDate,
-                   revocationDate: transaction.revocationDate
+                   revocationDate: transaction.revocationDate,
+                   cutoff: donationCutoff
                ) {
                 logger.info("Premium unlocked via legacy donation: \(transaction.id)")
                 isLegacyDonor = true
