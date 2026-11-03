@@ -53,6 +53,22 @@ final class LegacyDonorStoreKitTests: XCTestCase {
         return transaction
     }
 
+    /// The test session applies refunds asynchronously, so `Transaction.all` can
+    /// still show the tip as unrevoked right after `refundTransaction`.
+    private func waitUntilRevoked(_ id: UInt64, timeout: Duration = .seconds(5)) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            for await result in Transaction.all {
+                if case let .verified(transaction) = result,
+                   transaction.id == id, transaction.revocationDate != nil {
+                    return
+                }
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTFail("Refund of transaction \(id) never showed up in Transaction.all")
+    }
+
     private func requireConsumableHistory() throws {
         guard #available(iOS 18, *) else {
             throw XCTSkip("Finished consumables only show up in Transaction.all on iOS 18+")
@@ -107,6 +123,7 @@ final class LegacyDonorStoreKitTests: XCTestCase {
 
         let revoked = expectation(forNotification: .premiumRevoked, object: nil)
         try session.refundTransaction(identifier: UInt(transaction.id))
+        try await waitUntilRevoked(transaction.id)
         await sut.loadPremiumStatus()
 
         await fulfillment(of: [revoked], timeout: 2)
