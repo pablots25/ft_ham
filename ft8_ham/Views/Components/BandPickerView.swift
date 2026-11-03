@@ -7,11 +7,11 @@
 
 import SwiftUI
 
-/// Standalone band picker that only observes `selectedBand` and `isFT4`
+/// Standalone band picker that only observes `selectedBand` and `mode`
 /// via bindings, avoiding unnecessary re-renders from unrelated ViewModel changes.
 struct BandPickerView: View {
     @Binding var selectedBand: FT8Message.Band
-    let isFT4: Bool
+    let mode: FT8Message.FT8MessageMode
     @Binding var customDialFrequencyHz: Double
 
     @State private var customDialFrequencyText: String = ""
@@ -25,13 +25,12 @@ struct BandPickerView: View {
         return formatter
     }()
 
-    init(selectedBand: Binding<FT8Message.Band>, isFT4: Bool, customDialFrequencyHz: Binding<Double> = .constant(14_074_000)) {
+    init(selectedBand: Binding<FT8Message.Band>, mode: FT8Message.FT8MessageMode, customDialFrequencyHz: Binding<Double> = .constant(14_074_000)) {
         self._selectedBand = selectedBand
-        self.isFT4 = isFT4
+        self.mode = mode
         self._customDialFrequencyHz = customDialFrequencyHz
     }
 
-    private var mode: FT8Message.FT8MessageMode { isFT4 ? .ft4 : .ft8 }
     private var bands: [FT8Message.Band] { FT8Message.Band.validBands }
     private var isCustom: Bool { selectedBand == .custom }
 
@@ -146,7 +145,7 @@ struct BandPickerView: View {
                         proxy.scrollTo(newBand, anchor: .center)
                     }
                 }
-                .onChange(of: isFT4) { _ in
+                .onChange(of: mode) { _ in
                     DispatchQueue.main.async {
                         proxy.scrollTo(selectedBand, anchor: .center)
                     }

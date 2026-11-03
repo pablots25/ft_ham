@@ -93,11 +93,12 @@ static double monotonicSeconds(void) {
   int _heldRowSlotRow;
 }
 
-- (instancetype)initWithSampleRate:(int)sampleRate isFT4:(BOOL)isFT4 {
+- (instancetype)initWithSampleRate:(int)sampleRate
+                              mode:(FTXEngineProtocol)mode {
   self = [super init];
   if (self) {
     _sampleRate = sampleRate;
-    _isFT4 = isFT4;
+    _mode = mode;
     [self setUpMonitorLocked];
   }
   return self;
@@ -120,8 +121,8 @@ static double monotonicSeconds(void) {
                           .sample_rate = _sampleRate,
                           .time_osr = kMonitorTimeOSR,
                           .freq_osr = kMonitorFreqOSR,
-                          .protocol = _isFT4 ? FTX_PROTOCOL_FT4 : FTX_PROTOCOL_FT8};
-  monitor_init(&_mon, &cfg);
+                          .protocol = ftx_protocol_for_mode(_mode)};
+  ftx_monitor_init_for_mode(&_mon, &cfg, _mode);
   _monInitialised = YES;
 
   // ft8_lib sizes the store to exactly one slot (93 blocks = 14.88 s for
@@ -251,12 +252,12 @@ static double monotonicSeconds(void) {
   }
 }
 
-- (void)reconfigureIsFT4:(BOOL)isFT4 {
+- (void)reconfigureMode:(FTXEngineProtocol)mode {
   std::lock_guard<std::mutex> guard(_lock);
-  if (_isFT4 == isFT4) {
+  if (_mode == mode) {
     return;
   }
-  _isFT4 = isFT4;
+  _mode = mode;
   [self setUpMonitorLocked];   // also drops any held row: its geometry is gone
 }
 

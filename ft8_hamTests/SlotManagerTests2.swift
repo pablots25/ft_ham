@@ -24,19 +24,19 @@ final class SlotManagerTests2: XCTestCase {
         
         // Target: XX:XX:00 (Must be Even, Index N)
         let time00 = calendar.date(bySetting: .second, value: 0, of: now)!
-        let info00 = await slotManager.getSlotInfo(at: time00, isFT4: false)
+        let info00 = await slotManager.getSlotInfo(at: time00, mode: .ft8)
         XCTAssertTrue(info00.isEven, "00s must be EVEN in FT8")
         XCTAssertEqual(info00.slotIndex % 2, 0)
         
         // Target: XX:XX:15 (Must be Odd, Index N+1)
         let time15 = calendar.date(bySetting: .second, value: 15, of: now)!
-        let info15 = await slotManager.getSlotInfo(at: time15, isFT4: false)
+        let info15 = await slotManager.getSlotInfo(at: time15, mode: .ft8)
         XCTAssertFalse(info15.isEven, "15s must be ODD in FT8")
         XCTAssertEqual(info15.slotIndex % 2, 1)
 
         // Target: XX:XX:14.90 (Still Even)
         let time14_9 = time00.addingTimeInterval(14.9)
-        let info14_9 = await slotManager.getSlotInfo(at: time14_9, isFT4: false)
+        let info14_9 = await slotManager.getSlotInfo(at: time14_9, mode: .ft8)
         XCTAssertTrue(info14_9.isEven, "14.9s must still be EVEN in FT8")
     }
     
@@ -45,14 +45,14 @@ final class SlotManagerTests2: XCTestCase {
         let now = Date()
         
         // 1. FT8 Next Slot
-        let nextFT8Info = await slotManager.getNextSlot(from: now, isFT4: false)
+        let nextFT8Info = await slotManager.getNextSlot(from: now, mode: .ft8)
         let diffFT8 = nextFT8Info.startTime.timeIntervalSince(now)
         
         // FT8 wait <= 15.05s
         XCTAssertLessThanOrEqual(diffFT8, 15.1, "FT8 wait max 15s")
         
         // 2. FT4 Next Slot
-        let nextFT4Info = await slotManager.getNextSlot(from: now, isFT4: true)
+        let nextFT4Info = await slotManager.getNextSlot(from: now, mode: .ft4)
         let diffFT4 = nextFT4Info.startTime.timeIntervalSince(now)
         
         // FT4 wait <= 7.55s
@@ -71,7 +71,7 @@ final class SlotManagerTests2: XCTestCase {
         let nearBoundaryDate = calendar.date(bySetting: .second, value: 14, of: now)!
             .addingTimeInterval(0.96)
         
-        let nextSlotInfo = await slotManager.getNextSlot(from: nearBoundaryDate, isFT4: false)
+        let nextSlotInfo = await slotManager.getNextSlot(from: nearBoundaryDate, mode: .ft8)
         
         // Next slot should NOT be at 15.00 (0.04s away), but at 30.00
         let waitTime = nextSlotInfo.startTime.timeIntervalSince(nearBoundaryDate)

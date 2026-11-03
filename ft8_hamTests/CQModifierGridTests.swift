@@ -36,13 +36,13 @@ final class CQModifierGridTests: XCTestCase {
         )[0]
     }
 
-    private func assertSurvivesTheAir(_ message: String, isFT4: Bool = false, file: StaticString = #filePath, line: UInt = #line) {
+    private func assertSurvivesTheAir(_ message: String, mode: DigitalMode = .ft8, file: StaticString = #filePath, line: UInt = #line) {
         let engine = ft8_Engine()
-        guard let audio = engine.generateFT8(message, frequency: 1400, isFT4: isFT4, toFile: nil) else {
+        guard let audio = engine.generateAudio(message, frequency: 1400, mode: mode, toFile: nil) else {
             XCTFail("No audio generated for '\(message)'", file: file, line: line)
             return
         }
-        let decoded = engine.decodeAudioBuffer(audio, sampleRate: 12_000, isFT4: isFT4)
+        let decoded = engine.decodeAudioBuffer(audio, sampleRate: 12_000, mode: mode)
             .compactMap { $0["text"] as? String }
             .map { $0.trimmingCharacters(in: .whitespaces) }
         XCTAssertTrue(decoded.contains(message), "'\(message)' decoded as \(decoded)", file: file, line: line)
@@ -73,7 +73,7 @@ final class CQModifierGridTests: XCTestCase {
     }
 
     func test_wwffCQ_decodesWithTheFullGrid_FT4() {
-        assertSurvivesTheAir(composedCQ(modifier: "WWFF"), isFT4: true)
+        assertSurvivesTheAir(composedCQ(modifier: "WWFF"), mode: .ft4)
     }
 
     // MARK: - Display

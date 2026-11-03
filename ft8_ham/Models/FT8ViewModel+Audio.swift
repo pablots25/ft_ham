@@ -104,7 +104,7 @@ extension FT8ViewModel {
         
         let result = await messageProcessor.process(
             batch,
-            isFT4: isFT4,
+            mode: digitalMode,
             selectedBand: selectedBand,
             firstLoopRX: firstLoopRX,
             isTX: false,
@@ -129,7 +129,7 @@ extension FT8ViewModel {
         qsoManager.prepareForRXSlot()
         // Keep the mode/band context current so setupNewQSO snapshots the right
         // values even if the user switches mode/band mid-QSO.
-        qsoManager.isFT4Mode = isFT4
+        qsoManager.currentMode = digitalMode
         qsoManager.currentBand = effectiveBand
         qsoManager.currentCustomFrequencyHz = selectedBand == .custom ? customDialFrequencyHz : nil
         
@@ -172,6 +172,9 @@ extension FT8ViewModel {
         for message in orderedMessages {
             if message.isTX {
                 continue
+            } else if !digitalMode.supportsQSO {
+                // Beacon modes: spots are listed and mapped, never answered.
+                continue
             } else if message.msgType != .internalTimestamp && message.msgType != .unknown {
                 let shouldAutoReplyToCQ = autoCQReplyEnabled && !isWorked(
                     message.callsign,
@@ -197,7 +200,7 @@ extension FT8ViewModel {
         // After processing all messages in the slot, check for timeout
         // Only trigger timeout if this was an RX slot (not our TX slot)
         // DX's response will come in the slot AFTER we transmit
-        if !slotContainedOurTX {
+        if !slotContainedOurTX && digitalMode.supportsQSO {
             // Sync the user-configured retry limit into the manager before each check
             qsoManager.maxRetrySlots = maxRetrySlots
             let timeoutAction = qsoManager.handleQSOTimeout()
@@ -227,7 +230,7 @@ extension FT8ViewModel {
         waterfallVM.addLabels(
             labels,
             slotSequence: slotSequence,
-            signalDuration: isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration
+            signalDuration: digitalMode.signalDuration
         )
         
         // Note: `result.waterfallSamples` is never populated by the engine (no
@@ -259,6 +262,10 @@ extension FT8ViewModel {
             rxLogger.debug("PSK Reporter: Skipping (no callsign configured)")
             return
         }
+        guard let mode = digitalMode.pskReporterMode else {
+            rxLogger.debug("PSK Reporter: Skipping (\(digitalMode.displayName) is not reported there)")
+            return
+        }
         
         let reportableMessages = messages.filter { !$0.isTX && $0.msgType != .internalTimestamp && $0.callsign != nil }
         guard !reportableMessages.isEmpty else {
@@ -271,11 +278,10 @@ extension FT8ViewModel {
         for message in reportableMessages {
             guard let senderCallsign = message.callsign, !senderCallsign.isEmpty else { continue }
             
-            let frequencyHz = selectedBand.frequency(for: isFT4 ? .ft4 : .ft8) ?? 0
+            let frequencyHz = selectedBand.frequency(for: digitalMode) ?? 0
             let offsetHz = UInt64(message.frequency)
             let totalFreq = UInt64(frequencyHz) + offsetHz
             
-            let mode: PSKReporterMode = isFT4 ? .ft4 : .ft8
             let report = PSKReporterReport(
                 receiverCallsign: callsign,
                 senderCallsign: senderCallsign,
@@ -382,7 +388,7 @@ extension FT8ViewModel {
                 dxLocator: completedLocator,
                 qsoDate: AppClock.now(),
                 band: qsoManager.qsoStartBand ?? effectiveBand,
-                isFT4: qsoManager.qsoStartedAsFT4,
+                mode: qsoManager.qsoStartMode,
                 rstSent: qsoManager.lastSentSNR,
                 rstRcvd: qsoManager.lastReceivedSNR,
                 customFrequencyHz: qsoManager.qsoStartBand != nil
@@ -423,7 +429,7 @@ extension FT8ViewModel {
                 dxLocator: completedLocator,
                 qsoDate: AppClock.now(),
                 band: qsoManager.qsoStartBand ?? effectiveBand,
-                isFT4: qsoManager.qsoStartedAsFT4,
+                mode: qsoManager.qsoStartMode,
                 rstSent: qsoManager.lastSentSNR,
                 rstRcvd: qsoManager.lastReceivedSNR,
                 customFrequencyHz: qsoManager.qsoStartBand != nil
@@ -476,8 +482,8 @@ extension FT8ViewModel {
     @MainActor
     func decodeFromWav() {
         let decodedAny: [[AnyHashable: Any]] = wavURL.map {
-            engine.decode($0, isFT4: isFT4)
-        } ?? engine.decode(nil, isFT4: isFT4)
+            engine.decode($0, mode: digitalMode)
+        } ?? engine.decode(nil, mode: digitalMode)
         
         rxLogger.log(.info, "Decoding messages from \(wavURL?.lastPathComponent ?? "default source")")
         
@@ -502,7 +508,7 @@ extension FT8ViewModel {
             
             let message = FT8Message(
                 text: text,
-                mode: isFT4 ? .ft4 : .ft8,
+                mode: digitalMode,
                 isRealtime: false,
                 timestamp: .now,
                 measuredSNR: snr,

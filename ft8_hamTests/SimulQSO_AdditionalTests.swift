@@ -12,7 +12,7 @@ final class SimulQSO_AdditionalTests: XCTestCase {
         viewModel.autoCQReplyEnabled  = true
         viewModel.callsign = "EA1ABC"
         viewModel.locator = "IM99"
-        viewModel.isFT4 = false
+        viewModel.digitalMode = .ft8
         viewModel.selectedBand = .band20m
     }
 
@@ -189,7 +189,7 @@ final class SimulQSO_AdditionalTests: XCTestCase {
     func testFT4_ReportFirstPath_RR73Completes() async {
         let myCallsign = "EA1ABC"
         viewModel.resetQSOState()
-        viewModel.isFT4 = true
+        viewModel.digitalMode = .ft4
         viewModel.selectedBand = .band40m
 
         // First message is a report from DX

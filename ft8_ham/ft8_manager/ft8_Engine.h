@@ -31,16 +31,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Encoding
 
-/// Generates FT8 or FT4 audio for the specified message.
+/// Generates audio for the specified message in the given protocol.
 /// Can optionally save the audio as a WAV file.
 /// @param message The message to encode (e.g., "CQ DX").
 /// @param frequency The transmit frequency in Hz (float).
-/// @param isFT4 YES to generate FT4 audio, NO for FT8.
+/// @param mode Protocol to generate (FT8 / FT4).
 /// @param outputURL Optional file URL to write WAV. Pass nil to skip saving.
 /// @return Float32 PCM audio data (12 kHz, mono), or nil if failed.
 - (nullable NSData *)generateFT8:(NSString *)message
                        frequency:(float)frequency
-                           isFT4:(BOOL)isFT4
+                            mode:(FTXEngineProtocol)mode
                           toFile:(nullable NSURL *)outputURL;
 
 /// Generates FT8 or FT4 audio for a free-text message (type 0.0): up to 13
@@ -48,7 +48,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// @return Float32 PCM audio data (12 kHz, mono), or nil if the text does not fit.
 - (nullable NSData *)generateFreeText:(NSString *)text
                             frequency:(float)frequency
-                                isFT4:(BOOL)isFT4;
+                                 mode:(FTXEngineProtocol)mode
+    NS_SWIFT_NAME(generateFreeText(_:frequency:engineProtocol:));
 
 /// Synthesizes GFSK signal from symbols (internal helper)
 /// @param symbols Array of tone symbols.
@@ -71,9 +72,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// Starts real-time decoding from the device microphone.
 /// Calls the handler with all decoded messages each slot (~15 s FT8, ~7.5 s
 /// FT4).
-/// @param isFT4 YES for FT4 decoding, NO for FT8.
+/// @param mode Protocol to decode.
 /// @param handler Block called with decoded message dictionaries.
-- (void)startRealtimeDecode:(BOOL)isFT4
+- (void)startRealtimeDecode:(FTXEngineProtocol)mode
              messageHandler:
                  (void (^_Nonnull)(NSArray<NSDictionary *> *_Nonnull messages))
                      handler;
@@ -83,22 +84,25 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - File / Buffer Decoding
 
-/// Decodes FT8 or FT4 from an audio file URL.
+/// Decodes from an audio file URL.
 /// @param input File URL to decode, can be nil.
-/// @param isFT4 YES for FT4 decoding, NO for FT8.
+/// @param mode Protocol to decode.
 /// @return Array of decoded messages as strings.
-- (NSArray<NSDictionary *> *)decode:(nullable NSURL *)input isFT4:(BOOL)isFT4;
+- (NSArray<NSDictionary *> *)decode:(nullable NSURL *)input
+                           mode:(FTXEngineProtocol)mode
+    NS_SWIFT_NAME(decode(_:engineProtocol:));
 
-- (NSArray<NSDictionary *> *)decodeFromWAV:(NSURL *)wavURL isFT4:(BOOL)isFT4;
+- (NSArray<NSDictionary *> *)decodeFromWAV:(NSURL *)wavURL
+                                  mode:(FTXEngineProtocol)mode;
 
 - (NSArray<NSDictionary *> *)decodeBufferUsingMonitor:(NSData *)audioData
                                            sampleRate:(double)sampleRate
-                                                isFT4:(BOOL)isFT4;
+                                             mode:(FTXEngineProtocol)mode;
 
 /// Decodes one slot from the spectrogram the streaming `FT8SlotMonitor`
 /// already computed for the waterfall, so the audio is analysed only once.
 - (NSArray<NSDictionary *> *)decodeSlotSnapshot:(FT8WaterfallSnapshot *)snapshot
-                                                isFT4:(BOOL)isFT4;
+                                                 mode:(FTXEngineProtocol)mode;
 
 @end
 

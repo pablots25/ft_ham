@@ -544,7 +544,7 @@ final class FT8QSOIgnoreTests: XCTestCase {
                 message: txRR73,
                 frequency: 14074000,
                 band: .band20m,
-                isFT4: false
+                mode: .ft8
             )
 
             XCTAssertEqual(action, .completeQSO(dxCallsign: dx))

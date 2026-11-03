@@ -62,8 +62,8 @@ final class CycleProgressSyncTests: XCTestCase {
     func testCycleProgressFollowsInjectedClock() {
         let fixed = Date(timeIntervalSince1970: 1_800_000_000 + 3)
         let vm = ProgressViewModel(now: { fixed })
-        XCTAssertEqual(vm.cycleProgress(isFT4: false), 3.0 / 15.0, accuracy: 1e-9)
-        XCTAssertEqual(vm.cycleProgress(isFT4: true), 3.0 / 7.5, accuracy: 1e-9)
+        XCTAssertEqual(vm.cycleProgress(mode: .ft8), 3.0 / 15.0, accuracy: 1e-9)
+        XCTAssertEqual(vm.cycleProgress(mode: .ft4), 3.0 / 7.5, accuracy: 1e-9)
     }
 
     func testDefaultClockIsAppClockWithSNTPOffset() {
@@ -73,7 +73,7 @@ final class CycleProgressSyncTests: XCTestCase {
         let vm = ProgressViewModel()
         let expected = ProgressViewModel.phase(at: AppClock.now(), cycleLength: 15)
         let rawPhase = ProgressViewModel.phase(at: Date(), cycleLength: 15)
-        let progress = vm.cycleProgress(isFT4: false)
+        let progress = vm.cycleProgress(mode: .ft8)
 
         XCTAssertLessThan(circularDistance(progress, expected), 0.01)
         XCTAssertGreaterThan(circularDistance(progress, rawPhase), 0.4)
@@ -82,10 +82,10 @@ final class CycleProgressSyncTests: XCTestCase {
     func testRepeatedReadsDoNotJumpBackwardsWithinASlot() {
         var t = 1_800_000_000.0
         let vm = ProgressViewModel(now: { Date(timeIntervalSince1970: t) })
-        var previous = vm.cycleProgress(isFT4: false)
+        var previous = vm.cycleProgress(mode: .ft8)
         for _ in 0..<14 {
             t += 1
-            let next = vm.cycleProgress(isFT4: false)
+            let next = vm.cycleProgress(mode: .ft8)
             XCTAssertGreaterThan(next, previous)
             previous = next
         }

@@ -195,20 +195,13 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
     
     // MARK: - TX Cycle Calculation
     static func calculateCycle(from date: Date, mode: FT8MessageMode) -> FT8MessageCycle {
-        let calendar = Calendar(identifier: .gregorian)
-        let seconds = calendar.component(.second, from: date)
-        
-        switch mode {
-        case .ft8:
-            // FT8 slots: 0–14, 15–29, 30–44, 45–59
-            let slotIndex = seconds / 15
-            return slotIndex.isMultiple(of: 2) ? .even : .odd
-            
-        case .ft4:
-            // FT4 slots alternate every 7.5 s: even [0,15,30,45], odd [7.5,22.5,37.5,52.5]
-            let slotIndex = Int(Double(seconds) / 7.5)
-            return slotIndex.isMultiple(of: 2) ? .even : .odd
-        }
+        // FT8 slots: 0–14, 15–29, 30–44, 45–59
+        // FT4 slots alternate every 7.5 s: even [0,15,30,45], odd [7.5,22.5,37.5,52.5]
+        // Uses the fractional epoch time (not whole seconds) so fractional slot boundaries are exact.
+        // Every slot length divides 60 s an even number of times, so parity matches the
+        // per-minute convention.
+        let slotIndex = Int(floor(date.timeIntervalSince1970 / mode.slotDuration))
+        return slotIndex.isMultiple(of: 2) ? .even : .odd
     }
     
     // MARK: - Static Factory Methods
@@ -237,10 +230,8 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
     }
     
     // MARK: - Message Mode
-    enum FT8MessageMode: String, Codable {
-        case ft4
-        case ft8
-    }
+    /// Kept as an alias so existing code and persisted data ("ft4"/"ft8") keep working.
+    typealias FT8MessageMode = DigitalMode
     
     // MARK: - Band
     enum Band: String, Codable, CaseIterable {

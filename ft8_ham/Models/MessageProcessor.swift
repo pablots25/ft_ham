@@ -44,7 +44,7 @@ actor MessageProcessor {
     
     func process(
         _ batch: [[String: Any]],
-        isFT4: Bool,
+        mode: DigitalMode,
         selectedBand: FT8Message.Band,
         firstLoopRX: Bool,
         isTX: Bool,
@@ -72,13 +72,13 @@ actor MessageProcessor {
         
         // Add timestamp marker
         let now = AppClock.now()
-        let slotDuration: Double = isFT4 ? 7.5 : 15.0
+        let slotDuration: Double = mode.slotDuration
         let roundedTimestamp = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970 / (slotDuration / 2.0)) * (slotDuration / 2.0))
         
         messagesToAdd.append(
             FT8Message(
                 text: "\(DateFormatter.utcFormatterMessage.string(from: roundedTimestamp)) - \(selectedBand.rawValue)",
-                mode: isFT4 ? .ft4 : .ft8,
+                mode: mode,
                 timestamp: roundedTimestamp,
                 band: selectedBand,
                 msgType: FT8MessageType.internalTimestamp
@@ -93,7 +93,7 @@ actor MessageProcessor {
                 messagesToAdd.append(
                     FT8Message(
                         text: "Partial data loss",
-                        mode: isFT4 ? .ft4 : .ft8,
+                        mode: mode,
                         measuredSNR: .nan,
                         frequency: .nan,
                         timeOffset: .nan,
@@ -108,7 +108,7 @@ actor MessageProcessor {
             
             let message = MessageProcessor.createMessage(
                 from: msgDict,
-                isFT4: isFT4,
+                mode: mode,
                 selectedBand: selectedBand,
                 isTX: isSelfTXMessage(
                     text: text,
@@ -180,12 +180,12 @@ actor MessageProcessor {
     }
     
     // MARK: - Message Creation
-    private static func createMessage(from dict: [String: Any], isFT4: Bool, selectedBand: FT8Message.Band, isTX: Bool) -> FT8Message {
+    private static func createMessage(from dict: [String: Any], mode: DigitalMode, selectedBand: FT8Message.Band, isTX: Bool) -> FT8Message {
         let text = (dict["text"] as? String) ?? ""
         // The engine stamps with the raw system clock; shift it onto the corrected clock.
         let timestampRaw = ((dict["timestamp"] as? Double) ?? (dict["time"] as? Double) ?? Date().timeIntervalSince1970)
             + AppClock.shared.offset
-        let slotLen = isFT4 ? 7.5 : 15.0
+        let slotLen = mode.slotDuration
         let computedTimestamp = Date(timeIntervalSince1970: timestampRaw - slotLen)
         
         // Get SNR from decoder; -99 is a sentinel meaning "could not compute" so treat as NaN
@@ -197,7 +197,7 @@ actor MessageProcessor {
         
         return FT8Message(
             text: text,
-            mode: isFT4 ? .ft4 : .ft8,
+            mode: mode,
             isRealtime: true,
             timestamp: computedTimestamp,
             measuredSNR: snr,

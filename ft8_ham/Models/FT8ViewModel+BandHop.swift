@@ -126,7 +126,7 @@ extension FT8ViewModel {
             return
         }
         guard let band = FT8Message.Band(rawValue: bandRaw), band != .custom, band != .unknown,
-              band.frequency(for: isFT4 ? .ft4 : .ft8) != nil else {
+              band.frequency(for: digitalMode) != nil else {
             appLogger.warning("Band hop skipped: '\(bandRaw)' has no dial frequency")
             return
         }

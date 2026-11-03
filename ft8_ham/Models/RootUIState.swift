@@ -21,7 +21,7 @@ final class RootUIState: ObservableObject {
     /// re-presented while you type.
     @Published var showFreeTextSheet: Bool = false
     @Published var settingsLoaded: Bool = false
-    @Published var isFT4: Bool = false
+    @Published var digitalMode: DigitalMode = .ft8
 }
 
 /// State backing the "Confirm QSO logging" alert. Observed only by

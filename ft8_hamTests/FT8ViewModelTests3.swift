@@ -30,7 +30,7 @@ final class FT8ViewModelTests3: XCTestCase {
     func testDynamicEvenOddSwitching() async throws {
         // 1. Configuración inicial
         viewModel.evenCycle = true // Estamos en ciclos PARES
-        viewModel.isFT4 = false
+        viewModel.digitalMode = .ft8
         
         // 2. Simulamos el "Start TX"
         viewModel.transmitLoopActive = true
@@ -56,21 +56,21 @@ final class FT8ViewModelTests3: XCTestCase {
     // Prueba: "Prueba cambiar de FT8 a FT4 y verifica que el ciclo de transmisión se acelera"
     func testModeSwitchingUpdatesInternalState() async throws {
         // 1. Estado inicial FT8
-        viewModel.isFT4 = false
+        viewModel.digitalMode = .ft8
         XCTAssertEqual(viewModel.waterfallVM.mode, .ft8)
         
         // 2. Iniciamos loops (simulados)
         viewModel.transmitLoopActive = true
         
         // 3. Cambiamos a FT4
-        // Esto dispara el didSet de isFT4 -> restartLoopsForModeChange()
-        viewModel.isFT4 = true
+        // Esto dispara el didSet de digitalMode -> restartLoopsForModeChange()
+        viewModel.digitalMode = .ft4
         
         // Esperamos un momento porque restartLoopsForModeChange tiene un Task.sleep
         try await Task.sleep(nanoseconds: 300_000_000) // 0.3s
         
         // 4. Verificaciones
-        XCTAssertTrue(viewModel.isFT4, "ViewModel debe estar en modo FT4")
+        XCTAssertEqual(viewModel.digitalMode, .ft4, "ViewModel debe estar en modo FT4")
         XCTAssertEqual(viewModel.waterfallVM.mode, .ft4, "Waterfall debe haberse actualizado a FT4")
         
         // La prueba real de que se "acelera" a 7.5s está cubierta en SlotManagerTests.testFT4TimingAcceleration
@@ -81,9 +81,9 @@ final class FT8ViewModelTests3: XCTestCase {
 //        let sm = SlotManager()
 //        let baseDate = Date(timeIntervalSince1970: 0) // Un segundo 0 exacto
 //        
-//        let isEven0 = await sm.isEvenSlot(at: baseDate.addingTimeInterval(0), isFT4: true)
-//        let isEven75 = await sm.isEvenSlot(at: baseDate.addingTimeInterval(7.5), isFT4: true)
-//        let isEven15 = await sm.isEvenSlot(at: baseDate.addingTimeInterval(15.0), isFT4: true)
+//        let isEven0 = await sm.isEvenSlot(at: baseDate.addingTimeInterval(0), mode: .ft4)
+//        let isEven75 = await sm.isEvenSlot(at: baseDate.addingTimeInterval(7.5), mode: .ft4)
+//        let isEven15 = await sm.isEvenSlot(at: baseDate.addingTimeInterval(15.0), mode: .ft4)
 //        
 //        XCTAssertTrue(isEven0, "0.0s debe ser Even")
 //        XCTAssertFalse(isEven75, "7.5s debe ser Odd")

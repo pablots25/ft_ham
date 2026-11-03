@@ -11,7 +11,7 @@ struct SlotInfo: Sendable {
     let startTime: Date
     let slotIndex: Int
     let isEven: Bool
-    let isFT4: Bool
+    let mode: DigitalMode
 }
 
 actor SlotManager {
@@ -45,8 +45,8 @@ actor SlotManager {
     
     /// Returns information about the NEXT slot boundary suitable for transmission
     /// Always returns a slot in the future to prevent runaway loops
-    func getNextSlot(from referenceDate: Date = AppClock.now(), isFT4: Bool) -> SlotInfo {
-        let cycleDuration: Double = isFT4 ? 7.5 : 15.0
+    func getNextSlot(from referenceDate: Date = AppClock.now(), mode: DigitalMode) -> SlotInfo {
+        let cycleDuration: Double = mode.slotDuration
         let absoluteTime = referenceDate.timeIntervalSince1970
         
         // Calculate current slot
@@ -90,7 +90,7 @@ actor SlotManager {
             startTime: Date(timeIntervalSince1970: targetStart),
             slotIndex: targetSlotIndex,
             isEven: targetSlotIndex % 2 == 0,
-            isFT4: isFT4
+            mode: mode
         )
         
         AppLogger.shared.debug("[SlotManager] Next slot: \(info.slotIndex) starts at \(info.startTime)")
@@ -98,8 +98,8 @@ actor SlotManager {
     }
     
     /// Returns slot info for a specific point in time (doesn't have to be a boundary)
-    func getSlotInfo(at date: Date, isFT4: Bool) -> SlotInfo {
-        let cycleDuration: Double = isFT4 ? 7.5 : 15.0
+    func getSlotInfo(at date: Date, mode: DigitalMode) -> SlotInfo {
+        let cycleDuration: Double = mode.slotDuration
         let absoluteTime = date.timeIntervalSince1970
         let slotIndex = Int(floor(absoluteTime / cycleDuration))
         let slotStart = Double(slotIndex) * cycleDuration
@@ -108,7 +108,7 @@ actor SlotManager {
             startTime: Date(timeIntervalSince1970: slotStart),
             slotIndex: slotIndex,
             isEven: slotIndex % 2 == 0,
-            isFT4: isFT4
+            mode: mode
         )
     }
 

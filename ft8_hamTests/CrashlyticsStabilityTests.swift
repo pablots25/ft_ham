@@ -139,16 +139,16 @@ final class CrashlyticsStabilityTests: XCTestCase {
     // MARK: - 3a. Lag after suspend/resume
 
     func test_isSuspensionGap_FT8_wholeSlotLate() {
-        XCTAssertTrue(FT8ViewModel.isSuspensionGap(lag: 15.5, isFT4: false))
+        XCTAssertTrue(FT8ViewModel.isSuspensionGap(lag: 15.5, mode: .ft8))
     }
 
     func test_isSuspensionGap_FT8_shortLagIsARealStall() {
-        XCTAssertFalse(FT8ViewModel.isSuspensionGap(lag: 3.0, isFT4: false))
+        XCTAssertFalse(FT8ViewModel.isSuspensionGap(lag: 3.0, mode: .ft8))
     }
 
     func test_isSuspensionGap_FT4_usesTheShorterSlot() {
-        XCTAssertTrue(FT8ViewModel.isSuspensionGap(lag: 8.0, isFT4: true))
-        XCTAssertFalse(FT8ViewModel.isSuspensionGap(lag: 8.0, isFT4: false))
+        XCTAssertTrue(FT8ViewModel.isSuspensionGap(lag: 8.0, mode: .ft4))
+        XCTAssertFalse(FT8ViewModel.isSuspensionGap(lag: 8.0, mode: .ft8))
     }
 
     /// A slot that started a whole period ago (resume after suspension) and
@@ -160,7 +160,7 @@ final class CrashlyticsStabilityTests: XCTestCase {
 
         for lag in [3.0, 15.5] {
             let slot = SlotInfo(startTime: AppClock.now().addingTimeInterval(-lag),
-                                slotIndex: 10, isEven: true, isFT4: false)
+                                slotIndex: 10, isEven: true, mode: .ft8)
             XCTAssertEqual(viewModel.determineAction(for: slot), .skip, "lag \(lag)s")
         }
     }

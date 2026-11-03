@@ -6,6 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "ft8_EngineProtocol.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,7 +26,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) const ftx_waterfall_t *waterfall;
 /// First FFT bin (in tone-spacing units) of the analysed band.
 @property(nonatomic, readonly) int minBin;
-/// FT8/FT4 symbol period in seconds.
+/// Symbol period of the protocol in seconds.
 @property(nonatomic, readonly) float symbolPeriod;
 /// Seconds of audio the snapshot covers (blocks × symbol period).
 @property(nonatomic, readonly) double duration;
@@ -57,10 +58,11 @@ typedef void (^FT8SlotMonitorRowHandler)(const uint8_t *row, int count,
 /// methods on whichever thread drives the slot sequencer.
 @interface FT8SlotMonitor : NSObject
 
-- (instancetype)initWithSampleRate:(int)sampleRate isFT4:(BOOL)isFT4;
+- (instancetype)initWithSampleRate:(int)sampleRate
+                              mode:(FTXEngineProtocol)mode;
 
 @property(nonatomic, readonly) int sampleRate;
-@property(nonatomic, readonly) BOOL isFT4;
+@property(nonatomic, readonly) FTXEngineProtocol mode;
 /// Seconds between two emitted rows (symbol period / time oversampling).
 @property(nonatomic, readonly) float rowPeriod;
 /// Counts slots: incremented by every reset. Rows and snapshots carry it,
@@ -76,7 +78,7 @@ typedef void (^FT8SlotMonitorRowHandler)(const uint8_t *row, int count,
 - (void)feedSamples:(const float *)samples count:(NSUInteger)count;
 
 /// Switches protocol. Discards the slot in progress.
-- (void)reconfigureIsFT4:(BOOL)isFT4;
+- (void)reconfigureMode:(FTXEngineProtocol)mode;
 
 /// Starts a new slot: forgets the audio analysed so far (and any partial
 /// block) so the next block is the slot's first. Call at the slot boundary.

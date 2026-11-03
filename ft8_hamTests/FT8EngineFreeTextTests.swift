@@ -12,15 +12,15 @@ import XCTest
 /// no audio hardware involved).
 final class FT8EngineFreeTextTests: XCTestCase {
 
-    private func roundTrip(_ text: String, isFT4: Bool = false, file: StaticString = #filePath, line: UInt = #line) {
+    private func roundTrip(_ text: String, mode: DigitalMode = .ft8, file: StaticString = #filePath, line: UInt = #line) {
         let engine = ft8_Engine()
-        guard let audio = engine.generateFreeText(text, frequency: 1400, isFT4: isFT4) else {
+        guard let audio = engine.generateFreeText(text, frequency: 1400, mode: mode) else {
             XCTFail("No audio generated for '\(text)'", file: file, line: line)
             return
         }
         XCTAssertGreaterThan(audio.count, 12_000 * 4, "audio is too short", file: file, line: line)
 
-        let decoded = engine.decodeAudioBuffer(audio, sampleRate: 12_000, isFT4: isFT4)
+        let decoded = engine.decodeAudioBuffer(audio, sampleRate: 12_000, mode: mode)
             .compactMap { $0["text"] as? String }
             .map { $0.trimmingCharacters(in: .whitespaces) }
         XCTAssertTrue(decoded.contains(text), "'\(text)' decoded as \(decoded)", file: file, line: line)
@@ -42,12 +42,12 @@ final class FT8EngineFreeTextTests: XCTestCase {
     }
 
     func test_freeText_FT4() {
-        roundTrip("TEST FT4", isFT4: true)
+        roundTrip("TEST FT4", mode: .ft4)
     }
 
     func test_freeText_rejectsTextThatDoesNotFit() {
         let engine = ft8_Engine()
-        XCTAssertNil(engine.generateFreeText("FOURTEEN CHARS", frequency: 1400, isFT4: false))
-        XCTAssertNil(engine.generateFreeText("lowercase", frequency: 1400, isFT4: false))
+        XCTAssertNil(engine.generateFreeText("FOURTEEN CHARS", frequency: 1400, mode: .ft8))
+        XCTAssertNil(engine.generateFreeText("lowercase", frequency: 1400, mode: .ft8))
     }
 }

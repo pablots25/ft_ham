@@ -49,7 +49,7 @@ extension FT8ViewModel {
         // should not pop a toast every time.
         let isAlreadyLockedDX = qsoManager.lockedDXCallsign.caseInsensitiveCompare(dxCall) == .orderedSame
 
-        qsoManager.isFT4Mode = isFT4
+        qsoManager.currentMode = digitalMode
         qsoManager.currentBand = effectiveBand
         qsoManager.currentCustomFrequencyHz = selectedBand == .custom ? customDialFrequencyHz : nil
 

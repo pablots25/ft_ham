@@ -109,44 +109,51 @@ final class MockMessageDecoder: MessageDecoding {
     var decodedMessagesFromURL: [[AnyHashable: Any]] = []
     
     // MARK: - Call Tracking
-    var generateFT8CallCount = 0
+    var generateAudioCallCount = 0
     var decodeAudioBufferCallCount = 0
     var decodeWaterfallSnapshotCallCount = 0
     var decodeURLCallCount = 0
     var lastGeneratedMessage: String?
     var lastDecodedData: Data?
     var lastDecodedURL: URL?
+    /// Mode of the most recent generate/decode call.
+    var lastMode: DigitalMode?
     
     // MARK: - Methods
-    func generateFT8(_ message: String, frequency: Float, isFT4: Bool, toFile outputURL: URL?) -> Data? {
-        generateFT8CallCount += 1
+    func generateAudio(_ message: String, frequency: Float, mode: DigitalMode, toFile outputURL: URL?) -> Data? {
+        generateAudioCallCount += 1
         lastGeneratedMessage = message
+        lastMode = mode
         return generatedAudioData ?? Data(repeating: 0, count: 1024)
     }
     
     var generateFreeTextCallCount = 0
     var lastGeneratedFreeText: String?
 
-    func generateFreeText(_ text: String, frequency: Float, isFT4: Bool) -> Data? {
+    func generateFreeText(_ text: String, frequency: Float, mode: DigitalMode) -> Data? {
         generateFreeTextCallCount += 1
         lastGeneratedFreeText = text
+        lastMode = mode
         return generatedAudioData ?? Data(repeating: 0, count: 1024)
     }
 
-    func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]] {
+    func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, mode: DigitalMode) -> [[String: Any]] {
         decodeAudioBufferCallCount += 1
         lastDecodedData = audioData
+        lastMode = mode
         return decodedMessages
     }
 
-    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, isFT4: Bool) -> [[String: Any]] {
+    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, mode: DigitalMode) -> [[String: Any]] {
         decodeWaterfallSnapshotCallCount += 1
+        lastMode = mode
         return decodedMessages
     }
     
-    func decode(_ input: URL?, isFT4: Bool) -> [[AnyHashable: Any]] {
+    func decode(_ input: URL?, mode: DigitalMode) -> [[AnyHashable: Any]] {
         decodeURLCallCount += 1
         lastDecodedURL = input
+        lastMode = mode
         return decodedMessagesFromURL
     }
     

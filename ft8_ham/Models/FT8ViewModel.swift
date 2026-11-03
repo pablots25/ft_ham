@@ -41,17 +41,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         static let modeTransitionDelay: UInt64 = 200_000_000
         static let driftThreshold = 0.01
         
-        static let ft8SignalDuration: Double = 12.6
-        static let ft4SignalDuration: Double = 4.5
+        // Per-mode timing (signal duration, decode margin, max TX start offset)
+        // lives in `DigitalMode`.
 
-        // Maximum allowed TX start offset (seconds) from slot start.
-        // Values chosen to preserve effective SNR
-        static let ft8MaxStartOffset: Double = 2.4
-        static let ft4MaxStartOffset: Double = 0.8
-        
-        static let ft8DecodeMargin: Double = 0.2
-        static let ft4DecodeMargin: Double = 0.1
-        
         static let txSafetyOffset: Double = 0.05
     }
     
@@ -347,7 +339,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     @MainActor
     internal func notifyPresenceContextChanged() {
         PresenceManager.shared.contextDidChange(
-            band: effectiveBand.rawValue, mode: isFT4 ? "FT4" : "FT8", grid: locator
+            band: effectiveBand.rawValue, mode: digitalMode.logMode, grid: locator
         )
     }
 
@@ -406,17 +398,26 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         }
     }
     
-    @AppStorage("isFT4") var isFT4 = false {
+    /// Currently selected digital mode. Persisted under `DigitalMode.storageKey`
+    /// (migrated from the legacy Bool key on first launch).
+    @AppStorage(DigitalMode.storageKey) var digitalMode: DigitalMode = .ft8 {
         didSet {
-            if rootState.isFT4 != isFT4 { rootState.isFT4 = isFT4 }
-            waterfallVM.mode = isFT4 ? .ft4 : .ft8
-            slotMonitor.reconfigureIsFT4(isFT4)
+            guard digitalMode != oldValue else { return }
+            if rootState.digitalMode != digitalMode { rootState.digitalMode = digitalMode }
+            waterfallVM.mode = digitalMode
+            slotMonitor.reconfigureMode(Self.slotMonitorProtocol(for: digitalMode))
             waterfallVM.rowPeriod = Double(slotMonitor.rowPeriod)
             restartLoopsForModeChange()
             scheduleCatFrequencyUpdate(reason: "mode change")
         }
     }
     
+    /// Protocol the streaming slot monitor analyses. Modes the engine does not
+    /// handle keep an FT8 spectrogram for the waterfall.
+    nonisolated static func slotMonitorProtocol(for mode: DigitalMode) -> FTXEngineProtocol {
+        mode.engineProtocol ?? .ft8
+    }
+
     internal func restartLoopsForModeChange() {
         guard isSequencerRunning else { return }
         Task { @MainActor in
@@ -525,20 +526,28 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         self.logbookManager = logbookManager ?? LogbookManager()
         
         let savedBandRaw = UserDefaults.standard.string(forKey: "band") ?? FT8Message.Band.band10m.rawValue
-        let storedIsFT4 = UserDefaults.standard.bool(forKey: "isFT4")
+        var storedMode = DigitalMode.loadStored()
+        if !storedMode.isAvailable {
+            // A mode saved by a build that supported it, opened by one that does not.
+            storedMode = .ft8
+        }
         
         waterfallVM = WaterfallViewModel(
             imageWidth: Constants.waterfallImageWidth,
             waterfallRows: Constants.waterfallRows,
-            isFT4: storedIsFT4
+            mode: storedMode
         )
-        slotMonitor = FT8SlotMonitor(sampleRate: Int32(self.audioManager.sampleRate), isFT4: storedIsFT4)
+        slotMonitor = FT8SlotMonitor(
+            sampleRate: Int32(self.audioManager.sampleRate),
+            mode: Self.slotMonitorProtocol(for: storedMode)
+        )
         waterfallVM.rowPeriod = Double(slotMonitor.rowPeriod)
         
         super.init()
         
         self.selectedBand = FT8Message.Band(rawValue: savedBandRaw) ?? .band10m
-        self.isFT4 = storedIsFT4
+        self.digitalMode = storedMode
+        rootState.digitalMode = storedMode
         syncSettingsLoaded()
         // Note: lastReceivedSNR is now a computed property delegating to qsoManager
         
@@ -736,7 +745,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
             message: txMessage,
             frequency: frequency,
             band: selectedBand,
-            isFT4: isFT4
+            mode: txMessage.mode
         ) {
             handleRXAction(action)
         }

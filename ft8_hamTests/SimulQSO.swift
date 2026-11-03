@@ -17,7 +17,7 @@ final class SimulQSO: XCTestCase {
         viewModel.autoCQReplyEnabled  = true
         viewModel.callsign = "EA1ABC"
         viewModel.locator = "IM99"
-        viewModel.isFT4 = false
+        viewModel.digitalMode = .ft8
         viewModel.selectedBand = .band20m
     }
 
@@ -454,7 +454,7 @@ final class SimulQSO: XCTestCase {
     func testFT4StandardQSOFlow() async {
         let myCallsign = "EA1ABC"
         viewModel.resetQSOState()
-        viewModel.isFT4 = true
+        viewModel.digitalMode = .ft4
         
         let gridMessage = FT8Message(
             text: "EA1ABC EA2ABC IN52",
@@ -491,7 +491,7 @@ final class SimulQSO2: XCTestCase {
         viewModel.autoCQReplyEnabled  = true
         viewModel.callsign = "EA1ABC"
         viewModel.locator = "IM99"
-        viewModel.isFT4 = false
+        viewModel.digitalMode = .ft8
         viewModel.selectedBand = .band20m
     }
 
@@ -639,7 +639,7 @@ final class SimulQSO2: XCTestCase {
 
     func testFT4StandardQSOFlow() async {
         viewModel.resetQSOState()
-        viewModel.isFT4 = true
+        viewModel.digitalMode = .ft4
 
         let gridMessage = FT8Message(
             text: "EA1ABC EA2ABC IN52",

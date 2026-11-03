@@ -134,7 +134,7 @@ final class FT8ViewModelTests2: XCTestCase {
 //        viewModel.allMessages = ["CQ EA1AAA IM99"]
 //        viewModel.selectedMessageIndex = 0
 //        viewModel.selectedBand = .band10m
-//        viewModel.isFT4 = false
+//        viewModel.digitalMode = .ft8
 //        viewModel.transmitLoopActive = true
 //
 //        viewModel.startSequencer()
@@ -195,6 +195,7 @@ final class FT8ViewModel_FirstLaunchTests: XCTestCase {
         defaults.removeObject(forKey: "callsign")
         defaults.removeObject(forKey: "locator")
         defaults.removeObject(forKey: "isFT4")
+        defaults.removeObject(forKey: DigitalMode.storageKey)
     }
 
     func test_firstLaunch_doesNotStartRX() async {

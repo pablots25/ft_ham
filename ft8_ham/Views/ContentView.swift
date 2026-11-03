@@ -504,8 +504,8 @@ struct ContentView: View {
         // Once a second: the seconds counter changes no faster, and the bar
         // animates itself between checks (see CycleProgressBar).
         TimelineView(.periodic(from: .now, by: 1.0)) { _ in
-            let cycleLength = ProgressViewModel.cycleLengthForMode(isFT4: root.isFT4)
-            let progress = progressVM.cycleProgress(isFT4: root.isFT4)
+            let cycleLength = ProgressViewModel.cycleLengthForMode(root.digitalMode)
+            let progress = progressVM.cycleProgress(mode: root.digitalMode)
             let seconds = min(Int(progress * cycleLength), Int(cycleLength))
 
             HStack {

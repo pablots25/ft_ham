@@ -181,7 +181,7 @@ final class FT8ViewModelLoggingIntegrationTests: XCTestCase {
             dxLocator: "FN31",
             qsoDate: .now,
             band: .band20m,
-            isFT4: false,
+            mode: .ft8,
             rstSent: -10,
             rstRcvd: -8
         )

@@ -23,7 +23,7 @@ final class MessageProcessorTests: XCTestCase {
         let batch: [[String: Any]] = []
         let result = await processor.process(
             batch,
-            isFT4: false,
+            mode: .ft8,
             selectedBand: .band40m,
             firstLoopRX: false,
             isTX: false,
@@ -43,7 +43,7 @@ final class MessageProcessorTests: XCTestCase {
         ]
         let result = await processor.process(
             batch,
-            isFT4: false,
+            mode: .ft8,
             selectedBand: .band40m,
             firstLoopRX: true,
             isTX: false,
@@ -72,7 +72,7 @@ final class MessageProcessorTests: XCTestCase {
         // Scenario 1: First loop
         let result1 = await processor.process(
             batch,
-            isFT4: false,
+            mode: .ft8,
             selectedBand: .band20m,
             firstLoopRX: true,
             isTX: false,
@@ -91,7 +91,7 @@ final class MessageProcessorTests: XCTestCase {
 //        // Scenario 2: Not first loop
 //        let result2 = await processor.process(
 //            batch,
-//            isFT4: false,
+//            mode: .ft8,
 //            selectedBand: .band20m,
 //            firstLoopRX: false,
 //            isTX: false,

@@ -18,7 +18,7 @@ struct WaterfallOverlayStyle: Equatable {
     var minDisplayHz: Double
     var maxDisplayHz: Double
     var txFrequency: Double
-    var isFT4: Bool
+    var mode: DigitalMode
     var showOverlay: Bool
     var showTimestamps: Bool
     var showVerticalLabels: Bool
@@ -448,7 +448,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         }
 
         if style.showFrequencyMarker {
-            let bandwidthHz = WaterfallViewModel.occupiedBandwidthHz(isFT4: style.isFT4)
+            let bandwidthHz = WaterfallViewModel.occupiedBandwidthHz(mode: style.mode)
             let path = UIBezierPath()
             for hz in [style.txFrequency, style.txFrequency + bandwidthHz] {
                 let mx = x(forHz: hz)

@@ -162,21 +162,11 @@ final class WaterfallViewModel: ObservableObject {
         }
     }
 
-    enum Mode {
-        case ft8
-        case ft4
-
-        var timestampInterval: TimeInterval {
-            switch self {
-            case .ft8: return 15.0
-            case .ft4: return 7.5
-            }
-        }
-    }
+    typealias Mode = DigitalMode
 
     @Published var mode: Mode {
         didSet {
-            config.timestampInterval = mode.timestampInterval
+            config.timestampInterval = mode.slotDuration
             nextUTCMark = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
         }
     }
@@ -278,15 +268,14 @@ final class WaterfallViewModel: ObservableObject {
     /// follow the passband's shape.
     private var flattenHalfWindow: Int { max(4, Int(100.0 / Double(config.maxDisplayFrequency - config.minDisplayFrequency) * Double(width))) }
 
-    init(imageWidth: Int, waterfallRows: Int, isFT4: Bool) {
-        let initialMode: Mode = isFT4 ? .ft4 : .ft8
+    init(imageWidth: Int, waterfallRows: Int, mode initialMode: Mode) {
         self.mode = initialMode
 
         // Initialize config with the right timestamp interval
         self.config = Config(
             imageWidth: max(2, imageWidth),
             waterfallMaxRows: min(max(1, waterfallRows), Config.absoluteMaxRows),
-            timestampInterval: initialMode.timestampInterval
+            timestampInterval: initialMode.slotDuration
         )
 
         config.display = WaterfallDisplaySettings.load()
@@ -392,14 +381,14 @@ final class WaterfallViewModel: ObservableObject {
     /// Best guess at the label a tap meant, among the replyable labels still
     /// on screen. Labels are narrow, so the finger rarely lands exactly on
     /// one: see `bestGuessLabel(in:tappedHz:tappedRow:oldestVisibleRow:signalWidthHz:isReplyable:)`.
-    func bestGuessLabel(nearHz frequency: Double, rowFromTop: Int, isFT4: Bool,
+    func bestGuessLabel(nearHz frequency: Double, rowFromTop: Int, mode: Mode,
                         isReplyable: (WaterfallLabel) -> Bool) -> WaterfallPlacedLabel? {
         Self.bestGuessLabel(
             in: placedLabels,
             tappedHz: frequency,
             tappedRow: absoluteRowCounter - 1 - rowFromTop,
             oldestVisibleRow: absoluteRowCounter - height,
-            signalWidthHz: Self.occupiedBandwidthHz(isFT4: isFT4),
+            signalWidthHz: Self.occupiedBandwidthHz(mode: mode),
             isReplyable: isReplyable
         )
     }
@@ -486,15 +475,18 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     /// Bandwidth a transmission occupies above its base tone: 8 tones × 6.25 Hz
-    /// for FT8, 4 tones × 20.83 Hz for FT4.
-    static func occupiedBandwidthHz(isFT4: Bool) -> Double {
-        isFT4 ? 83.3 : 50.0
+    /// for FT8 and 4 tones × 20.83 Hz for FT4.
+    static func occupiedBandwidthHz(mode: Mode) -> Double {
+        switch mode {
+        case .ft8: return 50.0
+        case .ft4: return 83.3
+        }
     }
 
     /// Lowest and highest base tone the decoder can still see whole: it
     /// analyses 200–3000 Hz, so the top of the signal must stay under 3000.
-    static func txFrequencyRange(isFT4: Bool) -> ClosedRange<Double> {
-        200.0 ... (3000.0 - occupiedBandwidthHz(isFT4: isFT4))
+    static func txFrequencyRange(mode: Mode) -> ClosedRange<Double> {
+        200.0 ... (3000.0 - occupiedBandwidthHz(mode: mode))
     }
 
     /// Identifies one pixel → source-bin mapping; the map is rebuilt when any
@@ -725,7 +717,7 @@ final class WaterfallViewModel: ObservableObject {
 
     /// Records a slot starting at `startRow` and closes the previous one.
     private func beginSlot(_ slotSequence: UInt, startRow: Int) {
-        let cycleLength = mode.timestampInterval
+        let cycleLength = mode.slotDuration
         if let lastIndex = slotMarks.indices.last {
             slotMarks[lastIndex].rowCount = max(1, startRow - slotMarks[lastIndex].startRow)
         }

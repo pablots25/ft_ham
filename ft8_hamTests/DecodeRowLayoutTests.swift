@@ -68,15 +68,15 @@ final class DecodeRowLayoutTests: XCTestCase {
     func test_modeSuffix_hiddenWhenModeMatchesCurrent() {
         let ft8 = FT8Message(text: "CQ EA4IQL IN80", mode: .ft8)
         let ft4 = FT8Message(text: "CQ EA4IQL IN80", mode: .ft4)
-        XCTAssertFalse(DecodeRowLayout.showsModeSuffix(for: ft8, isFT4: false))
-        XCTAssertFalse(DecodeRowLayout.showsModeSuffix(for: ft4, isFT4: true))
+        XCTAssertFalse(DecodeRowLayout.showsModeSuffix(for: ft8, mode: .ft8))
+        XCTAssertFalse(DecodeRowLayout.showsModeSuffix(for: ft4, mode: .ft4))
     }
 
     func test_modeSuffix_shownForCrossModeHistory() {
         let ft8 = FT8Message(text: "CQ EA4IQL IN80", mode: .ft8)
         let ft4 = FT8Message(text: "CQ EA4IQL IN80", mode: .ft4)
-        XCTAssertTrue(DecodeRowLayout.showsModeSuffix(for: ft8, isFT4: true))
-        XCTAssertTrue(DecodeRowLayout.showsModeSuffix(for: ft4, isFT4: false))
+        XCTAssertTrue(DecodeRowLayout.showsModeSuffix(for: ft8, mode: .ft4))
+        XCTAssertTrue(DecodeRowLayout.showsModeSuffix(for: ft4, mode: .ft8))
     }
 
     // MARK: - Column text

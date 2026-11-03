@@ -192,26 +192,26 @@ final class CATBandBugTests: XCTestCase {
         let qso = viewModel.qsoManager
 
         // QSO starts on 20m FT8.
-        qso.isFT4Mode = false
+        qso.currentMode = .ft8
         qso.currentBand = .band20m
         qso.currentCustomFrequencyHz = nil
         qso.setupNewQSO(dx: "EA1TER", locator: "IN80", initialSNR: -12)
         qso.lastReceivedSNR = -8
 
         // User switches to 40m FT4 mid-QSO.
-        qso.isFT4Mode = true
+        qso.currentMode = .ft4
         qso.currentBand = .band40m
         qso.currentCustomFrequencyHz = nil
 
         XCTAssertEqual(qso.qsoStartBand, .band20m, "Band snapshot must be frozen at QSO start")
-        XCTAssertFalse(qso.qsoStartedAsFT4, "Mode snapshot must be frozen at QSO start")
+        XCTAssertEqual(qso.qsoStartMode, .ft8, "Mode snapshot must be frozen at QSO start")
 
         let entry = qso.createLogEntry(
             dxCallsign: "EA1TER",
             dxLocator: "IN80",
             qsoDate: .now,
             band: qso.qsoStartBand ?? .unknown,
-            isFT4: qso.qsoStartedAsFT4,
+            mode: qso.qsoStartMode,
             rstSent: qso.lastSentSNR,
             rstRcvd: qso.lastReceivedSNR,
             customFrequencyHz: qso.qsoStartBand != nil ? qso.qsoStartCustomFrequencyHz : nil
@@ -228,7 +228,7 @@ final class CATBandBugTests: XCTestCase {
     func testLogSnapshot_customDialFrozenAtStart() {
         let qso = viewModel.qsoManager
 
-        qso.isFT4Mode = false
+        qso.currentMode = .ft8
         qso.currentBand = .band20m
         qso.currentCustomFrequencyHz = 14_074_000
         qso.setupNewQSO(dx: "EA1TER", locator: "IN80", initialSNR: -12)
@@ -245,7 +245,7 @@ final class CATBandBugTests: XCTestCase {
             dxLocator: "IN80",
             qsoDate: .now,
             band: qso.qsoStartBand ?? .unknown,
-            isFT4: qso.qsoStartedAsFT4,
+            mode: qso.qsoStartMode,
             rstSent: qso.lastSentSNR,
             rstRcvd: qso.lastReceivedSNR,
             customFrequencyHz: qso.qsoStartBand != nil ? qso.qsoStartCustomFrequencyHz : nil

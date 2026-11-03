@@ -13,13 +13,9 @@ import Foundation
 /// `SlotManager` uses to schedule transmissions, so the bar and the TX slots
 /// can never disagree. Reading one clock (instead of an uptime anchor checked
 /// against the raw wall clock) also means there is nothing to realign.
-/// FT8ViewModel is the single source of truth for mode (isFT4).
+/// FT8ViewModel is the single source of truth for mode (digitalMode).
 @MainActor
 final class ProgressViewModel: ObservableObject {
-
-    /// Static cycle lengths (derived from FT8ViewModel mode)
-    private static let ft8CycleLength: Double = 15.0
-    private static let ft4CycleLength: Double = 7.5
 
     /// Where the corrected clock reads right now; injectable for tests.
     private let now: () -> Date
@@ -30,13 +26,13 @@ final class ProgressViewModel: ObservableObject {
 
     // MARK: - Public API
 
-    static func cycleLengthForMode(isFT4: Bool) -> Double {
-        isFT4 ? ft4CycleLength : ft8CycleLength
+    static func cycleLengthForMode(_ mode: DigitalMode) -> Double {
+        mode.slotDuration
     }
 
     /// 0…1, how far into the current slot the corrected clock is.
-    func cycleProgress(isFT4: Bool) -> Double {
-        Self.phase(at: now(), cycleLength: Self.cycleLengthForMode(isFT4: isFT4))
+    func cycleProgress(mode: DigitalMode) -> Double {
+        Self.phase(at: now(), cycleLength: Self.cycleLengthForMode(mode))
     }
 
     /// Fraction of the slot elapsed at `date`, with slots aligned to the

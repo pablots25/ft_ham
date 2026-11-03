@@ -64,7 +64,7 @@ final class MessageReplyTests: XCTestCase {
 
     @MainActor
     func testEvenCycleCalculation_FT8() async {
-        viewModel.isFT4 = false
+        viewModel.digitalMode = .ft8
         let cycleLength = 15.0
 
         // 1. Obtener una fecha de referencia: el inicio del minuto actual

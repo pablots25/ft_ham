@@ -31,7 +31,7 @@ struct CondensedMsgListView: View {
         // Read once per body pass. FT8ViewModel forwards lockedDXCallsign
         // changes through objectWillChange, so rows never observe qsoManager.
         let activeCallsign = DecodeRowLayout.activeCallsign(from: viewModel.qsoManager.lockedDXCallsign)
-        let isFT4 = viewModel.isFT4
+        let digitalMode = viewModel.digitalMode
         return VStack(alignment: .leading, spacing: 0) {
             MessageListHeaderView(
                 allowReply: allowReply
@@ -72,7 +72,7 @@ struct CondensedMsgListView: View {
                                         msg: msg,
                                         needed: viewModel.neededBadges(for: msg),
                                         highlight: highlight,
-                                        showsMode: DecodeRowLayout.showsModeSuffix(for: msg, isFT4: isFT4),
+                                        showsMode: DecodeRowLayout.showsModeSuffix(for: msg, mode: digitalMode),
                                         isActiveQSO: DecodeRowLayout.isActiveQSO(msg, activeCallsign: activeCallsign)
                                     )
                                         .font(.body)

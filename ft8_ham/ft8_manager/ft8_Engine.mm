@@ -170,6 +170,63 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 }
 
 // -----------------------------------------------------------------------------
+// MARK: - Protocol Parameters
+// -----------------------------------------------------------------------------
+// Every protocol-dependent constant lives here so new modes only need a new
+// case in each helper.
+
+// ftx_protocol_for_mode() is shared with the slot monitor (ft8_EngineProtocol.h).
+
+/// Modes on the FT4 4-GFSK frame (105 symbols, ft4_encode, BT 1.0).
+static BOOL is_4fsk_mode(FTXEngineProtocol mode) {
+  return ftx_protocol_for_mode(mode) == FTX_PROTOCOL_FT4;
+}
+
+static float symbol_period_for_mode(FTXEngineProtocol mode) {
+  switch (mode) {
+  case FTXEngineProtocolFT4:
+    return FT4_SYMBOL_PERIOD;
+  case FTXEngineProtocolFT8:
+  default:
+    return FT8_SYMBOL_PERIOD;
+  }
+}
+
+static float slot_time_for_mode(FTXEngineProtocol mode) {
+  switch (mode) {
+  case FTXEngineProtocolFT4:
+    return FT4_SLOT_TIME;
+  case FTXEngineProtocolFT8:
+  default:
+    return FT8_SLOT_TIME;
+  }
+}
+
+static int num_tones_for_mode(FTXEngineProtocol mode) {
+  return is_4fsk_mode(mode) ? FT4_NN : FT8_NN;
+}
+
+static float symbol_bt_for_mode(FTXEngineProtocol mode) {
+  return is_4fsk_mode(mode) ? 1.0f : 2.0f;
+}
+
+/// Physical signal length (s) used to flag partial slots.
+static double signal_duration_for_mode(FTXEngineProtocol mode) {
+  switch (mode) {
+  case FTXEngineProtocolFT4:
+    return 4.5;
+  case FTXEngineProtocolFT8:
+  default:
+    return 12.6;
+  }
+}
+
+/// Safety margin (s) added to the signal length for partial slot detection.
+static double decode_margin_for_mode(FTXEngineProtocol mode) {
+  return is_4fsk_mode(mode) ? 0.1 : 0.2;
+}
+
+// -----------------------------------------------------------------------------
 // MARK: - FT8 Engine Implementation
 // -----------------------------------------------------------------------------
 @interface ft8_Engine ()
@@ -224,11 +281,12 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 
 #pragma mark - Universal Interface
 
-- (NSArray<NSDictionary *> *)decode:(nullable NSURL *)input isFT4:(BOOL)isFT4 {
+- (NSArray<NSDictionary *> *)decode:(nullable NSURL *)input
+                               mode:(FTXEngineProtocol)mode {
 #if TARGET_OS_SIMULATOR
   if (input) {
     NSLog(@"[FT8] Decoding WAV (Simulator)");
-    return [self decodeFromWAV:input isFT4:isFT4];
+    return [self decodeFromWAV:input mode:mode];
   } else {
     NSLog(@"[FT8] Simulator without input file: microphone not available.");
     return @[];
@@ -236,17 +294,18 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 #else
   if (input) {
     NSLog(@"[FT8] Decoding WAV (Device)");
-    return [self decodeFromWAV:input isFT4:isFT4];
+    return [self decodeFromWAV:input mode:mode];
   } else {
     NSLog(@"[FT8] Decoding in real-time from microphone");
-    return [self decodeFromMic:isFT4];
+    return [self decodeFromMic:mode];
   }
 #endif
 }
 
 #pragma mark - Decoding from WAV File
 
-- (NSArray<NSDictionary *> *)decodeFromWAV:(NSURL *)wavURL isFT4:(BOOL)isFT4 {
+- (NSArray<NSDictionary *> *)decodeFromWAV:(NSURL *)wavURL
+                                      mode:(FTXEngineProtocol)mode {
   NSError *error = nil;
   AVAudioFile *file = [[AVAudioFile alloc] initForReading:wavURL error:&error];
   if (error) {
@@ -269,12 +328,12 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
                                      length:buffer.frameLength * sizeof(float)];
   return [self decodeBufferUsingMonitor:audioData
                              sampleRate:format.sampleRate
-                                  isFT4:isFT4];
+                                   mode:mode];
 }
 
 #pragma mark - Real-time Decoding from Microphone
 
-- (NSArray<NSDictionary *> *)decodeFromMic:(BOOL)isFT4 {
+- (NSArray<NSDictionary *> *)decodeFromMic:(FTXEngineProtocol)mode {
   AVAudioInputNode *inputNode = _audioEngine.inputNode;
   AVAudioFormat *inputFormat = [inputNode inputFormatForBus:0];
   if (inputFormat.sampleRate <= 0 || inputFormat.channelCount <= 0) {
@@ -296,7 +355,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
                          NSArray *msgs = [self
                              decodeBufferUsingMonitor:audioData
                                            sampleRate:inputFormat.sampleRate
-                                                isFT4:isFT4];
+                                                 mode:mode];
                          if (msgs.count > 0) {
                            [decodedMessages addObjectsFromArray:msgs];
                          }
@@ -319,7 +378,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 // from Swift. AVAudioSession ownership and all audio I/O were migrated to
 // AudioManager.swift. The AVAudioSession configuration below is therefore dead
 // code and does not conflict with the live session at runtime.
-- (void)startRealtimeDecode:(BOOL)isFT4
+- (void)startRealtimeDecode:(FTXEngineProtocol)mode
              messageHandler:
                  (void (^)(NSArray<NSDictionary *> *messages))handler {
   if (self.isCapturing)
@@ -357,7 +416,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 
   self.audioBuffer = [NSMutableData data];
 
-  double slotTime = isFT4 ? FT4_SLOT_TIME : FT8_SLOT_TIME;
+  double slotTime = slot_time_for_mode(mode);
 
   AVAudioFormat *desiredFormat =
       [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatFloat32
@@ -428,7 +487,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
                             NSArray<NSDictionary *> *msgs =
                                 [self decodeBufferUsingMonitor:slotData
                                                     sampleRate:self.sampleRate
-                                                         isFT4:isFT4];
+                                                          mode:mode];
 
                             if (handler) {
                               dispatch_async(dispatch_get_main_queue(), ^{
@@ -464,7 +523,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 
 - (NSArray<NSDictionary *> *)decodeBufferUsingMonitor:(NSData *)audioData
                                            sampleRate:(double)sampleRate
-                                                isFT4:(BOOL)isFT4 {
+                                                 mode:(FTXEngineProtocol)mode {
   // Second-line defence: reject invalid sample rates before they reach monitor_init,
   // where sample_rate=0 would produce nfft=0 and crash KISS FFT.
   if (sampleRate <= 0) {
@@ -473,7 +532,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
   }
   const float *audio = (const float *)audioData.bytes;
   NSUInteger nSamples = audioData.length / sizeof(float);
-  ftx_protocol_t protocol = isFT4 ? FTX_PROTOCOL_FT4 : FTX_PROTOCOL_FT8;
+  ftx_protocol_t protocol = ftx_protocol_for_mode(mode);
 
   monitor_t mon;
   monitor_config_t cfg = {.f_min = 200,
@@ -483,7 +542,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
                           .freq_osr = 2,
                           .protocol = protocol};
 
-  monitor_init(&mon, &cfg);
+  ftx_monitor_init_for_mode(&mon, &cfg, mode);
 
   int blockSize = mon.block_size;
   for (int pos = 0; pos + blockSize <= nSamples; pos += blockSize) {
@@ -494,7 +553,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
       [self decodeWaterfall:&mon.wf
                      minBin:mon.min_bin
                symbolPeriod:mon.symbol_period
-                      isFT4:isFT4
+                       mode:mode
              coveredSeconds:(double)nSamples / sampleRate];
 
   monitor_free(&mon);
@@ -502,11 +561,11 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 }
 
 - (NSArray<NSDictionary *> *)decodeSlotSnapshot:(FT8WaterfallSnapshot *)snapshot
-                                                isFT4:(BOOL)isFT4 {
+                                                 mode:(FTXEngineProtocol)mode {
   return [self decodeWaterfall:snapshot.waterfall
                         minBin:snapshot.minBin
                   symbolPeriod:snapshot.symbolPeriod
-                         isFT4:isFT4
+                          mode:mode
                 coveredSeconds:snapshot.duration];
 }
 
@@ -518,7 +577,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 - (NSArray<NSDictionary *> *)decodeWaterfall:(const ftx_waterfall_t *)wf
                                       minBin:(int)minBin
                                 symbolPeriod:(float)symbolPeriod
-                                       isFT4:(BOOL)isFT4
+                                        mode:(FTXEngineProtocol)mode
                               coveredSeconds:(double)coveredSeconds {
   // The callsign hash table has to live across slots: a compound callsign is
   // spelled out once and referred to by hash afterwards, often slots later.
@@ -540,7 +599,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
   // Find candidates
   // ------------------------------------------------------------
   ftx_candidate_t candidates[140];
-  int nCand = ftx_find_candidates(wf, 140, candidates, 10);
+  int nCand = ftx_find_candidates_for_mode(wf, 140, candidates, 10, mode);
 
   NSMutableArray<NSDictionary *> *results = [NSMutableArray array];
 
@@ -603,8 +662,8 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
   }
 
     // Check for partial signal
-    double signalDuration = isFT4 ? 4.5 : 12.6;   // physical signal length
-    double decodeMargin   = isFT4 ? 0.1 : 0.2;    // safety margin
+    double signalDuration = signal_duration_for_mode(mode); // physical signal length
+    double decodeMargin   = decode_margin_for_mode(mode);   // safety margin
 
     // Only report partial slot if we could not decode any valid messages
     if (coveredSeconds < signalDuration + decodeMargin && bestResults.count == 0) {
@@ -760,7 +819,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 
 - (NSData *)generateFT8:(NSString *)message
               frequency:(float)frequency
-                  isFT4:(BOOL)isFT4
+                   mode:(FTXEngineProtocol)mode
                  toFile:(nullable NSURL *)outputURL {
   // Encode message
   ftx_message_t ftxMsg;
@@ -772,7 +831,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 
   return [self audioForPayload:&ftxMsg
                      frequency:frequency
-                         isFT4:isFT4
+                          mode:mode
                         toFile:outputURL];
 }
 
@@ -781,7 +840,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 /// "HELLO WORLD" into a hashed callsign pair instead of a type-0.0 message.
 - (nullable NSData *)generateFreeText:(NSString *)text
                             frequency:(float)frequency
-                                isFT4:(BOOL)isFT4 {
+                                 mode:(FTXEngineProtocol)mode {
   const char *raw = [text UTF8String];
   if (raw == NULL) {
     return nil;
@@ -792,23 +851,23 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
     [self logFT8:@"Error packing free text '%@' (%d)", text, rc];
     return nil;
   }
-  return [self audioForPayload:&ftxMsg frequency:frequency isFT4:isFT4 toFile:nil];
+  return [self audioForPayload:&ftxMsg frequency:frequency mode:mode toFile:nil];
 }
 
 /// GFSK synthesis shared by every encoder entry point.
 - (nullable NSData *)audioForPayload:(const ftx_message_t *)ftxMsgPtr
                            frequency:(float)frequency
-                               isFT4:(BOOL)isFT4
+                                mode:(FTXEngineProtocol)mode
                               toFile:(nullable NSURL *)outputURL {
   const ftx_message_t ftxMsg = *ftxMsgPtr;
-  int numTones = isFT4 ? FT4_NN : FT8_NN;
-  float symbolPeriod = isFT4 ? FT4_SYMBOL_PERIOD : FT8_SYMBOL_PERIOD;
-  float symbolBT = isFT4 ? 1.0f : 2.0f;
-  float slotTime = isFT4 ? FT4_SLOT_TIME : FT8_SLOT_TIME;
+  int numTones = num_tones_for_mode(mode);
+  float symbolPeriod = symbol_period_for_mode(mode);
+  float symbolBT = symbol_bt_for_mode(mode);
+  float slotTime = slot_time_for_mode(mode);
   int sampleRate = 12000;
 
   uint8_t tones[numTones];
-  if (isFT4) {
+  if (is_4fsk_mode(mode)) {
     ft4_encode(ftxMsg.payload, tones);
   } else {
     ft8_encode(ftxMsg.payload, tones);

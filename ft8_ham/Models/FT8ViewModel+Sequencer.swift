@@ -23,11 +23,11 @@ extension FT8ViewModel {
             appLogger.warning("startSequencer called with invalid settings (callsign/locator). Aborting.")
             return
         }
-        appLogger.info("Starting Sequencer Loop (FT\(isFT4 ? "4" : "8") - \(evenCycle ? "Even" : "Odd"))")
+        appLogger.info("Starting Sequencer Loop (\(digitalMode.displayName) - \(evenCycle ? "Even" : "Odd"))")
         isSequencerRunning = true
         PresenceManager.shared.sequencerDidStart(
             callsign: callsign, grid: locator,
-            band: effectiveBand.rawValue, mode: isFT4 ? "FT4" : "FT8"
+            band: effectiveBand.rawValue, mode: digitalMode.logMode
         )
 
         // Track first-run milestone
@@ -52,7 +52,7 @@ extension FT8ViewModel {
                 while !Task.isCancelled {
                     // 1. Calculate Next Slot Boundary
                     let now = AppClock.now()
-                    let nextSlot = await self.slotManager.getNextSlot(from: now, isFT4: self.isFT4)
+                    let nextSlot = await self.slotManager.getNextSlot(from: now, mode: self.digitalMode)
                     
                     // 2. Wait for Boundary
                     try await self.slotManager.wait(until: nextSlot.startTime)
@@ -66,12 +66,11 @@ extension FT8ViewModel {
                     // in one step, so the new slot's block 0 sits on the boundary.
                     let completedSlotIndex = nextSlot.slotIndex - 1
                     let snapshot = self.slotMonitor.snapshotAndReset()
+                    let harvestMode = self.digitalMode
                     let coveredSeconds = snapshot.duration
 
-                    // FT8 needs ~12.6s of signal. FT4 needs ~4.5s.
-                    let signalDuration = self.isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration
-                    let decodeMargin   = self.isFT4 ? Constants.ft4DecodeMargin : Constants.ft8DecodeMargin
-                    let requiredSeconds = signalDuration + decodeMargin
+                    // FT8 needs ~12.6 s of signal, FT4 ~4.5 s.
+                    let requiredSeconds = harvestMode.minimumDecodeDuration
 
                     // Guard: micSampleRate starts at 0 and is populated lazily by startMicInput().
                     // Until then no audio has reached the monitor, so there is nothing to decode.
@@ -89,14 +88,13 @@ extension FT8ViewModel {
                         // Capture @MainActor values before spawning the detached task so the
                         // CPU-intensive decode runs on a background thread, not the main thread.
                         let capturedEngine = self.engine
-                        let capturedIsFT4 = self.isFT4
                         let capturedLogger = self.rxLogger
                         self.isHarvestingRX = true
                         Task.detached(priority: .userInitiated) { [weak self] in
                             let weakSelf = self
                             defer { Task { await MainActor.run { weakSelf?.isHarvestingRX = false } } }
 
-                            let msgs = capturedEngine.decodeWaterfallSnapshot(snapshot, isFT4: capturedIsFT4)
+                            let msgs = capturedEngine.decodeWaterfallSnapshot(snapshot, mode: harvestMode)
 
                             capturedLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
                             await weakSelf?.handleDecodedMessages(
@@ -191,8 +189,8 @@ extension FT8ViewModel {
     /// `true` when `lag` covers at least a whole slot (15 s FT8, 7.5 s FT4).
     /// That only happens when the app was suspended and resumed, so it is
     /// logged as a warning instead of a Crashlytics non-fatal.
-    nonisolated static func isSuspensionGap(lag: TimeInterval, isFT4: Bool) -> Bool {
-        lag >= (isFT4 ? 7.5 : 15.0)
+    nonisolated static func isSuspensionGap(lag: TimeInterval, mode: DigitalMode) -> Bool {
+        lag >= mode.slotDuration
     }
 
     @MainActor
@@ -203,7 +201,7 @@ extension FT8ViewModel {
         
         let lag = AppClock.now().timeIntervalSince(slot.startTime)
         if lag > Self.maxSlotLag {
-            if Self.isSuspensionGap(lag: lag, isFT4: slot.isFT4) {
+            if Self.isSuspensionGap(lag: lag, mode: slot.mode) {
                 // A whole slot or more went by: the app was suspended (screen
                 // lock, background) and just resumed. Expected, not a bug.
                 appLogger.warning("Slot \(slot.slotIndex) skipped after resuming (\(lag)s late)")
@@ -253,20 +251,20 @@ extension FT8ViewModel {
 
     @MainActor
     internal func tryImmediateTXIfPossible() async{
+        // Immediate replies only make sense in QSO modes.
+        guard digitalMode.supportsQSO else { return }
         let now = AppClock.now()
         
         // 1. Obtener información del slot ACTUAL
         let currentSlot = await slotManager.getSlotInfo(
             at: now,
-            isFT4: isFT4
+            mode: digitalMode
         )
         
         // 2. Calcular offset desde inicio del slot
         let offsetFromSlotStart = now.timeIntervalSince(currentSlot.startTime)
         
-        let maxStartOffset = isFT4
-        ? Constants.ft4MaxStartOffset
-        : Constants.ft8MaxStartOffset
+        let maxStartOffset = digitalMode.maxStartOffset
         
         // 3. Comprobar margen temporal
         guard offsetFromSlotStart <= maxStartOffset else {
@@ -336,9 +334,7 @@ extension FT8ViewModel {
         let now = AppClock.now()
         let offsetFromSlotStart = now.timeIntervalSince(slot.startTime)
         
-        let maxStartOffset = slot.isFT4
-        ? Constants.ft4MaxStartOffset
-        : Constants.ft8MaxStartOffset
+        let maxStartOffset = slot.mode.maxStartOffset
         
         
         // Slot-aware TX allowing late start within safe margin
@@ -352,9 +348,11 @@ extension FT8ViewModel {
         }
         
         let signalEnd = slot.startTime.addingTimeInterval(
-            (slot.isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration) + (slot.isFT4 ? Constants.ft4DecodeMargin : Constants.ft8DecodeMargin)
+            slot.mode.minimumDecodeDuration
         )
-        while self.isHarvestingRX {
+        // The RX decode barrier exists so a QSO reply is chosen from the latest decodes.
+        // Beacons do not depend on them: do not wait.
+        while slot.mode.supportsQSO && self.isHarvestingRX {
             if AppClock.now() > signalEnd {
                 txLogger.warning(
                     "TX aborted for slot \(slot.slotIndex): RX decode exceeded signal window"
@@ -385,7 +383,7 @@ extension FT8ViewModel {
                 txLogger.warning("Invalid callsign: \(callsign)")
                 return
             }
-            guard let data = engine.generateFreeText(text, frequency: Float(frequency), isFT4: isFT4) else {
+            guard let data = engine.generateFreeText(text, frequency: Float(frequency), mode: slot.mode) else {
                 txLogger.error("Failed to generate free text audio for: \(text)")
                 return
             }
@@ -410,10 +408,10 @@ extension FT8ViewModel {
                 return
             }
 
-            guard let data = engine.generateFT8(
+            guard let data = engine.generateAudio(
                 message,
                 frequency: Float(frequency),
-                isFT4: isFT4,
+                mode: slot.mode,
                 toFile: nil
             ) else {
                 txLogger.error("Failed to generate audio for: \(message)")
@@ -424,7 +422,7 @@ extension FT8ViewModel {
 
         let txMessage = FT8Message(
             text: message,
-            mode: isFT4 ? .ft4 : .ft8,
+            mode: slot.mode,
             frequency: frequency,
             isTX: true,
             band: selectedBand
@@ -435,6 +433,14 @@ extension FT8ViewModel {
         
         // Clear isReadyForTX after successful TX preparation
         self.isReadyForTX = false
+
+        // Some modes start transmitting at a fixed point into the slot.
+        let startDelay = slot.startTime
+            .addingTimeInterval(slot.mode.transmissionStartDelay)
+            .timeIntervalSinceNow
+        if startDelay > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(startDelay * 1_000_000_000))
+        }
         
         // The scenePhase handler stops the sequencer on backgrounding, but a TX
         // task already in flight can reach this point afterwards. Starting audio
@@ -451,7 +457,7 @@ extension FT8ViewModel {
         InAppPrompts.shared.recordTXStarted()
         txLogger.info("TX Started: \(message)")
         txLogger.info(
-            "TX starting \(String(format: "%.2f", offsetFromSlotStart))s into slot \(slot.slotIndex)"
+            "TX starting \(String(format: "%.2f", Date().timeIntervalSince(slot.startTime)))s into slot \(slot.slotIndex)"
         )
         
         

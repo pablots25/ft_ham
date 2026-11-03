@@ -224,7 +224,7 @@ struct MessageSelector: View {
 
                         BandPickerView(
                             selectedBand: $viewModel.selectedBand,
-                            isFT4: viewModel.isFT4,
+                            mode: viewModel.digitalMode,
                             customDialFrequencyHz: $viewModel.customDialFrequencyHz
                         )
 

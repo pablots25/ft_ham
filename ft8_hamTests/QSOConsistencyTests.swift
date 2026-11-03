@@ -18,7 +18,7 @@ final class WorkedCheckTests: XCTestCase {
 
     private var viewModel: FT8ViewModel!
     private var savedDefaults: [String: Any?] = [:]
-    private let touchedKeys = ["band", "isFT4", "customDialFrequencyHz", "highlightNewCallsigns"]
+    private let touchedKeys = ["band", "isFT4", DigitalMode.storageKey, "customDialFrequencyHz", "highlightNewCallsigns"]
 
     override func setUp() async throws {
         try await super.setUp()
@@ -31,8 +31,8 @@ final class WorkedCheckTests: XCTestCase {
             logbookManager: MockLogbookManager()
         )
         viewModel.selectedBand = .band20m
-        viewModel.isFT4 = false
-        viewModel.qsoList = [logEntry(callsign: "EA2ABC", band: .band20m, isFT4: false)]
+        viewModel.digitalMode = .ft8
+        viewModel.qsoList = [logEntry(callsign: "EA2ABC", band: .band20m, mode: .ft8)]
     }
 
     override func tearDown() async throws {
@@ -45,13 +45,13 @@ final class WorkedCheckTests: XCTestCase {
         try await super.tearDown()
     }
 
-    private func logEntry(callsign: String, band: FT8Message.Band, isFT4: Bool) -> LogEntry {
+    private func logEntry(callsign: String, band: FT8Message.Band, mode: DigitalMode) -> LogEntry {
         viewModel.qsoManager.createLogEntry(
             dxCallsign: callsign,
             dxLocator: "IN83",
             qsoDate: .now,
             band: band,
-            isFT4: isFT4,
+            mode: mode,
             rstSent: -10,
             rstRcvd: -8
         )
@@ -77,7 +77,7 @@ final class WorkedCheckTests: XCTestCase {
         XCTAssertTrue(viewModel.isWorked("EA2ABC", scope: .anyBand))
 
         viewModel.selectedBand = .band20m
-        viewModel.isFT4 = true
+        viewModel.digitalMode = .ft4
         XCTAssertFalse(viewModel.isWorked("EA2ABC"), "Not worked in FT4")
     }
 

@@ -78,8 +78,8 @@ enum DecodeRowLayout {
 
     /// The "(FT4)" / "(FT8)" suffix is only worth its width when the row was
     /// decoded in a mode other than the current one (mixed-mode history).
-    static func showsModeSuffix(for msg: FT8Message, isFT4: Bool) -> Bool {
-        msg.mode != (isFT4 ? .ft4 : .ft8)
+    static func showsModeSuffix(for msg: FT8Message, mode: DigitalMode) -> Bool {
+        msg.mode != mode
     }
 
     static func snrText(_ msg: FT8Message) -> String {

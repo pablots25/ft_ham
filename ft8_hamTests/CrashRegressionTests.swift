@@ -93,7 +93,7 @@ final class CrashRegressionTests: XCTestCase {
             let engine = ft8_Engine()
             _ = engine.decodeBuffer(usingMonitor: audioData,
                                     sampleRate: sampleRate,
-                                    isFT4: false)
+                                    mode: .ft8)
             finished.fulfill()
         }
         // Match the stack budget of Swift-concurrency worker threads.
@@ -116,7 +116,7 @@ final class CrashRegressionTests: XCTestCase {
             let engine = ft8_Engine()
             _ = engine.decodeBuffer(usingMonitor: audioData,
                                     sampleRate: sampleRate,
-                                    isFT4: false)
+                                    mode: .ft8)
             finished.fulfill()
         }
         thread.stackSize = 512 * 1024

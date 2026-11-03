@@ -24,7 +24,10 @@ struct RadioSettingsContent: View {
 
             HStack(spacing: 20) {
                 modeView
-                cycleView
+                // Beacon modes pick their slots at random, so there is no cycle to choose.
+                if viewModel.digitalMode.supportsQSO {
+                    cycleView
+                }
             }
             .frame(maxWidth: .infinity)
 
@@ -39,7 +42,7 @@ struct RadioSettingsContent: View {
 
             BandPickerView(
                 selectedBand: $viewModel.selectedBand,
-                isFT4: viewModel.isFT4,
+                mode: viewModel.digitalMode,
                 customDialFrequencyHz: $viewModel.customDialFrequencyHz
             )
 
@@ -58,27 +61,25 @@ struct RadioSettingsContent: View {
         VStack {
             Text("Mode:")
             Picker("", selection: Binding(
-                get: { viewModel.isFT4 },
-                set: { newValue in
+                get: { viewModel.digitalMode },
+                set: { newMode in
                     Task { @MainActor in
-                        viewModel.switchModeWhileRX(isFT4: newValue)
-                        AnalyticsManager.shared.trackRadioModeChange(isFT4: newValue)
-                        let modeStr = newValue ? "FT4" : "FT8"
-                        let cycleStr: String
-                        if newValue {
-                            cycleStr = viewModel.evenCycle ? "even (0s)" : "odd (7.5s)"
-                        } else {
-                            cycleStr = viewModel.evenCycle ? "even (0/30s)" : "odd (15/45s)"
-                        }
-                        appLogger.log(.info, "Mode changed to \(modeStr), current cycle: \(cycleStr)")
+                        viewModel.switchModeWhileRX(to: newMode)
+                        AnalyticsManager.shared.trackRadioModeChange(newMode)
+                        let labels = Self.cycleLabels(for: newMode)
+                        let cycleStr = viewModel.evenCycle
+                            ? "even (\(labels.even)s)"
+                            : "odd (\(labels.odd)s)"
+                        appLogger.log(.info, "Mode changed to \(newMode.displayName), current cycle: \(cycleStr)")
                     }
                 }
             )) {
-                Text("FT8").tag(false)
-                Text("FT4").tag(true)
+                ForEach(DigitalMode.selectableCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
             }
             .pickerStyle(.segmented)
-            .frame(width: 120)
+            .frame(width: DigitalMode.selectableCases.count > 3 ? 240 : 170)
         }
     }
 
@@ -91,25 +92,25 @@ struct RadioSettingsContent: View {
                 get: { viewModel.evenCycle },
                 set: { newValue in
                     viewModel.evenCycle = newValue
-                    if viewModel.isFT4 {
-                        let offset = newValue ? 0.0 : 7.5
-                        appLogger.log(.info, "FT4 cycle changed to \(newValue ? "even" : "odd") — offset: \(offset)s")
-                    } else {
-                        let offset = newValue ? 0.0 : 15.0
-                        appLogger.log(.info, "FT8 cycle changed to \(newValue ? "even" : "odd") — offsets: \(offset)/\(offset + 30.0)s")
-                    }
+                    let mode = viewModel.digitalMode
+                    let labels = Self.cycleLabels(for: mode)
+                    appLogger.log(.info, "\(mode.displayName) cycle changed to \(newValue ? "even" : "odd"), offsets: \(newValue ? labels.even : labels.odd)s")
                 }
             )) {
-                if viewModel.isFT4 {
-                    Text("0").tag(true)
-                    Text("7.5").tag(false)
-                } else {
-                    Text("0/30").tag(true)
-                    Text("15/45").tag(false)
-                }
+                let labels = Self.cycleLabels(for: viewModel.digitalMode)
+                Text(labels.even).tag(true)
+                Text(labels.odd).tag(false)
             }
             .pickerStyle(.segmented)
             .frame(width: 120)
+        }
+    }
+
+    /// Picker labels (seconds within the minute) for the even/odd TX cycles.
+    static func cycleLabels(for mode: DigitalMode) -> (even: String, odd: String) {
+        switch mode {
+        case .ft8: return ("0/30", "15/45")
+        case .ft4: return ("0", "7.5")
         }
     }
 

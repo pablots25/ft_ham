@@ -110,7 +110,7 @@ extension FT8ViewModel {
 
     @MainActor
     private func catDialFrequencyHz() -> Int64? {
-        let mode: FT8Message.FT8MessageMode = isFT4 ? .ft4 : .ft8
+        let mode: FT8Message.FT8MessageMode = digitalMode
         let baseHz: Double
         if let known = selectedBand.frequency(for: mode) {
             baseHz = known
@@ -217,7 +217,7 @@ extension FT8ViewModel {
         let baseDialHz = polledHz - audioOffsetHz
 
         // Determine current known dial Hz for comparison
-        let mode: FT8Message.FT8MessageMode = isFT4 ? .ft4 : .ft8
+        let mode: FT8Message.FT8MessageMode = digitalMode
         let currentDialHz: Int64
         if selectedBand == .custom {
             currentDialHz = Int64(customDialFrequencyHz.rounded())

@@ -38,7 +38,7 @@ extension FT8ViewModel  {
             dxLocator: qsoManager.lockedDXLocator,
             qsoDate: AppClock.now(),
             band: qsoManager.qsoStartBand ?? effectiveBand,
-            isFT4: qsoManager.qsoStartedAsFT4,
+            mode: qsoManager.qsoStartMode,
             rstSent: qsoManager.lastSentSNR,
             rstRcvd: qsoManager.lastReceivedSNR,
             customFrequencyHz: qsoManager.qsoStartBand != nil

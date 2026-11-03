@@ -101,15 +101,15 @@ final class QSOStatusManager: ObservableObject {
     var maxRetrySlots = 3
     var qsoAlreadyLogged = false
 
-    // Snapshot of the mode (FT4 vs FT8) at QSO start, so the log entry is
+    // Snapshot of the mode at QSO start, so the log entry is
     // correct even if the user switches mode while the QSO is in progress.
-    var qsoStartedAsFT4: Bool = false
+    var qsoStartMode: DigitalMode = .ft8
     // Set by the ViewModel before each QSO-start call so setupNewQSO() can
     // snapshot it without requiring an API change on handleIncomingMessage.
-    var isFT4Mode: Bool = false
+    var currentMode: DigitalMode = .ft8
 
     // Band / custom dial frequency, fed by the ViewModel before each QSO-start
-    // call (same mechanism as isFT4Mode). currentCustomFrequencyHz is non-nil
+    // call (same mechanism as currentMode). currentCustomFrequencyHz is non-nil
     // only when the Custom band is selected.
     var currentBand: FT8Message.Band = .band10m
     var currentCustomFrequencyHz: Double? = nil
@@ -586,7 +586,7 @@ final class QSOStatusManager: ObservableObject {
     internal func setupNewQSO(dx: String, locator: String, initialSNR: Double?, cqModifier: String? = nil) {
         lockedDXCallsign = dx
         lockedDXLocator = locator
-        qsoStartedAsFT4 = isFT4Mode
+        qsoStartMode = currentMode
         qsoStartBand = currentBand
         qsoStartCustomFrequencyHz = currentCustomFrequencyHz
         
@@ -859,7 +859,7 @@ final class QSOStatusManager: ObservableObject {
         message: FT8Message,
         frequency: Double,
         band: FT8Message.Band,
-        isFT4: Bool
+        mode: DigitalMode
     ) -> QSOAction? {
         // Do not advance state if QSO is completed
         if case .completed = qsoState {
@@ -947,7 +947,7 @@ final class QSOStatusManager: ObservableObject {
         dxLocator: String,
         qsoDate: Date,
         band: FT8Message.Band,
-        isFT4: Bool,
+        mode: DigitalMode,
         rstSent: Int,
         rstRcvd: Int,
         customFrequencyHz: Double? = nil
@@ -970,7 +970,6 @@ final class QSOStatusManager: ObservableObject {
             }
         }()
 
-        let mode: FT8Message.FT8MessageMode = isFT4 ? .ft4 : .ft8
         // Use the custom frequency when provided (Custom band), otherwise use the standard band frequency
         let frequencyHz = customFrequencyHz ?? band.frequency(for: mode)
 
@@ -989,7 +988,7 @@ final class QSOStatusManager: ObservableObject {
                 grid: dxLocator,
                 date: qsoDate,
                 frequencyHz: frequencyHz,
-                mode: isFT4 ? "FT4" : "FT8",
+                mode: mode.logMode,
                 band: band.rawValue,
                 rstSent: "Invalid",
                 rstRcvd: "Invalid",
@@ -1007,7 +1006,7 @@ final class QSOStatusManager: ObservableObject {
             grid: dxLocator,
             date: qsoDate,
             frequencyHz: frequencyHz,
-            mode: isFT4 ? "FT4" : "FT8",
+            mode: mode.logMode,
             band: band.rawValue,
             rstSent: String(rstSent),
             rstRcvd: String(rstRcvd),

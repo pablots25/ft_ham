@@ -51,7 +51,7 @@ struct WaterfallView: View {
             minDisplayHz: Double(viewModel.config.minDisplayFrequency),
             maxDisplayHz: Double(viewModel.config.maxDisplayFrequency),
             txFrequency: ft8ViewModel.frequency,
-            isFT4: ft8ViewModel.isFT4,
+            mode: ft8ViewModel.digitalMode,
             showOverlay: overlayState.showOverlay,
             showTimestamps: overlayState.showTimestamps,
             showVerticalLabels: overlayState.showVerticalLabels,
@@ -105,7 +105,7 @@ struct WaterfallView: View {
                             // Keep the whole signal inside the decoder's passband
                             // even when the finger runs past the band edges.
                             ft8ViewModel.frequency = cursorFrequency.clamped(
-                                to: WaterfallViewModel.txFrequencyRange(isFT4: ft8ViewModel.isFT4)
+                                to: WaterfallViewModel.txFrequencyRange(mode: ft8ViewModel.digitalMode)
                             )
                         } else if let start = touchStart, distance(start.location, value.location) > Self.tapSlop {
                             longPressTask?.cancel()   // it became a drag
@@ -191,7 +191,7 @@ struct WaterfallView: View {
         let hz = viewModel.frequencyAtPixel(x: point.x, width: max(size.width, 1))
         let rowFromTop = Int(point.y / WaterfallRenderView.pointsPerRow)
         let placed = viewModel.bestGuessLabel(
-            nearHz: hz, rowFromTop: rowFromTop, isFT4: ft8ViewModel.isFT4
+            nearHz: hz, rowFromTop: rowFromTop, mode: ft8ViewModel.digitalMode
         ) { replyableMessage(for: $0) != nil }
         return placed.flatMap { replyableMessage(for: $0.label) }
     }

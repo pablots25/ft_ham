@@ -41,7 +41,7 @@ final class FreeTextSequencerTests: XCTestCase {
     }
 
     private func slot(even: Bool) -> SlotInfo {
-        SlotInfo(startTime: Date(), slotIndex: even ? 10 : 11, isEven: even, isFT4: false)
+        SlotInfo(startTime: Date(), slotIndex: even ? 10 : 11, isEven: even, mode: .ft8)
     }
 
     // MARK: - determineAction
@@ -99,7 +99,7 @@ final class FreeTextSequencerTests: XCTestCase {
 
         XCTAssertEqual(decoder.generateFreeTextCallCount, 1)
         XCTAssertEqual(decoder.lastGeneratedFreeText, "TNX 73 GL")
-        XCTAssertEqual(decoder.generateFT8CallCount, 0)
+        XCTAssertEqual(decoder.generateAudioCallCount, 0)
         XCTAssertEqual(viewModel.transmittedMessages.last?.text, "TNX 73 GL")
         XCTAssertTrue(viewModel.transmittedMessages.last?.isTX ?? false)
         XCTAssertTrue(viewModel.activeTXIsFreeText)

@@ -143,7 +143,7 @@ final class MessagesGuidePromptTests: XCTestCase {
 @MainActor
 final class WaterfallBestGuessTests: XCTestCase {
 
-    private let ft8Width = WaterfallViewModel.occupiedBandwidthHz(isFT4: false)
+    private let ft8Width = WaterfallViewModel.occupiedBandwidthHz(mode: .ft8)
 
     private func placed(_ hz: Double, anchor: Int = 100, span: Int = 190, replyable: Bool = true) -> WaterfallPlacedLabel {
         WaterfallPlacedLabel(

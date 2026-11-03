@@ -38,14 +38,14 @@ final class SlotMonitorTests: XCTestCase {
     // MARK: - Geometry
 
     func test_ft8Geometry_matchesTheDecoder() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         XCTAssertEqual(monitor.rowPeriod, 0.08, accuracy: 1e-6, "two rows per 160 ms symbol")
         XCTAssertEqual(monitor.minFrequency, 200, accuracy: 0.01)
         XCTAssertEqual(monitor.maxFrequency, 3000, accuracy: 3.2, "top bin sits on the 3 kHz edge")
     }
 
     func test_ft4Geometry() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: true)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft4)
         XCTAssertEqual(monitor.rowPeriod, 0.024, accuracy: 1e-6)
         // ft8_lib truncates 200 Hz to a whole FT4 bin (20.83 Hz): 187.5 Hz.
         XCTAssertEqual(monitor.minFrequency, 200, accuracy: 21)
@@ -56,7 +56,7 @@ final class SlotMonitorTests: XCTestCase {
     /// Audio is analysed one symbol at a time regardless of how it is chunked,
     /// and a tone shows up in the column that maps to its frequency.
     func test_rowsFollowSymbols_andPlaceATone() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         let rows = collectRows(monitor)
 
         // 1.0 s of a 1500 Hz tone fed in odd-sized chunks: 6 whole symbols.
@@ -93,7 +93,7 @@ final class SlotMonitorTests: XCTestCase {
     // MARK: - Slots
 
     func test_snapshotAndReset_startsANewSlot() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         let audio = sine(hz: 1000, seconds: 0.5)   // 3 symbols + 240 samples spare
         audio.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
 
@@ -117,7 +117,7 @@ final class SlotMonitorTests: XCTestCase {
     /// slot. ft8_lib's own store is exactly one slot, so the monitor keeps
     /// a second one of headroom.
     func test_lateSnapshot_stillHoldsTheWholeSlot() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         let audio = sine(hz: 1000, seconds: 16.0)   // 100 symbols > 93 per slot
         audio.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
         let snapshot = monitor.snapshotAndReset()
@@ -128,7 +128,7 @@ final class SlotMonitorTests: XCTestCase {
     /// Without any reset the store eventually fills and ft8_lib would
     /// silently ignore further audio; the waterfall must keep moving.
     func test_keepsEmittingRowsWithoutResets() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         let rows = collectRows(monitor)
         let audio = sine(hz: 1000, seconds: 40.0)   // 250 symbols > 186 stored
         audio.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
@@ -138,7 +138,7 @@ final class SlotMonitorTests: XCTestCase {
     /// Rows never reorder: a held row goes out before the next block's rows,
     /// and before a slot reset.
     func test_heldRowKeepsItsOrder() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         let lock = NSLock()
         var peaks: [Int] = []
         monitor.rowHandler = { ptr, count, _, _, _, _ in
@@ -168,7 +168,7 @@ final class SlotMonitorTests: XCTestCase {
     /// Rows say which slot they belong to and how far into it they are;
     /// snapshots carry the same sequence, so a decode can find its rows.
     func test_rowsCarrySlotSequenceAndIndex() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         let lock = NSLock()
         var tags: [(UInt, Int)] = []
         monitor.rowHandler = { _, _, _, _, seq, row in lock.lock(); tags.append((seq, Int(row))); lock.unlock() }
@@ -189,9 +189,9 @@ final class SlotMonitorTests: XCTestCase {
     }
 
     func test_reconfigure_switchesProtocol() {
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
-        monitor.reconfigureIsFT4(true)
-        XCTAssertTrue(monitor.isFT4)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
+        monitor.reconfigureMode(.ft4)
+        XCTAssertEqual(monitor.mode, .ft4)
         XCTAssertEqual(monitor.rowPeriod, 0.024, accuracy: 1e-6)
         let snapshot = monitor.snapshotAndReset()
         XCTAssertEqual(snapshot.symbolPeriod, 0.048, accuracy: 1e-6)
@@ -204,12 +204,12 @@ final class SlotMonitorTests: XCTestCase {
     func test_streamedSlot_decodes() {
         let engine = ft8_Engine()
         let message = "CQ EA4TST IN80"
-        guard let audio = engine.generateFT8(message, frequency: 1400, isFT4: false, toFile: nil) else {
+        guard let audio = engine.generateFT8(message, frequency: 1400, mode: .ft8, toFile: nil) else {
             return XCTFail("No audio generated")
         }
         let samples = audio.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
 
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         // Feed it the way the tap does: ~46 ms chunks.
         var pos = 0
         while pos < samples.count {
@@ -221,7 +221,7 @@ final class SlotMonitorTests: XCTestCase {
         let snapshot = monitor.snapshotAndReset()
         XCTAssertGreaterThan(snapshot.duration, 12.0)
 
-        let decoded = engine.decodeWaterfallSnapshot(snapshot, isFT4: false)
+        let decoded = engine.decodeWaterfallSnapshot(snapshot, mode: .ft8)
         let texts = decoded.compactMap { $0["text"] as? String }.map { $0.trimmingCharacters(in: .whitespaces) }
         XCTAssertTrue(texts.contains(message), "'\(message)' decoded as \(texts)")
 
@@ -232,10 +232,10 @@ final class SlotMonitorTests: XCTestCase {
     /// An empty or very short slot reports "Partial slot" instead of nothing.
     func test_shortSnapshot_reportsPartialSlot() {
         let engine = ft8_Engine()
-        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, mode: .ft8)
         let audio = sine(hz: 1000, seconds: 1.0)
         audio.withUnsafeBufferPointer { monitor.feedSamples($0.baseAddress!, count: UInt($0.count)) }
-        let decoded = engine.decodeWaterfallSnapshot(monitor.snapshotAndReset(), isFT4: false)
+        let decoded = engine.decodeWaterfallSnapshot(monitor.snapshotAndReset(), mode: .ft8)
         XCTAssertEqual(decoded.compactMap { $0["text"] as? String }, ["Partial slot"])
     }
 }

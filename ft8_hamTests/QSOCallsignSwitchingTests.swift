@@ -178,7 +178,7 @@ final class QSOCallsignSwitchingTests: XCTestCase {
             dxLocator: locatorA,
             qsoDate: .now,
             band: .band40m,
-            isFT4: false,
+            mode: .ft8,
             rstSent: rstSent,
             rstRcvd: rstRcvd
         )
@@ -197,7 +197,7 @@ final class QSOCallsignSwitchingTests: XCTestCase {
             dxLocator: locatorA,
             qsoDate: .now,
             band: .band40m,
-            isFT4: false,
+            mode: .ft8,
             rstSent: Int.min,
             rstRcvd: -10
         )

@@ -468,7 +468,7 @@ final class LogbookManagerTests: XCTestCase {
             dxLocator: "FN31",
             qsoDate: Date(timeIntervalSince1970: 1_700_000_123),
             band: .band20m,
-            isFT4: false,
+            mode: .ft8,
             rstSent: -10,
             rstRcvd: -8
         )
@@ -496,7 +496,7 @@ final class LogbookManagerTests: XCTestCase {
             dxLocator: "FN31",
             qsoDate: Date(timeIntervalSince1970: 1_700_000_123),
             band: .band20m,
-            isFT4: false,
+            mode: .ft8,
             rstSent: -10,
             rstRcvd: -8
         )
@@ -1169,7 +1169,7 @@ final class LogbookManagerTests: XCTestCase {
             dxLocator: "FN31",
             qsoDate: Date(timeIntervalSince1970: 1_700_000_000),
             band: .band20m,
-            isFT4: false,
+            mode: .ft8,
             rstSent: -10,
             rstRcvd: -8
         )
@@ -1194,7 +1194,7 @@ final class LogbookManagerTests: XCTestCase {
             dxLocator: "FN31",
             qsoDate: Date(timeIntervalSince1970: 1_700_000_000),
             band: .band20m,
-            isFT4: false,
+            mode: .ft8,
             rstSent: -10,
             rstRcvd: -8
         )

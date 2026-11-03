@@ -343,9 +343,9 @@ final class AnalyticsManager {
         ])
     }
 
-    func trackRadioModeChange(isFT4: Bool) {
+    func trackRadioModeChange(_ mode: DigitalMode) {
         logEvent("radio_mode_changed", parameters: [
-            AnalyticsParam.radioMode: isFT4 ? "ft4" : "ft8"
+            AnalyticsParam.radioMode: mode.rawValue
         ])
     }
 }

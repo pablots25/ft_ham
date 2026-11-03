@@ -134,14 +134,14 @@ protocol AudioManaging: AnyObject {
 
 // MARK: - Message Decoding Protocol
 
-/// Protocol for FT8/FT4 message encoding and decoding.
+/// Protocol for digital-mode message encoding and decoding.
 protocol MessageDecoding: AnyObject {
-    func generateFT8(_ message: String, frequency: Float, isFT4: Bool, toFile outputURL: URL?) -> Data?
-    func generateFreeText(_ text: String, frequency: Float, isFT4: Bool) -> Data?
-    func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]]
+    func generateAudio(_ message: String, frequency: Float, mode: DigitalMode, toFile outputURL: URL?) -> Data?
+    func generateFreeText(_ text: String, frequency: Float, mode: DigitalMode) -> Data?
+    func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, mode: DigitalMode) -> [[String: Any]]
     /// Decodes a slot the streaming `FT8SlotMonitor` already analysed.
-    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, isFT4: Bool) -> [[String: Any]]
-    func decode(_ input: URL?, isFT4: Bool) -> [[AnyHashable: Any]]
+    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, mode: DigitalMode) -> [[String: Any]]
+    func decode(_ input: URL?, mode: DigitalMode) -> [[AnyHashable: Any]]
 }
 
 // MARK: - Logbook Managing Protocol
@@ -194,14 +194,34 @@ extension AudioManaging {
 // MARK: - ft8_Engine Conformance to MessageDecoding
 
 extension ft8_Engine: MessageDecoding {
-    func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]] {
+    func generateAudio(_ message: String, frequency: Float, mode: DigitalMode, toFile outputURL: URL?) -> Data? {
+        guard let proto = mode.engineProtocol else { return nil }
+        return self.generateFT8(message, frequency: frequency, mode: proto, toFile: outputURL)
+    }
+
+    func generateFreeText(_ text: String, frequency: Float, mode: DigitalMode) -> Data? {
+        guard let proto = mode.engineProtocol else { return nil }
+        return self.generateFreeText(text, frequency: frequency, engineProtocol: proto)
+    }
+
+    func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, mode: DigitalMode) -> [[String: Any]] {
+        guard let proto = mode.engineProtocol else { return [] }
         // Bridge Objective-C method to Swift protocol
-        let result = self.decodeBuffer(usingMonitor: audioData, sampleRate: sampleRate, isFT4: isFT4)
+        let result = self.decodeBuffer(usingMonitor: audioData, sampleRate: sampleRate, mode: proto)
         return result as? [[String: Any]] ?? []
     }
 
-    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, isFT4: Bool) -> [[String: Any]] {
-        let result = self.decodeSlotSnapshot(snapshot, isFT4: isFT4)
+    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, mode: DigitalMode) -> [[String: Any]] {
+        guard let proto = mode.engineProtocol else { return [] }
+        let result = self.decodeSlotSnapshot(snapshot, mode: proto)
         return result as? [[String: Any]] ?? []
+    }
+
+    func decode(_ input: URL?, mode: DigitalMode) -> [[AnyHashable: Any]] {
+        guard let proto = mode.engineProtocol else {
+            // WAV-file decoding is FT-only for now.
+            return []
+        }
+        return self.decode(input, engineProtocol: proto)
     }
 }

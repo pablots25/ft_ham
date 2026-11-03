@@ -348,7 +348,7 @@ final class FT8ViewModelE2ETests2: XCTestCase {
 //    }
 //
 //    func testStartProgressBarUTCUpdatesProgress() async {
-//        viewModel.isFT4 = false
+//        viewModel.digitalMode = .ft8
 //        viewModel.startProgressBarUTC()
 //        try? await Task.sleep(nanoseconds: 200_000_000)
 //        XCTAssertGreaterThanOrEqual(viewModel.cycleProgress, 0.0)
@@ -499,7 +499,7 @@ final class FT8ViewModelComprehensiveTests: XCTestCase {
 //        viewModel.allMessages = ["CQ EA1AAA IM99"]
 //        viewModel.selectedMessageIndex = 0
 //        viewModel.selectedBand = .band10m
-//        viewModel.isFT4 = false
+//        viewModel.digitalMode = .ft8
 //        viewModel.transmitLoopActive = true
 //
 //        viewModel.startSequencer()
@@ -545,7 +545,7 @@ final class FT8ViewModelComprehensiveTests: XCTestCase {
     }
 
 //    func testStartProgressBarUpdatesCycleProgress() async throws {
-//        viewModel.isFT4 = false
+//        viewModel.digitalMode = .ft8
 //        viewModel.startProgressBarUTC()
 //        try await Task.sleep(nanoseconds: 100_000_000)
 //        XCTAssertGreaterThanOrEqual(viewModel.cycleProgress, 0.0)
@@ -721,13 +721,13 @@ final class RealtimeFFTTests: XCTestCase {
 //    func testCurrentSlotsAndNextSlot() async {
 //        let sm = SlotManager()
 //
-//        let txSlotsFT8Even = await sm.currentSlots(forTX: true, isFT4: false, evenCycle: true)
+//        let txSlotsFT8Even = await sm.currentSlots(forTX: true, mode: .ft8, evenCycle: true)
 //        XCTAssertEqual(txSlotsFT8Even, [0.0, 30.0])
 //
-//        let rxSlotsFT8 = await sm.currentSlots(forTX: false, isFT4: false, evenCycle: false)
+//        let rxSlotsFT8 = await sm.currentSlots(forTX: false, mode: .ft8, evenCycle: false)
 //        XCTAssertEqual(rxSlotsFT8, [0.0, 15.0, 30.0, 45.0])
 //
-//        let next = await sm.nextSlot(after: 10.0, forTX: true, isFT4: false, evenCycle: true)
+//        let next = await sm.nextSlot(after: 10.0, forTX: true, mode: .ft8, evenCycle: true)
 //        XCTAssertEqual(next, 30.0)
 //    }
 //
@@ -737,7 +737,7 @@ final class RealtimeFFTTests: XCTestCase {
 //            taskName: "t",
 //            logger: logger,
 //            forTX: false,
-//            isFT4: false,
+//            mode: .ft8,
 //            evenCycle: true
 //        )
 //        XCTAssertTrue(result || result == false)
@@ -1054,7 +1054,7 @@ final class FT8CallsignWithSuffixTests: XCTestCase {
 final class FT8EngineTests: XCTestCase {
     func testGenerateFT8ReturnsData() {
         let engine = ft8_Engine()
-        let data = engine.generateFT8("CQ EA1AAA IM99", frequency: 1400.0, isFT4: false, toFile: nil)
+        let data = engine.generateFT8("CQ EA1AAA IM99", frequency: 1400.0, mode: .ft8, toFile: nil)
         XCTAssertNotNil(data)
         if let d = data {
             XCTAssertTrue(d.count > 0)
@@ -1065,7 +1065,7 @@ final class FT8EngineTests: XCTestCase {
 
     func testDecodeNilDoesNotCrash() {
         let engine = ft8_Engine()
-        let decoded = engine.decode(nil, isFT4: false)
+        let decoded = engine.decode(nil, mode: .ft8)
         XCTAssertNotNil(decoded)
         XCTAssertTrue(decoded.count >= 0)
     }
@@ -1109,7 +1109,7 @@ final class ValidatorsTests: XCTestCase {
 @MainActor
 final class WaterfallViewModelTests: XCTestCase {
     func testInitAndBasicAPIs() {
-        let vm = WaterfallViewModel(imageWidth: 8, waterfallRows: 4, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 8, waterfallRows: 4, mode: .ft8)
 
         XCTAssertEqual(vm.width, 8)
         XCTAssertEqual(vm.height, 4)
@@ -1127,7 +1127,7 @@ final class WaterfallViewModelTests: XCTestCase {
     /// edges are `minDisplayFrequency`/`maxDisplayFrequency` and
     /// pixel → Hz → pixel round-trips.
     func testFrequencyAxisRoundTrip() {
-        let vm = WaterfallViewModel(imageWidth: 1024, waterfallRows: 4, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 1024, waterfallRows: 4, mode: .ft8)
         let width: CGFloat = 390
         let range = vm.displayedFrequencyRange
 
@@ -1144,12 +1144,12 @@ final class WaterfallViewModelTests: XCTestCase {
     /// A base tone picked on the waterfall must leave the whole signal inside
     /// the decoder's 200–3000 Hz window.
     func testTXFrequencyRangeKeepsTheSignalInThePassband() {
-        let ft8 = WaterfallViewModel.txFrequencyRange(isFT4: false)
+        let ft8 = WaterfallViewModel.txFrequencyRange(mode: .ft8)
         XCTAssertEqual(ft8.lowerBound, 200)
-        XCTAssertEqual(ft8.upperBound + WaterfallViewModel.occupiedBandwidthHz(isFT4: false), 3000, accuracy: 1e-9)
+        XCTAssertEqual(ft8.upperBound + WaterfallViewModel.occupiedBandwidthHz(mode: .ft8), 3000, accuracy: 1e-9)
 
-        let ft4 = WaterfallViewModel.txFrequencyRange(isFT4: true)
-        XCTAssertEqual(ft4.upperBound + WaterfallViewModel.occupiedBandwidthHz(isFT4: true), 3000, accuracy: 1e-9)
+        let ft4 = WaterfallViewModel.txFrequencyRange(mode: .ft4)
+        XCTAssertEqual(ft4.upperBound + WaterfallViewModel.occupiedBandwidthHz(mode: .ft4), 3000, accuracy: 1e-9)
         XCTAssertLessThan(ft4.upperBound, ft8.upperBound)
 
         XCTAssertEqual(3199.0.clamped(to: ft8), ft8.upperBound)
@@ -1227,7 +1227,7 @@ final class WaterfallViewModelTests: XCTestCase {
     }
 
     func testUpdateWaterfallPushesRowsAndLabelsToSinks() {
-        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 4, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 4, mode: .ft8)
         let sink = RecordingSink()
         vm.attach(sink)
         XCTAssertEqual(sink.resets, 1)
@@ -1271,7 +1271,7 @@ final class WaterfallViewModelTests: XCTestCase {
     /// A decode carries the slot it came from and its DT; the label lands on
     /// the row the signal started and spans the signal's length.
     func testLabelsAreAnchoredToTheSignalStart() {
-        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 400, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 400, mode: .ft8)
         vm.rowPeriod = 0.08
         let sink = RecordingSink()
         vm.attach(sink)
@@ -1330,7 +1330,7 @@ final class WaterfallViewModelTests: XCTestCase {
 
     /// Snapping a tap and hit-testing a label both look at the placed labels.
     func testTapSnapAndLabelHitTest() {
-        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 400, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 400, mode: .ft8)
         let row = [UInt8](repeating: 140, count: 898)
         for i in 0 ..< 200 { vm.updateWaterfall(monitorRow: row, firstBinHz: 200, binHz: 3.125, slotSequence: 1, slotRow: i) }
         let id = UUID()
@@ -1353,7 +1353,7 @@ final class WaterfallViewModelTests: XCTestCase {
 
     /// Flattening removes a sloped passband while leaving a signal standing.
     func testFlattenLevelsTheNoiseAcrossTheBand() {
-        let vm = WaterfallViewModel(imageWidth: 256, waterfallRows: 8, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 256, waterfallRows: 8, mode: .ft8)
         vm.displaySettings = WaterfallDisplaySettings(palette: .grey, flatten: true, autoLevel: true, zeroDB: 6, gainDB: 40)
         let sink = RecordingSink()
         vm.attach(sink)
@@ -1423,7 +1423,7 @@ final class WaterfallViewModelTests: XCTestCase {
     /// Slots are recorded as their rows arrive: each one closes the previous,
     /// carries its parity, and scrolls off with the ring.
     func testSlotMarksFollowTheRows() {
-        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 400, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 400, mode: .ft8)
         vm.rowPeriod = 0.08
         vm.slotContextEnabled = true
         let sink = RecordingSink()
@@ -1448,7 +1448,7 @@ final class WaterfallViewModelTests: XCTestCase {
     /// While transmitting, rows are greyed out, kept out of the level
     /// trackers, and the slot is marked as ours.
     func testTransmitSlotsAreMarkedAndGreyed() {
-        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 8, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 8, mode: .ft8)
         vm.slotContextEnabled = true
         let sink = RecordingSink()
         vm.attach(sink)
@@ -1483,7 +1483,7 @@ final class WaterfallViewModelTests: XCTestCase {
     /// With the flag off nothing about slots reaches the renderer and
     /// transmit rows are painted like any other.
     func testSlotContextIsOffByDefault() {
-        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 8, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 8, mode: .ft8)
         XCTAssertFalse(vm.slotContextEnabled, "behind the waterfallSlotContext flag")
         let sink = RecordingSink()
         vm.attach(sink)
@@ -1520,7 +1520,7 @@ final class WaterfallViewModelTests: XCTestCase {
     /// Rows arriving from the audio thread are copied and applied on the
     /// main actor.
     func testAppendMonitorRowReachesTheMainActor() async {
-        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 4, isFT4: false)
+        let vm = WaterfallViewModel(imageWidth: 16, waterfallRows: 4, mode: .ft8)
         let sink = RecordingSink()
         vm.attach(sink)
         var row = [UInt8](repeating: 100, count: 64)

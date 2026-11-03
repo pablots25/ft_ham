@@ -132,11 +132,11 @@ final class SlotManagerClockOffsetTests: XCTestCase {
     func test_getNextSlot_defaultReferenceFollowsAppClock() async {
         let manager = SlotManager()
         AppClock.shared.offset = 0
-        let raw = await manager.getNextSlot(from: Date(), isFT4: false)
+        let raw = await manager.getNextSlot(from: Date(), mode: .ft8)
 
         // Push the corrected clock two full FT8 slots ahead.
         AppClock.shared.offset = 30
-        let corrected = await manager.getNextSlot(isFT4: false)
+        let corrected = await manager.getNextSlot(mode: .ft8)
 
         XCTAssertGreaterThanOrEqual(corrected.slotIndex - raw.slotIndex, 2)
         XCTAssertLessThanOrEqual(corrected.slotIndex - raw.slotIndex, 3)

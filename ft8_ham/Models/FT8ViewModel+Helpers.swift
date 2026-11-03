@@ -111,7 +111,7 @@ extension FT8ViewModel{
     }
 
     /// Mode name as stored in the logbook ("FT8" or "FT4").
-    internal var currentModeName: String { isFT4 ? "FT4" : "FT8" }
+    internal var currentModeName: String { digitalMode.logMode }
 
     /// True when a callsign is not yet in the logbook (any band/mode).
     internal func isNewCallsign(_ callsign: String?) -> Bool {
@@ -223,7 +223,7 @@ extension FT8ViewModel{
               let call = msg.callsign, !call.isEmpty else { return [] }
 
         let band = effectiveBand.rawValue
-        let mode = isFT4 ? "FT4" : "FT8"
+        let mode = digitalMode.logMode
         var status: NeededStatus = []
 
         if !workedIndex.callsignBandMode.contains(WorkedIndex.key(call, band: band, mode: mode)) {

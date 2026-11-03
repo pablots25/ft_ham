@@ -229,10 +229,10 @@ final class ElevenMeterCallsignComposerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url) }
 
         let message = "CQ 26TE231"
-        let audio = engine.generateFT8(message, frequency: 1400, isFT4: false, toFile: url)
+        let audio = engine.generateFT8(message, frequency: 1400, mode: .ft8, toFile: url)
         XCTAssertNotNil(audio, "No audio generated for '\(message)'")
 
-        let decoded = engine.decode(url, isFT4: false)
+        let decoded = engine.decode(url, mode: .ft8)
             .compactMap { $0["text"] as? String }
             .map { $0.trimmingCharacters(in: .whitespaces) }
         XCTAssertTrue(decoded.contains(message), "'\(message)' decoded as \(decoded)")
@@ -384,7 +384,7 @@ final class CompoundCallsignEncodingTests: XCTestCase {
         let engine = ft8_Engine()
         for message in ["CQ I/VE6XAD", "CQ VE6XAD/MM", "K1ABC I/VE6XAD RR73",
                         "K1ABC I/VE6XAD IN76", "CQ VE6XAD IN76"] {
-            let data = engine.generateFT8(message, frequency: 1400, isFT4: false, toFile: nil)
+            let data = engine.generateFT8(message, frequency: 1400, mode: .ft8, toFile: nil)
             XCTAssertNotNil(data, "No audio generated for '\(message)'")
             XCTAssertGreaterThan(data?.count ?? 0, 0, "Empty audio for '\(message)'")
         }
@@ -416,10 +416,10 @@ final class CompoundCallsignEncodingTests: XCTestCase {
             .appendingPathComponent("roundtrip-\(UUID().uuidString).wav")
         defer { try? FileManager.default.removeItem(at: url) }
 
-        let audio = engine.generateFT8(message, frequency: 1400, isFT4: false, toFile: url)
+        let audio = engine.generateFT8(message, frequency: 1400, mode: .ft8, toFile: url)
         XCTAssertNotNil(audio, "No audio generated for '\(message)'", file: file, line: line)
 
-        let decoded = engine.decode(url, isFT4: false)
+        let decoded = engine.decode(url, mode: .ft8)
         let texts = decoded.compactMap { $0["text"] as? String }
             .map { $0.trimmingCharacters(in: .whitespaces) }
 
