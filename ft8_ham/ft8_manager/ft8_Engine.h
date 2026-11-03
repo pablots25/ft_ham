@@ -35,7 +35,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// Can optionally save the audio as a WAV file.
 /// @param message The message to encode (e.g., "CQ DX").
 /// @param frequency The transmit frequency in Hz (float).
-/// @param mode Protocol to generate (FT8 / FT4).
+/// @param mode Protocol to generate (FT8 / FT4 / FT2).
 /// @param outputURL Optional file URL to write WAV. Pass nil to skip saving.
 /// @return Float32 PCM audio data (12 kHz, mono), or nil if failed.
 - (nullable NSData *)generateFT8:(NSString *)message
@@ -43,7 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
                             mode:(FTXEngineProtocol)mode
                           toFile:(nullable NSURL *)outputURL;
 
-/// Generates FT8 or FT4 audio for a free-text message (type 0.0): up to 13
+/// Generates FT8, FT4 or FT2 audio for a free-text message (type 0.0): up to 13
 /// characters from " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?".
 /// @return Float32 PCM audio data (12 kHz, mono), or nil if the text does not fit.
 - (nullable NSData *)generateFreeText:(NSString *)text

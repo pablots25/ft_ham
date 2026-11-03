@@ -69,7 +69,7 @@ extension FT8ViewModel {
                     let harvestMode = self.digitalMode
                     let coveredSeconds = snapshot.duration
 
-                    // FT8 needs ~12.6 s of signal, FT4 ~4.5 s.
+                    // FT8 needs ~12.6 s of signal, FT4 ~4.5 s, FT2 ~2.5 s.
                     let requiredSeconds = harvestMode.minimumDecodeDuration
 
                     // Guard: micSampleRate starts at 0 and is populated lazily by startMicInput().
@@ -186,9 +186,9 @@ extension FT8ViewModel {
     /// Lag past the slot start beyond which the slot is skipped.
     nonisolated static let maxSlotLag: TimeInterval = 2.0
 
-    /// `true` when `lag` covers at least a whole slot (15 s FT8, 7.5 s FT4).
-    /// That only happens when the app was suspended and resumed, so it is
-    /// logged as a warning instead of a Crashlytics non-fatal.
+    /// `true` when `lag` covers at least a whole slot (15 s FT8, 7.5 s FT4,
+    /// 3.75 s FT2). That only happens when the app was suspended and resumed,
+    /// so it is logged as a warning instead of a Crashlytics non-fatal.
     nonisolated static func isSuspensionGap(lag: TimeInterval, mode: DigitalMode) -> Bool {
         lag >= mode.slotDuration
     }

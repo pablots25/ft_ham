@@ -177,7 +177,7 @@ static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
 
 // ftx_protocol_for_mode() is shared with the slot monitor (ft8_EngineProtocol.h).
 
-/// Modes on the FT4 4-GFSK frame (105 symbols, ft4_encode, BT 1.0).
+/// FT4 and FT2 share the 4-GFSK frame (105 symbols, ft4_encode, BT 1.0).
 static BOOL is_4fsk_mode(FTXEngineProtocol mode) {
   return ftx_protocol_for_mode(mode) == FTX_PROTOCOL_FT4;
 }
@@ -186,6 +186,8 @@ static float symbol_period_for_mode(FTXEngineProtocol mode) {
   switch (mode) {
   case FTXEngineProtocolFT4:
     return FT4_SYMBOL_PERIOD;
+  case FTXEngineProtocolFT2:
+    return FT2_SYMBOL_PERIOD;
   case FTXEngineProtocolFT8:
   default:
     return FT8_SYMBOL_PERIOD;
@@ -196,6 +198,8 @@ static float slot_time_for_mode(FTXEngineProtocol mode) {
   switch (mode) {
   case FTXEngineProtocolFT4:
     return FT4_SLOT_TIME;
+  case FTXEngineProtocolFT2:
+    return FT2_SLOT_TIME;
   case FTXEngineProtocolFT8:
   default:
     return FT8_SLOT_TIME;
@@ -215,6 +219,8 @@ static double signal_duration_for_mode(FTXEngineProtocol mode) {
   switch (mode) {
   case FTXEngineProtocolFT4:
     return 4.5;
+  case FTXEngineProtocolFT2:
+    return 2.52; // 105 symbols x 24 ms
   case FTXEngineProtocolFT8:
   default:
     return 12.6;

@@ -5,8 +5,8 @@
 //  Single source of truth for every per-mode parameter (slot timing, signal
 //  length, TX start tolerance, ADIF mode/submode, display name...).
 //
-//  New modes are added here as new cases; the rest of the app reads these
-//  properties instead of branching on a `Bool`.
+//  New modes (FT2) are added here as new cases; the rest of the app
+//  reads these properties instead of branching on a `Bool`.
 //
 
 import Foundation
@@ -14,6 +14,8 @@ import Foundation
 enum DigitalMode: String, Codable, CaseIterable, Sendable {
     case ft8
     case ft4
+    /// Experimental: FT4 frame at double baud rate (3.75 s cycles, ~167 Hz wide).
+    case ft2
 
     // MARK: - Persistence
 
@@ -36,7 +38,7 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
 
     // MARK: - Display
 
-    /// Human readable name ("FT8", "FT4").
+    /// Human readable name ("FT8", "FT4", "FT2").
     var displayName: String { rawValue.uppercased() }
 
     /// Whether the mode can be used in this build.
@@ -52,6 +54,7 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
         switch self {
         case .ft8: return 15.0
         case .ft4: return 7.5
+        case .ft2: return 3.75
         }
     }
 
@@ -61,6 +64,7 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
         switch self {
         case .ft8: return 12.6
         case .ft4: return 4.5
+        case .ft2: return 2.52 // 105 symbols x 24 ms
         }
     }
 
@@ -68,7 +72,7 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
     var decodeMargin: Double {
         switch self {
         case .ft8: return 0.2
-        case .ft4: return 0.1
+        case .ft4, .ft2: return 0.1
         }
     }
 
@@ -92,6 +96,8 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
         switch self {
         case .ft8: return 2.4
         case .ft4: return 0.8
+        // Decodium itself starts FT2 TX at +0.5 s; the decoder tolerates up to ~+0.9 s.
+        case .ft2: return 0.5
         }
     }
 
@@ -102,6 +108,7 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
         switch self {
         case .ft8: return 50.0
         case .ft4: return 90.0
+        case .ft2: return 170.0
         }
     }
 
@@ -115,6 +122,7 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
         switch self {
         case .ft8: return .ft8
         case .ft4: return .ft4
+        case .ft2: return .ft2
         }
     }
 
@@ -125,10 +133,11 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
         switch self {
         case .ft8: return .ft8
         case .ft4: return .ft4
+        case .ft2: return .ft2
         }
     }
 
-    /// Mode string stored in the logbook and sent to external services ("FT8", "FT4").
+    /// Mode string stored in the logbook and sent to external services ("FT8", "FT4", "FT2").
     var logMode: String { displayName }
 
     /// ADIF MODE / SUBMODE pair as defined by the ADIF specification.
@@ -137,6 +146,8 @@ enum DigitalMode: String, Codable, CaseIterable, Sendable {
         switch self {
         case .ft8: return ("FT8", nil)
         case .ft4: return ("MFSK", "FT4")
+        // Not yet in the published ADIF spec; MFSK/FT2 is what FT2 software emits.
+        case .ft2: return ("MFSK", "FT2")
         }
     }
 }

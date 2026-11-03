@@ -101,7 +101,7 @@ final class MockAudioManager: AudioManaging {
 
 // MARK: - Mock Message Decoder
 
-/// Mock message decoder for unit testing FT8/FT4 operations.
+/// Mock message decoder for unit testing FT8/FT4/FT2 operations.
 final class MockMessageDecoder: MessageDecoding {
     // MARK: - Configuration
     var generatedAudioData: Data?

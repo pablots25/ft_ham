@@ -197,7 +197,8 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
     static func calculateCycle(from date: Date, mode: FT8MessageMode) -> FT8MessageCycle {
         // FT8 slots: 0–14, 15–29, 30–44, 45–59
         // FT4 slots alternate every 7.5 s: even [0,15,30,45], odd [7.5,22.5,37.5,52.5]
-        // Uses the fractional epoch time (not whole seconds) so fractional slot boundaries are exact.
+        // FT2 slots alternate every 3.75 s.
+        // Uses the fractional epoch time (not whole seconds) so 3.75 s boundaries are exact.
         // Every slot length divides 60 s an even number of times, so parity matches the
         // per-minute convention.
         let slotIndex = Int(floor(date.timeIntervalSince1970 / mode.slotDuration))
@@ -301,6 +302,27 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
                 case .band70cm: return 432_170_000
                 case .band33cm: return 902_170_000
                 case .band23cm: return 1_296_170_000
+                case .custom:   return nil
+                case .unknown:  return nil
+                }
+
+            case .ft2:
+                // Dial frequencies used by Decodium (FT2 reference implementation).
+                switch self {
+                case .band160m: return 1_843_000
+                case .band80m:  return 3_568_000
+                case .band60m:  return 5_360_000
+                case .band40m:  return 7_062_000
+                case .band30m:  return 10_144_000
+                case .band20m:  return 14_084_000
+                case .band17m:  return 18_108_000
+                case .band15m:  return 21_144_000
+                case .band12m:  return 24_923_000
+                case .band11m:  return 27_245_000         // No standard FT2 frequency
+                case .band10m:  return 28_184_000
+                case .band6m:   return 50_316_000
+                // No FT2 activity frequencies above 6 m yet.
+                case .band2m, .band125m, .band70cm, .band33cm, .band23cm: return nil
                 case .custom:   return nil
                 case .unknown:  return nil
                 }

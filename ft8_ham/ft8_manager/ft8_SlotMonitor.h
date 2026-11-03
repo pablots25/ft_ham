@@ -46,7 +46,7 @@ typedef void (^FT8SlotMonitorRowHandler)(const uint8_t *row, int count,
                                          float firstBinHz, float binHz,
                                          NSUInteger slotSequence, int slotRow);
 
-/// Streaming FT8/FT4 spectrogram shared by the waterfall and the decoder.
+/// Streaming FT8/FT4/FT2 spectrogram shared by the waterfall and the decoder.
 ///
 /// Wraps one persistent ft8_lib `monitor_t`: audio is accumulated into
 /// symbol-length blocks and analysed as it arrives, every analysed sub-block

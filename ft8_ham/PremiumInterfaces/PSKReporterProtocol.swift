@@ -58,6 +58,7 @@ public struct PSKReporterReport: Sendable {
 public enum PSKReporterMode: Int, Sendable {
     case ft8 = 0
     case ft4 = 1
+    case ft2 = 2
 }
 
 // MARK: - Protocol

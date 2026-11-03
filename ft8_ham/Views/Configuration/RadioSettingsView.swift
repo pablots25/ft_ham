@@ -111,6 +111,7 @@ struct RadioSettingsContent: View {
         switch mode {
         case .ft8: return ("0/30", "15/45")
         case .ft4: return ("0", "7.5")
+        case .ft2: return ("0", "3.75")
         }
     }
 

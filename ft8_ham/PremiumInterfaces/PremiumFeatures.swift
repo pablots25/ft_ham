@@ -119,7 +119,12 @@ private final class PSKReporterAdapter: PSKReporterProtocol {
     }
     
     func report(_ report: PSKReporterReport, testMode: Bool) {
-        let premiumMode: FTHamPremium.PSKReporterMode = report.mode == .ft8 ? .ft8 : .ft4
+        let premiumMode: FTHamPremium.PSKReporterMode
+        switch report.mode {
+        case .ft8: premiumMode = .ft8
+        case .ft4: premiumMode = .ft4
+        case .ft2: premiumMode = .ft2
+        }
         let premiumReport = FTHamPremium.PSKReporterReport(
             receiverCallsign: report.receiverCallsign,
             senderCallsign: report.senderCallsign,

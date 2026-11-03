@@ -4,7 +4,7 @@ An iOS application for FT8/FT4 digital amateur radio communication. FT Ham enabl
 
 ## Features
 
-- **FT8/FT4 Encoding & Decoding**: Full support for FT8 and FT4 digital modes
+- **FT8/FT4/FT2 Encoding & Decoding**: Full support for FT8 and FT4 digital modes, plus experimental FT2 (3.75 s cycles)
 - **Audio Processing**: Real-time FFT analysis and GFSK signal synthesis
 - **Logbook Management**: Record and manage QSO (contact) logs in ADIF format
 - **Spectrum Analysis**: Visual frequency monitoring and signal detection
@@ -98,7 +98,8 @@ Verify hook is working: `./scripts/workflow.sh test-hook`
 
 ```
 ft_ham/
-├── ft8_manager/          # FT8/FT4 encoding/decoding engine (C/C++)
+├── ft8_manager/          # FT8/FT4/FT2 encoding/decoding engine (C/C++) 
+│   ├── ft2_lib/         # FT2 copy of the ft8_lib monitor init and candidate search
 │   └── ft8_lib/         # Third-party ft8_lib implementation
 ├── Models/              # Swift data models & business logic
 ├── Views/               # SwiftUI interface components

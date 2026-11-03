@@ -475,11 +475,12 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     /// Bandwidth a transmission occupies above its base tone: 8 tones × 6.25 Hz
-    /// for FT8 and 4 tones × 20.83 Hz for FT4.
+    /// for FT8, 4 tones × 20.83 Hz for FT4 and 4 tones × 41.67 Hz for FT2.
     static func occupiedBandwidthHz(mode: Mode) -> Double {
         switch mode {
         case .ft8: return 50.0
         case .ft4: return 83.3
+        case .ft2: return 166.7
         }
     }
 
