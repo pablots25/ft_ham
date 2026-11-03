@@ -1,0 +1,96 @@
+{
+  "whatsNew": {
+    "enabled": true,
+    "features": [
+      {
+        "id": "premium",
+        "title": "⭐ FT Ham Premium",
+        "description": "A one-time purchase unlocks CAT radio control through rigctld with frequency sync and PTT, PSK Reporter, QRZ, LoTW and eQSL logbook sync, Statistics and the iPad dashboard. Everything you used before stays free."
+      },
+      {
+        "id": "donors",
+        "title": "💛 Thank You, Donors",
+        "description": "Donated to an earlier version? Premium is free for you.\n1. Email ftham@turrion.dev with the order ID from your Apple receipt.\n2. We reply with a one-time code.\n3. In the App Store, tap your profile picture, then Redeem Gift Card or Code, and enter it."
+      },
+      {
+        "id": "statistics",
+        "title": "📊 Statistics",
+        "description": "Charts by band and mode, a DXCC counter and activity heatmaps, with 12 or 24 hour labels. Premium."
+      },
+      {
+        "id": "callsigns_bands",
+        "title": "📻 Callsigns and Bands",
+        "description": "Compound callsigns such as I/VE6XAD or VE6XAD/P with the right country, optional 11 m and CB callsigns, and the 2 m, 1.25 m, 70 cm, 33 cm and 23 cm bands."
+      },
+      {
+        "id": "waterfall",
+        "title": "🌊 Redesigned Waterfall",
+        "description": "Color palettes, level controls and a label on each signal. Tap near a signal to reply. The TX frequency only moves with the frequency button."
+      },
+      {
+        "id": "ipad_dashboard",
+        "title": "🖥️ iPad Dashboard",
+        "description": "A full-screen layout with the waterfall and the message list side by side. Premium."
+      }
+    ],
+    "improvements": [
+      {
+        "id": "sequencer",
+        "title": "🔁 QSO Auto-Sequencer",
+        "description": "Tap or double tap any decoded message to reply and log a contact by hand with Log QSO. QSOs that time out after both reports are logged."
+      },
+      {
+        "id": "decode_list",
+        "title": "📋 Decode List",
+        "description": "New callsigns in green, NEW GRID and NEW DXCC badges you can turn on separately, a message filter with a Needed mode and a Messages Guide that explains every color."
+      },
+      {
+        "id": "audio_levels",
+        "title": "🎚️ Audio Levels",
+        "description": "Separate TX output gain, which fixes VOX not triggering on QRP radios, and RX gain in dB down to -40 dB for hot sound cards."
+      },
+      {
+        "id": "logbook",
+        "title": "📒 Logbook",
+        "description": "Batch selection, multi-delete, undo, date filter and editing for any QSO. ADIF import and export with error reports, country flags and a much faster load."
+      },
+      {
+        "id": "interface",
+        "title": "✨ Interface",
+        "description": "Searchable settings, a unified toolbar, real help on every ? bubble, a CAT status chip with a PTT failure warning, better dark mode contrast and a map that opens on your location."
+      },
+      {
+        "id": "performance",
+        "title": "🚀 Performance",
+        "description": "A vectorized waterfall drawn only while on screen and batched decode updates, for lower CPU and memory use."
+      },
+      {
+        "id": "translations",
+        "title": "🌍 Translations and Accessibility",
+        "description": "Complete German, French, Italian and Spanish translations, and VoiceOver labels."
+      }
+    ],
+    "bugFixes": [
+      {
+        "id": "crashes",
+        "title": "🛡️ Crashes",
+        "description": "Fixed four crashes in audio playback, the message list, the logbook backup and the audio manager."
+      },
+      {
+        "id": "qso_fixes",
+        "title": "⚡ QSO Fixes",
+        "description": "No more 73 timeout loop, calling your own callsign or a wrong retry count. Band, frequency and mode are kept from the start of each QSO."
+      },
+      {
+        "id": "cat_adif",
+        "title": "📡 CAT and ADIF",
+        "description": "Fixed four CAT band and frequency bugs. ADIF BAND now comes from the frequency, so 144 MHz QSOs are no longer logged as 6 m."
+      },
+      {
+        "id": "cq_modifiers",
+        "title": "🏔️ SOTA and POTA Calls",
+        "description": "CQ messages with SOTA or POTA are no longer cut short."
+      }
+    ]
+  }
+}
