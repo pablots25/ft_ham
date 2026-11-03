@@ -1,0 +1,23 @@
+[package]
+name = "wspr_ffi"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "MIT"
+description = "C ABI over the RR73 WSPR codec and decoder, built as a static library for FT Ham (iOS)"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+# RR73 (https://github.com/nnamon/RR73), MIT OR Apache-2.0. Pinned to an exact commit so
+# builds are reproducible; bump deliberately and re-run the tests.
+rr73-wspr = { git = "https://github.com/nnamon/RR73", rev = "81d32edd3281b2b997676e20fa5727e7af1ffaa3" }
+rr73-decode = { git = "https://github.com/nnamon/RR73", rev = "81d32edd3281b2b997676e20fa5727e7af1ffaa3" }
+rr73-dsp = { git = "https://github.com/nnamon/RR73", rev = "81d32edd3281b2b997676e20fa5727e7af1ffaa3" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "unwind"

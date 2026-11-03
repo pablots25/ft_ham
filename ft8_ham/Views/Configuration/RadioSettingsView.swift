@@ -24,12 +24,16 @@ struct RadioSettingsContent: View {
 
             HStack(spacing: 20) {
                 modeView
-                // Beacon modes pick their slots at random, so there is no cycle to choose.
+                // WSPR beacons pick their slots at random, so there is no cycle to choose.
                 if viewModel.digitalMode.supportsQSO {
                     cycleView
                 }
             }
             .frame(maxWidth: .infinity)
+
+            if viewModel.digitalMode == .wspr {
+                wsprBeaconView
+            }
 
             Text("Select operating mode and transmission cycle timing.")
                 .font(.footnote)
@@ -111,7 +115,52 @@ struct RadioSettingsContent: View {
         switch mode {
         case .ft8: return ("0/30", "15/45")
         case .ft4: return ("0", "7.5")
+        // WSPR beacons pick slots at random; the picker is hidden in that mode.
+        case .wspr: return ("0/4/8", "2/6/10")
         }
+    }
+
+    // MARK: - WSPR beacon
+
+    /// Reported power and share of slots used for TX.
+    private var wsprBeaconView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("WSPR power:")
+                Spacer()
+                Picker("WSPR power", selection: $viewModel.wsprPowerDBm) {
+                    ForEach(WSPRSupport.validPowerLevels, id: \.self) { dbm in
+                        Text(Self.wsprPowerLabel(dbm)).tag(dbm)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            HStack {
+                Text("Beacon TX slots:")
+                Spacer()
+                Picker("Beacon TX slots", selection: $viewModel.wsprTxPercent) {
+                    ForEach([0, 10, 20, 25, 33, 50], id: \.self) { percent in
+                        Text("\(percent)%").tag(percent)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            Text("Beacon: \(viewModel.wsprBeaconMessage)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// "37 dBm · 5 W" style label.
+    static func wsprPowerLabel(_ dbm: Int) -> String {
+        let watts = pow(10, Double(dbm - 30) / 10)
+        let wattsText: String
+        if watts >= 1 {
+            wattsText = String(format: "%.0f W", watts)
+        } else {
+            wattsText = String(format: "%.0f mW", watts * 1000)
+        }
+        return "\(dbm) dBm · \(wattsText)"
     }
 
     // MARK: - Clock sync

@@ -46,6 +46,8 @@ extension FT8ViewModel {
                     guard let base = buffer.baseAddress else { return }
                     self.slotMonitor.feedSamples(base, count: UInt(buffer.count))
                 }
+                // No-op unless WSPR is selected.
+                self.wsprCapture.append(samples)
             }
             .store(in: &cancellables)
 
@@ -173,7 +175,7 @@ extension FT8ViewModel {
             if message.isTX {
                 continue
             } else if !digitalMode.supportsQSO {
-                // Beacon modes: spots are listed and mapped, never answered.
+                // Beacon modes (WSPR): spots are listed and mapped, never answered.
                 continue
             } else if message.msgType != .internalTimestamp && message.msgType != .unknown {
                 let shouldAutoReplyToCQ = autoCQReplyEnabled && !isWorked(

@@ -70,6 +70,8 @@ func backgroundColor(
         colors.tint(.finals)
     case .unknown:
         msg.isTX ? colors.tint(.ownTX) : colors.tint(.unknown) // own free text is own-TX color
+    case .wsprSpot:
+        msg.isTX ? colors.tint(.ownTX) : colors.tint(.wsprSpot)
     }
 }
 

@@ -5,6 +5,7 @@ An iOS application for FT8/FT4 digital amateur radio communication. FT Ham enabl
 ## Features
 
 - **FT8/FT4 Encoding & Decoding**: Full support for FT8 and FT4 digital modes
+- **WSPR**: 2-minute beacon reception (spots in the list and map) and optional beacon TX, via the Rust `WsprFFI` library
 - **Audio Processing**: Real-time FFT analysis and GFSK signal synthesis
 - **Logbook Management**: Record and manage QSO (contact) logs in ADIF format
 - **Spectrum Analysis**: Visual frequency monitoring and signal detection
@@ -28,6 +29,7 @@ Copyright © 2026 Pablo Turrión San Pedro (EA4IQL)
 ### Third-Party Libraries
 - **ft8_lib**: Copyright (c) 2018-2025 kgoba (MIT License)
 - **KISS FFT**: Copyright (c) 2003-2010 Mark Borgerding (BSD-3-Clause)
+- **RR73** (WSPR codec/decoder, via `rust/wspr_ffi`): Copyright (c) 2026 The RR73 authors (MIT License)
 - **Firebase iOS SDK**: Copyright 2011-2026 Google Inc. (Apache License 2.0)
 
 ## Disclaimer
@@ -56,7 +58,9 @@ To build from source:
 1. Clone the repository
 2. Open `ft8_ham.xcodeproj` in Xcode
 3. Configure signing certificates for your Apple developer account
-4. Build and run on an iOS device
+4. (WSPR) Build the Rust WSPR library once: `./rust/wspr_ffi/build-ios.sh` (needs `rustup`),
+   then add `rust/wspr_ffi/build/WsprFFI.xcframework` to the app target (Do Not Embed)
+5. Build and run on an iOS device
 
 ### Public (MIT) vs Private (Premium)
 
@@ -98,8 +102,9 @@ Verify hook is working: `./scripts/workflow.sh test-hook`
 
 ```
 ft_ham/
-├── ft8_manager/          # FT8/FT4 encoding/decoding engine (C/C++)
+├── ft8_manager/          # FT8/FT4 encoding/decoding engine (C/C++) + WSPR Swift wrapper
 │   └── ft8_lib/         # Third-party ft8_lib implementation
+├── rust/wspr_ffi/       # WSPR static library (Rust, C ABI over RR73)
 ├── Models/              # Swift data models & business logic
 ├── Views/               # SwiftUI interface components
 ├── Utils/               # Utility functions & helpers

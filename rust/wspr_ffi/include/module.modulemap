@@ -1,0 +1,4 @@
+module WsprFFI {
+    header "wspr_ffi.h"
+    export *
+}

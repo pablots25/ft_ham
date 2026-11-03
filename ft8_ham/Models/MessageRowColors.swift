@@ -19,6 +19,7 @@ enum MessageRowColor: String, CaseIterable, Identifiable {
     case reportToMe
     case finals
     case unknown
+    case wsprSpot
     case callingMe
     case watched
     case activeQSO
@@ -40,6 +41,7 @@ enum MessageRowColor: String, CaseIterable, Identifiable {
         case .reportToMe: .orange
         case .finals: .purple
         case .unknown: .gray
+        case .wsprSpot: .teal
         case .callingMe: .red
         case .watched: .cyan
         case .activeQSO: .indigo
@@ -56,6 +58,7 @@ enum MessageRowColor: String, CaseIterable, Identifiable {
         case .reportToMe: "Message directed to you (signal report)"
         case .finals: "Final exchange: RR73 / RRR / 73"
         case .unknown: "Unknown message type"
+        case .wsprSpot: "WSPR beacon spot"
         case .callingMe: "A station calling you"
         case .watched: "A station on your watchlist"
         case .activeQSO: "Active QSO"

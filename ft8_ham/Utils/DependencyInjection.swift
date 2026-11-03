@@ -195,23 +195,30 @@ extension AudioManaging {
 
 extension ft8_Engine: MessageDecoding {
     func generateAudio(_ message: String, frequency: Float, mode: DigitalMode, toFile outputURL: URL?) -> Data? {
-        guard let proto = mode.engineProtocol else { return nil }
+        guard let proto = mode.engineProtocol else {
+            // WSPR is synthesised by the Rust library (always 12 kHz, no WAV export).
+            return WSPRSupport.generateAudio(message, audioFrequencyHz: frequency)
+        }
         return self.generateFT8(message, frequency: frequency, mode: proto, toFile: outputURL)
     }
 
     func generateFreeText(_ text: String, frequency: Float, mode: DigitalMode) -> Data? {
+        // WSPR has no free-text message.
         guard let proto = mode.engineProtocol else { return nil }
         return self.generateFreeText(text, frequency: frequency, engineProtocol: proto)
     }
 
     func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, mode: DigitalMode) -> [[String: Any]] {
-        guard let proto = mode.engineProtocol else { return [] }
+        guard let proto = mode.engineProtocol else {
+            return WSPRSupport.decode(audioData, sampleRate: sampleRate)
+        }
         // Bridge Objective-C method to Swift protocol
         let result = self.decodeBuffer(usingMonitor: audioData, sampleRate: sampleRate, mode: proto)
         return result as? [[String: Any]] ?? []
     }
 
     func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, mode: DigitalMode) -> [[String: Any]] {
+        // WSPR is decoded from raw audio (`decodeAudioBuffer`), never from the FT spectrogram.
         guard let proto = mode.engineProtocol else { return [] }
         let result = self.decodeSlotSnapshot(snapshot, mode: proto)
         return result as? [[String: Any]] ?? []

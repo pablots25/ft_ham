@@ -68,6 +68,12 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     /// Streaming spectrogram of the current slot. Fed from the audio tap; the
     /// waterfall draws its rows and the sequencer decodes it at slot end.
     let slotMonitor: FT8SlotMonitor
+    /// Raw audio of the current slot, filled only while WSPR is selected
+    /// (WSPR is decoded from samples, not from the slot monitor's spectrogram).
+    let wsprCapture = WSPRCaptureBuffer(
+        sampleRate: Constants.sampleRate,
+        maxDuration: DigitalMode.wspr.maxCaptureDuration
+    )
 
     /// Lightweight state observed by the app root / `ContentView` so they do not
     /// have to observe this whole object. See `RootUIState`.
@@ -412,8 +418,8 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         }
     }
     
-    /// Protocol the streaming slot monitor analyses. Modes the engine does not
-    /// handle keep an FT8 spectrogram for the waterfall.
+    /// Protocol the streaming slot monitor analyses. WSPR is decoded from raw
+    /// audio instead, so the monitor keeps an FT8 spectrogram for the waterfall.
     nonisolated static func slotMonitorProtocol(for mode: DigitalMode) -> FTXEngineProtocol {
         mode.engineProtocol ?? .ft8
     }
@@ -426,6 +432,17 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     }
 
     @AppStorage("evenCycle") var evenCycle = true
+
+    // MARK: WSPR beacon settings
+    /// Reported transmitter power in WSPR beacons (dBm, one of `WSPRSupport.validPowerLevels`).
+    @AppStorage("wsprPowerDBm") var wsprPowerDBm: Int = 37
+    /// Share of WSPR slots used for transmission when the beacon is on (percent, WSJT-X default 20).
+    @AppStorage("wsprTxPercent") var wsprTxPercent: Int = 20
+
+    /// Text our WSPR beacon sends.
+    var wsprBeaconMessage: String {
+        WSPRSupport.beaconMessage(callsign: callsign, locator: locator, powerDBm: wsprPowerDBm)
+    }
     
     @AppStorage("band") private var selectedBandRaw = FT8Message.Band.band10m.rawValue
     var selectedBand: FT8Message.Band {
@@ -528,7 +545,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         let savedBandRaw = UserDefaults.standard.string(forKey: "band") ?? FT8Message.Band.band10m.rawValue
         var storedMode = DigitalMode.loadStored()
         if !storedMode.isAvailable {
-            // A mode saved by a build that supported it, opened by one that does not.
+            // e.g. WSPR saved by a build that linked WsprFFI, opened by one that does not.
             storedMode = .ft8
         }
         

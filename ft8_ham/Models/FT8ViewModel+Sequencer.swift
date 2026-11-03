@@ -44,6 +44,11 @@ extension FT8ViewModel {
             
             // Whatever was analysed before belongs to no slot.
             self.slotMonitor.resetSlot()
+            if self.digitalMode == .wspr {
+                self.wsprCapture.start()
+            } else {
+                self.wsprCapture.stop()
+            }
             
             // Ensure screen stays on
             self.updateScreenAlwaysOn()
@@ -67,9 +72,14 @@ extension FT8ViewModel {
                     let completedSlotIndex = nextSlot.slotIndex - 1
                     let snapshot = self.slotMonitor.snapshotAndReset()
                     let harvestMode = self.digitalMode
-                    let coveredSeconds = snapshot.duration
+                    // WSPR is decoded from the raw slot audio instead of the spectrogram.
+                    let wsprSamples: [Float]? = harvestMode == .wspr
+                        ? self.wsprCapture.harvest(nextSlotStart: nextSlot.startTime, now: AppClock.now())
+                        : nil
+                    let coveredSeconds = wsprSamples.map { Double($0.count) / self.wsprCapture.sampleRate }
+                        ?? snapshot.duration
 
-                    // FT8 needs ~12.6 s of signal, FT4 ~4.5 s.
+                    // FT8 needs ~12.6 s of signal, FT4 ~4.5 s, WSPR ~110.6 s.
                     let requiredSeconds = harvestMode.minimumDecodeDuration
 
                     // Guard: micSampleRate starts at 0 and is populated lazily by startMicInput().
@@ -89,16 +99,29 @@ extension FT8ViewModel {
                         // CPU-intensive decode runs on a background thread, not the main thread.
                         let capturedEngine = self.engine
                         let capturedLogger = self.rxLogger
+                        let capturedSampleRate = self.wsprCapture.sampleRate
                         self.isHarvestingRX = true
                         Task.detached(priority: .userInitiated) { [weak self] in
                             let weakSelf = self
                             defer { Task { await MainActor.run { weakSelf?.isHarvestingRX = false } } }
 
-                            let msgs = capturedEngine.decodeWaterfallSnapshot(snapshot, mode: harvestMode)
+                            let msgs: [[String: Any]]
+                            if let wsprSamples {
+                                msgs = capturedEngine.decodeAudioBuffer(
+                                    WSPRCaptureBuffer.data(from: wsprSamples),
+                                    sampleRate: capturedSampleRate,
+                                    mode: harvestMode
+                                )
+                            } else {
+                                msgs = capturedEngine.decodeWaterfallSnapshot(snapshot, mode: harvestMode)
+                            }
 
                             capturedLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
+                            // WSPR spots have no waterfall labels, so no slot sequence.
                             await weakSelf?.handleDecodedMessages(
-                                msgs, slotIndex: completedSlotIndex, slotSequence: UInt(snapshot.slotSequence)
+                                msgs,
+                                slotIndex: completedSlotIndex,
+                                slotSequence: wsprSamples == nil ? UInt(snapshot.slotSequence) : nil
                             )
                         }
                     } else {
@@ -186,9 +209,9 @@ extension FT8ViewModel {
     /// Lag past the slot start beyond which the slot is skipped.
     nonisolated static let maxSlotLag: TimeInterval = 2.0
 
-    /// `true` when `lag` covers at least a whole slot (15 s FT8, 7.5 s FT4).
-    /// That only happens when the app was suspended and resumed, so it is
-    /// logged as a warning instead of a Crashlytics non-fatal.
+    /// `true` when `lag` covers at least a whole slot (15 s FT8, 7.5 s FT4,
+    /// 120 s WSPR). That only happens when the app was suspended
+    /// and resumed, so it is logged as a warning instead of a Crashlytics non-fatal.
     nonisolated static func isSuspensionGap(lag: TimeInterval, mode: DigitalMode) -> Bool {
         lag >= mode.slotDuration
     }
@@ -209,6 +232,18 @@ extension FT8ViewModel {
                 appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
             }
             return .skip
+        }
+
+        // Beacon modes (WSPR): no QSO state machine. When the beacon is on, transmit in a
+        // random share of slots (WSJT-X style) so stations also hear each other.
+        if !slot.mode.supportsQSO {
+            guard self.transmitLoopActive else { return .receive }
+            let percent = min(max(self.wsprTxPercent, 0), 100)
+            if Int.random(in: 0..<100) < percent {
+                appLogger.debug("Sequencer Decided: BEACON TX (Slot \(slot.slotIndex), \(percent)%)")
+                return .transmit
+            }
+            return .receive
         }
         
         // Free text runs outside the QSO state machine: every my-turn slot.
@@ -237,6 +272,7 @@ extension FT8ViewModel {
     @MainActor
     internal func clearRXBuffer() {
         slotMonitor.resetSlot()
+        wsprCapture.discardCurrentSlot()
     }
 
     /// Slot parity check shared by the QSO and free-text loops.
@@ -351,7 +387,7 @@ extension FT8ViewModel {
             slot.mode.minimumDecodeDuration
         )
         // The RX decode barrier exists so a QSO reply is chosen from the latest decodes.
-        // Beacons do not depend on them: do not wait.
+        // Beacons do not depend on them, and WSPR decodes take seconds: do not wait.
         while slot.mode.supportsQSO && self.isHarvestingRX {
             if AppClock.now() > signalEnd {
                 txLogger.warning(
@@ -370,9 +406,29 @@ extension FT8ViewModel {
         
         let message: String
         let audioData: Data
-        let isFreeText = freeTextLoopActive
+        let isFreeText = freeTextLoopActive && slot.mode.supportsQSO
 
-        if isFreeText {
+        if !slot.mode.supportsQSO {
+            // Beacon modes (WSPR) always send our own beacon message.
+            let beacon = wsprBeaconMessage
+            guard WSPRSupport.isValidMessage(beacon) else {
+                audioError = "Invalid WSPR beacon message"
+                txLogger.warning("Invalid WSPR beacon message: '\(beacon)'")
+                return
+            }
+            guard let data = engine.generateAudio(
+                beacon,
+                frequency: Float(frequency),
+                mode: slot.mode,
+                toFile: nil
+            ) else {
+                txLogger.error("Failed to generate WSPR audio for: \(beacon)")
+                return
+            }
+            txLogger.debug("WSPR beacon message: '\(beacon)'")
+            message = beacon
+            audioData = data
+        } else if isFreeText {
             guard case .success(let text) = FreeTextMessage.validate(freeTextForTX) else {
                 txLogger.warning("Free text TX skipped: text is invalid")
                 freeTextLoopActive = false
@@ -434,7 +490,7 @@ extension FT8ViewModel {
         // Clear isReadyForTX after successful TX preparation
         self.isReadyForTX = false
 
-        // Some modes start transmitting at a fixed point into the slot.
+        // Some modes start transmitting at a fixed point into the slot (WSPR: +1 s).
         let startDelay = slot.startTime
             .addingTimeInterval(slot.mode.transmissionStartDelay)
             .timeIntervalSinceNow

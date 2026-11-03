@@ -16,6 +16,8 @@ enum FT8MessageType: String, Codable, CaseIterable {
     case rr73
     case rrr
     case final73
+    /// A decoded WSPR beacon ("CALL GRID DBM"); never part of a QSO.
+    case wsprSpot
     case unknown
 }
 
@@ -114,6 +116,24 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
         
         // Parse message once for all operations
         let parts = FT8Message.splitParts(text)
+
+        // WSPR spots have their own grammar and never start a QSO.
+        if mode == .wspr {
+            let spot = FT8Message.parseWSPRSpot(parts)
+            msgType = spot == nil ? .unknown : .wsprSpot
+            messageTxtSNR = .nan
+            self.allowsReply = false
+            callsign = spot?.callsign
+            locator = spot?.locator
+            senderCountry = spot.map { CountryResolver.countryAndCoordinates(for: $0.callsign) }
+                ?? CountryInfo(country: nil, coordinates: nil)
+            dxCallsign = nil
+            dxLocator = nil
+            dxCountry = CountryInfo(country: nil, coordinates: nil)
+            cqModifier = nil
+            forMe = false
+            return
+        }
         
         // Auto-detect FT8 message type
         msgType = FT8Message.detectMessageType(text: text, parts: parts)
@@ -304,6 +324,30 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
                 case .custom:   return nil
                 case .unknown:  return nil
                 }
+
+            case .wspr:
+                // WSPRnet / WSJT-X USB dial frequencies (signals at +1400..1600 Hz).
+                switch self {
+                case .band160m: return 1_836_600
+                case .band80m:  return 3_568_600
+                case .band60m:  return 5_287_200
+                case .band40m:  return 7_038_600
+                case .band30m:  return 10_138_700
+                case .band20m:  return 14_095_600
+                case .band17m:  return 18_104_600
+                case .band15m:  return 21_094_600
+                case .band12m:  return 24_924_600
+                case .band11m:  return 27_245_000         // No standard WSPR frequency
+                case .band10m:  return 28_124_600
+                case .band6m:   return 50_293_000
+                case .band2m:   return 144_489_000
+                case .band70cm: return 432_300_000
+                case .band23cm: return 1_296_500_000
+                case .band125m: return nil                // No standard WSPR frequency
+                case .band33cm: return nil                // No standard WSPR frequency
+                case .custom:   return nil
+                case .unknown:  return nil
+                }
             }
         }
 
@@ -422,6 +466,27 @@ struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
     // MARK: - Parsing helpers
     private static func splitParts(_ text: String) -> [Substring] {
         text.uppercased().split(separator: " ")
+    }
+
+    /// Parses WSPR message text: "K1ABC FN42 37" (type 1), "PJ4/K1ABC 33" (type 2) or
+    /// "<K1ABC> FN42AB 37" (type 3, hashed callsign in angle brackets).
+    static func parseWSPRSpot(_ parts: [Substring]) -> (callsign: String, locator: String?, powerDBm: Int)? {
+        guard parts.count == 2 || parts.count == 3,
+              let power = Int(parts[parts.count - 1]), (0...60).contains(power) else {
+            return nil
+        }
+        let call = parts[0].trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
+        guard !call.isEmpty, !call.contains("...") else { return nil }
+        var locator: String?
+        if parts.count == 3 {
+            let grid = String(parts[1])
+            // 4-character locator, or 6-character (type 3) whose first 4 form a locator.
+            guard isValidLocator(String(grid.prefix(4))), grid.count == 4 || grid.count == 6 else {
+                return nil
+            }
+            locator = grid
+        }
+        return (call, locator, power)
     }
 
     /// Reads one decoded token as a callsign, or returns `nil` when it is not one.
