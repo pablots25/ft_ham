@@ -173,6 +173,86 @@ final class PremiumGrantTests: XCTestCase {
     }
 }
 
+// MARK: - Tips from before 1.3.0 unlock premium
+
+@MainActor
+final class LegacyDonationTests: XCTestCase {
+
+    private let cutoff = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func test_tipBeforeCutoff_isLegacyDonation() {
+        for id in PremiumManager.donationProductIDs {
+            XCTAssertTrue(
+                PremiumManager.isLegacyDonation(
+                    productID: id,
+                    purchaseDate: cutoff.addingTimeInterval(-86_400),
+                    revocationDate: nil,
+                    cutoff: cutoff
+                ),
+                id
+            )
+        }
+    }
+
+    func test_tipAtOrAfterCutoff_isNotLegacyDonation() {
+        for date in [cutoff, cutoff.addingTimeInterval(1)] {
+            XCTAssertFalse(
+                PremiumManager.isLegacyDonation(
+                    productID: "coffee_large",
+                    purchaseDate: date,
+                    revocationDate: nil,
+                    cutoff: cutoff
+                )
+            )
+        }
+    }
+
+    func test_refundedTip_isNotLegacyDonation() {
+        XCTAssertFalse(
+            PremiumManager.isLegacyDonation(
+                productID: "coffe_small",
+                purchaseDate: cutoff.addingTimeInterval(-86_400),
+                revocationDate: cutoff.addingTimeInterval(-3_600),
+                cutoff: cutoff
+            )
+        )
+    }
+
+    func test_otherProducts_areNotLegacyDonations() {
+        for id in [PremiumManager.premiumProductID, PremiumManager.betaProductID, "something_else"] {
+            XCTAssertFalse(
+                PremiumManager.isLegacyDonation(
+                    productID: id,
+                    purchaseDate: cutoff.addingTimeInterval(-86_400),
+                    revocationDate: nil,
+                    cutoff: cutoff
+                ),
+                id
+            )
+        }
+    }
+
+    func test_defaultCutoff_isThe130Release() {
+        let components = Calendar(identifier: .gregorian)
+            .dateComponents(in: TimeZone(identifier: "UTC")!, from: PremiumManager.legacyDonationCutoff)
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 11)
+        XCTAssertEqual(components.day, 3)
+        XCTAssertEqual(components.hour, 0)
+    }
+
+    func test_newManager_isNotLegacyDonor() {
+        let sut = PremiumManager(fetcher: EmptyPremiumFetcher(), observesTransactions: false)
+        XCTAssertFalse(sut.isLegacyDonor)
+    }
+
+    /// Without this key iOS hides finished tips from `Transaction.all`.
+    func test_infoPlist_includesConsumableHistory() {
+        let value = Bundle.main.object(forInfoDictionaryKey: "SKIncludeConsumableInAppPurchaseHistory") as? Bool
+        XCTAssertEqual(value, true)
+    }
+}
+
 // MARK: - Notification.Name.premiumRevoked
 
 final class PremiumRevokedNotificationTests: XCTestCase {

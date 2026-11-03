@@ -228,8 +228,8 @@ struct PremiumPaywallView: View {
 
     // MARK: - Past Donors
 
-    /// Tips never unlock premium, and 1.2.x tips cannot be seen by the app, so
-    /// past donors ask by email and get an offer code instead.
+    /// 1.2.x tips unlock premium on their own only on iOS 18+, where the app can
+    /// see finished tips. Other past donors ask by email and get an offer code.
     private var donorNote: some View {
         VStack(spacing: 6) {
             Text("💛 Thank You, Donors")
