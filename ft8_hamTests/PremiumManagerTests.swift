@@ -232,12 +232,13 @@ final class LegacyDonationTests: XCTestCase {
         }
     }
 
-    func test_defaultCutoff_isThe130Release() {
+    /// 1.3.0 went live on 4 Nov 2026 with a 7-day phased release.
+    func test_defaultCutoff_isTheEndOfThe130PhasedRelease() {
         let components = Calendar(identifier: .gregorian)
             .dateComponents(in: TimeZone(identifier: "UTC")!, from: PremiumManager.legacyDonationCutoff)
         XCTAssertEqual(components.year, 2026)
         XCTAssertEqual(components.month, 11)
-        XCTAssertEqual(components.day, 3)
+        XCTAssertEqual(components.day, 11)
         XCTAssertEqual(components.hour, 0)
     }
 

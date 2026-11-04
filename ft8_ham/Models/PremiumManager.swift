@@ -28,12 +28,13 @@ final class PremiumManager: ObservableObject {
     static let donationProductIDs: Set<String> = ["coffe_small", "coffe_medium", "coffee_large"]
 
     /// Tips bought before this moment came from 1.2.x, where the tip sheet was the only
-    /// way to support the app, so those donors get premium. Set to the 1.3.0 release.
+    /// way to support the app, so those donors get premium. 1.3.0 went live on 4 Nov 2026
+    /// with a 7-day phased release, so the cutoff is the end of that rollout.
     static let legacyDonationCutoff: Date = {
         var components = DateComponents()
         components.year = 2026
         components.month = 11
-        components.day = 3
+        components.day = 11
         components.timeZone = TimeZone(identifier: "UTC")
         return Calendar(identifier: .gregorian).date(from: components)!
     }()
