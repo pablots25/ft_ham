@@ -13,7 +13,7 @@ cd "$FT_HAM_DIR"
 
 # Check we're on main
 current_branch=$(git branch --show-current)
-if [ "$current_branch" != "main" ]; then
+if [[ "$current_branch" != "main" ]]; then
     echo "⚠️  Warning: You're on branch '$current_branch', not 'main'"
     read -p "Continue anyway? (y/N): " -n 1 -r
     echo
