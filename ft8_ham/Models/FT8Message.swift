@@ -55,7 +55,7 @@ struct CountryPair: Hashable {
 
 
 // -----------------------------------------------------
-struct FT8Message: Identifiable, Codable, CustomStringConvertible {
+struct FT8Message: Identifiable, Codable, Equatable, CustomStringConvertible {
     static let appLogger = AppLogger(category: "MSG")
     
     let id: UUID
@@ -88,7 +88,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         text: String,
         mode: FT8MessageMode,
         isRealtime: Bool = false,
-        timestamp: Date = .now,
+        timestamp: Date = AppClock.now(),
         measuredSNR: Double = .nan,
         frequency: Double = .nan,
         timeOffset: Double = .nan,
@@ -213,7 +213,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
     
     // MARK: - Static Factory Methods
     static func timestamped(_ text: String, mode: FT8MessageMode, realtime: Bool = false, isTx: Bool) -> FT8Message {
-        FT8Message(text: text, mode: mode, isRealtime: realtime, timestamp: .now, isTX: isTx)
+        FT8Message(text: text, mode: mode, isRealtime: realtime, timestamp: AppClock.now(), isTX: isTx)
     }
     
     static func decode(
@@ -228,7 +228,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
             text: text,
             mode: mode,
             isRealtime: realtime,
-            timestamp: .now,
+            timestamp: AppClock.now(),
             measuredSNR: snr,
             frequency: frequency,
             timeOffset: timeOffset,
@@ -256,6 +256,11 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         case band11m  = "CB/11m"
         case band10m  = "10m"
         case band6m   = "6m"
+        case band2m   = "2m"
+        case band125m = "1.25m"
+        case band70cm = "70cm"
+        case band33cm = "33cm"
+        case band23cm = "23cm"
         case custom   = "Custom"
         case unknown  = "Unknown"
 
@@ -277,6 +282,11 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
                 case .band11m:  return 27_245_000
                 case .band10m:  return 28_074_000
                 case .band6m:   return 50_313_000
+                case .band2m:   return 144_174_000
+                case .band125m: return 222_174_000
+                case .band70cm: return 432_174_000
+                case .band33cm: return 902_174_000
+                case .band23cm: return 1_296_174_000
                 case .custom:   return nil
                 case .unknown:  return nil
                 }
@@ -295,6 +305,11 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
                 case .band11m:  return 27_245_000         // No standard FT4 frequency
                 case .band10m:  return 28_180_000
                 case .band6m:   return 50_318_000
+                case .band2m:   return 144_170_000
+                case .band125m: return 222_170_000
+                case .band70cm: return 432_170_000
+                case .band33cm: return 902_170_000
+                case .band23cm: return 1_296_170_000
                 case .custom:   return nil
                 case .unknown:  return nil
                 }
@@ -323,8 +338,45 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
             case 26.96..<27.41:    return .band11m
             case 28.0..<29.7:      return .band10m
             case 50.0..<54.0:      return .band6m
+            case 144.0..<148.0:    return .band2m
+            case 222.0..<225.0:    return .band125m
+            case 420.0..<450.0:    return .band70cm
+            case 902.0..<928.0:    return .band33cm
+            case 1240.0..<1300.0:  return .band23cm
             default:               return .unknown
             }
+        }
+
+        // MARK: - ADIF band name
+        // The name ADIF expects for this band, which is not always the label we
+        // show in the picker: "CB/11m" reads better in the UI but ADIF only
+        // knows "11m". Returns nil for bands that have no ADIF name at all
+        // (.custom carries no band of its own, .unknown is not a band).
+        var adifName: String? {
+            switch self {
+            case .band11m:            return "11m"
+            case .custom, .unknown:   return nil
+            default:                  return rawValue
+            }
+        }
+
+        // MARK: - ADIF BAND for a logged QSO
+        // Resolves the BAND to export for a QSO. The dial frequency wins when we
+        // have one and it lands in a known band: the stored band is whatever the
+        // operator picked by hand and can disagree with where the radio actually
+        // was. Falls back to the stored band, and passes an unrecognised stored
+        // value through untouched so imported logs keep their original BAND.
+        // Returns nil when no band can be established, so the caller omits the field.
+        static func adifBand(frequencyHz: Double?, storedBand: String) -> String? {
+            if let hz = frequencyHz {
+                let detected = fromFrequency(hz)
+                if detected != .unknown { return detected.adifName }
+            }
+
+            let trimmed = storedBand.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { return nil }
+            if let known = Band(rawValue: trimmed) { return known.adifName }
+            return trimmed
         }
     }
 
@@ -381,6 +433,17 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         text.uppercased().split(separator: " ")
     }
 
+    /// Reads one decoded token as a callsign, or returns `nil` when it is not one.
+    ///
+    /// A station using a compound callsign is referred to by a hash once its
+    /// call has been sent in plain text, and the decoder prints that hash in
+    /// angle brackets: `<VE6XAD>` when it knows the call, `<...>` when it does
+    /// not. The brackets are stripped so the rest of the app sees a plain
+    /// callsign, and an unresolved hash reads as no callsign at all.
+    static func callsign(from token: Substring) -> String? {
+        CompoundCallsign.fromDecodedToken(token)?.text
+    }
+
     // MARK: - Internal CQ grammar parser
     private static func parseCQStructure(_ parts: [Substring]) -> (
         modifier: String?,
@@ -392,24 +455,24 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         }
 
         // CQ CALL [GRID]
-        if isValidCallsign(String(parts[1])) {
+        if let call = callsign(from: parts[1]) {
             let locator = (parts.count >= 3 && isValidLocator(String(parts[2])))
                 ? String(parts[2])
                 : nil
 
-            return (nil, String(parts[1]), locator)
+            return (nil, call, locator)
         }
 
           // CQ TOKEN CALL [GRID]
         if parts.count >= 3,
               isPlausibleCQModifier(parts[1]),
-           isValidCallsign(String(parts[2])) {
+           let call = callsign(from: parts[2]) {
 
             let locator = (parts.count >= 4 && isValidLocator(String(parts[3])))
                 ? String(parts[3])
                 : nil
 
-            return (String(parts[1]), String(parts[2]), locator)
+            return (String(parts[1]), call, locator)
         }
 
         return nil
@@ -438,13 +501,16 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         }
 
         // <receiver> <sender> <xxx>
-        guard isValidCallsign(String(parts[0])),
-              isValidCallsign(String(parts[1])) else {
+        guard let receiverCall = callsign(from: parts[0]),
+              let senderCall = callsign(from: parts[1]) else {
             // Partial decode: the called-callsign field was not decoded, but the
             // calling callsign is valid. Extract sender info so that the message
             // type can still be inferred from the remaining fields (grid, signal
             // report, RR73, etc.) using the standard detection logic.
-            guard isValidCallsign(String(parts[1])) else {
+            //
+            // This also covers a station calling someone whose compound call the
+            // decoder has not yet heard spelled out, which arrives as "<...>".
+            guard let senderCall = callsign(from: parts[1]) else {
                 return (nil, nil, nil, nil)
             }
             var senderLocator: String? = nil
@@ -452,15 +518,12 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
                 senderLocator = String(parts[2])
             }
             return (
-                senderCallsign: String(parts[1]),
+                senderCallsign: senderCall,
                 senderLocator: senderLocator,
                 receiverCallsign: nil,
                 receiverLocator: nil
             )
         }
-
-        let receiverCall = String(parts[0])
-        let senderCall = String(parts[1])
 
         var senderLocator: String? = nil
         if parts.count >= 3, isValidLocator(String(parts[2])) {
@@ -506,6 +569,15 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
                isValidLocator(locator) {
                 return .gridExchange
             }
+
+            // "K1ABC I/VE6XAD" — one station calling another with no exchange
+            // field. This is how a compound callsign answers a CQ, because the
+            // message type that spells the call out has no room for a grid. It
+            // opens a QSO exactly like a grid exchange does, only without the
+            // grid, which the QSO flow already treats as optional.
+            if parts.count == 2, p.receiverCallsign != nil {
+                return .gridExchange
+            }
             
             if parts.count == 3,
                isSignalReport(parts[2]) {
@@ -526,11 +598,9 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         let components = text.components(separatedBy: " - ")
         guard components.count == 2 else { return false }
         
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(abbreviation: "UTC")
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        
-        return formatter.date(from: components[0]) != nil
+        // Shared formatter (same "yyyy-MM-dd HH:mm:ss" UTC format); creating a
+        // DateFormatter per decoded message is expensive.
+        return DateFormatter.utcFormatterMessage.date(from: components[0]) != nil
     }
     
     // MARK: - Is for me?
@@ -594,7 +664,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
             text: "",
             mode: .ft8,
             isRealtime: false,
-            timestamp: .now,
+            timestamp: AppClock.now(),
             isTX: false
         )
     }
@@ -605,7 +675,7 @@ struct FT8Message: Identifiable, Codable, CustomStringConvertible {
         FT8Message:
           text: "\(text)"
           mode: \(mode.rawValue)
-          band: \(band.rawValue) (\(band.frequency(for: mode)) Hz)
+          band: \(band.rawValue) (\(band.frequency(for: mode) ?? 0) Hz)
           timestamp: \(timestamp)
           cycle: \(cycle.rawValue)
           isRealtime: \(isRealtime)

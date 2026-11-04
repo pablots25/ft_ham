@@ -57,18 +57,13 @@ struct AppLogger {
     
     /// Sanitize message by removing callsigns and grid locators before sending to Crashlytics
     /// Keeps original message for local logging
-    private func sanitize(_ message: String) -> String {
+    /// Strips callsigns and grid locators before a message reaches Crashlytics.
+    /// Grids go first so they come out as `[GRID]`. A callsign must contain a
+    /// letter, which keeps numbers such as OSStatus codes (-10868) readable.
+    /// `internal` for unit testing.
+    func sanitize(_ message: String) -> String {
         var sanitized = message
-        
-        // Remove amateur radio callsigns (e.g., EA4IQL, K1ABC, G0XYZ, etc.)
-        // Pattern: 1-2 alphanumeric prefix + digit + 1-4 alphanumeric suffix
-        let callsignPattern = "\\b[A-Z0-9]{1,2}[0-9][A-Z0-9]{1,4}\\b"
-        sanitized = sanitized.replacingOccurrences(
-            of: callsignPattern,
-            with: "[CALLSIGN]",
-            options: .regularExpression
-        )
-        
+
         // Remove grid locators (e.g., FN42, JO62ab)
         // Pattern: 2 letters + 2 digits + optional 2 letters
         let gridPattern = "\\b[A-R]{2}[0-9]{2}([a-x]{2})?\\b"
@@ -77,7 +72,17 @@ struct AppLogger {
             with: "[GRID]",
             options: [.regularExpression, .caseInsensitive]
         )
-        
+
+        // Remove amateur radio callsigns (e.g., EA4IQL, K1ABC, G0XYZ, etc.)
+        // Pattern: 1-2 alphanumeric prefix + digit + 1-4 alphanumeric suffix,
+        // with at least one letter somewhere
+        let callsignPattern = "\\b(?=[A-Z0-9]*[A-Z])[A-Z0-9]{1,2}[0-9][A-Z0-9]{1,4}\\b"
+        sanitized = sanitized.replacingOccurrences(
+            of: callsignPattern,
+            with: "[CALLSIGN]",
+            options: .regularExpression
+        )
+
         return sanitized
     }
 
@@ -175,23 +180,49 @@ final class LogStore: ObservableObject {
     
     @Published private(set) var logs: [String] = []
     private let maxEntries = 1000
-    private let queue = DispatchQueue(label: "com.ft8-ham.logstore", attributes: .concurrent)
+    /// Lines are staged on this serial queue and flushed to the main thread in
+    /// batches: one main-queue hop and one `@Published` write per flush window
+    /// instead of one per log line (the app logs several lines per decode).
+    private let queue = DispatchQueue(label: "com.ft8-ham.logstore")
+    private let flushInterval: TimeInterval = 0.25
+    private var pending: [String] = []
+    private var flushScheduled = false
     
     private init() {}
     
     func append(_ message: String) {
-        queue.async(flags: .barrier) {
-            DispatchQueue.main.async {
-                self.logs.append(message)
-                if self.logs.count > self.maxEntries {
-                    self.logs.removeFirst()
-                }
+        queue.async {
+            self.pending.append(message)
+            if self.pending.count > self.maxEntries {
+                self.pending.removeFirst(self.pending.count - self.maxEntries)
+            }
+            guard !self.flushScheduled else { return }
+            self.flushScheduled = true
+            self.queue.asyncAfter(deadline: .now() + self.flushInterval) {
+                self.flush()
             }
         }
     }
     
+    /// Runs on `queue`.
+    private func flush() {
+        let batch = pending
+        pending.removeAll(keepingCapacity: true)
+        flushScheduled = false
+        guard !batch.isEmpty else { return }
+        DispatchQueue.main.async {
+            var logs = self.logs
+            logs.append(contentsOf: batch)
+            if logs.count > self.maxEntries {
+                logs.removeFirst(logs.count - self.maxEntries)
+            }
+            self.logs = logs
+        }
+    }
+    
     func clear() {
-        queue.async(flags: .barrier) {
+        queue.async {
+            self.pending.removeAll()
             DispatchQueue.main.async {
                 self.logs.removeAll()
             }

@@ -8,8 +8,52 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Log Sync Status
+
+/// Upload/confirmation status for a single QSO in an external logbook service.
+/// ✗ local → ✓ uploaded → ★ confirmed
+enum LogSyncStatus: String, Codable, Sendable {
+    case notUploaded   // QSO exists only locally
+    case pending       // Queued for upload; network unavailable or retry in progress
+    case uploaded      // Successfully delivered to remote service
+    case confirmed     // Remote service confirmed the QSO (award credit)
+    case duplicate     // Remote service rejected as duplicate
+    case rejected      // Remote service rejected with a permanent error
+}
+
+// MARK: - ImportResult
+
+struct ImportResult {
+    let imported: Int
+    let skipped: Int
+    let error: String?
+
+    /// Number of entries skipped because they were duplicates of existing entries.
+    var duplicates: Int { skipped }
+
+    init(imported: Int, skipped: Int, error: String? = nil) {
+        self.imported = imported
+        self.skipped = skipped
+        self.error = error
+    }
+}
+
+// MARK: - LogbookError
+
+enum LogbookError: Error, LocalizedError {
+    case noBackupAvailable
+    var errorDescription: String? {
+        switch self {
+        case .noBackupAvailable:
+            return "No backup file is available to restore from."
+        }
+    }
+}
+
+// MARK: - LogEntry
+
 struct LogEntry: Identifiable {
-    let id = UUID()
+    let id: UUID
     let callsign: String
     let grid: String
     let date: Date              // Always UTC instant
@@ -24,7 +68,12 @@ struct LogEntry: Identifiable {
     let country: String?        // Resolved country name from CountryResolver
     let flag: String?           // Cached flag emoji for performance
 
+    // MARK: Sync Status
+    var qrzStatus: LogSyncStatus
+    var lotwStatus: LogSyncStatus
+
     init(
+        id: UUID = UUID(),
         callsign: String,
         grid: String,
         date: Date,
@@ -37,8 +86,11 @@ struct LogEntry: Identifiable {
         cqModifier: String?,
         mySigInfo: String?,
         country: String?,
-        flag: String?
+        flag: String?,
+        qrzStatus: LogSyncStatus = .notUploaded,
+        lotwStatus: LogSyncStatus = .notUploaded
     ) {
+        self.id = id
         self.callsign = callsign
         self.grid = grid
         self.date = date
@@ -52,6 +104,8 @@ struct LogEntry: Identifiable {
         self.country = country
         self.flag = flag
         self.frequencyHz = frequencyHz
+        self.qrzStatus = qrzStatus
+        self.lotwStatus = lotwStatus
     }
 }
 
@@ -59,7 +113,13 @@ final class LogbookManager: LogbookManaging {
     private let appLogger = AppLogger(category: "LOGBK")
     
     private let persistentFileName = "ft8_log.adi"
+    private let backupFileName = "ft8_log.adi.bak"
     private let adifHeader = "ADIF Export from FT8Ham\n<ADIF_VER:5>3.1.4\n<EOH>\n"
+
+    var hasBackup: Bool {
+        guard let backupURL = getBackupURL() else { return false }
+        return FileManager.default.fileExists(atPath: backupURL.path)
+    }
     
     // MARK: - Export filename with timestamp (for user exports)
     private var exportFileName: String {
@@ -109,11 +169,11 @@ final class LogbookManager: LogbookManaging {
     }
 
     // MARK: - Load entries from disk
-    func loadEntries() -> [LogEntry] {
-        guard let fileURL = getFileURL(),
-              let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
-            return []
-        }
+    func loadEntries() throws -> [LogEntry] {
+        guard let fileURL = getFileURL() else { return [] }
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+
+        let content = try String(contentsOf: fileURL, encoding: .utf8)
 
         let records = content.components(separatedBy: "<EOR>")
         var loadedEntries: [LogEntry] = []
@@ -126,6 +186,7 @@ final class LogbookManager: LogbookManaging {
     }
     
     func saveInternalLog(_ qsoList: [LogEntry]) -> URL? {
+        createBackup()
         return saveToADIF(qsoList)
     }
 
@@ -146,8 +207,47 @@ final class LogbookManager: LogbookManaging {
         }
     }
 
+    // MARK: - Backup & Restore
+
+    private func createBackup() {
+        guard let fileURL = getFileURL(),
+              let backupURL = getBackupURL(),
+              FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        do {
+            if FileManager.default.fileExists(atPath: backupURL.path) {
+                try FileManager.default.removeItem(at: backupURL)
+            }
+            try FileManager.default.copyItem(at: fileURL, to: backupURL)
+            appLogger.info("Created logbook backup")
+        } catch {
+            appLogger.error("Failed to create logbook backup: \(error.localizedDescription)")
+        }
+    }
+
+    func restoreFromBackup() throws -> [LogEntry] {
+        guard let backupURL = getBackupURL(),
+              let fileURL = getFileURL() else {
+            throw LogbookError.noBackupAvailable
+        }
+        guard FileManager.default.fileExists(atPath: backupURL.path) else {
+            throw LogbookError.noBackupAvailable
+        }
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try FileManager.default.removeItem(at: fileURL)
+        }
+        try FileManager.default.copyItem(at: backupURL, to: fileURL)
+        appLogger.info("Restored logbook from backup")
+        return try loadEntries()
+    }
+
     // MARK: - ADIF Parsing (UTC)
     private func parseRecord(_ record: String) -> LogEntry {
+        // One linear scan of the record; the previous implementation compiled
+        // a regular expression per field (14 per record) on every load.
+        let fields = Self.parseFields(record)
+        func extractField(_ record: String, field: String) -> String {
+            fields[field] ?? ""
+        }
 
         let call = extractField(record, field: "CALL")
         let grid = extractField(record, field: "GRID")
@@ -156,10 +256,16 @@ final class LogbookManager: LogbookManaging {
         let rRcvd = extractField(record, field: "RST_RCVD")
         let mySig = extractField(record, field: "MY_SIG")
         let mySigInfo = extractField(record, field: "MY_SIG_INFO")
+        // Dedicated activation fields (ADIF 3.1.5+) — used as fallback when MY_SIG_INFO absent
+        let potaRef = extractField(record, field: "MY_POTA_REF")
+        let sotaRef = extractField(record, field: "MY_SOTA_REF")
+        let wwffRef = extractField(record, field: "MY_WWFF_REF")
+        let iotaRef = extractField(record, field: "MY_IOTA_REF")
         let stationCall = extractField(record, field: "STATION_CALLSIGN")
         let qsoDateRaw = extractField(record, field: "QSO_DATE")
         let timeOnRaw = extractField(record, field: "TIME_ON")
         let freqRaw = extractField(record, field: "FREQ")
+        let modeRaw = extractField(record, field: "MODE").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
         let qsoDate = qsoDateRaw.trimmingCharacters(in: .whitespacesAndNewlines)
         let timeOnClean = timeOnRaw
@@ -199,23 +305,129 @@ final class LogbookManager: LogbookManaging {
             return mhz * 1_000_000
         }()
 
+        let mode = ["FT8", "FT4"].contains(modeRaw) ? modeRaw : "FT8"
+        let countryInfo = CountryResolver.countryAndCoordinates(for: call)
+
+        // Resolve MY_SIG from dedicated fields when the generic MY_SIG tag is absent
+        let resolvedMySig: String = {
+            if !mySig.isEmpty { return mySig }
+            if !potaRef.isEmpty { return "POTA" }
+            if !sotaRef.isEmpty { return "SOTA" }
+            if !wwffRef.isEmpty { return "WWFF" }
+            if !iotaRef.isEmpty { return "IOTA" }
+            return ""
+        }()
+
+        // Resolve reference: prefer MY_SIG_INFO, then the specific dedicated field
+        let resolvedSigInfo: String = {
+            if !mySigInfo.isEmpty { return mySigInfo }
+            switch resolvedMySig {
+            case "POTA": return potaRef
+            case "SOTA": return sotaRef
+            case "WWFF": return wwffRef
+            case "IOTA": return iotaRef
+            default: return ""
+            }
+        }()
+
         return LogEntry(
             callsign: call,
             grid: grid,
             date: parsedDate ?? Date(timeIntervalSince1970: 0),
             frequencyHz: parsedFrequencyHz,
-            mode: "FT8",
+            mode: mode,
             band: band,
             rstSent: rSent,
             rstRcvd: rRcvd,
             stationCallsign: stationCall.isEmpty ? nil : stationCall,
-            cqModifier: mySig.isEmpty ? nil : mySig,
-            mySigInfo: mySigInfo.isEmpty ? nil : mySigInfo,
-            country: CountryResolver.countryAndCoordinates(for: call).country,
-            flag: FlagUtility.flag(for: CountryResolver.countryAndCoordinates(for: call).country)
+            cqModifier: resolvedMySig.isEmpty ? nil : resolvedMySig,
+            mySigInfo: resolvedSigInfo.isEmpty ? nil : resolvedSigInfo,
+            country: countryInfo.country,
+            flag: FlagUtility.flag(for: countryInfo.country)
         )
     }
 
+    /// Splits an ADIF record into `TAG → value` (first occurrence wins, tags
+    /// uppercased, values trimmed). Values run from the end of the tag to the
+    /// next `<`, matching the previous regex-based extractor.
+    static func parseFields(_ record: String) -> [String: String] {
+        var fields: [String: String] = [:]
+        var cursor = record.startIndex
+        let end = record.endIndex
+        while cursor < end, let open = record[cursor...].firstIndex(of: "<") {
+            guard let close = record[open...].firstIndex(of: ">") else { break }
+            let tag = record[record.index(after: open)..<close]
+            // Only "<NAME:len[:type]>" tags carry a value; skip <EOH>, <EOR>...
+            if let colon = tag.firstIndex(of: ":") {
+                let name = tag[..<colon].uppercased()
+                let valueStart = record.index(after: close)
+                let valueEnd = record[valueStart...].firstIndex(of: "<") ?? end
+                if fields[name] == nil {
+                    fields[name] = record[valueStart..<valueEnd]
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                cursor = valueEnd
+            } else {
+                cursor = record.index(after: close)
+            }
+        }
+        return fields
+    }
+
+
+    // MARK: - Import from external ADIF file
+    func previewADIF(url: URL, existingEntries: [LogEntry]) -> (newEntries: [LogEntry], skipped: Int, error: String?) {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        let content: String
+        do {
+            content = try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            let message = "Could not read the ADIF file: \(error.localizedDescription)"
+            appLogger.error("previewADIF: failed to read file at \(url.lastPathComponent): \(error.localizedDescription)")
+            return ([], 0, message)
+        }
+
+        let normalised = content.replacingOccurrences(of: "<eor>", with: "<EOR>", options: .caseInsensitive)
+        let rawRecords = normalised.components(separatedBy: "<EOR>")
+
+        var newEntries: [LogEntry] = []
+        var skipped = 0
+
+        for record in rawRecords where record.lowercased().contains("<call") {
+            let entry = parseRecord(record)
+            if isDuplicate(entry, in: existingEntries) {
+                skipped += 1
+            } else {
+                newEntries.append(entry)
+            }
+        }
+
+        return (newEntries, skipped, nil)
+    }
+
+    func commitImport(newEntries: [LogEntry], existingEntries: [LogEntry]) {
+        guard !newEntries.isEmpty else { return }
+        _ = saveToADIF(existingEntries + newEntries)
+        appLogger.info("commitImport: \(newEntries.count) entries written")
+    }
+
+    func importFromADIF(url: URL, existingEntries: [LogEntry]) -> ImportResult {
+        let (newEntries, skipped, error) = previewADIF(url: url, existingEntries: existingEntries)
+        if let error { return ImportResult(imported: 0, skipped: skipped, error: error) }
+        commitImport(newEntries: newEntries, existingEntries: existingEntries)
+        appLogger.info("importFromADIF: \(newEntries.count) imported, \(skipped) skipped")
+        return ImportResult(imported: newEntries.count, skipped: skipped)
+    }
+
+    private func isDuplicate(_ entry: LogEntry, in existing: [LogEntry]) -> Bool {
+        existing.contains { e in
+            e.callsign == entry.callsign &&
+            e.band == entry.band &&
+            abs(e.date.timeIntervalSince(entry.date)) < 120
+        }
+    }
 
     // MARK: - Save QSO list to ADIF (UTC)
     func saveToADIF(_ qsoList: [LogEntry]) -> URL? {
@@ -242,6 +454,15 @@ final class LogbookManager: LogbookManaging {
            let sigInfo = entry.mySigInfo?.trimmingCharacters(in: .whitespacesAndNewlines),
            !sigInfo.isEmpty {
             fields["MY_SIG_INFO"] = sigInfo
+
+            // Emit dedicated activation fields (ADIF 3.1.5+) for direct upload-tool compatibility
+            switch fields["MY_SIG"] {
+            case "POTA":  fields["MY_POTA_REF"] = sigInfo
+            case "SOTA":  fields["MY_SOTA_REF"] = sigInfo
+            case "WWFF":  fields["MY_WWFF_REF"] = sigInfo
+            case "IOTA":  fields["MY_IOTA_REF"] = sigInfo
+            default: break
+            }
         }
 
         return fields
@@ -253,7 +474,14 @@ final class LogbookManager: LogbookManaging {
             .first?
             .appendingPathComponent(persistentFileName)
     }
-    
+
+    private func getBackupURL() -> URL? {
+        FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)
+            .first?
+            .appendingPathComponent(backupFileName)
+    }
+
     private func getExportFileURL() -> URL? {
         FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)
@@ -270,7 +498,12 @@ final class LogbookManager: LogbookManaging {
     // MARK: - Private helper to write ADIF content
     private func writeADIF(_ qsoList: [LogEntry], to fileURL: URL, operationName: String) -> URL? {
         if qsoList.isEmpty {
-            try? adifHeader.write(to: fileURL, atomically: true, encoding: .utf8)
+            do {
+                try adifHeader.write(to: fileURL, atomically: true, encoding: .utf8)
+            } catch {
+                appLogger.error("Failed to write ADIF header: \(error.localizedDescription)")
+                return nil
+            }
             return fileURL
         }
 
@@ -304,8 +537,10 @@ final class LogbookManager: LogbookManaging {
             if let frequency = adifFrequencyString(fromHz: entry.frequencyHz) {
                 adifContent += "<FREQ:\(frequency.count)>\(frequency) "
             }
-            if entry.band != "Unknown" && !entry.band.isEmpty {
-                adifContent += "<BAND:\(entry.band.count)>\(entry.band) "
+            // adifBand already returns nil for an empty or unknown band, so there is
+            // nothing left to filter out here.
+            if let band = FT8Message.Band.adifBand(frequencyHz: entry.frequencyHz, storedBand: entry.band) {
+                adifContent += "<BAND:\(band.count)>\(band) "
             }
             adifContent += "<MODE:3>\(entry.mode) "
             adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "
@@ -331,35 +566,19 @@ final class LogbookManager: LogbookManaging {
         return Self.adifFrequencyFormatter.string(from: NSNumber(value: mhz))
     }
     
-    func getEmptyADIFURL() -> URL {
-        let url = getFileURL()!
+    func getEmptyADIFURL() -> URL? {
+        guard let url = getFileURL() else { return nil }
         if !FileManager.default.fileExists(atPath: url.path) {
-            try? adifHeader.write(to: url, atomically: true, encoding: .utf8)
+            do {
+                try adifHeader.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                appLogger.error("Failed to write empty ADIF header: \(error.localizedDescription)")
+                return nil
+            }
         }
         return url
     }
 
-    private func extractField(_ text: String, field: String) -> String {
-        guard let tagRange = text.range(
-            of: "<\(field):[^>]+>",
-            options: .regularExpression
-        ) else {
-            return ""
-        }
-
-        let valueStart = tagRange.upperBound
-        let remaining = text[valueStart...]
-
-        let value: Substring
-        if let nextTag = remaining.firstIndex(of: "<") {
-            value = remaining[..<nextTag]
-        } else {
-            value = remaining
-        }
-
-        return value
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
 
 
     // MARK: - UTC DateFormatters (Single Source of Truth)

@@ -11,33 +11,45 @@ import Combine
 // MARK: - Main view
 
 struct ContentView: View {
-    @EnvironmentObject private var viewModel: FT8ViewModel
+    /// Deliberately NOT observed: this view hosts all five tabs, so observing
+    /// the whole view model would re-evaluate the entire app on every publish
+    /// (each decoded message, each settings write, each CAT poll...). The few
+    /// values it needs are read from `viewModel.rootState` instead.
+    let viewModel: FT8ViewModel
+    @ObservedObject private var root: RootUIState
+    @EnvironmentObject private var flags: FeatureFlagManager
     @StateObject private var progressVM = ProgressViewModel()
-    @StateObject private var prompts = InAppPrompts.shared
+    @ObservedObject private var prompts = InAppPrompts.shared
+    private let mapSettings = MapSettingsModel.shared
+
+    init(viewModel: FT8ViewModel) {
+        self.viewModel = viewModel
+        self._root = ObservedObject(wrappedValue: viewModel.rootState)
+    }
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+    @AppStorage("hasCompletedInitialPermissionFlow") private var hasCompletedInitialPermissionFlow: Bool = false
     @AppStorage("autoRXAtStart") private var autoRXAtStart: Bool = false
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @AppStorage("lastSelectedTab") private var lastSelectedTab: Int = 0
-    @AppStorage("mapShowGrids") private var mapShowGrids: Bool = true
-    @AppStorage("mapShowCountryCircles") private var mapShowCountryCircles: Bool = true
-    @AppStorage("mapShowGeodesics") private var mapShowGeodesics: Bool = true
-    @AppStorage("mapShowAnnotations") private var mapShowAnnotations: Bool = false
-    @State private var shareURL: URL?
-    
+    @AppStorage(MessagesGuidePrompt.seenKey) private var hasSeenMessagesGuide: Bool = false
+
     @State private var selectedTab: Int = 0
     @State private var showConfigAlert = false
-    @State private var showClearLogbookAlert = false
-    @State private var showExportOptions = false
     @State private var shouldNavigateToConfiguration = false
     @State private var shouldScrollToDonations = false
     @State private var isPresentingOnboarding = false
     @State private var isPresentingLicense = false
     @State private var isPresentingWhatsNew = false
+    @State private var isPresentingRevocationAlert = false
+    @State private var isPresentingMessagesGuide = false
+    /// Bumped when the app becomes active so the slot bar resyncs at once.
+    @State private var progressResyncToken = 0
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         mainLayout
-            .toast($viewModel.toast)
+            .toast($root.toast)
             // 1) Onboarding first
             .fullScreenCover(isPresented: $isPresentingOnboarding) {
                 OnboardingView()
@@ -55,6 +67,19 @@ struct ContentView: View {
                 WhatsNewView()
                     .onAppear { AnalyticsManager.shared.trackScreen(.whatsNew) }
             }
+            // Messages Guide, once, the first time TX/RX is shown
+            .sheet(isPresented: $isPresentingMessagesGuide) {
+                MessageColorLegendView()
+            }
+            // 4) Premium revocation alert
+            .alert("Premium Access Removed", isPresented: $isPresentingRevocationAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your premium access has been removed. If this is unexpected, please contact Apple Support.")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .premiumRevoked)) { _ in
+                isPresentingRevocationAlert = true
+            }
             .task {
                 // Set initial tab: 4 if first launch, otherwise last used tab
                 if !hasLaunchedBefore {
@@ -63,27 +88,40 @@ struct ContentView: View {
                 } else {
                     selectedTab = lastSelectedTab
                 }
+                // Users who completed onboarding before the permission flow existed
+                // are grandfathered in — their OS dialogs were triggered by the old code.
+                if hasCompletedOnboarding && !hasCompletedInitialPermissionFlow {
+                    hasCompletedInitialPermissionFlow = true
+                }
                 // Decide which prompt to show at launch
-                if !hasCompletedOnboarding {
-                    isPresentingOnboarding = true
-                } else if !hasAcceptedTerms {
-                    isPresentingLicense = true
-                } else if AppVersionManager.shared.shouldShowWhatsNew {
-                    isPresentingWhatsNew = true
-                } else if !viewModel.settingsLoaded {
-                    showConfigAlert = true
-                    shouldNavigateToConfiguration = true
+                // Skip all full-screen covers in UI tests — the onboarding / terms
+                // covers would block every interaction target on a fresh simulator.
+                if !AppEnvironment.current.isUITest {
+                    if !hasCompletedOnboarding {
+                        isPresentingOnboarding = true
+                    } else if !hasAcceptedTerms {
+                        isPresentingLicense = true
+                    } else if AppVersionManager.shared.shouldShowWhatsNew {
+                        isPresentingWhatsNew = true
+                    } else if !root.settingsLoaded {
+                        showConfigAlert = true
+                        shouldNavigateToConfiguration = true
+                    }
                 }
                 // Once UI is ready, evaluate RX start
                 evaluateAutoRX()
+                presentMessagesGuideIfNeeded()
             }
             .onChange(of: hasCompletedOnboarding) { completed in
                 if completed {
                     isPresentingOnboarding = false
                     if !hasAcceptedTerms {
                         isPresentingLicense = true
+                    } else if AppVersionManager.shared.shouldShowWhatsNew {
+                        isPresentingWhatsNew = true
                     } else {
                         scheduleSettingsCheckIfNeeded()
+                        evaluateAutoRX()
                     }
                 } else {
                     // If onboarding was reset (e.g. from ConfigurationView), show it immediately
@@ -92,14 +130,23 @@ struct ContentView: View {
             }
             .onChange(of: hasAcceptedTerms) { accepted in
                 if accepted {
-                    // Disabled: keep What's New trigger for easy re-enable.
-                    // if AppVersionManager.shared.shouldShowWhatsNew {
-                    //     isPresentingWhatsNew = true
-                    // } else {
-                    //     scheduleSettingsCheckIfNeeded()
-                    // }
-                    scheduleSettingsCheckIfNeeded()
+                    if AppVersionManager.shared.shouldShowWhatsNew {
+                        isPresentingWhatsNew = true
+                    } else {
+                        scheduleSettingsCheckIfNeeded()
+                        evaluateAutoRX()
+                    }
                 }
+            }
+            .onChange(of: isPresentingWhatsNew) { isPresented in
+                if !isPresented {
+                    scheduleSettingsCheckIfNeeded()
+                    evaluateAutoRX()
+                    presentMessagesGuideIfNeeded()
+                }
+            }
+            .onChange(of: showConfigAlert) { isShowing in
+                if !isShowing { presentMessagesGuideIfNeeded() }
             }
             .onChange(of: autoRXAtStart) { enabled in
                 if enabled {
@@ -113,8 +160,9 @@ struct ContentView: View {
             }
             .onChange(of: selectedTab) { newTab in
                 lastSelectedTab = newTab
+                presentMessagesGuideIfNeeded()
             }
-            .onChange(of: viewModel.settingsLoaded) { loaded in
+            .onChange(of: root.settingsLoaded) { loaded in
                 if loaded && autoRXAtStart {
                     evaluateAutoRX()
                 }
@@ -122,9 +170,20 @@ struct ContentView: View {
             .onChange(of: prompts.shouldNavigateToDonations) { shouldNavigate in
                 if shouldNavigate {
                     selectedTab = 4 // Navigate to Configuration tab
+                    prompts.shouldNavigateToDonations = false
+                    // Both old and new config views observe shouldScrollToDonations:
+                    // - Old view scrolls to the donations section
+                    // - New view presents the Support sheet
                     shouldScrollToDonations = true
-                    prompts.shouldNavigateToDonations = false // Reset flag
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .navigateToConfiguration)) { _ in
+                selectedTab = 4
+            }
+            // Deferred a run loop turn: `@Published` emits before the value is
+            // stored, so `consume()` would still read the old one.
+            .onReceive(TabRouter.shared.$pendingTab.compactMap { $0 }.receive(on: RunLoop.main)) { _ in
+                if let tab = TabRouter.shared.consume() { selectedTab = tab.rawValue }
             }
 
             .onAppear {
@@ -136,22 +195,27 @@ struct ContentView: View {
     
     private var mainLayout: some View {
         GeometryReader { geo in
-            // Detect landscape normally, force portrait on iPad
-            let isLandscape = (UIDevice.current.userInterfaceIdiom == .pad) ? false : (geo.size.width > geo.size.height)
+            let isIPad = UIDevice.current.userInterfaceIdiom == .pad
+            let isLandscape = geo.size.width > geo.size.height
 
             VStack(spacing: 0) {
                 // MARK: - Header
 
-                if isLandscape {
+                if isIPad {
+                    headerIPad
+                } else if isLandscape {
                     headerLandscape
                 } else {
                     headerPortrait(geo: geo)
                 }
 
                 // MARK: - TabView
-
+                // Note: Not all tabs need NavigationStack. Only tabs with navigation bars,
+                // toolbar items, or deep navigation (Logbook, Configuration) are wrapped.
+                // Tabs 0-2 use direct views without navigation chrome.
+                
                 TabView(selection: $selectedTab) {
-
+                    
                     TransmissionRootView()
                         .tabItem {
                             Label("TX/RX", systemImage: "antenna.radiowaves.left.and.right")
@@ -160,6 +224,7 @@ struct ContentView: View {
                         .onAppear {
                                     AnalyticsManager.shared.trackScreen(.txRx)
                                 }
+                        .environmentObject(mapSettings)
 
                     FullScreenWaterfallView()
                         .tabItem { Label("Waterfall", systemImage: "waveform") }
@@ -167,70 +232,35 @@ struct ContentView: View {
                         .onAppear {
                             AnalyticsManager.shared.trackScreen(.waterfall)
                         }
-
-                    GridMapViewWrapper(
-                        locators: $viewModel.workedLocators,
-                        countries: $viewModel.workedCountryPairs,
-                        showGrids: $mapShowGrids,
-                        showCountryCircles: $mapShowCountryCircles,
-                        showGeodesics: $mapShowGeodesics,
-                        showAnnotations: $mapShowAnnotations
-                    )
+                    MapTabView(isSelected: selectedTab == 2)
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.map)
                     }
                     .tabItem { Label("Map", systemImage: "map.fill") }
                     .tag(2)
-
+                    
                     NavigationStack {
                         LogbookView()
-                            .navigationTitle("Logbook")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .automatic) {
-                                    Button("Clear") {
-                                        showClearLogbookAlert = true
-                                    }
-                                    .disabled(viewModel.qsoList.isEmpty)
-                                }
-
-                                ToolbarItem(placement: .automatic) {
-                                    Button {
-                                        showExportOptions = true
-                                    } label: {
-                                        Image(systemName: "square.and.arrow.up")
-                                    }
-                                    .disabled(viewModel.qsoList.isEmpty)
-                                }
-                            }
-                            .sheet(isPresented: $showExportOptions) {
-                                ExportOptionsView()
-                                    .environmentObject(viewModel)
-                            }
-                            .alert("Clear logbook?", isPresented: $showClearLogbookAlert) {
-                                Button("Cancel", role: .cancel) {}
-                                Button("Clear", role: .destructive) {
-                                    viewModel.clearLogbookConfirmed()
-                                }
-                            } message: {
-                                Text("This will permanently delete all QSOs.")
-                            }
                             .onAppear {
                                 AnalyticsManager.shared.trackScreen(.logbook)
                             }
                     }
                     .tabItem { Label("Logbook", systemImage: "book") }
                     .tag(3)
-
                     NavigationStack {
-                        ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
-                            .navigationTitle("Configuration")
-                            .navigationBarTitleDisplayMode(.inline)
+                        if flags.isEnabled(.newConfigView) {
+                            ConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
+                                .navigationTitle("Configuration")
+                                .navigationBarTitleDisplayMode(.inline)
+                        } else {
+                            LegacyConfigurationView(shouldScrollToDonations: $shouldScrollToDonations)
+                                .navigationTitle("Configuration")
+                                .navigationBarTitleDisplayMode(.inline)
+                        }
                     }
                     .onAppear {
                         AnalyticsManager.shared.trackScreen(.configuration)
                     }
-                    
                     .tabItem { Label("Configuration", systemImage: "gearshape") }
                     .tag(4)
                 }
@@ -247,18 +277,53 @@ struct ContentView: View {
                 Text("Please fill in your callsign and locator in the Configuration tab to start using the app")
             }
             .onAppear {
-                if hasCompletedOnboarding && hasAcceptedTerms && viewModel.settingsLoaded {
+                if hasCompletedOnboarding && hasAcceptedTerms && hasCompletedInitialPermissionFlow && root.settingsLoaded {
                     InAppPrompts.shared.checkPrompts()
                 }
+            }
+            .sheet(isPresented: $root.showFreeTextSheet) {
+                FreeTextTXView()
+                    .environmentObject(viewModel)
             }
         }
     }
     
     // MARK: - Prompt sequencing helpers
+    /// Anything on screen, or still to come, that the guide must not cover.
+    private var isMessagesGuideBlocked: Bool {
+        AppEnvironment.current.isUITest
+            || !hasCompletedOnboarding || !hasAcceptedTerms
+            || isPresentingOnboarding || isPresentingLicense || isPresentingWhatsNew
+            || showConfigAlert || isPresentingMessagesGuide
+    }
+
+    /// Shows the Messages Guide the first time the TX/RX tab is on screen.
+    /// Waits a moment so a dismissing cover or tab switch can finish, then
+    /// checks again in case something else took the screen meanwhile.
+    private func presentMessagesGuideIfNeeded() {
+        guard MessagesGuidePrompt.shouldPresent(
+            tab: AppTab(rawValue: selectedTab),
+            hasSeen: hasSeenMessagesGuide,
+            isBlocked: isMessagesGuideBlocked
+        ) else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: MessagesGuidePrompt.presentationDelay)
+            guard MessagesGuidePrompt.shouldPresent(
+                tab: AppTab(rawValue: selectedTab),
+                hasSeen: hasSeenMessagesGuide,
+                isBlocked: isMessagesGuideBlocked
+            ) else { return }
+            hasSeenMessagesGuide = true
+            isPresentingMessagesGuide = true
+        }
+    }
+
     private func scheduleSettingsCheckIfNeeded() {
         // Avoid showing settings alert while a full-screen cover is presented
-        guard !isPresentingOnboarding && !isPresentingLicense else { return }
-        if !viewModel.settingsLoaded {
+        guard !isPresentingOnboarding,
+              !isPresentingLicense,
+              !isPresentingWhatsNew else { return }
+        if !root.settingsLoaded {
             showConfigAlert = true
             shouldNavigateToConfiguration = true
         }
@@ -266,21 +331,67 @@ struct ContentView: View {
     
     // MARK: - Auto RX orchestration
     private func evaluateAutoRX() {
-        // Gates: onboarding complete, terms accepted, settings valid, and autoRX enabled
+        // Gates: onboarding complete, terms accepted, permissions flow done, settings valid, and autoRX enabled
         guard hasCompletedOnboarding,
               hasAcceptedTerms,
-              viewModel.settingsLoaded,
+              hasCompletedInitialPermissionFlow,
+              root.settingsLoaded,
               autoRXAtStart else {
             return
         }
         // Do not start during full-screen overlays
-        guard !isPresentingOnboarding && !isPresentingLicense else { return }
+        guard !isPresentingOnboarding,
+              !isPresentingLicense,
+              !isPresentingWhatsNew else { return }
         // Prevent double start
         guard !viewModel.isSequencerRunning else { return }
         // Start RX
         viewModel.startSequencer()
     }
     
+    /// Map tab. Observes the view model here (not in `ContentView`) so only
+    /// this subtree is re-evaluated when worked locators/countries change.
+    struct MapTabView: View {
+        @EnvironmentObject private var viewModel: FT8ViewModel
+        /// The tab bar builds every tab's view up front, which would create
+        /// the MapKit view (and start loading tiles) at launch. The map is
+        /// only built once this tab has been shown, and kept from then on.
+        let isSelected: Bool
+        @State private var hasBeenSelected = false
+
+        var body: some View {
+            Group {
+                if hasBeenSelected || isSelected {
+                    map
+                } else {
+                    Color.clear
+                }
+            }
+            .onChange(of: isSelected) { selected in
+                if selected { hasBeenSelected = true }
+            }
+            .onAppear {
+                if isSelected { hasBeenSelected = true }
+            }
+        }
+
+        private var map: some View {
+            GridMapViewWrapper(
+                locators: viewModel.workedLocators,
+                countries: viewModel.workedCountryPairs,
+                mapSettings: MapSettingsModel.shared,
+                heardMe: HeardMeStore.shared,
+                myCallsign: viewModel.callsign,
+                myLocator: viewModel.locator,
+                isActive: isSelected,
+                onUserLocator: { [weak viewModel] locator in
+                    viewModel?.addUserLocator(locator)
+                }
+            )
+            .equatable()
+        }
+    }
+
     struct TransmissionRootView: View {
         @EnvironmentObject private var viewModel: FT8ViewModel
 
@@ -305,6 +416,37 @@ struct ContentView: View {
 
             case .condensed:
                 CondensedTransmissionView()
+                
+            case .dashboard:
+                DashboardRootView()
+            }
+        }
+    }
+    
+    struct DashboardRootView: View {
+        @EnvironmentObject private var mapSettings: MapSettingsModel
+        @EnvironmentObject private var flags: FeatureFlagManager
+        
+        private var isDashboardEnabled: Bool {
+            #if DEBUG
+            return true
+            #else
+            return flags.isEnabled(.enableIpadDashboard)
+            #endif
+        }
+        
+        var body: some View {
+            Group {
+                if isDashboardEnabled {
+                    IpadDashboardView()
+                        .onAppear {
+                            AnalyticsManager.shared.trackScreen(.ipadDashboard)
+                        }
+                        .environmentObject(mapSettings)
+                } else {
+                    // Fallback to separated view if dashboard is disabled
+                    SeparatedTransmissionRootView()
+                }
             }
         }
     }
@@ -340,12 +482,14 @@ struct ContentView: View {
         }
 
         // MARK: - Pane Picker
+        // The message-color legend is reachable from the column header inside
+        // SeparatedTransmissionView, so no info button is repeated here.
         private var panePicker: some View {
             Picker("Pane", selection: $selectedPane) {
-                Text("Received")
+                Text(String(localized: "Received"))
                     .tag(Pane.received)
 
-                Text("Transmitted")
+                Text(String(localized: "Transmitted"))
                     .tag(Pane.transmitted)
             }
             .pickerStyle(.segmented)
@@ -357,20 +501,23 @@ struct ContentView: View {
     // MARK: - Progress bar subview
 
     private var progressBar: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-            let cycleLength = ProgressViewModel.cycleLengthForMode(isFT4: viewModel.isFT4)
-            let progress = progressVM.cycleProgress(isFT4: viewModel.isFT4)
+        // Once a second: the seconds counter changes no faster, and the bar
+        // animates itself between checks (see CycleProgressBar).
+        TimelineView(.periodic(from: .now, by: 1.0)) { _ in
+            let cycleLength = ProgressViewModel.cycleLengthForMode(isFT4: root.isFT4)
+            let progress = progressVM.cycleProgress(isFT4: root.isFT4)
             let seconds = min(Int(progress * cycleLength), Int(cycleLength))
 
             HStack {
                 Text("\(seconds)/\(Int(cycleLength))")
                     .font(.caption)
                     .foregroundStyle(.gray)
-                ProgressView(value: progress)
-                    .progressViewStyle(.linear)
-                    .tint(.green)
+                CycleProgressBar(progress: progress, cycleLength: cycleLength, resyncToken: progressResyncToken)
+                    .frame(height: CycleProgressBarView.height)
             }
-            .animation(.linear(duration: 0.1), value: progress)
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active { progressResyncToken &+= 1 }
         }
     }
 
@@ -379,32 +526,55 @@ struct ContentView: View {
     private func headerPortrait(geo: GeometryProxy) -> some View {
         HStack(spacing: 10) {
             Text("FT Ham")
-                .multilineTextAlignment(.center)
                 .font(.title)
+                .lineLimit(1)
+                .fixedSize()
             Spacer()
             progressBar
                 .padding(.vertical)
         }
         .padding(.horizontal, 40)
+        .operatingChromeTypeSize()
     }
 
     // MARK: - Header landscape
 
     private var headerLandscape: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: LayoutConstants.headerSpacing) {
             Text("FT Ham")
                 .font(.title)
                 .frame(alignment: .leading)
-            Spacer()
             ClockView()
-            Spacer()
             StatusView()
-            Spacer()
             progressBar
-                .frame(maxWidth: 400, alignment: .trailing)
+                .frame(maxWidth: LayoutConstants.progressBarMaxWidth, alignment: .trailing)
         }
         .padding(.top, 15)
         .padding(.bottom, 10)
+        .operatingChromeTypeSize()
+    }
+    
+    // MARK: - Header iPad
+    
+    private var headerIPad: some View {
+        HStack(spacing: LayoutConstants.largePadding) {
+            Text("FT Ham")
+                .font(.largeTitle)
+                .fontWeight(.semibold)
+                .frame(alignment: .leading)
+            
+            StatusView()
+                .frame(minWidth: 150)
+            
+            progressBar
+                .frame(maxWidth: LayoutConstants.progressBarMaxWidth, alignment: .trailing)
+            
+            ClockView()
+                .frame(minWidth: 100)
+        }
+        .padding(.horizontal, LayoutConstants.ipadPadding)
+        .padding(.vertical, 15)
+        .operatingChromeTypeSize()
     }
 }
 
@@ -413,7 +583,9 @@ struct ContentView: View {
 struct TermsSheet: View {
     @Binding var hasAcceptedTerms: Bool
     @Environment(\.dismiss) private var dismiss
-    
+    @State private var showTermsSafari = false
+    @State private var showPrivacySafari = false
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
@@ -429,15 +601,15 @@ struct TermsSheet: View {
                         .font(.headline)
                     
                     VStack(alignment: .leading, spacing: 10) {
-                        Link("Terms of Use", destination: URL(string: "https://ftham.turrion.dev/terms")!)
-                        Link("Privacy Policy", destination: URL(string: "https://ftham.turrion.dev/privacy")!)
+                        Button("Terms of Use") { showTermsSafari = true }
+                        Button("Privacy Policy") { showPrivacySafari = true }
                     }
                     .font(.body)
                         .foregroundStyle(.blue)
 
                         Divider()
                         
-                    Text("Anonymous usage metrics may be collected via Firebase Analytics to improve the app. No personally identifiable information (PII) is collected.")
+                    Text("FT Ham collects anonymous usage statistics with Firebase Analytics to improve the app. You can turn this off in Configuration, under Legal & Licenses. Optional services such as QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -446,6 +618,7 @@ struct TermsSheet: View {
                 Spacer()
                 
                 Button(action: {
+                    AnalyticsManager.shared.grantAnalyticsConsent()
                     AnalyticsManager.shared.logTermsAccepted()
                     hasAcceptedTerms = true
                     dismiss()
@@ -460,6 +633,14 @@ struct TermsSheet: View {
             }
             .padding()
             .navigationBarTitle("Terms & Privacy", displayMode: .inline)
+            .sheet(isPresented: $showTermsSafari) {
+                SafariView(url: URL(string: "https://ftham.turrion.dev/terms")!)
+                    .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showPrivacySafari) {
+                SafariView(url: URL(string: "https://ftham.turrion.dev/privacy")!)
+                    .ignoresSafeArea()
+            }
         }
     }
 }
@@ -474,9 +655,10 @@ struct TermsSheet: View {
     viewModel.callsign = "EA4IQL"
     viewModel.locator = "IN80"
     
-    return ContentView()
+    return ContentView(viewModel: viewModel)
             .environmentObject(viewModel)
             .environmentObject(FeatureFlagManager.shared)
+            .environmentObject(PremiumManager.shared)
             .environment(\.locale, .init(identifier: "en"))
 }
 
@@ -489,9 +671,10 @@ struct TermsSheet: View {
     viewModel.callsign = "EA4IQL"
     viewModel.locator = "IN80"
     
-    return ContentView()
+    return ContentView(viewModel: viewModel)
         .environmentObject(viewModel)
         .environmentObject(FeatureFlagManager.shared)
+        .environmentObject(PremiumManager.shared)
         .environment(\.locale, .init(identifier: "es"))
 }
 

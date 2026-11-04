@@ -15,6 +15,8 @@ extension FT8ViewModel {
     func stopCurrentTX() {
         txLogger.log(.info, "Stopping current TX...")
         audioManager.stopPlayback()
+
+        setCatPTT(false, reason: "manual stop")
         
         isTransmitting = false
         invalidatePendingTX(reason: "Manual stopCurrentTX")
@@ -23,6 +25,10 @@ extension FT8ViewModel {
             transmitLoopActive = false
             appLogger.log(.info, "Auto TX stopped by user")
         }
+        if freeTextLoopActive {
+            freeTextLoopActive = false
+            appLogger.log(.info, "Free text loop stopped by user")
+        }
     }
     
     @MainActor
@@ -30,6 +36,8 @@ extension FT8ViewModel {
         transmitLoopActive.toggle()
         
         if transmitLoopActive {
+            // Only one loop owns the TX slots at a time.
+            freeTextLoopActive = false
             appLogger.log(.info, "Auto TX enabled")
             if qsoManager.qsoState == .idle {
                 qsoManager.startCallingCQ()

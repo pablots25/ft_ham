@@ -14,9 +14,21 @@ struct TransmissionView: View {
     @State private var columnFrame: CGRect = .zero
     @AppStorage("hasSeenSlideToReplyTutorial") private var hasSeenTutorial: Bool = false
     @State private var showTutorial: Bool = false
-    
-    @AppStorage("showOnlyInvolved")
-    private var showOnlyInvolved: Bool = false
+
+    @AppStorage("rxFilterMode")
+    private var filterMode: Int = 0
+
+    @State private var showLegend: Bool = false
+
+    /// Width a decode row needs at the current text size.
+    @ScaledMetric(relativeTo: .caption2) private var decodeRowWidth = DecodeRowMetrics.baseRowWidth
+    /// The one list shown when the two do not fit side by side.
+    @State private var visibleSection: TransmissionSection = .received
+    private let sectionSpacing: CGFloat = 12
+
+    private var needsTutorial: Bool {
+        !hasSeenTutorial
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -29,7 +41,7 @@ struct TransmissionView: View {
                     if isLandscape {
                         landscapeLayout(width: geo.size.width)
                     } else {
-                        portraitLayout()
+                        portraitLayout(width: geo.size.width)
                     }
                 }
                 .animation(.easeInOut(duration: 0.25), value: isLandscape)
@@ -38,7 +50,7 @@ struct TransmissionView: View {
                 if showTutorial {
                     TutorialOverlay(
                         highlightedFrame: adjustedTutorialFrame,
-                        text: "Swipe any message to automatically reply in the frequency used."
+                        text: String(localized: "tutorial_swipe_reply")
                     ) {
                         hasSeenTutorial = true
                         showTutorial = false
@@ -48,9 +60,7 @@ struct TransmissionView: View {
             .coordinateSpace(name: "TransmissionSpace")
         }
         .onAppear {
-            if !hasSeenTutorial {
-                showTutorial = true
-            }
+            showTutorial = needsTutorial
         }
     }
 }
@@ -71,21 +81,24 @@ private extension TransmissionView {
         )
     }
     
-    func portraitLayout() -> some View {
+    func portraitLayout(width: CGFloat) -> some View {
         VStack(spacing: 10) {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
             
-            LazyVGrid(columns: columns, spacing: 12) {
-                StatusView().gridCellColumns(2)
-                ClockView().gridCellColumns(2)
+            if UIDevice.current.userInterfaceIdiom != .pad {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    StatusView().gridCellColumns(2)
+                    ClockView().gridCellColumns(2)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
             
             TransmissionButtonsBar()
                 .padding(.horizontal)
                 .padding(.bottom)
             
-            messagesSection
+            // 16 pt of horizontal padding on each side.
+            messagesSection(width: width - 32)
                 .padding(.horizontal)
             
             //            WaterfallView(
@@ -101,7 +114,7 @@ private extension TransmissionView {
                 //                DXInfoFields()
                 MessageSelector()
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, LayoutConstants.largePadding)
             .padding(.bottom, 10)
         }
     }
@@ -112,7 +125,8 @@ private extension TransmissionView {
                 .frame(width: width * 0.45)
             Divider()
             
-            messagesSection
+            // Leading padding plus the doubled trailing padding: 48 pt.
+            messagesSection(width: width * 0.55 - 48)
                 .frame(width: width * 0.55)
                 .padding(.horizontal)
                 .padding(.trailing)
@@ -129,29 +143,54 @@ private extension TransmissionView {
         }
     }
     
-    var messagesSection: some View {
-        HStack(alignment: .top, spacing: 12) {
-            let receivedFiltered = showOnlyInvolved
-            ? viewModel.receivedMessages.filter { $0.forMe || $0.isTX }
-            : viewModel.receivedMessages
-            
-            let txFiltered = showOnlyInvolved
-            ? viewModel.transmittedMessages.filter { $0.forMe || $0.isTX }
-            : viewModel.transmittedMessages
-            
-            messagesColumn(
-                section: .received,
-                messages: receivedFiltered,
-                clearAction: viewModel.clearReceived,
-                allowReply: true
-            )
-            Divider()
-            messagesColumn(
-                section: .transmitted,
-                messages: txFiltered,
-                clearAction: viewModel.clearTransmitted
-            )
+    @ViewBuilder
+    func messagesSection(width: CGFloat) -> some View {
+        let layout = TransmissionSectionLayout(
+            availableWidth: width,
+            rowWidth: decodeRowWidth,
+            spacing: sectionSpacing * 2 + 1
+        )
+        if layout == .single {
+            // At larger text sizes two lists side by side leave each too
+            // narrow for the decode columns, so show one at a time.
+            VStack(spacing: 8) {
+                Picker("Messages", selection: $visibleSection) {
+                    Text(TransmissionSection.received.localizedName).tag(TransmissionSection.received)
+                    Text(TransmissionSection.transmitted.localizedName).tag(TransmissionSection.transmitted)
+                }
+                .pickerStyle(.segmented)
+                .operatingChromeTypeSize()
+
+                switch visibleSection {
+                case .received: receivedColumn
+                case .transmitted: transmittedColumn
+                }
+            }
+        } else {
+            HStack(alignment: .top, spacing: sectionSpacing) {
+                receivedColumn
+                Divider()
+                transmittedColumn
+            }
         }
+    }
+
+    // Filtering by `filterMode` happens once, inside the list views.
+    var receivedColumn: some View {
+        messagesColumn(
+            section: .received,
+            messages: viewModel.receivedMessages,
+            clearAction: viewModel.clearReceived,
+            allowReply: true
+        )
+    }
+
+    var transmittedColumn: some View {
+        messagesColumn(
+            section: .transmitted,
+            messages: viewModel.transmittedMessages,
+            clearAction: viewModel.clearTransmitted
+        )
     }
     
     func messagesColumn(
@@ -170,29 +209,31 @@ private extension TransmissionView {
                     Button(String(localized: "Clear"), action: clearAction)
                         .disabled(messages.isEmpty)
                     
-                    if(allowReply){
+                    if allowReply {
+                        RXFilterButton(filterMode: $filterMode)
+                    }
+
+                    if !allowReply {
                         Button {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                showOnlyInvolved.toggle()
-                            }
+                            showLegend.toggle()
                         } label: {
-                            Image(systemName: showOnlyInvolved
-                                  ? "line.3.horizontal.decrease.circle.fill"
-                                  : "line.3.horizontal.decrease.circle")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
-                            .accessibilityLabel("Filter messages")
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .sheet(isPresented: $showLegend) {
+                            MessageColorLegendView()
+                        }
                     }
                 }
                 .padding(.vertical, 6)
                 
-                if !hasSeenTutorial, allowReply {
+                if showTutorial, allowReply {
                     MessageListView(
-                        messages: [PreviewMocks.rxMessages.first!],
+                        messages: tutorialSampleMessages(from: messages),
                         allowReply: allowReply,
-                        showOnlyInvolved: $showOnlyInvolved
+                        filterMode: $filterMode
                     )
                     .background(
                         GeometryReader { proxy in
@@ -209,13 +250,25 @@ private extension TransmissionView {
                     MessageListView(
                         messages: messages,
                         allowReply: allowReply,
-                        showOnlyInvolved: $showOnlyInvolved
+                        filterMode: $filterMode
                     )
                 }
             }
             
         }.frame(maxWidth: .infinity)
             .padding(.bottom, 2)
+    }
+
+    func tutorialSampleMessages(from messages: [FT8Message]) -> [FT8Message] {
+        if let previewSample = PreviewMocks.rxMessages.first {
+            return [previewSample]
+        }
+
+        if let firstLiveMessage = messages.first {
+            return [firstLiveMessage]
+        }
+
+        return []
     }
 }
 

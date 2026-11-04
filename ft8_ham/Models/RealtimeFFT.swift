@@ -12,6 +12,11 @@ final class RealtimeFFT {
     let n: Int
     private let fftSetup: FFTSetup
     private var window: [Float]
+    /// Turns raw `vDSP_zvabs` output into dBFS-referenced amplitude: a full-scale
+    /// sine reads 1.0 (0 dBFS) in its peak bin. Unnormalised, the same tone lands
+    /// at `windowSum / 2` — about +58 dB for N = 2048 — so every downstream dB
+    /// threshold would have to be calibrated to an FFT-size-dependent number.
+    private let magnitudeScale: Float
 
     // Buffers reused
     private var real: UnsafeMutablePointer<Float>
@@ -27,6 +32,7 @@ final class RealtimeFFT {
         // Create Hann window
         window = [Float](repeating: 0, count: size)
         vDSP_hann_window(&window, vDSP_Length(size), Int32(vDSP_HANN_NORM))
+        magnitudeScale = 2 / window.reduce(0, +)
 
         real = UnsafeMutablePointer<Float>.allocate(capacity: size)
         imag = UnsafeMutablePointer<Float>.allocate(capacity: size)
@@ -54,6 +60,7 @@ final class RealtimeFFT {
         let half = n / 2
         var mags = [Float](repeating: 0, count: half)
         vDSP_zvabs(&split, 1, &mags, 1, vDSP_Length(half))
+        normalise(&mags, count: half)
         return mags
     }
 
@@ -68,6 +75,14 @@ final class RealtimeFFT {
         // Write magnitudes directly to output
         let half = n / 2
         vDSP_zvabs(&split, 1, &output, 1, vDSP_Length(half))
+        normalise(&output, count: half)
         return output
+    }
+
+    private func normalise(_ mags: inout [Float], count: Int) {
+        var scale = magnitudeScale
+        mags.withUnsafeMutableBufferPointer { p in
+            vDSP_vsmul(p.baseAddress!, 1, &scale, p.baseAddress!, 1, vDSP_Length(count))
+        }
     }
 }

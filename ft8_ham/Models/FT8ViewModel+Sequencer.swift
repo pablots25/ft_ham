@@ -25,6 +25,13 @@ extension FT8ViewModel {
         }
         appLogger.info("Starting Sequencer Loop (FT\(isFT4 ? "4" : "8") - \(evenCycle ? "Even" : "Odd"))")
         isSequencerRunning = true
+        PresenceManager.shared.sequencerDidStart(
+            callsign: callsign, grid: locator,
+            band: effectiveBand.rawValue, mode: isFT4 ? "FT4" : "FT8"
+        )
+
+        // Track first-run milestone
+        UserDefaults.standard.set(true, forKey: "hasStartedRX")
         
         sequencerTask = Task { [weak self] in
             guard let self else { return }
@@ -35,10 +42,8 @@ extension FT8ViewModel {
 
             AnalyticsManager.shared.startRadioActivity(.rx)
             
-            // Clear buffer initially
-            self.rxBufferLock.withLock {
-                self.rxSampleBuffer = Data()
-            }
+            // Whatever was analysed before belongs to no slot.
+            self.slotMonitor.resetSlot()
             
             // Ensure screen stays on
             self.updateScreenAlwaysOn()
@@ -46,7 +51,7 @@ extension FT8ViewModel {
             do {
                 while !Task.isCancelled {
                     // 1. Calculate Next Slot Boundary
-                    let now = Date()
+                    let now = AppClock.now()
                     let nextSlot = await self.slotManager.getNextSlot(from: now, isFT4: self.isFT4)
                     
                     // 2. Wait for Boundary
@@ -56,70 +61,51 @@ extension FT8ViewModel {
                     try Task.checkCancellation()
                     
                     // --- HARVEST AND DECODE PREVIOUS SLOT ---
-                    // Wait a tiny bit more (200ms) to ensure the audio tap delivers the final samples of the previous slot
-                    try? await Task.sleep(nanoseconds: 200_000_000)
-                    
+                    // The slot monitor has been analysing the audio as it
+                    // arrived; take that spectrogram and start the next slot's
+                    // in one step, so the new slot's block 0 sits on the boundary.
                     let completedSlotIndex = nextSlot.slotIndex - 1
-                    
-                    var audioToDecode = Data()
-                    var sampleCount = 0
-                    
-                    self.rxBufferLock.withLock {
-                        audioToDecode = self.rxSampleBuffer
-                        sampleCount = audioToDecode.count / 4
-                    }
-                    
-                    // Align RX buffer exactly to slot boundary
-                    self.rxBufferLock.withLock {
-                        self.rxSampleBuffer = Data()
-                    }
-                    
-                    // FT8 needs ~12.6s (151200 samples at 12k). FT4 needs ~5.0s.
+                    let snapshot = self.slotMonitor.snapshotAndReset()
+                    let coveredSeconds = snapshot.duration
+
+                    // FT8 needs ~12.6s of signal. FT4 needs ~4.5s.
                     let signalDuration = self.isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration
                     let decodeMargin   = self.isFT4 ? Constants.ft4DecodeMargin : Constants.ft8DecodeMargin
                     let requiredSeconds = signalDuration + decodeMargin
-                    let minSamples = Int(requiredSeconds * self.audioManager.micSampleRate)
-                    
-                    // Disrcard extra long buffers
-                    let maxExpectedSamples = Int(
-                        (signalDuration + decodeMargin + 1.0) * self.audioManager.micSampleRate
-                    )
-                    
-                    // Trim buffer if it exceeds max size to prevent memory issues
-                    if audioToDecode.count > maxExpectedSamples * 4 {
-                        audioToDecode = Data(audioToDecode.prefix(maxExpectedSamples * 4))
-                        sampleCount = maxExpectedSamples
-                        self.rxLogger.warning("Audio buffer trimmed from \(audioToDecode.count / 4) to \(maxExpectedSamples) samples")
+
+                    // Guard: micSampleRate starts at 0 and is populated lazily by startMicInput().
+                    // Until then no audio has reached the monitor, so there is nothing to decode.
+                    guard self.audioManager.micSampleRate > 0 else {
+                        self.rxLogger.warning("Skipping decode (slot \(completedSlotIndex)): micSampleRate not yet initialized")
+                        continue
                     }
 
-                    
-                    if sampleCount >= minSamples && !self.isHarvestingRX {
+                    if coveredSeconds >= requiredSeconds && !self.isHarvestingRX {
 
                         self.rxLogger.info(
-                            "Harvested \(sampleCount) samples (~\(String(format: "%.1f", Double(sampleCount) / self.audioManager.micSampleRate))s) for slot \(completedSlotIndex)"
+                            "Harvested \(String(format: "%.1f", coveredSeconds))s of spectrogram for slot \(completedSlotIndex)"
                         )
-                        
+
+                        // Capture @MainActor values before spawning the detached task so the
+                        // CPU-intensive decode runs on a background thread, not the main thread.
+                        let capturedEngine = self.engine
+                        let capturedIsFT4 = self.isFT4
+                        let capturedLogger = self.rxLogger
                         self.isHarvestingRX = true
-                        Task { [weak self] in
-                            defer { Task { await MainActor.run { self?.isHarvestingRX = false } } }
-                            guard let self else { return }
-                            
-                            do {
-                                let msgs = self.engine.decodeAudioBuffer(
-                                    audioToDecode,
-                                    sampleRate: self.audioManager.micSampleRate,
-                                    isFT4: self.isFT4
-                                )
-                                
-                                self.rxLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
-                                await self.handleDecodedMessages(msgs, slotIndex: completedSlotIndex)
-                            } catch {
-                                self.rxLogger.error("Decode error: \(error.localizedDescription)")
-                            }
+                        Task.detached(priority: .userInitiated) { [weak self] in
+                            let weakSelf = self
+                            defer { Task { await MainActor.run { weakSelf?.isHarvestingRX = false } } }
+
+                            let msgs = capturedEngine.decodeWaterfallSnapshot(snapshot, isFT4: capturedIsFT4)
+
+                            capturedLogger.info("Decoded \(msgs.count) messages from slot \(completedSlotIndex)")
+                            await weakSelf?.handleDecodedMessages(
+                                msgs, slotIndex: completedSlotIndex, slotSequence: UInt(snapshot.slotSequence)
+                            )
                         }
                     } else {
-                        if sampleCount < minSamples {
-                            self.rxLogger.debug("Buffer too small (\(sampleCount) samples). Accumulating...")
+                        if coveredSeconds < requiredSeconds {
+                            self.rxLogger.debug("Slot too short (\(String(format: "%.1f", coveredSeconds))s). Accumulating...")
                             
                             // If it's the first loop, trigger a "Partial slot" message so the user sees
                             // the timestamp and the data loss warning immediately.
@@ -152,8 +138,10 @@ extension FT8ViewModel {
             
             // Cleanup on exit
             self.isSequencerRunning = false
+            PresenceManager.shared.sequencerDidStop()
             self.isListening = false
             self.isTransmitting = false
+            self.freeTextLoopActive = false
             self.sequencerTask = nil
             self.audioManager.stopPlayback()
             self.audioManager.stopMicInput()
@@ -197,31 +185,45 @@ extension FT8ViewModel {
         self.startSequencer()
     }
     
+    /// Lag past the slot start beyond which the slot is skipped.
+    nonisolated static let maxSlotLag: TimeInterval = 2.0
+
+    /// `true` when `lag` covers at least a whole slot (15 s FT8, 7.5 s FT4).
+    /// That only happens when the app was suspended and resumed, so it is
+    /// logged as a warning instead of a Crashlytics non-fatal.
+    nonisolated static func isSuspensionGap(lag: TimeInterval, isFT4: Bool) -> Bool {
+        lag >= (isFT4 ? 7.5 : 15.0)
+    }
+
     @MainActor
     internal func determineAction(for slot: SlotInfo) -> SequencerAction {
         if case .completed = qsoManager.qsoState {
             return .receive
         }
         
-        let lag = Date().timeIntervalSince(slot.startTime)
-        if lag > 2.0 {
-            appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
+        let lag = AppClock.now().timeIntervalSince(slot.startTime)
+        if lag > Self.maxSlotLag {
+            if Self.isSuspensionGap(lag: lag, isFT4: slot.isFT4) {
+                // A whole slot or more went by: the app was suspended (screen
+                // lock, background) and just resumed. Expected, not a bug.
+                appLogger.warning("Slot \(slot.slotIndex) skipped after resuming (\(lag)s late)")
+            } else {
+                appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
+            }
             return .skip
         }
         
+        // Free text runs outside the QSO state machine: every my-turn slot.
+        if self.freeTextLoopActive {
+            return isMyTurn(slot) ? .transmit : .receive
+        }
+
         // Check if we should transmit based on QSO state machine
         // Only TX when: calling CQ, in a "sending" state, or isReadyForTX (immediate response)
         let shouldTX = (self.transmitLoopActive && qsoManager.shouldTransmitThisSlot()) || self.isReadyForTX
         
         if shouldTX {
-            let isMyTurn: Bool
-            switch self.txSlotPreference {
-            case .followClock: isMyTurn = (slot.isEven == self.evenCycle)
-            case .forceEven:   isMyTurn = slot.isEven
-            case .forceOdd:    isMyTurn = !slot.isEven
-            }
-            
-            if isMyTurn {
+            if isMyTurn(slot) {
                 // Clear isReadyForTX after using it to prevent repeated TX
                 self.isReadyForTX = false
                 appLogger.debug("Sequencer Decided: TRANSMIT (Slot \(slot.slotIndex), Even: \(slot.isEven))")
@@ -232,9 +234,26 @@ extension FT8ViewModel {
         return .receive
     }
     
+    /// Drops audio captured so far in this slot (e.g. after a band hop, so the
+    /// next decode does not mix two bands).
+    @MainActor
+    internal func clearRXBuffer() {
+        slotMonitor.resetSlot()
+    }
+
+    /// Slot parity check shared by the QSO and free-text loops.
+    @MainActor
+    internal func isMyTurn(_ slot: SlotInfo) -> Bool {
+        switch self.txSlotPreference {
+        case .followClock: return slot.isEven == self.evenCycle
+        case .forceEven:   return slot.isEven
+        case .forceOdd:    return !slot.isEven
+        }
+    }
+
     @MainActor
     internal func tryImmediateTXIfPossible() async{
-        let now = Date()
+        let now = AppClock.now()
         
         // 1. Obtener información del slot ACTUAL
         let currentSlot = await slotManager.getSlotInfo(
@@ -293,16 +312,16 @@ extension FT8ViewModel {
     @MainActor
     internal func executeTX(slot: SlotInfo) async {
         txLogger.info("Starting transmission for slot \(slot.slotIndex)")
-        self.isListening = true
-        self.isTransmitting = true
+        if !isListening { isListening = true }
+        if !isTransmitting { isTransmitting = true }
         await self.performTransmission(slot: slot)
     }
     
     @MainActor
     internal func executeRX(slot: SlotInfo) async {
         rxLogger.debug("Starting reception and monitor for slot \(slot.slotIndex)")
-        self.isListening = true
-        self.isTransmitting = false
+        if !isListening { isListening = true }
+        if isTransmitting { isTransmitting = false }
         
     }
     
@@ -314,7 +333,7 @@ extension FT8ViewModel {
             return
         }
         
-        let now = Date()
+        let now = AppClock.now()
         let offsetFromSlotStart = now.timeIntervalSince(slot.startTime)
         
         let maxStartOffset = slot.isFT4
@@ -336,7 +355,7 @@ extension FT8ViewModel {
             (slot.isFT4 ? Constants.ft4SignalDuration : Constants.ft8SignalDuration) + (slot.isFT4 ? Constants.ft4DecodeMargin : Constants.ft8DecodeMargin)
         )
         while self.isHarvestingRX {
-            if Date() > signalEnd {
+            if AppClock.now() > signalEnd {
                 txLogger.warning(
                     "TX aborted for slot \(slot.slotIndex): RX decode exceeded signal window"
                 )
@@ -351,23 +370,58 @@ extension FT8ViewModel {
             txLogger.info("TX delayed \(waitedMs) ms (RX decode barrier)")
         }
         
-        guard let selectedIndex = selectedMessageIndex,
-              allMessages.indices.contains(selectedIndex) else {
-            txLogger.warning(
-                "No message selected for TX (selectedIndex: \(String(describing: selectedMessageIndex)))"
-            )
-            return
+        let message: String
+        let audioData: Data
+        let isFreeText = freeTextLoopActive
+
+        if isFreeText {
+            guard case .success(let text) = FreeTextMessage.validate(freeTextForTX) else {
+                txLogger.warning("Free text TX skipped: text is invalid")
+                freeTextLoopActive = false
+                return
+            }
+            guard isValidCallsign(callsign) else {
+                audioError = "Invalid callsign/locator"
+                txLogger.warning("Invalid callsign: \(callsign)")
+                return
+            }
+            guard let data = engine.generateFreeText(text, frequency: Float(frequency), isFT4: isFT4) else {
+                txLogger.error("Failed to generate free text audio for: \(text)")
+                return
+            }
+            message = text
+            audioData = data
+        } else {
+            guard let selectedIndex = selectedMessageIndex,
+                  allMessages.indices.contains(selectedIndex) else {
+                txLogger.warning(
+                    "No message selected for TX (selectedIndex: \(String(describing: selectedMessageIndex)))"
+                )
+                return
+            }
+
+            message = allMessages[selectedIndex]
+            txLogger.debug("TX message selection: index=\(selectedIndex), message='\(message)', dxCallsign='\(dxCallsign)'")
+
+            guard isValidCallsign(callsign), isValidLocator(locator) else {
+                // Station setup problem, not a bug: the user sees audioError.
+                audioError = "Invalid callsign/locator"
+                txLogger.warning("Invalid callsign/locator: \(callsign)/\(locator)")
+                return
+            }
+
+            guard let data = engine.generateFT8(
+                message,
+                frequency: Float(frequency),
+                isFT4: isFT4,
+                toFile: nil
+            ) else {
+                txLogger.error("Failed to generate audio for: \(message)")
+                return
+            }
+            audioData = data
         }
-        
-        let message = allMessages[selectedIndex]
-        txLogger.debug("TX message selection: index=\(selectedIndex), message='\(message)', dxCallsign='\(dxCallsign)'")
-        
-        guard isValidCallsign(callsign), isValidLocator(locator) else {
-            audioError = "Invalid callsign/locator"
-            txLogger.error("Invalid callsign/locator: \(callsign)/\(locator)")
-            return
-        }
-        
+
         let txMessage = FT8Message(
             text: message,
             mode: isFT4 ? .ft4 : .ft8,
@@ -376,23 +430,23 @@ extension FT8ViewModel {
             band: selectedBand
         )
         
-        guard let audioData = engine.generateFT8(
-            message,
-            frequency: Float(frequency),
-            isFT4: isFT4,
-            toFile: nil
-        ) else {
-            txLogger.error("Failed to generate audio for: \(message)")
-            return
-        }
-        
         transmittedMessages.append(txMessage)
         txLogger.info("Added to TX list: \(message)")
         
         // Clear isReadyForTX after successful TX preparation
         self.isReadyForTX = false
         
+        // The scenePhase handler stops the sequencer on backgrounding, but a TX
+        // task already in flight can reach this point afterwards. Starting audio
+        // in the background has no IO cycle and crashes AVAudioPlayerNode.
+        guard UIApplication.shared.applicationState != .background else {
+            txLogger.warning("TX skipped for slot \(slot.slotIndex): app is in background")
+            return
+        }
+
         AnalyticsManager.shared.startRadioActivity(.tx)
+        sendCatFrequency(reason: "tx start")
+        setCatPTT(true, reason: "tx start")
         audioManager.playAudio(audioData)
         InAppPrompts.shared.recordTXStarted()
         txLogger.info("TX Started: \(message)")
@@ -402,6 +456,7 @@ extension FT8ViewModel {
         
         
         self.activeTXMessage = txMessage
+        self.activeTXIsFreeText = isFreeText
         self.lastTransmittedSlotIndex = slot.slotIndex
         
         // Final QSO messages (RR73 / 73) are handled by QSOStatusManager

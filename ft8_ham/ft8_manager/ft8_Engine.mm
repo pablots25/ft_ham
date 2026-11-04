@@ -1,8 +1,10 @@
 #import "ft8_Engine.h"
+#import "ft8_SlotMonitor.h"
 
 #include "decode.h"
 #include "encode.h"
 #include "monitor.h"
+#include "text.h"
 
 #import <AVFoundation/AVFoundation.h>
 #include <Accelerate/Accelerate.h>
@@ -82,6 +84,90 @@ bool hashtable_lookup(ftx_callsign_hash_type_t hash_type, uint32_t hash,
 // Interface used by ftx_message_decode()
 static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
                                                 .save_hash = hashtable_add};
+
+/// The protocol's 22-bit callsign hash, as defined for type-4 messages.
+///
+/// The library computes this while packing, but it keeps the routine private and
+/// only records callsigns it has actually seen on the air. Seeding the table
+/// with a callsign we already know needs the same number.
+static uint32_t ft8_callsign_hash22(const char *callsign) {
+  uint64_t n58 = 0;
+  int i = 0;
+  for (; callsign[i] != '\0' && i < 11; ++i) {
+    int j = nchar(callsign[i], FT8_CHAR_TABLE_ALPHANUM_SPACE_SLASH);
+    if (j < 0) return UINT32_MAX; // character a callsign cannot contain
+    n58 = (38 * n58) + j;
+  }
+  for (; i < 11; ++i) {
+    n58 = 38 * n58; // pad with trailing spaces (index 0)
+  }
+  return (uint32_t)((47055833459ull * n58) >> (64 - 22)) & 0x3FFFFFu;
+}
+
+/// Teaches the decoder a callsign it has not heard spelled out on the air.
+///
+/// A station answering us with a compound callsign of their own sends *our*
+/// callsign as a 12-bit hash. Without this the reply decodes as "<...> THEIRCALL"
+/// and never reads as addressed to us. Called from the decode thread only, which
+/// is the only thread that touches the table.
+static void ft8_register_known_callsign(NSString *callsign) {
+  if (callsign.length == 0 || callsign.length > 11) return;
+  const char *c = [callsign UTF8String];
+  if (c == NULL) return;
+  uint32_t hash = ft8_callsign_hash22(c);
+  if (hash == UINT32_MAX) return;
+  hashtable_add(c, hash);
+}
+
+// -----------------------------------------------------------------------------
+// MARK: - Compound Callsign Encoding
+// -----------------------------------------------------------------------------
+// A compound callsign such as "I/VE6XAD" does not fit the standard 28-bit
+// callsign field. The protocol carries it in a type-4 message instead, where one
+// call is spelled out in full and the other is sent as a 12-bit hash.
+//
+// ftx_message_encode() only falls back to that type when the standard packer
+// fails outright. For a prefixed call the standard packer "succeeds" by
+// replacing the call with a 22-bit hash, so a CQ would go on the air as "CQ
+// <...>" for every receiver that has never heard the call spelled out. Deciding
+// here which messages need a type-4 keeps the compound call readable on the air.
+
+/// True when `call` fits the standard callsign field: a plain call, a protocol
+/// token, or a call carrying the protocol's own /P and /R suffixes.
+static BOOL ft8_callsign_is_standard(const char *call) {
+  if (call == NULL) return YES;
+  size_t len = strlen(call);
+  if (len == 0) return YES; // absent field (e.g. call_to of a CQ)
+
+  if (strcmp(call, "CQ") == 0 || strcmp(call, "DE") == 0 ||
+      strcmp(call, "QRZ") == 0 || strncmp(call, "CQ ", 3) == 0) {
+    return YES;
+  }
+
+  size_t base_len = len;
+  if (len > 2 && (strcmp(call + len - 2, "/P") == 0 ||
+                  strcmp(call + len - 2, "/R") == 0)) {
+    base_len = len - 2;
+  }
+
+  return pack_basecall(call, (int)base_len) >= 0;
+}
+
+/// True when a type-4 message can carry this exchange.
+///
+/// Besides the two callsigns it has room for one of RRR/RR73/73, and nothing
+/// else. A grid or a signal report has to travel in a standard message, where
+/// the compound call is replaced by a hash the other station resolves from the
+/// CQ it already decoded — which is what WSJT-X does too.
+///
+/// A CQ is the exception: it is the message that teaches everyone the call, so
+/// it is always worth sending as type 4 even though the grid cannot come along.
+static BOOL ft8_fits_nonstandard(const char *extra, BOOL isCQ) {
+  if (isCQ) return YES;
+  if (extra == NULL || extra[0] == '\0') return YES;
+  return strcmp(extra, "RRR") == 0 || strcmp(extra, "RR73") == 0 ||
+         strcmp(extra, "73") == 0;
+}
 
 // -----------------------------------------------------------------------------
 // MARK: - FT8 Engine Implementation
@@ -229,6 +315,10 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
 
 #pragma mark - Real-time Decoding
 
+// NOTE: startRealtimeDecode:messageHandler: is legacy code that is never called
+// from Swift. AVAudioSession ownership and all audio I/O were migrated to
+// AudioManager.swift. The AVAudioSession configuration below is therefore dead
+// code and does not conflict with the live session at runtime.
 - (void)startRealtimeDecode:(BOOL)isFT4
              messageHandler:
                  (void (^)(NSArray<NSDictionary *> *messages))handler {
@@ -239,11 +329,14 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
   // AVAudioSession setup
   NSError *sessionError = nil;
   AVAudioSession *session = [AVAudioSession sharedInstance];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   [session setCategory:AVAudioSessionCategoryPlayAndRecord
            withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker |
                        AVAudioSessionCategoryOptionAllowBluetooth |
                        AVAudioSessionCategoryOptionAllowBluetoothA2DP
                  error:&sessionError];
+#pragma clang diagnostic pop
   [session setMode:AVAudioSessionModeMeasurement error:&sessionError];
   [session setPreferredSampleRate:12000 error:&sessionError];
   [session setActive:YES error:&sessionError];
@@ -372,6 +465,12 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
 - (NSArray<NSDictionary *> *)decodeBufferUsingMonitor:(NSData *)audioData
                                            sampleRate:(double)sampleRate
                                                 isFT4:(BOOL)isFT4 {
+  // Second-line defence: reject invalid sample rates before they reach monitor_init,
+  // where sample_rate=0 would produce nfft=0 and crash KISS FFT.
+  if (sampleRate <= 0) {
+    [self logFT8:@"decodeBufferUsingMonitor: invalid sampleRate=%.1f – aborting to prevent FFT crash", sampleRate];
+    return @[];
+  }
   const float *audio = (const float *)audioData.bytes;
   NSUInteger nSamples = audioData.length / sizeof(float);
   ftx_protocol_t protocol = isFT4 ? FTX_PROTOCOL_FT4 : FTX_PROTOCOL_FT8;
@@ -384,7 +483,6 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
                           .freq_osr = 2,
                           .protocol = protocol};
 
-  hashtable_init();
   monitor_init(&mon, &cfg);
 
   int blockSize = mon.block_size;
@@ -392,7 +490,51 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
     monitor_process(&mon, audio + pos);
   }
 
-  const ftx_waterfall_t *wf = &mon.wf;
+  NSArray<NSDictionary *> *results =
+      [self decodeWaterfall:&mon.wf
+                     minBin:mon.min_bin
+               symbolPeriod:mon.symbol_period
+                      isFT4:isFT4
+             coveredSeconds:(double)nSamples / sampleRate];
+
+  monitor_free(&mon);
+  return results;
+}
+
+- (NSArray<NSDictionary *> *)decodeSlotSnapshot:(FT8WaterfallSnapshot *)snapshot
+                                                isFT4:(BOOL)isFT4 {
+  return [self decodeWaterfall:snapshot.waterfall
+                        minBin:snapshot.minBin
+                  symbolPeriod:snapshot.symbolPeriod
+                         isFT4:isFT4
+                coveredSeconds:snapshot.duration];
+}
+
+/// Shared decode core: candidate search, LDPC decode and message unpacking
+/// over an already-analysed spectrogram, whether it came from a one-off
+/// batch monitor (WAV files, buffers) or from the streaming slot monitor.
+/// `coveredSeconds` is how much audio the spectrogram spans; it decides
+/// whether an empty result is reported as a partial slot.
+- (NSArray<NSDictionary *> *)decodeWaterfall:(const ftx_waterfall_t *)wf
+                                      minBin:(int)minBin
+                                symbolPeriod:(float)symbolPeriod
+                                       isFT4:(BOOL)isFT4
+                              coveredSeconds:(double)coveredSeconds {
+  // The callsign hash table has to live across slots: a compound callsign is
+  // spelled out once and referred to by hash afterwards, often slots later.
+  // Re-initialising it per buffer would erase every call learned so far and
+  // leave those messages decoding as "<...>". Ageing is handled by
+  // hashtable_cleanup() at the end of each pass instead.
+  static dispatch_once_t hashtableOnce;
+  dispatch_once(&hashtableOnce, ^{
+    hashtable_init();
+  });
+
+  // Our own callsign is never learned from the air, so seed it every pass: a
+  // station answering us with a compound callsign refers to us by hash, and
+  // ageing can retire the entry between overs.
+  ft8_register_known_callsign([[[NSUserDefaults standardUserDefaults]
+      stringForKey:@"callsign"] uppercaseString]);
 
   // ------------------------------------------------------------
   // Find candidates
@@ -410,14 +552,17 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
       ftx_message_offsets_t offsets;
       ftx_message_rc_t rc = ftx_message_decode(&msg, &hash_if, text, &offsets);
 
-      if (rc == FTX_MESSAGE_RC_OK) {
+      // stringWithUTF8String: returns nil on bytes that are not valid UTF-8;
+      // a nil text would crash both the literal below and the dedup map.
+      NSString *messageText =
+          rc == FTX_MESSAGE_RC_OK ? [NSString stringWithUTF8String:text] : nil;
+      if (messageText != nil) {
         float snr = compute_snr_db(wf, &candidates[i]);
-        float symbolPeriod = isFT4 ? FT4_SYMBOL_PERIOD : FT8_SYMBOL_PERIOD;
 
         float timeSec = (candidates[i].time_offset +
                          (float)candidates[i].time_sub / wf->time_osr) *
                         symbolPeriod;
-        float freqHz = (mon.min_bin + candidates[i].freq_offset +
+        float freqHz = (minBin + candidates[i].freq_offset +
                         (float)candidates[i].freq_sub / wf->freq_osr) /
                        symbolPeriod;
 
@@ -426,7 +571,7 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
             [now timeIntervalSince1970]; // seconds since 1970
 
         NSDictionary *msgDict = @{
-          @"text" : [NSString stringWithUTF8String:text],
+          @"text" : messageText,
           @"snr" : @(snr),
           @"timeDelta" : @(timeSec),
           @"time" : @(timeSec),
@@ -440,13 +585,15 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
     }
   }
 
-  monitor_free(&mon);
   hashtable_cleanup(10);
 
   NSMutableDictionary<NSString *, NSDictionary *> *bestResults =
       [NSMutableDictionary dictionary];
   for (NSDictionary *msg in results) {
     NSString *text = msg[@"text"];
+    if (text == nil) {
+      continue;
+    }
     double snr = [msg[@"snr"] doubleValue];
 
     NSDictionary *existing = bestResults[text];
@@ -459,11 +606,8 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
     double signalDuration = isFT4 ? 4.5 : 12.6;   // physical signal length
     double decodeMargin   = isFT4 ? 0.1 : 0.2;    // safety margin
 
-    double minSamplesForFullSignal =
-        (signalDuration + decodeMargin) * sampleRate;
-
     // Only report partial slot if we could not decode any valid messages
-    if (nSamples < minSamplesForFullSignal && bestResults.count == 0) {
+    if (coveredSeconds < signalDuration + decodeMargin && bestResults.count == 0) {
         [bestResults setObject:@{
             @"text" : @"Partial slot",
             @"snr" : @0,
@@ -534,6 +678,84 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
   }
 }
 
+#pragma mark - Message Encoding
+
+/// Packs `message` into an FT8/FT4 payload, choosing the message type that keeps
+/// a compound callsign readable on the air.
+///
+/// Everything else is handed straight to the library. Both callsigns are
+/// registered in the local hash table on the way out, so a reply that refers to
+/// them by hash is displayed with the call spelled out.
+- (ftx_message_rc_t)encodeMessage:(NSString *)message
+                             into:(ftx_message_t *)outMessage {
+  const char *raw = [message UTF8String];
+  if (raw == NULL) {
+    return FTX_MESSAGE_RC_ERROR_TYPE;
+  }
+
+  NSArray<NSString *> *tokens = [[message
+      componentsSeparatedByCharactersInSet:[NSCharacterSet
+                                               whitespaceCharacterSet]]
+      filteredArrayUsingPredicate:[NSPredicate
+                                      predicateWithFormat:@"length > 0"]];
+
+  if (tokens.count >= 2) {
+    BOOL isCQ = [tokens[0] isEqualToString:@"CQ"];
+    NSString *callTo = @"";
+    NSString *callDe = @"";
+    NSString *extra = @"";
+
+    if (isCQ) {
+      // "CQ DX EA4IQL IN80" keeps the modifier with the CQ token; a three-token
+      // CQ whose middle token is a callsign is "CQ <call> <grid>" instead.
+      BOOL hasModifier =
+          tokens.count >= 3 && tokens[1].length <= 4 &&
+          [tokens[1] rangeOfString:@"/"].location == NSNotFound &&
+          !ft8_callsign_is_standard([tokens[1] UTF8String]);
+      if (hasModifier) {
+        callTo = [NSString stringWithFormat:@"CQ %@", tokens[1]];
+        callDe = tokens[2];
+        extra = tokens.count >= 4 ? tokens[3] : @"";
+      } else {
+        callTo = @"CQ";
+        callDe = tokens[1];
+        extra = tokens.count >= 3 ? tokens[2] : @"";
+      }
+    } else {
+      callTo = tokens[0];
+      callDe = tokens[1];
+      extra = tokens.count >= 3 ? tokens[2] : @"";
+    }
+
+    const char *cTo = [callTo UTF8String];
+    const char *cDe = [callDe UTF8String];
+    const char *cExtra = [extra UTF8String];
+
+    BOOL compound =
+        !ft8_callsign_is_standard(cTo) || !ft8_callsign_is_standard(cDe);
+
+    if (compound && ft8_fits_nonstandard(cExtra, isCQ)) {
+      if (isCQ && cExtra != NULL && cExtra[0] != '\0') {
+        [self logFT8:@"Compound callsign CQ: '%@' cannot be sent with a grid, "
+                     @"transmitting '%@ %@'",
+                     message, callTo, callDe];
+      }
+      // hash_if is left out on purpose: the table belongs to the decode path
+      // and is read from the audio queue. The packers do not need it to build
+      // the message, only to record what they packed.
+      ftx_message_rc_t rc =
+          ftx_message_encode_nonstd(outMessage, NULL, cTo, cDe, cExtra);
+      if (rc == FTX_MESSAGE_RC_OK) {
+        return rc;
+      }
+      [self logFT8:@"Non-standard encoding failed for '%@' (%d), falling back",
+                   message, rc];
+    }
+  }
+
+  return ftx_message_encode(outMessage, NULL, raw);
+}
+
 #pragma mark - FT8/FT4 Signal Generation
 
 - (NSData *)generateFT8:(NSString *)message
@@ -542,12 +764,43 @@ static ftx_callsign_hash_interface_t hash_if = {.lookup_hash = hashtable_lookup,
                  toFile:(nullable NSURL *)outputURL {
   // Encode message
   ftx_message_t ftxMsg;
-  ftx_message_rc_t rc = ftx_message_encode(&ftxMsg, NULL, [message UTF8String]);
+  ftx_message_rc_t rc = [self encodeMessage:message into:&ftxMsg];
   if (rc != FTX_MESSAGE_RC_OK) {
     [self logFT8:@"Error packing message (%d)", rc];
     return nil;
   }
 
+  return [self audioForPayload:&ftxMsg
+                     frequency:frequency
+                         isFT4:isFT4
+                        toFile:outputURL];
+}
+
+/// Free text bypasses `encodeMessage:` on purpose: that path hands any 2+
+/// token string to the standard/non-standard packers first, which would turn
+/// "HELLO WORLD" into a hashed callsign pair instead of a type-0.0 message.
+- (nullable NSData *)generateFreeText:(NSString *)text
+                            frequency:(float)frequency
+                                isFT4:(BOOL)isFT4 {
+  const char *raw = [text UTF8String];
+  if (raw == NULL) {
+    return nil;
+  }
+  ftx_message_t ftxMsg;
+  ftx_message_rc_t rc = ftx_message_encode_free(&ftxMsg, raw);
+  if (rc != FTX_MESSAGE_RC_OK) {
+    [self logFT8:@"Error packing free text '%@' (%d)", text, rc];
+    return nil;
+  }
+  return [self audioForPayload:&ftxMsg frequency:frequency isFT4:isFT4 toFile:nil];
+}
+
+/// GFSK synthesis shared by every encoder entry point.
+- (nullable NSData *)audioForPayload:(const ftx_message_t *)ftxMsgPtr
+                           frequency:(float)frequency
+                               isFT4:(BOOL)isFT4
+                              toFile:(nullable NSURL *)outputURL {
+  const ftx_message_t ftxMsg = *ftxMsgPtr;
   int numTones = isFT4 ? FT4_NN : FT8_NN;
   float symbolPeriod = isFT4 ? FT4_SYMBOL_PERIOD : FT8_SYMBOL_PERIOD;
   float symbolBT = isFT4 ? 1.0f : 2.0f;

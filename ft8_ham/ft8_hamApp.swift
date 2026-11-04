@@ -22,8 +22,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) -> Bool {
         guard AppEnvironment.current.isProduction else { return true }
 
-        FirebaseApp.configure()
-
         configureAnalytics()
         configureCrashlytics()
         configureRemoteConfig()
@@ -38,7 +36,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 private extension AppDelegate {
 
     func configureAnalytics() {
-        Analytics.setAnalyticsCollectionEnabled(true)
+        let enabled = UserDefaults.standard.bool(forKey: "analyticsEnabled")
+        Analytics.setAnalyticsCollectionEnabled(enabled)
 
         #if DEBUG
         // Keep Analytics alive for Remote Config, but avoid event noise
@@ -54,40 +53,29 @@ private extension AppDelegate {
     func configureCrashlytics() {
         #if DEBUG
         Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(false)
-        return
         #else
         Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(true)
-        #endif
 
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
 
         Crashlytics.crashlytics().setCustomValue("\(version) (\(build))", forKey: "app_version")
         Crashlytics.crashlytics().setCustomValue(UIDevice.current.systemVersion, forKey: "ios_version")
+        #endif
     }
 
     func configureRemoteConfig() {
-        // Explicitly refresh all Firebase Remote Config variables at app launch
-        let provider = RemoteConfigProvider()
-        let logger = AppLogger(category: "APPINIT")
-
-        logger.debug("🔄 Starting Firebase Remote Config synchronization...")
-        provider.refreshAllFlags { [weak provider] in
-            if let provider = provider {
-                logger.debug(provider.getConfigurationSummary())
-            }
-            // After initial fetch, start the periodic refresh in FeatureFlagManager
-            FeatureFlagManager.shared.refresh()
-        }
+        // `FeatureFlagManager.shared` is created before `FirebaseApp.configure()`
+        // runs (see `ft8_hamApp`), so its initial refresh is a no-op. Now that
+        // Firebase is up, trigger the first real fetch through the manager itself
+        // so the values land in the instance the UI observes.
+        FeatureFlagManager.shared.refresh()
     }
 
     func configureNotifications() {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        // Authorization request with empty handler - notification handling is done in userNotificationCenter(_:willPresent:withCompletionHandler:)
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in
-            // Result is intentionally ignored; in-app presentation is handled by UNUserNotificationCenterDelegate.
-        }
+        NotificationHelper.registerCategories()
     }
 }
 
@@ -99,7 +87,25 @@ extension AppDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound])
+        completionHandler(NotificationHelper.foregroundPresentationOptions(
+            identifier: notification.request.identifier,
+            categoryIdentifier: notification.request.content.categoryIdentifier
+        ))
+    }
+
+    func userNotificationCenter(
+        _: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let opensLogbook = NotificationHelper.opensLogbook(
+            actionIdentifier: response.actionIdentifier,
+            categoryIdentifier: response.notification.request.content.categoryIdentifier
+        )
+        Task { @MainActor in
+            if opensLogbook { TabRouter.shared.open(.logbook) }
+            completionHandler()
+        }
     }
 }
 
@@ -108,23 +114,40 @@ extension AppDelegate {
 @main
 struct ft8_hamApp: App {
 
+    init() {
+        // Decode the (large) CTY prefix table off the main thread before the
+        // first decoded message or logbook record needs it.
+        CountryResolver.preload()
+
+        guard AppEnvironment.current.isProduction else { return }
+
+        AnalyticsManager.applyConsentBeforeConfigure()
+
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
+    }
+
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var viewModel = FT8ViewModel()
-    @StateObject private var featureFlags = FeatureFlagManager.shared
+    // Injected as environment objects only; observing them here would
+    // re-evaluate the whole WindowGroup on every publish.
+    private let featureFlags = FeatureFlagManager.shared
+    private let premiumManager = PremiumManager.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(viewModel: viewModel)
                 .environmentObject(viewModel)
-                .environmentObject(FeatureFlagManager.shared)
                 .environmentObject(featureFlags)
+                .environmentObject(premiumManager)
                 .modifier(QSOLogConfirmationModifier(manager: viewModel))
                 .inAppPrompts()
                 .task {
 #if canImport(TipKit)
                     if #available(iOS 17.0, *) {
-                        try? await Tips.configure()
+                        try? Tips.configure()
                     }
 #endif
                 }
@@ -142,6 +165,12 @@ struct ft8_hamApp: App {
                 }
             case .active:
                 NotificationHelper.cancelSequencerPausedNotification()
+                NotificationHelper.clearBadge()
+                Task { await ClockSyncManager.shared.syncNow() }
+                Task {
+                    await CloudLogbookSyncManager.shared.pull()
+                    await CloudLogbookSyncManager.shared.pushPending()
+                }
                 Task { @MainActor in
                     if viewModel.wasSequencerRunningBeforeBackground {
                         if featureFlags.isEnabled(.backgroundToast) {
@@ -155,6 +184,10 @@ struct ft8_hamApp: App {
                 }
             default:
                 break
+            }
+            
+            if newPhase == .background || newPhase == .inactive {
+                PremiumFeatures.pskReporter.flushPendingReports()
             }
         }
     }

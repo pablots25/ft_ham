@@ -45,7 +45,7 @@ actor SlotManager {
     
     /// Returns information about the NEXT slot boundary suitable for transmission
     /// Always returns a slot in the future to prevent runaway loops
-    func getNextSlot(from referenceDate: Date = Date(), isFT4: Bool) -> SlotInfo {
+    func getNextSlot(from referenceDate: Date = AppClock.now(), isFT4: Bool) -> SlotInfo {
         let cycleDuration: Double = isFT4 ? 7.5 : 15.0
         let absoluteTime = referenceDate.timeIntervalSince1970
         
@@ -115,7 +115,7 @@ actor SlotManager {
     /// High precision wait with hybrid timing approach (Fix for Problem #1)
     /// Uses monotonic clock for stability while staying synchronized with wall clock
     func wait(until targetWallClock: Date) async throws {
-        let now = Date()
+        let now = AppClock.now()
         let nowInstant = ContinuousClock.now
         
         // Establish anchor if needed
@@ -123,15 +123,16 @@ actor SlotManager {
             anchor = TimeAnchor(wallClock: now, monotonicInstant: nowInstant)
         }
         
-        // Calculate target instant from anchor
-        let elapsedWall = targetWallClock.timeIntervalSince(anchor!.wallClock)
-        let targetInstant = anchor!.monotonicInstant + .seconds(elapsedWall)
+        // Calculate target instant from anchor (capture to avoid TOCTOU race)
+        guard let currentAnchor = anchor else { return }
+        let elapsedWall = targetWallClock.timeIntervalSince(currentAnchor.wallClock)
+        let targetInstant = currentAnchor.monotonicInstant + .seconds(elapsedWall)
         
         // Sleep using monotonic clock for stability
         try await monotonicClock.sleep(until: targetInstant)
         
         // Verify we didn't drift too much
-        let actualWallClock = Date()
+        let actualWallClock = AppClock.now()
         let drift = actualWallClock.timeIntervalSince(targetWallClock)
         
         if abs(drift) > maxDriftBeforeReanchor {

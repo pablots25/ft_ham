@@ -50,7 +50,7 @@ protocol TimeProviding: Sendable {
 
 /// Default implementation using system time.
 struct SystemTimeProvider: TimeProviding {
-    var now: Date { Date() }
+    var now: Date { AppClock.now() }
     
     func sleep(for duration: Duration) async throws {
         try await Task.sleep(for: duration)
@@ -105,7 +105,10 @@ extension Duration {
 /// Implement this protocol for mocking audio in tests.
 protocol AudioManaging: AnyObject {
     // MARK: - Properties
+    /// Hardware microphone rate; 0 until capture starts.
     var micSampleRate: Double { get }
+    /// Rate of the samples published on `audioSamplesPublisher` and of the
+    /// audio handed to `playAudio`.
     var sampleRate: Double { get }
     var isPlaying: Bool { get }
     var isListening: Bool { get }
@@ -124,6 +127,8 @@ protocol AudioManaging: AnyObject {
     func stopPlayback()
     func setInputGain(_ newValue: Double)
     func getCurrentInputGain() -> Double
+    func setOutputGain(_ newValue: Double)
+    func getCurrentOutputGain() -> Double
     func cleanup()
 }
 
@@ -132,7 +137,10 @@ protocol AudioManaging: AnyObject {
 /// Protocol for FT8/FT4 message encoding and decoding.
 protocol MessageDecoding: AnyObject {
     func generateFT8(_ message: String, frequency: Float, isFT4: Bool, toFile outputURL: URL?) -> Data?
+    func generateFreeText(_ text: String, frequency: Float, isFT4: Bool) -> Data?
     func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]]
+    /// Decodes a slot the streaming `FT8SlotMonitor` already analysed.
+    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, isFT4: Bool) -> [[String: Any]]
     func decode(_ input: URL?, isFT4: Bool) -> [[AnyHashable: Any]]
 }
 
@@ -140,12 +148,17 @@ protocol MessageDecoding: AnyObject {
 
 /// Protocol for logbook operations.
 protocol LogbookManaging {
-    func loadEntries() -> [LogEntry]
+    func loadEntries() throws -> [LogEntry]
     func saveInternalLog(_ qsoList: [LogEntry]) -> URL?
     func saveToADIF(_ qsoList: [LogEntry]) -> URL?
     func exportToADIF(_ qsoList: [LogEntry]) -> URL?
+    func previewADIF(url: URL, existingEntries: [LogEntry]) -> (newEntries: [LogEntry], skipped: Int, error: String?)
+    func commitImport(newEntries: [LogEntry], existingEntries: [LogEntry])
+    func importFromADIF(url: URL, existingEntries: [LogEntry]) -> ImportResult
     func clearLogbook()
-    func getEmptyADIFURL() -> URL
+    func getEmptyADIFURL() -> URL?
+    var hasBackup: Bool { get }
+    func restoreFromBackup() throws -> [LogEntry]
     func filterEntries(_ entries: [LogEntry], from startDate: Date?, to endDate: Date?) -> [LogEntry]
     func filterEntriesSince(_ entries: [LogEntry], since date: Date, upTo upperBound: Date) -> [LogEntry]
 }
@@ -184,6 +197,11 @@ extension ft8_Engine: MessageDecoding {
     func decodeAudioBuffer(_ audioData: Data, sampleRate: Double, isFT4: Bool) -> [[String: Any]] {
         // Bridge Objective-C method to Swift protocol
         let result = self.decodeBuffer(usingMonitor: audioData, sampleRate: sampleRate, isFT4: isFT4)
+        return result as? [[String: Any]] ?? []
+    }
+
+    func decodeWaterfallSnapshot(_ snapshot: FT8WaterfallSnapshot, isFT4: Bool) -> [[String: Any]] {
+        let result = self.decodeSlotSnapshot(snapshot, isFT4: isFT4)
         return result as? [[String: Any]] ?? []
     }
 }

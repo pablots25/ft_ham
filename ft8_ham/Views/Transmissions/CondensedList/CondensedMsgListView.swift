@@ -6,12 +6,12 @@
 //
 
 import SwiftUI
-import UIKit
 
 // MARK: - CondensedMsgListView
 
 struct CondensedMsgListView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @ObservedObject private var rowColors = RowColorStore.shared
     let messages: [FT8Message]
     let allowReply: Bool
 
@@ -19,19 +19,24 @@ struct CondensedMsgListView: View {
     @State private var didTriggerHaptic: [UUID: Bool] = [:]
     @State private var userDragging: Bool = false
 
-    @Binding var showOnlyInvolved: Bool
+    @Binding var filterMode: Int
 
     private var filteredMessages: [FT8Message] {
-        guard showOnlyInvolved else { return messages }
-        return messages.filter { $0.forMe || $0.isTX }
+        RXFilterMode(storage: filterMode).apply(messages, isNeeded: viewModel.isNeeded)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // Filter once per body pass (this used to be evaluated three times).
+        let filtered = filteredMessages
+        // Read once per body pass. FT8ViewModel forwards lockedDXCallsign
+        // changes through objectWillChange, so rows never observe qsoManager.
+        let activeCallsign = DecodeRowLayout.activeCallsign(from: viewModel.qsoManager.lockedDXCallsign)
+        let isFT4 = viewModel.isFT4
+        return VStack(alignment: .leading, spacing: 0) {
             MessageListHeaderView(
-                allowReply: allowReply,
-                showOnlyInvolved: $showOnlyInvolved
+                allowReply: allowReply
             )
+            .dynamicTypeSize(.medium ... .accessibility5)
 
             Divider()
                 .padding(.vertical, 2)
@@ -39,15 +44,17 @@ struct CondensedMsgListView: View {
             // MARK: - Messages
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        if filteredMessages.isEmpty {
+                    // Lazy: only the visible rows are built. The list is bounded
+                    // but still holds up to a couple of thousand rows.
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        if filtered.isEmpty {
                             Text("No messages")
                                 .foregroundStyle(.gray)
                                 .frame(maxWidth: .infinity, alignment: .center)
                                 .padding(.vertical, 10)
                                 .id("empty")
                         } else {
-                            ForEach(filteredMessages) { msg in
+                            ForEach(filtered) { msg in
                                 if msg.msgType == .internalTimestamp {
                                     CondensedMsgView(msg: msg)
                                         .font(.caption2)
@@ -60,23 +67,30 @@ struct CondensedMsgListView: View {
                                         .padding(.vertical, 2)
                                         .id(msg.id)
                                 } else {
-                                    CondensedMsgView(msg: msg)
+                                    let highlight = viewModel.rowHighlight(for: msg)
+                                    CondensedMsgView(
+                                        msg: msg,
+                                        needed: viewModel.neededBadges(for: msg),
+                                        highlight: highlight,
+                                        showsMode: DecodeRowLayout.showsModeSuffix(for: msg, isFT4: isFT4),
+                                        isActiveQSO: DecodeRowLayout.isActiveQSO(msg, activeCallsign: activeCallsign)
+                                    )
                                         .font(.body)
                                         .dynamicTypeSize(.medium ... .accessibility5)
                                         .lineLimit(1)
-                                        .fixedSize(horizontal: false, vertical: true)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.vertical, 4)
-                                        .background(backgroundColor(for: msg))
+                                        .background(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg), highlight: highlight, colors: rowColors))
                                         .swipeToReply(
                                             allowReply: allowReply && msg.allowsReply,
                                             messageID: msg.id,
                                             dragOffset: $dragOffset,
                                             didTriggerHaptic: $didTriggerHaptic,
-                                            userDragging: $userDragging
+                                            userDragging: $userDragging,
+                                            onTap: { viewModel.reply(to: msg) }
                                         ) {
                                             viewModel.reply(to: msg)
                                         }
+                                        .accessibilityIdentifier("decodeRow_\(msg.callsign ?? "")")
                                         .id(msg.id)
                                 }
                             }
@@ -85,7 +99,7 @@ struct CondensedMsgListView: View {
                     .padding(.vertical, 2)
                 }
                 // Scroll to last message when a new one is appended
-                .onChange(of: filteredMessages.last?.id) { lastID in
+                .onChange(of: filtered.last?.id) { lastID in
                     guard let lastID else { return }
                     guard !userDragging else { return }
 
@@ -97,7 +111,7 @@ struct CondensedMsgListView: View {
                 }
                 // Scroll to last message on appear
                 .onAppear {
-                    if let lastID = filteredMessages.last?.id {
+                    if let lastID = filtered.last?.id {
                         DispatchQueue.main.async {
                             withAnimation(.easeOut(duration: 0.25)) {
                                 proxy.scrollTo(lastID, anchor: .bottom)

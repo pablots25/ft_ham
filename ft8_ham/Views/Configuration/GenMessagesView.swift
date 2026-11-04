@@ -27,7 +27,6 @@ struct GenMessagesView: View {
                         .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.center)
                         .textCase(.uppercase)
-                        .frame(width: 120)
                         .keyboardType(.asciiCapable)
                         .focused($focusedField)
                         .onChange(of: viewModel.dxCallsign) { newValue in
@@ -38,12 +37,10 @@ struct GenMessagesView: View {
                 // MARK: DX Locator Input
                 VStack {
                     Text("DX Locator:")
-                        .frame(minWidth: 120)
                     TextField("", text: $viewModel.dxLocator)
                         .textFieldStyle(.roundedBorder)
                         .multilineTextAlignment(.center)
                         .textCase(.uppercase)
-                        .frame(width: 80)
                         .keyboardType(.asciiCapable)
                         .focused($focusedField)
                         .onChange(of: viewModel.dxLocator) { newValue in
@@ -52,7 +49,7 @@ struct GenMessagesView: View {
                 }
 
                 // MARK: Generate Button
-                Button("Generate") {
+                Button("Update") {
                     viewModel.allMessages = viewModel.generateMessages()
                     if viewModel.selectedMessageIndex == nil { viewModel.selectedMessageIndex = 0 }
                     hideKeyboard()
@@ -75,9 +72,6 @@ struct GenMessagesView: View {
         .onAppear {
             // CRITICAL: Validate current values immediately when the view loads
             validateAll()
-            
-//            viewModel.allMessages = viewModel.generateMessages()
-//            if viewModel.selectedMessageIndex == nil { viewModel.selectedMessageIndex = 0 }
         }
     }
 

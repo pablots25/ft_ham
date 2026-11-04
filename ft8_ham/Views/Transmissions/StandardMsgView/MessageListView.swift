@@ -11,31 +11,39 @@ import SwiftUI
 
 struct MessageListView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @ObservedObject private var rowColors = RowColorStore.shared
     let messages: [FT8Message]
     let allowReply: Bool
 
-    @Binding var showOnlyInvolved: Bool
+    @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
+
+    @Binding var filterMode: Int
 
     private var filteredMessages: [FT8Message] {
-        guard showOnlyInvolved else { return messages }
-        return messages.filter { $0.forMe || $0.isTX }
+        RXFilterMode(storage: filterMode).apply(messages, isNeeded: viewModel.isNeeded)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        // Filter once per body pass (this used to be evaluated three times).
+        let filtered = filteredMessages
+        // Read once per body pass. FT8ViewModel forwards lockedDXCallsign
+        // changes through objectWillChange, so rows never observe qsoManager.
+        let activeCallsign = DecodeRowLayout.activeCallsign(from: viewModel.qsoManager.lockedDXCallsign)
+        let isFT4 = viewModel.isFT4
+        return VStack(spacing: 0) {
             // MARK: - Header
 
             MessageListHeaderView(
-                allowReply: allowReply,
-                showOnlyInvolved: $showOnlyInvolved
+                allowReply: allowReply
             )
+            .dynamicTypeSize(.medium ... .accessibility5)
 
             Divider()
                 .padding(.vertical, 2)
 
             ScrollViewReader { scrollProxy in
                 List {
-                    if filteredMessages.isEmpty {
+                    if filtered.isEmpty {
                         Text("No messages")
                             .foregroundStyle(.gray)
                             .frame(maxWidth: .infinity, minHeight: 30)
@@ -43,32 +51,46 @@ struct MessageListView: View {
                             .listRowSeparator(.hidden)
                             .id("empty")
                     } else {
-                        ForEach(filteredMessages) { msg in
+                        ForEach(filtered) { msg in
                             if msg.msgType == .internalTimestamp {
                                 MessageView(msg: msg)
                                     .font(.caption2)
                                     .dynamicTypeSize(.medium ... .accessibility5)
                                     .foregroundStyle(.primary)
                                     .underline()
-                                    .lineLimit(1)
-                                    .fixedSize()
+                                    // Wraps rather than running off screen at
+                                    // accessibility text sizes.
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .frame(maxWidth: .infinity, minHeight: 0, alignment: .center)
                                     .listRowInsets(EdgeInsets())
                                     .listRowBackground(Color.clear)
                                     .id(msg.id)
                             } else {
-                                MessageView(msg: msg)
+                                let highlight = viewModel.rowHighlight(for: msg)
+                                MessageView(
+                                    msg: msg,
+                                    needed: viewModel.neededBadges(for: msg),
+                                    highlight: highlight,
+                                    showsMode: DecodeRowLayout.showsModeSuffix(for: msg, isFT4: isFT4),
+                                    isActiveQSO: DecodeRowLayout.isActiveQSO(msg, activeCallsign: activeCallsign)
+                                )
                                     .font(.caption2)
                                     .dynamicTypeSize(.medium ... .accessibility5)
                                     .lineLimit(1)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .frame(maxWidth: .infinity, minHeight: 0, alignment: .center)
+                                    .frame(maxWidth: .infinity, minHeight: 0, alignment: .leading)
                                     .contentShape(Rectangle())
+                                    .onTapGesture(count: replyTapGesture.tapCount) {
+                                        guard msg.allowsReply && allowReply else { return }
+                                        Haptics.light()
+                                        viewModel.reply(to: msg)
+                                    }
+                                    .accessibilityIdentifier("decodeRow_\(msg.callsign ?? "")")
                                     .swipeActionsIfNeeded(allowReply: msg.allowsReply && allowReply) {
                                         viewModel.reply(to: msg)
                                     }
                                     .listRowInsets(EdgeInsets())
-                                    .listRowBackground(backgroundColor(for: msg))
+                                    .listRowBackground(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg), highlight: highlight, colors: rowColors))
                                     .id(msg.id)
                             }
                         }
@@ -76,15 +98,23 @@ struct MessageListView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .onChange(of: filteredMessages.last?.id) { lastId in
+                // Defer the scroll to the next runloop turn: scrolling synchronously
+                // while SwiftUI is still applying the List diff makes UIKit target a
+                // stale index and crash with NSInternalInconsistencyException
+                // ("Attempted to scroll ... out-of-bounds item").
+                .onChange(of: filtered.last?.id) { lastId in
                     guard let lastId else { return }
-                    withAnimation {
-                        scrollProxy.scrollTo(lastId, anchor: .bottom)
+                    DispatchQueue.main.async {
+                        withAnimation {
+                            scrollProxy.scrollTo(lastId, anchor: .bottom)
+                        }
                     }
                 }
                 .onAppear {
-                    if let lastId = filteredMessages.last?.id {
-                        scrollProxy.scrollTo(lastId, anchor: .bottom)
+                    if let lastId = filtered.last?.id {
+                        DispatchQueue.main.async {
+                            scrollProxy.scrollTo(lastId, anchor: .bottom)
+                        }
                     }
                 }
             }
@@ -100,7 +130,7 @@ private extension View {
         if allowReply {
             swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(action: action) {
-                    Label("", systemImage: "arrowshape.turn.up.left")
+                    Label("Reply", systemImage: "arrowshape.turn.up.left")
                 }
                 .tint(.green)
             }

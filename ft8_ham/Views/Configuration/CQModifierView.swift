@@ -14,29 +14,37 @@ struct CQModifierSelectionView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        List {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
                 selectionRow(for: .none)
-            }
+                
+                Divider()
             
-            Section(CQModifier.Group.geographic.localizedName) {
+                Text(CQModifier.Group.geographic.localizedName)
+                    .font(.headline)
+
                 ForEach(CQModifier.modifiers(for: .geographic)) { modifier in
                     selectionRow(for: modifier)
                 }
-            }
+                
+                Divider()
             
-            Section(CQModifier.Group.activations.localizedName) {
+                Text(CQModifier.Group.activations.localizedName)
+                    .font(.headline)
+
                 ForEach(CQModifier.modifiers(for: .activations)) { modifier in
                     selectionRow(for: modifier)
                 }
-            }
+                
+                Divider()
 
-            Section(CQModifier.Group.custom.localizedName) {
+                Text(CQModifier.Group.custom.localizedName)
+                    .font(.headline)
+
                 selectionRow(for: .other)
             }
+            .padding(.horizontal)
         }
-        .scrollContentBackground(.hidden)
-        .background(Color(.systemBackground))
         .navigationTitle(Text("CQ Modifier"))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -52,7 +60,7 @@ struct CQModifierSelectionView: View {
                 Spacer()
                 if cqModifierRaw == modifier.rawValue {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
         }
@@ -67,9 +75,17 @@ struct CQModifierView: View {
     @AppStorage("mySotaRef") var mySotaRef: String = ""
     @AppStorage("myWwffRef") var myWwffRef: String = ""
     @AppStorage("myIotaRef") var myIotaRef: String = ""
+    @AppStorage("autoCQReplyEnabled") private var autoCQReplyEnabled: Bool = false
+    @AppStorage("autoQSOLogging") private var autoQSOLogging: Bool = true
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var showingActivationModeAlert = false
+    
     private var cqModifier: CQModifier {
         CQModifier(rawValue: cqModifierRaw) ?? .none
+    }
+
+    private var isActivationModifier: Bool {
+        cqModifier.group == .activations
     }
     
     var body: some View {
@@ -84,7 +100,7 @@ struct CQModifierView: View {
                     
                     Text(selectedModifierDisplay)
                         .foregroundStyle(.secondary)
-                    
+
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
@@ -93,8 +109,25 @@ struct CQModifierView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-
+            
             referenceFieldView
+
+            if isActivationModifier {
+                Button("Apply Activation Mode") {
+                    showingActivationModeAlert = true
+                }
+                .font(.subheadline)
+                .padding(.top, 4)
+                .alert("Apply Activation Mode?", isPresented: $showingActivationModeAlert) {
+                    Button("Apply") {
+                        autoCQReplyEnabled = true
+                        autoQSOLogging = true
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will enable Auto CQ Reply and Auto QSO Logging.")
+                }
+            }
         }
         .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
         .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
@@ -120,15 +153,39 @@ struct CQModifierView: View {
 
         if let label = cqModifier.referenceLabel,
            let placeholder = cqModifier.referencePlaceholder {
-            HStack {
-                Text(label)
-                TextField(
-                    placeholder,
-                    text: referenceBinding(for: cqModifier)
-                )
-                .textFieldStyle(.roundedBorder)
-                .textCase(.uppercase)
-                .autocapitalization(.allCharacters)
+            let binding = referenceBinding(for: cqModifier)
+            let isValid = cqModifier.isValidReference(binding.wrappedValue)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(label)
+                    TextField(
+                        placeholder,
+                        text: binding
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .textCase(.uppercase)
+                    .autocapitalization(.allCharacters)
+                    .onChange(of: binding.wrappedValue) { value in
+                        let sanitized = sanitizeActivationReference(value, for: cqModifier)
+                        if sanitized != value {
+                            binding.wrappedValue = sanitized
+                        }
+                    }
+
+                    if !binding.wrappedValue.isEmpty {
+                        Image(systemName: isValid ? "checkmark.circle" : "exclamationmark.circle")
+                            .foregroundStyle(isValid ? .green : .red)
+                            .animation(.easeInOut, value: isValid)
+                    }
+                }
+
+                if !binding.wrappedValue.isEmpty, !isValid, let hint = cqModifier.referenceFormatHint {
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .transition(.opacity)
+                }
             }
         }
     }
@@ -138,6 +195,13 @@ struct CQModifierView: View {
             let custom = sanitizeCustomModifier(cqModifierOther)
             return custom.isEmpty ? String(localized: "Others") : "\(String(localized: "Others")): \(custom)"
         }
+        // For activation modifiers, show the reference if set
+        if cqModifier.requiresReference {
+            let ref = referenceBinding(for: cqModifier).wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !ref.isEmpty {
+                return "\(cqModifier.rawValue): \(ref)"
+            }
+        }
         return cqModifier.displayName
     }
 
@@ -145,6 +209,19 @@ struct CQModifierView: View {
         let upper = value.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let filtered = upper.filter { $0.isLetter || $0.isNumber || $0 == "/" }
         return String(filtered.prefix(4))
+    }
+
+    /// Sanitizes activation references — allows letters, digits, hyphens, slashes and commas (for multiple POTA refs).
+    private func sanitizeActivationReference(_ value: String, for modifier: CQModifier) -> String {
+        let upper = value.uppercased()
+        switch modifier {
+        case .pota:
+            // Allow letters, digits, hyphen, comma, space (for multiple parks)
+            return upper.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "," || $0 == " " }
+        default:
+            // Allow letters, digits, hyphen, slash
+            return upper.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "/" }
+        }
     }
     
     private func referenceBinding(for modifier: CQModifier) -> Binding<String> {

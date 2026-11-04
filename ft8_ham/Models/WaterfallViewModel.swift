@@ -9,54 +9,156 @@ import Accelerate
 import SwiftUI
 import UIKit
 
-struct TimestampOverlay {
+struct TimestampOverlay: Equatable {
     let text: String
     var row: Int
 }
 
-struct VerticalLabelOverlay {
+struct VerticalLabelOverlay: Equatable {
     let text: String
     var row: Int
     let frequency: Double
+    let kind: WaterfallLabel.Kind
+    let isWorked: Bool
+    let spanRows: Int
 }
 
+// MARK: - WaterfallOverlayState
+// The overlay toggles, kept apart from the row data so flipping one only
+// touches the layers it controls.
+@MainActor
+final class WaterfallOverlayState: ObservableObject {
+    @Published var showOverlay: Bool = true
+    @Published var showTimestamps: Bool = true
+    @Published var showVerticalLabels: Bool = true
+    @Published var showFrequencyTicks: Bool = true
+    @Published var showFrequencyMarker: Bool = true
+}
+
+/// Receives the waterfall's pixel rows and overlay marks as they are
+/// produced, on the main actor. Implemented by the on-screen renderer
+/// (`WaterfallRenderView`); the view model keeps its own copy of the ring so
+/// a sink attached later can be brought up to date with `reset`.
+@MainActor
+protocol WaterfallRenderSink: AnyObject {
+    /// Replaces everything: the whole pixel ring (`height` rows of `width`
+    /// BGRA pixels, row `writeRow` is the next to be written, so the newest
+    /// row is `writeRow - 1`), and the overlay marks still in range.
+    func reset(
+        width: Int,
+        height: Int,
+        pixels: UnsafeBufferPointer<UInt32>,
+        writeRow: Int,
+        absoluteRow: Int,
+        timestamps: [(absoluteRow: Int, text: String)],
+        labels: [WaterfallPlacedLabel],
+        slots: [WaterfallSlotMark]
+    )
+    /// One new row, already coloured. `absoluteRow` counts rows since start.
+    func append(row: UnsafeBufferPointer<UInt32>, ringRow: Int, absoluteRow: Int)
+    func addTimestamp(_ text: String, absoluteRow: Int)
+    /// Labels decoded together; the renderer lays the batch out so labels
+    /// on neighbouring frequencies do not cover each other.
+    func addLabels(_ labels: [WaterfallPlacedLabel])
+    /// Every slot still on the ring, oldest first. Sent when a slot starts
+    /// and when one is marked as ours to transmit in.
+    func setSlots(_ slots: [WaterfallSlotMark])
+}
+
+/// Scrolling spectrogram fed by `FT8SlotMonitor`: one row per analysed
+/// sub-block (80 ms for FT8), bins at the decoder's own resolution, so the
+/// display shows exactly what the decoder sees.
+///
+/// Rows are pushed to attached `WaterfallRenderSink`s rather than published
+/// as SwiftUI images: a new row costs the renderer a 4 KB texture upload and
+/// one layer transform, not a pass through the SwiftUI view graph.
 @MainActor
 final class WaterfallViewModel: ObservableObject {
 
-    // MARK: - FFT Properties
-    private var fft: RealtimeFFT?
-    private lazy var magsBuffer: [Float] = [Float](repeating: 0, count: config.waterfallFFTSize / 2)
+    // Reused formatter — creating DateFormatter is expensive; keep one instance
+    private let utcFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeZone = TimeZone(abbreviation: "UTC")
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    // Scratch buffer for the vectorized pixel-color pipeline: gathered row
+    // values in dB, reused through the vDSP/vForce chain
+    private var scratchDB: [Float] = []
+    // Cached per-pixel bin-index map — recomputed only when the pixel width,
+    // the source bins or the displayed range change
+    private var cachedBinIndices: [Int] = []
+    private var cachedBinMapKey: BinMapKey?
+    /// Smoothed noise floor in dB for auto-ranging. `nil` until the first
+    /// rendered row seeds it.
+    private var smoothedFloorDB: Float?
+    private var scratchSort: [Float] = []   // scratch copy for the percentile
 
     // MARK: - Background handling
     private var isInBackground: Bool = false
     private var showBlackWhenBackgrounded: Bool = true
 
-    /// New helper to handle FFT and update in one step
-    func updateWaterfallFromSamples(_ samples: [Float]) {
-        guard !samples.isEmpty else { return }
+    // MARK: - Monitor input
 
-        if fft == nil {
-            fft = RealtimeFFT(size: config.waterfallFFTSize)
+    /// Called from the audio thread with one row from the slot monitor. Copies
+    /// the row and hops to the main actor for the pixel-write step.
+    /// - Parameters:
+    ///   - row: magnitudes in increasing frequency order, 0–255 in 0.5 dB
+    ///     steps with 0 = −120 dB (ft8_lib's waterfall encoding).
+    ///   - firstBinHz: frequency of `row[0]`.
+    ///   - binHz: spacing between consecutive values.
+    ///   - slotSequence: the monitor's slot counter for this row.
+    ///   - slotRow: rows since that slot started.
+    nonisolated func appendMonitorRow(
+        _ row: UnsafeBufferPointer<UInt8>,
+        firstBinHz: Float,
+        binHz: Float,
+        slotSequence: UInt,
+        slotRow: Int
+    ) {
+        guard row.count > 1 else { return }
+        let copy = Array(row)
+        Task { @MainActor [weak self] in
+            self?.updateWaterfall(
+                monitorRow: copy, firstBinHz: firstBinHz, binHz: binHz,
+                slotSequence: slotSequence, slotRow: slotRow
+            )
         }
+    }
 
-        let fftSize = config.waterfallFFTSize
-        let count = min(samples.count, fftSize)
-        let start = samples.count - count
+    // MARK: - Render sinks
 
-        // We only use the last fftSize samples for the waterfall fft
-        let fftInput = Array(samples[start..<samples.count])
+    private struct WeakSink {
+        weak var sink: WaterfallRenderSink?
+    }
+    private var sinks: [WeakSink] = []
 
-        // Ensure our shared magsBuffer is the right size
-        if magsBuffer.count != fftSize / 2 {
-            magsBuffer = [Float](repeating: 0, count: fftSize / 2)
+    /// Starts feeding `sink`, after handing it the history drawn so far.
+    func attach(_ sink: WaterfallRenderSink) {
+        sinks.removeAll { $0.sink == nil || $0.sink === sink }
+        sinks.append(WeakSink(sink: sink))
+        pixelRing.withUnsafeBufferPointer { pixels in
+            sink.reset(
+                width: width,
+                height: height,
+                pixels: pixels,
+                writeRow: writeRow,
+                absoluteRow: absoluteRowCounter,
+                timestamps: timestampRows.map { (absoluteRow: $0.key, text: $0.value) },
+                labels: placedLabels,
+                slots: slotContextEnabled ? slotMarks : []
+            )
         }
+    }
 
-        if isInBackground {
-            // We still advance the waterfall, but with black rows
-            updateWaterfall(from: magsBuffer)
-        } else {
-            _ = fft?.magnitudesDirect(fftInput, output: &magsBuffer)
-            updateWaterfall(from: magsBuffer)
+    func detach(_ sink: WaterfallRenderSink) {
+        sinks.removeAll { $0.sink == nil || $0.sink === sink }
+    }
+
+    private func forEachSink(_ body: (WaterfallRenderSink) -> Void) {
+        for entry in sinks {
+            if let sink = entry.sink { body(sink) }
         }
     }
 
@@ -80,105 +182,116 @@ final class WaterfallViewModel: ObservableObject {
     }
 
     struct Config {
-        var waterfallFFTSize: Int
+        /// Width of the pixel ring. Source bins are mapped onto these
+        /// columns, so it does not have to match the monitor's bin count.
+        var imageWidth: Int
+        /// Rows kept in the ring; the display shows the newest ones that fit.
         var waterfallMaxRows: Int
-        var waterfallMinDB: Float = -25.0
-        var waterfallMaxDB: Float = 0.0
+        /// How rows are levelled and coloured; see `WaterfallDisplaySettings`.
+        var display: WaterfallDisplaySettings = .init()
         var timestampInterval: TimeInterval
-        var targetFPS: Double = 15.0  // Reduced from 30 to 15 Hz for CPU optimization
-        var maxDisplayFrequency: Float = 800.0
+        /// Audio frequencies at the left and right edges of the waterfall, in
+        /// Hz. The pixel rows, the overlay, the cursor and the
+        /// tap-to-set-frequency mapping all derive from these two values, so
+        /// they cannot drift apart. Defaults to the band the decoder analyses.
+        var minDisplayFrequency: Float = 200.0
+        var maxDisplayFrequency: Float = 3000.0
 
         static let absoluteMaxRows = 2000
     }
 
-    @Published var waterfallImage: Image? = nil
-    @Published var visibleRows: Int = 0
+    /// Becomes true with the first row; the view shows a placeholder until then.
+    @Published private(set) var hasData: Bool = false
 
-    // Overlay flags
-    @Published var showOverlay: Bool = true
-    @Published var showTimestamps: Bool = true
-    @Published var showVerticalLabels: Bool = true
-    @Published var showFrequencyTicks: Bool = true
-    @Published var showFrequencyMarker: Bool = true
+    // Dedicated object for the overlay toggles.
+    let overlayState = WaterfallOverlayState()
 
-    // Overlay data
-    @Published var timestampItems: [TimestampOverlay] = []
-    @Published var verticalLabels: [VerticalLabelOverlay] = []
+    // Overlay flags — forwarded to overlayState for backward-compatible access
+    var showOverlay: Bool {
+        get { overlayState.showOverlay }
+        set { overlayState.showOverlay = newValue }
+    }
+    var showTimestamps: Bool {
+        get { overlayState.showTimestamps }
+        set { overlayState.showTimestamps = newValue }
+    }
+    var showVerticalLabels: Bool {
+        get { overlayState.showVerticalLabels }
+        set { overlayState.showVerticalLabels = newValue }
+    }
+    var showFrequencyTicks: Bool {
+        get { overlayState.showFrequencyTicks }
+        set { overlayState.showFrequencyTicks = newValue }
+    }
+    var showFrequencyMarker: Bool {
+        get { overlayState.showFrequencyMarker }
+        set { overlayState.showFrequencyMarker = newValue }
+    }
 
     private var timestampRows: [Int: String] = [:]
-    private var verticalLabelRows: [Int: [(text: String, frequency: Double)]] = [:]
+    private var placedLabels: [WaterfallPlacedLabel] = []
     private var nextUTCMark: Date = .init()
     private var absoluteRowCounter: Int = 0
+    /// Absolute row at which each monitor slot started, by slot sequence.
+    /// Filled as rows arrive; a decode looks its slot up here.
+    private var slotStartRows: [UInt: Int] = [:]
+    /// The slots covering the ring, oldest first. See `WaterfallSlotMark`.
+    private var slotMarks: [WaterfallSlotMark] = []
+    /// True while we are transmitting: those rows are our own signal (or the
+    /// silence of a line feed), so they are greyed out and left out of the
+    /// level trackers.
+    private(set) var isTransmitting: Bool = false
+    /// Draw the slot stripe and grey out transmit rows. Behind the
+    /// `waterfallSlotContext` feature flag, which the view pushes in; the
+    /// model never reads the flag itself so tests stay deterministic.
+    var slotContextEnabled: Bool = false {
+        didSet {
+            guard slotContextEnabled != oldValue else { return }
+            if !slotContextEnabled { slotMarks.removeAll() }
+            forEachSink { $0.setSlots(slotMarks) }
+        }
+    }
 
     private let wfLogger = AppLogger(category: "WF")
     var config: Config
 
-    var width: Int { config.waterfallFFTSize / 2 }
+    var width: Int { config.imageWidth }
     var height: Int { config.waterfallMaxRows }
 
-    private var waterfallBufferFlat: [Float]
-    private var writeIndex: Int
+    /// The coloured rows, `height` × `width` BGRA pixels, as a ring.
+    private var pixelRing: [UInt32]
+    /// Next row of the ring buffer to write (0 ..< height).
+    private(set) var writeRow: Int = 0
+    /// Rows produced since start; also the absolute index of the next row.
+    var absoluteRowCount: Int { absoluteRowCounter }
 
-    // Use same sample rate as AudioManager
-    var sampleRate: Float
+    /// Baked color table for `config.display.palette`.
+    private var paletteLUT: [UInt32] = WaterfallPalette.default.lookupTable
+    private var paletteLUTFor: WaterfallPalette = .default
 
-    private lazy var waterfallPalette: [UInt32] = (0 ... 255).map { i -> UInt32 in
-        let t = Float(i) / 255.0
-        let r: UInt8
-        let g: UInt8
-        let b: UInt8
+    // Flatten scratch: per-column noise baseline (dB) and the row's envelope.
+    private var baselineDB: [Float] = []
+    private var envelopeDB: [Float] = []
+    private var envelopeSmooth: [Float] = []
+    /// Half-width in columns of the window the envelope is taken over:
+    /// wide enough to step over an FT8 signal (50 Hz), narrow enough to
+    /// follow the passband's shape.
+    private var flattenHalfWindow: Int { max(4, Int(100.0 / Double(config.maxDisplayFrequency - config.minDisplayFrequency) * Double(width))) }
 
-        switch t {
-        case 0.0 ..< 0.25:
-            let f = t / 0.25
-            r = 0
-            g = UInt8(255 * f)
-            b = 255
-        case 0.25 ..< 0.5:
-            let f = (t - 0.25) / 0.25
-            r = UInt8(255 * f)
-            g = 255
-            b = UInt8(255 * (1.0 - f))
-        case 0.5 ..< 0.75:
-            let f = (t - 0.5) / 0.25
-            r = 255
-            g = UInt8(255 * (1.0 - 0.5 * f))
-            b = 0
-        default:
-            let f = (t - 0.75) / 0.25
-            r = 255
-            g = UInt8(127 * (1.0 - f))
-            b = 0
-        }
-
-        return (255 << 24) | (UInt32(r) << 16) | (UInt32(g) << 8) | UInt32(b)
-    }
-
-    private var context: CGContext?
-    private var frameLimiter: FrameLimiter
-
-    init(sampleRate: Float, waterfallFFTSize: Int, waterfallRows: Int, isFT4: Bool) {
+    init(imageWidth: Int, waterfallRows: Int, isFT4: Bool) {
         let initialMode: Mode = isFT4 ? .ft4 : .ft8
         self.mode = initialMode
 
         // Initialize config with the right timestamp interval
         self.config = Config(
-            waterfallFFTSize: waterfallFFTSize,
-            waterfallMaxRows: waterfallRows,
+            imageWidth: max(2, imageWidth),
+            waterfallMaxRows: min(max(1, waterfallRows), Config.absoluteMaxRows),
             timestampInterval: initialMode.timestampInterval
         )
 
-        self.sampleRate = sampleRate
-        frameLimiter = FrameLimiter(targetFPS: config.targetFPS)
-
-        let w = max(2, config.waterfallFFTSize) / 2
-        let h = max(1, config.waterfallMaxRows)
-
-        waterfallBufferFlat = [Float](repeating: 0, count: w * h)
-        writeIndex = 0
-
-        setupContext(width: w, height: h)
-        wfLogger.log(.info, "WaterfallViewModel initialized: FFTSize \(w * 2), rows \(h)")
+        config.display = WaterfallDisplaySettings.load()
+        pixelRing = [UInt32](repeating: 0xFF000000, count: config.imageWidth * config.waterfallMaxRows)
+        wfLogger.log(.info, "WaterfallViewModel initialized: \(width) columns, \(height) rows")
 
         nextUTCMark = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
 
@@ -227,171 +340,503 @@ final class WaterfallViewModel: ObservableObject {
         let remainder = Double(s).truncatingRemainder(dividingBy: interval)
         return now.addingTimeInterval(interval - remainder)
     }
-    
-    private func setupContext(width w: Int, height h: Int) {
-        context = CGContext(
-            data: nil,
-            width: w,
-            height: h,
-            bitsPerComponent: 8,
-            bytesPerRow: w * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        )
-    }
-    
-    func ensureBufferCanHold(visibleRows: Int) {
-        let w = width
-        // Limit rows to absolute maximum
-        let cappedRows = min(max(visibleRows, height), Config.absoluteMaxRows)
-        guard cappedRows > height else { return }
-        
-        let oldBuffer = waterfallBufferFlat
-        waterfallBufferFlat = [Float](repeating: 0, count: cappedRows * w)
-        for i in 0 ..< height {
-            waterfallBufferFlat[(cappedRows - height + i) * w ..< (cappedRows - height + i + 1) * w] =
-            oldBuffer[i * w ..< (i + 1) * w]
-        }
-        writeIndex = (cappedRows - height) * w
-        config.waterfallMaxRows = cappedRows
-        setupContext(width: w, height: cappedRows)
-    }
-    
+
     // ---------------------------------------------------------
     // Overlay helpers
     // ---------------------------------------------------------
     func addVerticalLabel(text: String, frequency: Double) {
-        verticalLabelRows[absoluteRowCounter, default: []].append((text: text, frequency: frequency))
+        addLabels([WaterfallLabel(text: text, frequency: frequency)], slotSequence: nil, signalDuration: 0)
     }
-    
-    func addVerticalLabels(_ labels: [(String, Double)]) {
+
+    /// Places decoded messages on the waterfall.
+    ///
+    /// With the slot they were decoded from (`slotSequence`) and their DT,
+    /// each label is anchored to the row its signal started on and spans
+    /// the signal's duration; without that, it hangs from the current row.
+    /// - Parameters:
+    ///   - slotSequence: the monitor slot the decode came from.
+    ///   - signalDuration: how long a transmission lasts (12.64 s FT8, 4.48 s FT4).
+    func addLabels(_ labels: [WaterfallLabel], slotSequence: UInt?, signalDuration: Double) {
         guard !labels.isEmpty else { return }
-        verticalLabelRows[absoluteRowCounter, default: []].append(contentsOf: labels)
-    }
-    
-    @MainActor
-    func updateOverlayPositions() {
-        guard showOverlay else { return }
-        
-        // Shift rows down
-        if showTimestamps {
-            timestampItems = timestampItems.map { TimestampOverlay(text: $0.text, row: $0.row + 1) }
-        }
-        if showVerticalLabels {
-            verticalLabels = verticalLabels.map { VerticalLabelOverlay(text: $0.text, row: $0.row + 1, frequency: $0.frequency) }
-        }
-        
-        // Remove old rows
-        let maxRows = max(1, visibleRows)
-        if showTimestamps {
-            timestampItems = timestampItems.filter { $0.row < maxRows }
-        }
-        if showVerticalLabels {
-            verticalLabels = verticalLabels.filter { $0.row < maxRows }
-        }
-        
-        // Add new overlays for current row
-        if showTimestamps, let ts = timestampRows[absoluteRowCounter] {
-            timestampItems.append(TimestampOverlay(text: ts, row: 0))
-        }
-        if showVerticalLabels, let labels = verticalLabelRows[absoluteRowCounter] {
-            for label in labels {
-                verticalLabels.append(VerticalLabelOverlay(text: label.text, row: 0, frequency: label.frequency))
+        let slotStart = slotSequence.flatMap { slotStartRows[$0] }
+        let placed = labels.map { label -> WaterfallPlacedLabel in
+            if let slotStart, let dt = label.timeOffset, rowPeriod > 0 {
+                let start = slotStart + Int((dt / rowPeriod).rounded())
+                let span = max(1, Int((signalDuration / rowPeriod).rounded()))
+                // The decode moment is the newest row we can show; a start
+                // beyond it (bad DT) falls back to hanging from there.
+                if start < absoluteRowCounter {
+                    return WaterfallPlacedLabel(label: label, anchorRow: start, spanRows: min(span, absoluteRowCounter - start))
+                }
             }
+            return WaterfallPlacedLabel(label: label, anchorRow: absoluteRowCounter, spanRows: 0)
         }
+        placedLabels.append(contentsOf: placed)
+        forEachSink { $0.addLabels(placed) }
     }
-    
+
+    /// The label whose signal covers `frequency` (within `toleranceHz`) at
+    /// `rowFromTop` rows below the newest row, if any — what a finger on the
+    /// waterfall is pointing at. Prefers the closest frequency.
+    func placedLabel(nearHz frequency: Double, rowFromTop: Int, toleranceHz: Double) -> WaterfallPlacedLabel? {
+        let row = absoluteRowCounter - 1 - rowFromTop
+        return placedLabels
+            .filter { placed in
+                abs(placed.label.frequency - frequency) <= toleranceHz &&
+                    row >= placed.anchorRow - 2 &&
+                    row <= placed.anchorRow + max(placed.spanRows, 40) + 2
+            }
+            .min { abs($0.label.frequency - frequency) < abs($1.label.frequency - frequency) }
+    }
+
+    /// Best guess at the label a tap meant, among the replyable labels still
+    /// on screen. Labels are narrow, so the finger rarely lands exactly on
+    /// one: see `bestGuessLabel(in:tappedHz:tappedRow:oldestVisibleRow:signalWidthHz:isReplyable:)`.
+    func bestGuessLabel(nearHz frequency: Double, rowFromTop: Int, isFT4: Bool,
+                        isReplyable: (WaterfallLabel) -> Bool) -> WaterfallPlacedLabel? {
+        Self.bestGuessLabel(
+            in: placedLabels,
+            tappedHz: frequency,
+            tappedRow: absoluteRowCounter - 1 - rowFromTop,
+            oldestVisibleRow: absoluteRowCounter - height,
+            signalWidthHz: Self.occupiedBandwidthHz(isFT4: isFT4),
+            isReplyable: isReplyable
+        )
+    }
+
+    /// How far, in Hz, a tap may land beside a signal and still pick it.
+    static let bestGuessMaxHz = 150.0
+    /// Rows above or below a label count this much against it, in Hz. A whole
+    /// FT8 slot (about 190 rows) away weighs like 95 Hz to the side, so a
+    /// label in the tapped slot wins over a closer one from another slot.
+    static let bestGuessHzPerRow = 0.5
+
+    /// Scores every replyable, visible label by how far the tap is from its
+    /// signal (the band from the base tone up to `signalWidthHz` above it, and
+    /// the rows the label spans) and returns the closest one, if it lies
+    /// within `bestGuessMaxHz` of the tap.
+    static func bestGuessLabel(
+        in labels: [WaterfallPlacedLabel],
+        tappedHz: Double,
+        tappedRow: Int,
+        oldestVisibleRow: Int,
+        signalWidthHz: Double,
+        isReplyable: (WaterfallLabel) -> Bool
+    ) -> WaterfallPlacedLabel? {
+        func hzGap(_ placed: WaterfallPlacedLabel) -> Double {
+            let low = placed.label.frequency
+            let high = low + signalWidthHz
+            if tappedHz < low { return low - tappedHz }
+            if tappedHz > high { return tappedHz - high }
+            return 0
+        }
+        func rowGap(_ placed: WaterfallPlacedLabel) -> Int {
+            let first = placed.anchorRow - 2
+            let last = placed.anchorRow + max(placed.spanRows, 40) + 2
+            if tappedRow < first { return first - tappedRow }
+            if tappedRow > last { return tappedRow - last }
+            return 0
+        }
+        func score(_ placed: WaterfallPlacedLabel) -> Double {
+            hzGap(placed) + Double(rowGap(placed)) * bestGuessHzPerRow
+        }
+        return labels
+            .filter { placed in
+                placed.anchorRow + max(placed.spanRows, 40) >= oldestVisibleRow
+                    && hzGap(placed) <= bestGuessMaxHz
+                    && isReplyable(placed.label)
+            }
+            .min { score($0) < score($1) }
+    }
+
+    /// The decoded signal closest to `frequency`, within `toleranceHz`, among
+    /// the labels still on screen — used to snap a tap to a real station.
+    func nearestLabelFrequency(to frequency: Double, toleranceHz: Double, withinRows: Int) -> Double? {
+        let cutoff = absoluteRowCounter - withinRows
+        return placedLabels
+            .filter { $0.anchorRow + $0.spanRows >= cutoff && abs($0.label.frequency - frequency) <= toleranceHz }
+            .min { abs($0.label.frequency - frequency) < abs($1.label.frequency - frequency) }?
+            .label.frequency
+    }
+
+    /// Seconds per row: the monitor's `rowPeriod` (80 ms FT8, 24 ms FT4).
+    /// Set by the owner whenever the monitor is (re)configured.
+    var rowPeriod: Double = 0.08
+
+    // ---------------------------------------------------------
+    // Frequency axis
+    // ---------------------------------------------------------
+
+    /// Frequencies at the left and right edges of the display.
+    var displayedFrequencyRange: ClosedRange<Double> {
+        Double(config.minDisplayFrequency) ... Double(config.maxDisplayFrequency)
+    }
+
     func xPosition(for frequency: Double, in width: CGFloat) -> CGFloat {
-        let maxFreq = Double(config.maxDisplayFrequency) * 4.0
-        return CGFloat(frequency / maxFreq) * width
+        let range = displayedFrequencyRange
+        let span = range.upperBound - range.lowerBound
+        guard span > 0 else { return 0 }
+        return CGFloat((frequency - range.lowerBound) / span) * width
+    }
+
+    func frequencyAtPixel(x: CGFloat, width: CGFloat) -> Double {
+        guard width > 0 else { return 0 }
+        let range = displayedFrequencyRange
+        return range.lowerBound + Double(x / width) * (range.upperBound - range.lowerBound)
+    }
+
+    /// Bandwidth a transmission occupies above its base tone: 8 tones × 6.25 Hz
+    /// for FT8, 4 tones × 20.83 Hz for FT4.
+    static func occupiedBandwidthHz(isFT4: Bool) -> Double {
+        isFT4 ? 83.3 : 50.0
+    }
+
+    /// Lowest and highest base tone the decoder can still see whole: it
+    /// analyses 200–3000 Hz, so the top of the signal must stay under 3000.
+    static func txFrequencyRange(isFT4: Bool) -> ClosedRange<Double> {
+        200.0 ... (3000.0 - occupiedBandwidthHz(isFT4: isFT4))
+    }
+
+    /// Identifies one pixel → source-bin mapping; the map is rebuilt when any
+    /// of these change.
+    private struct BinMapKey: Equatable {
+        let pixelWidth: Int
+        let binCount: Int
+        let firstBinHz: Float
+        let binHz: Float
+        let minDisplayHz: Float
+        let maxDisplayHz: Float
+    }
+
+    /// For each of `pixelWidth` columns, the index of the source bin shown
+    /// there, so that the columns span `minDisplayHz` … `maxDisplayHz`.
+    /// Source bins are uniformly spaced: bin `i` is at `firstBinHz + i × binHz`.
+    /// Columns outside the source band clamp to its edge bins.
+    static func displayedBinIndices(
+        pixelWidth: Int,
+        binCount: Int,
+        firstBinHz: Float,
+        binHz: Float,
+        minDisplayHz: Float,
+        maxDisplayHz: Float
+    ) -> [Int] {
+        guard pixelWidth > 0, binCount > 0, binHz > 0, maxDisplayHz > minDisplayHz else { return [] }
+        let spanHz = maxDisplayHz - minDisplayHz
+        return (0 ..< pixelWidth).map { x in
+            // Sample the center of the column.
+            let hz = minDisplayHz + (Float(x) + 0.5) / Float(pixelWidth) * spanHz
+            let bin = Int(((hz - firstBinHz) / binHz).rounded())
+            return bin.clamped(to: 0 ... (binCount - 1))
+        }
     }
 
     // ---------------------------------------------------------
     // Waterfall update
     // ---------------------------------------------------------
-    func updateWaterfall(from mags: [Float]) {
-        let w = width
-        guard let ctx = context, let rawPtr = ctx.data else { return }
 
-        let row = writeIndex / w
-        let pixelData = rawPtr.assumingMemoryBound(to: UInt32.self)
+    /// Appends one monitor row (see `appendMonitorRow`) and hands it to the
+    /// attached renderers.
+    func updateWaterfall(
+        monitorRow row: [UInt8],
+        firstBinHz: Float,
+        binHz: Float,
+        slotSequence: UInt = 0,
+        slotRow: Int = 0
+    ) {
+        let w = width
+        let rowOffset = writeRow * w
+
+        // Remember where this slot began, so decodes can be placed on it.
+        if slotStartRows[slotSequence] == nil {
+            slotStartRows[slotSequence] = absoluteRowCounter - slotRow
+            if slotStartRows.count > 8 {
+                let oldest = slotStartRows.keys.min()!
+                slotStartRows[oldest] = nil
+            }
+            if slotContextEnabled {
+                beginSlot(slotSequence, startRow: absoluteRowCounter - slotRow)
+            }
+        }
 
         if isInBackground && showBlackWhenBackgrounded {
             // Write a full black row
-            for x in 0 ..< w {
-                waterfallBufferFlat[writeIndex + x] = 0
-                pixelData[row * w + x] = 0xFF000000
-            }
+            for x in 0 ..< w { pixelRing[rowOffset + x] = 0xFF000000 }
+        } else if isTransmitting && slotContextEnabled {
+            // Our own transmission tells the operator nothing about the band,
+            // and feeding it to the trackers would lift the noise floor for
+            // seconds after we stop. Grey, and left out of the levelling.
+            for x in 0 ..< w { pixelRing[rowOffset + x] = Self.transmitRowColor }
+            markCurrentSlotAsTransmit()
         } else {
-            guard mags.count >= w else { return }
+            guard row.count > 1 else { return }
 
-            let nyquist = max(1.0, sampleRate / 2.0)
-            let maxBin = min(max(Int(round((config.maxDisplayFrequency / nyquist) * Float(w))), 1), w)
+            if scratchDB.count != w {
+                scratchDB = [Float](repeating: 0, count: w)
+            }
 
+            // Rebuild bin-index table only when the mapping changes
+            let mapKey = BinMapKey(
+                pixelWidth: w,
+                binCount: row.count,
+                firstBinHz: firstBinHz,
+                binHz: binHz,
+                minDisplayHz: config.minDisplayFrequency,
+                maxDisplayHz: config.maxDisplayFrequency
+            )
+            if cachedBinMapKey != mapKey {
+                cachedBinMapKey = mapKey
+                cachedBinIndices = Self.displayedBinIndices(
+                    pixelWidth: w,
+                    binCount: row.count,
+                    firstBinHz: firstBinHz,
+                    binHz: binHz,
+                    minDisplayHz: config.minDisplayFrequency,
+                    maxDisplayHz: config.maxDisplayFrequency
+                )
+            }
+            guard cachedBinIndices.count == w else { return }
+
+            // Gather the displayed bins, then decode ft8_lib's 8-bit scale:
+            // dB = value / 2 − 120 (in-place: D = A*a + b)
             for x in 0 ..< w {
-                let binIndex = Int(Float(x) / Float(w) * Float(maxBin)).clamped(to: 0 ... (maxBin - 1))
-                let mag = mags[binIndex]
-                waterfallBufferFlat[writeIndex + x] = mag
+                scratchDB[x] = Float(row[cachedBinIndices[x]])
+            }
+            var toDBScale: Float = 0.5
+            var toDBOffset: Float = -120.0
+            vDSP_vsmsa(scratchDB, 1, &toDBScale, &toDBOffset, &scratchDB, 1, vDSP_Length(w))
 
-                let db = 20 * log10(max(mag, 1e-12))
-                let scaled = ((db - config.waterfallMinDB) / (config.waterfallMaxDB - config.waterfallMinDB))
-                    .clamped(to: 0 ... 1)
-                let t = sqrt(scaled)
-                let idx = Int((t * 255).rounded()).clamped(to: 0 ... 255)
-                pixelData[row * w + x] = waterfallPalette[idx]
+            pixelRing.withUnsafeMutableBufferPointer { ring in
+                paintRow(fromDB: &scratchDB, into: ring.baseAddress! + rowOffset)
             }
         }
 
-        // Timestamp logic ALWAYS runs
+        finishRow()
+    }
+
+    /// Colors one row from per-column dB values and writes it to `pixels`.
+    /// `db` is consumed as scratch space.
+    private func paintRow(fromDB db: inout [Float], into pixels: UnsafeMutablePointer<UInt32>) {
+        let w = width
+        let vLen = vDSP_Length(w)
+        let display = config.display
+
+        // 1. Flatten: subtract each column's own noise baseline so a shaped
+        //    passband (line-in from a radio) reads level across the band.
+        if display.flatten {
+            flatten(&db)
+        }
+
+        // 2. Pick the color window: tracking the noise floor, or fixed
+        let minDB: Float
+        if display.autoLevel {
+            let floor = trackNoiseFloor(rowDB: db, count: w)
+            minDB = floor - display.zeroDB
+        } else {
+            // Manual: `zeroDB` is the level (relative to the noise once
+            // flattened, absolute otherwise) that maps to the bottom color.
+            minDB = display.manualFloorDB
+        }
+        let range = max(display.gainDB, 1)
+
+        // 3. Linear scale to 0…255: (db − minDB) / range × 255  [D = A*a + b]
+        var scaleA: Float = 255.0 / range
+        var scaleB: Float = -minDB * 255.0 / range
+        vDSP_vsmsa(db, 1, &scaleA, &scaleB, &db, 1, vLen)
+
+        // 4. Clamp to [0, 255]
+        var clampLo: Float = 0.0, clampHi: Float = 255.0
+        vDSP_vclip(db, 1, &clampLo, &clampHi, &db, 1, vLen)
+
+        // 5. Palette lookup — unavoidably scalar, but L1-cache-friendly (256-entry table)
+        if paletteLUTFor != display.palette {
+            paletteLUT = display.palette.lookupTable
+            paletteLUTFor = display.palette
+        }
+        for x in 0 ..< w {
+            pixels[x] = paletteLUT[Int(db[x])]
+        }
+    }
+
+    /// Removes the passband's shape from one row, in place.
+    ///
+    /// The noise floor at each column is estimated as the minimum over a
+    /// ±100 Hz window (an FT8 signal is 50 Hz wide, so the window always
+    /// reaches noise beside it), smoothed across frequency and then over
+    /// time, and subtracted. Noise ends up around 0 dB everywhere; signals
+    /// keep their height above it.
+    private func flatten(_ db: inout [Float]) {
+        let w = width
+        let r = flattenHalfWindow
+        if envelopeDB.count != w {
+            envelopeDB = [Float](repeating: 0, count: w)
+            envelopeSmooth = [Float](repeating: 0, count: w)
+            baselineDB = []
+        }
+
+        // Sliding minimum: O(w × window), a few hundred thousand compares
+        // per row, well under a millisecond.
+        db.withUnsafeBufferPointer { src in
+            for x in 0 ..< w {
+                var m = src[x]
+                let lo = max(0, x - r), hi = min(w - 1, x + r)
+                var i = lo
+                while i <= hi {
+                    if src[i] < m { m = src[i] }
+                    i += 1
+                }
+                envelopeDB[x] = m
+            }
+        }
+        // Smooth across frequency with a box of the same width (edges keep
+        // the raw minimum), and lift by the expected min-to-median gap of
+        // noise over that many samples so the result sits on the median.
+        let box = 2 * r + 1
+        if w > box {
+            envelopeSmooth.withUnsafeMutableBufferPointer { dst in
+                envelopeDB.withUnsafeBufferPointer { src in
+                    vDSP_vswsum(src.baseAddress!, 1, dst.baseAddress! + r, 1, vDSP_Length(w - box + 1), vDSP_Length(box))
+                    var inv = 1.0 / Float(box)
+                    vDSP_vsmul(dst.baseAddress! + r, 1, &inv, dst.baseAddress! + r, 1, vDSP_Length(w - box + 1))
+                    for x in 0 ..< r { dst[x] = src[x] }
+                    for x in (w - r) ..< w { dst[x] = src[x] }
+                }
+            }
+        } else {
+            envelopeSmooth = envelopeDB
+        }
+
+        // Follow the envelope over time; slow enough not to flicker, fast
+        // enough to track a gain change within a second or two.
+        if baselineDB.count != w {
+            baselineDB = envelopeSmooth
+        } else {
+            var alpha: Float = 0.1
+            var oneMinus: Float = 0.9
+            // baseline = 0.9·baseline + 0.1·envelope
+            vDSP_vsmsma(baselineDB, 1, &oneMinus, envelopeSmooth, 1, &alpha, &baselineDB, 1, vDSP_Length(w))
+        }
+        vDSP_vsub(baselineDB, 1, db, 1, &db, 1, vDSP_Length(w))
+    }
+
+    // MARK: - Slots
+
+    /// Neutral grey for the rows we spend transmitting.
+    private static let transmitRowColor: UInt32 = 0xFF3A3A3A
+
+    /// Records a slot starting at `startRow` and closes the previous one.
+    private func beginSlot(_ slotSequence: UInt, startRow: Int) {
+        let cycleLength = mode.timestampInterval
+        if let lastIndex = slotMarks.indices.last {
+            slotMarks[lastIndex].rowCount = max(1, startRow - slotMarks[lastIndex].startRow)
+        }
+        let expectedRows = rowPeriod > 0 ? Int((cycleLength / rowPeriod).rounded()) : 1
+        slotMarks.append(
+            WaterfallSlotMark(
+                slotSequence: slotSequence,
+                startRow: startRow,
+                rowCount: max(1, expectedRows),
+                isEvenCycle: WaterfallSlotMark.isEvenCycle(at: Date(), cycleLength: cycleLength),
+                isTransmit: isTransmitting
+            )
+        )
+        pruneSlotMarks()
+        forEachSink { $0.setSlots(slotMarks) }
+    }
+
+    /// Drops slots that have scrolled off the ring.
+    private func pruneSlotMarks() {
+        let cutoff = absoluteRowCounter - height
+        slotMarks.removeAll { $0.startRow + $0.rowCount < cutoff }
+    }
+
+    /// Tells the waterfall whether we are transmitting. Its rows are greyed
+    /// out until we stop, and the slots they fall in are marked as ours.
+    func setTransmitting(_ transmitting: Bool) {
+        isTransmitting = transmitting
+    }
+
+    /// Marks the slot the row being written belongs to. Doing this per row
+    /// rather than when transmission starts keeps the mark on the slot whose
+    /// rows are actually ours, even when TX begins on a slot boundary.
+    private func markCurrentSlotAsTransmit() {
+        guard let lastIndex = slotMarks.indices.last, !slotMarks[lastIndex].isTransmit else { return }
+        slotMarks[lastIndex].isTransmit = true
+        forEachSink { $0.setSlots(slotMarks) }
+    }
+
+    /// The slots covering the ring, oldest first.
+    var slots: [WaterfallSlotMark] { slotMarks }
+
+    /// Bookkeeping shared by every row: slot timestamps, ring advance,
+    /// overlay pruning, and pushing the row to the renderers.
+    private func finishRow() {
+        // Timestamp logic ALWAYS runs — uses cached formatter (avoids per-call allocation)
         let now = Date()
         if now >= nextUTCMark {
-            let formatter = DateFormatter()
-            formatter.timeZone = TimeZone(abbreviation: "UTC")
-            formatter.dateFormat = "HH:mm:ss"
-            timestampRows[absoluteRowCounter] = formatter.string(from: nextUTCMark)
+            let text = utcFormatter.string(from: nextUTCMark)
+            timestampRows[absoluteRowCounter] = text
+            forEachSink { $0.addTimestamp(text, absoluteRow: absoluteRowCounter) }
             nextUTCMark = nextUTCMark.addingTimeInterval(config.timestampInterval)
         }
 
-        writeIndex = (writeIndex + w) % waterfallBufferFlat.count
+        let w = width
+        let ringRow = writeRow
+        let absoluteRow = absoluteRowCounter
+        pixelRing.withUnsafeBufferPointer { ring in
+            let row = UnsafeBufferPointer(start: ring.baseAddress! + ringRow * w, count: w)
+            forEachSink { $0.append(row: row, ringRow: ringRow, absoluteRow: absoluteRow) }
+        }
+
+        writeRow = (writeRow + 1) % height
         absoluteRowCounter += 1
+        if !hasData { hasData = true }
 
-        // Remove old timestamps and labels beyond visible rows
-        let cutoff = absoluteRowCounter - max(1, visibleRows)
-        timestampRows = timestampRows.filter { $0.key >= cutoff }
-        verticalLabelRows = verticalLabelRows.filter { $0.key >= cutoff }
-
-        // Update overlay arrays independently of view
-        updateOverlayPositions()
-
-        if visibleRows > 0 { renderWaterfallIncremental() }
+        // Prune timestamps/labels that scrolled out of the (maximum) visible
+        // range. Done every 64 rows rather than on every row: the overlay
+        // accessors already clip to the visible height, so pruning is only
+        // about keeping the dictionaries small.
+        if absoluteRowCounter % 64 == 0 {
+            let cutoff = absoluteRowCounter - height
+            timestampRows = timestampRows.filter { $0.key >= cutoff }
+            placedLabels.removeAll { $0.anchorRow + $0.spanRows < cutoff }
+            pruneSlotMarks()
+        }
     }
 
     @MainActor
-    private func renderWaterfallIncremental() {
-        guard frameLimiter.shouldRender(), let ctx = context, let rawPtr = ctx.data else { return }
-        
-        let w = width
-        let h = max(1, min(visibleRows, height))
-        let pixelData = rawPtr.assumingMemoryBound(to: UInt32.self)
-        
-        var visiblePixels = [UInt32](repeating: 0, count: w * h)
-        let currentWriteRow = writeIndex / w
-        
-        for y in 0 ..< h {
-            let srcRow = (currentWriteRow - h + y + height) % height
-            let dstBase = (h - y - 1) * w
-            let srcBase = srcRow * w
-            for x in 0 ..< w {
-                visiblePixels[dstBase + x] = pixelData[srcBase + x]
-            }
+    /// Estimates the noise floor of one row as its median bin level, then
+    /// smooths it over time so the palette does not pump with every FT8 slot.
+    ///
+    /// The median rather than a lower percentile: a line-level feed from a
+    /// radio is near-silent outside the rig's passband (below ~300 Hz and
+    /// above ~2.7 kHz), which can be a quarter or more of the displayed bins.
+    /// A 30th percentile lands in that silence, drags the floor down by tens
+    /// of dB and paints every real bin solid red. The median tolerates up to
+    /// half the bins being silent, and FT8 signals rarely fill more than a
+    /// third of the band, so it still sits on the noise.
+    private func trackNoiseFloor(rowDB: [Float], count: Int) -> Float {
+        if scratchSort.count != count {
+            scratchSort = [Float](repeating: 0, count: count)
         }
-        
-        if let cg = makeCGImageFromARGB(pixelData: visiblePixels, width: w, height: h) {
-            waterfallImage = Image(uiImage: UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up))
+        for i in 0 ..< count { scratchSort[i] = rowDB[i] }
+        scratchSort.sort()
+        let rowFloor = scratchSort[count / 2]
+
+        guard let previous = smoothedFloorDB else {
+            smoothedFloorDB = rowFloor
+            return rowFloor
         }
+        // Follow drops quickly (band went quiet / gain lowered) and rises
+        // slowly, so a burst of strong signals does not lift the floor and
+        // hide the weak ones underneath.
+        let alpha: Float = rowFloor < previous ? 0.3 : 0.05
+        let next = previous + alpha * (rowFloor - previous)
+        smoothedFloorDB = next
+        return next
     }
+
     // MARK: - Overlay toggles helpers
-    
+
     /// Toggle the master "Show All Overlays"
     func setShowAllOverlays(_ value: Bool) {
         showOverlay = value
@@ -400,101 +845,92 @@ final class WaterfallViewModel: ObservableObject {
         showFrequencyTicks = value
         showFrequencyMarker = value
     }
-    
+
     /// Toggle individual "Timestamps" overlay
     func setShowTimestamps(_ value: Bool) {
         showTimestamps = value
         showOverlay = showTimestamps || showVerticalLabels || showFrequencyTicks || showFrequencyMarker
     }
-    
+
     /// Toggle individual "Vertical Labels" overlay
     func setShowVerticalLabels(_ value: Bool) {
         showVerticalLabels = value
         showOverlay = showTimestamps || showVerticalLabels || showFrequencyTicks || showFrequencyMarker
     }
-    
+
     /// Toggle individual "Frequency Ticks" overlay
     func setShowFrequencyTicks(_ value: Bool) {
         showFrequencyTicks = value
         showOverlay = showTimestamps || showVerticalLabels || showFrequencyTicks || showFrequencyMarker
     }
-    
+
     /// Toggle individual "Frequency Marker" overlay
     func setShowFrequencyMarker(_ value: Bool) {
         showFrequencyMarker = value
         showOverlay = showTimestamps || showVerticalLabels || showFrequencyTicks || showFrequencyMarker
     }
-    
+
     /// Helper to toggle master overlay
     func toggleShowAllOverlays() {
         setShowAllOverlays(!showOverlay)
     }
-    
+
     /// Toggle timestamps independently
     func toggleTimestamps() {
         setShowTimestamps(!showTimestamps)
     }
-    
+
     /// Toggle vertical labels independently
     func toggleVerticalLabels() {
         setShowVerticalLabels(!showVerticalLabels)
     }
-    
+
     /// Toggle frequency ticks independently
     func toggleFrequencyTicks() {
         setShowFrequencyTicks(!showFrequencyTicks)
     }
-    
+
     /// Toggle frequency marker independently
     func toggleFrequencyMarker() {
         setShowFrequencyMarker(!showFrequencyMarker)
     }
-    
-    
-    private func makeCGImageFromARGB(pixelData: [UInt32], width: Int, height: Int) -> CGImage? {
-        guard pixelData.count == width * height else { return nil }
-        let bytesPerRow = width * 4
-        
-        return pixelData.withUnsafeBytes { rawBuffer -> CGImage? in
-            guard let provider = CGDataProvider(data: Data(
-                bytes: rawBuffer.baseAddress!,
-                count: rawBuffer.count
-            ) as CFData) else { return nil }
-            
-            let bitmapInfo = CGBitmapInfo(
-                rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue |
-                CGBitmapInfo.byteOrder32Little.rawValue
-            )
-            
-            return CGImage(
-                width: width,
-                height: height,
-                bitsPerComponent: 8,
-                bitsPerPixel: 32,
-                bytesPerRow: bytesPerRow,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: bitmapInfo,
-                provider: provider,
-                decode: nil,
-                shouldInterpolate: false,
-                intent: .defaultIntent
-            )
+
+
+    /// One ring row's pixels, for tests.
+    func pixelRowForTesting(ringRow: Int) -> [UInt32] {
+        Array(pixelRing[(ringRow * width) ..< ((ringRow + 1) * width)])
+    }
+
+    /// The persisted display settings; writing saves them and applies them
+    /// to the next row.
+    var displaySettings: WaterfallDisplaySettings {
+        get { config.display }
+        set {
+            guard newValue != config.display else { return }
+            // Switching flatten on or off changes the scale the floor lives
+            // in; start the trackers afresh rather than sliding from the old one.
+            if newValue.flatten != config.display.flatten {
+                baselineDB = []
+                smoothedFloorDB = nil
+            }
+            config.display = newValue
+            newValue.save()
         }
     }
-    
+
+    /// Adjusts color and axis settings. The ring's dimensions are fixed at
+    /// init and are not affected.
     func updateConfig(_ update: (inout Config) -> Void) {
         var c = config
         update(&c)
-        // Apply absolute max limit
-        c.waterfallMaxRows = min(c.waterfallMaxRows, Config.absoluteMaxRows)
+        c.imageWidth = config.imageWidth
+        c.waterfallMaxRows = config.waterfallMaxRows
         config = c
-        frameLimiter = FrameLimiter(targetFPS: config.targetFPS)
-        ensureBufferCanHold(visibleRows: visibleRows)
         nextUTCMark = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
     }
     
     // MARK: - Overlay accessors
-    
+
     func timestampsForOverlay(height: Int) -> [TimestampOverlay] {
         guard showOverlay && showTimestamps else { return [] }
         let topRow = absoluteRowCounter - 1
@@ -503,49 +939,27 @@ final class WaterfallViewModel: ObservableObject {
             return (rowOffset >= 0 && rowOffset < height) ? TimestampOverlay(text: text, row: rowOffset) : nil
         }
     }
-    
+
     func verticalLabelsForOverlay(height: Int) -> [VerticalLabelOverlay] {
         guard showOverlay && showVerticalLabels else { return [] }
         let topRow = absoluteRowCounter - 1
-        return verticalLabelRows.compactMap { absRow, labels -> [VerticalLabelOverlay]? in
-            let rowOffset = topRow - absRow
+        return placedLabels.compactMap { placed in
+            let rowOffset = topRow - placed.anchorRow
             guard rowOffset >= 0 && rowOffset < height else { return nil }
-            return labels.map { VerticalLabelOverlay(text: $0.text, row: rowOffset, frequency: $0.frequency) }
-        }.flatMap { $0 }
+            return VerticalLabelOverlay(
+                text: placed.label.text, row: rowOffset, frequency: placed.label.frequency,
+                kind: placed.label.kind, isWorked: placed.label.isWorked, spanRows: placed.spanRows
+            )
+        }
     }
-    
-    func frequencyAtPixel(x: CGFloat, width: CGFloat) -> Double {
-        guard width > 0 else { return 0 }
-        return Double(x / width) * Double(config.maxDisplayFrequency) * 4.0
-    }
-    
+
     @MainActor
     func resyncNextTimestampFromNow() {
         let now = Date()
         let aligned = WaterfallViewModel.computeNextUTCAligned(interval: config.timestampInterval)
         nextUTCMark = aligned <= now ? aligned.addingTimeInterval(config.timestampInterval) : aligned
     }
-    
-}
 
-// MARK: - FrameLimiter
-
-private struct FrameLimiter {
-    private let minInterval: TimeInterval
-    private var last: TimeInterval = 0
-
-    init(targetFPS: Double) {
-        minInterval = targetFPS > 0 ? 1.0 / targetFPS : 0
-    }
-
-    mutating func shouldRender(now: TimeInterval = CACurrentMediaTime()) -> Bool {
-        guard minInterval > 0 else { return true }
-        if now - last >= minInterval {
-            last = now
-            return true
-        }
-        return false
-    }
 }
 
 extension Comparable {
@@ -553,4 +967,3 @@ extension Comparable {
         min(max(self, limits.lowerBound), limits.upperBound)
     }
 }
-

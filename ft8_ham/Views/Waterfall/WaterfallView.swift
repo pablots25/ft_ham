@@ -10,33 +10,62 @@ import SwiftUI
 struct WaterfallView: View {
     @ObservedObject var viewModel: WaterfallViewModel
     @ObservedObject var ft8ViewModel: FT8ViewModel
+    @ObservedObject private var overlayState: WaterfallOverlayState
+    @EnvironmentObject private var flags: FeatureFlagManager
 
     @Binding var isSettingFrequency: Bool
 
     @State private var cursorX: CGFloat? = nil
     @State private var cursorFrequency: Double = 0
+    /// Hides the cursor a while after the finger lifts.
+    @State private var cursorTimeout: Task<Void, Never>?
+    @State private var touchStart: (time: Date, location: CGPoint)?
+    @State private var lastTouch: CGPoint = .zero
+    @State private var longPressTask: Task<Void, Never>?
+    @State private var longPressFired = false
+    /// Where and when the previous tap ended, to recognize a double tap.
+    @State private var lastTapEnd: (time: Date, location: CGPoint)?
+
+    @AppStorage("waterfallTapToReply") private var tapToReply = true
+    @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
+
+    /// A touch that moves less than this is a tap (or a long press).
+    private static let tapSlop: CGFloat = 8
+    private static let longPressSeconds: TimeInterval = 0.5
+    /// A second tap within this time (and `tapSlop * 2`) counts as a double tap.
+    private static let doubleTapSeconds: TimeInterval = 0.35
+    private static let cursorLinger: TimeInterval = 8
+
+    init(viewModel: WaterfallViewModel, ft8ViewModel: FT8ViewModel, isSettingFrequency: Binding<Bool>) {
+        self.viewModel = viewModel
+        self.ft8ViewModel = ft8ViewModel
+        self.overlayState = viewModel.overlayState
+        self._isSettingFrequency = isSettingFrequency
+    }
+
+    /// Everything the renderer's overlay depends on. Rows themselves never
+    /// come through SwiftUI: the view model pushes them straight to the
+    /// render view (see `WaterfallRenderView`).
+    private var overlayStyle: WaterfallOverlayStyle {
+        WaterfallOverlayStyle(
+            minDisplayHz: Double(viewModel.config.minDisplayFrequency),
+            maxDisplayHz: Double(viewModel.config.maxDisplayFrequency),
+            txFrequency: ft8ViewModel.frequency,
+            isFT4: ft8ViewModel.isFT4,
+            showOverlay: overlayState.showOverlay,
+            showTimestamps: overlayState.showTimestamps,
+            showVerticalLabels: overlayState.showVerticalLabels,
+            showFrequencyTicks: overlayState.showFrequencyTicks,
+            showFrequencyMarker: overlayState.showFrequencyMarker
+        )
+    }
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                if let waterfall = viewModel.waterfallImage {
-                    let w = max(geo.size.width, 1)
-                    let h = max(geo.size.height, 1)
+                WaterfallRenderRepresentable(viewModel: viewModel, style: overlayStyle)
 
-                    waterfall
-                        .resizable()
-                        .frame(width: w, height: h, alignment: .bottom)
-                        .clipped()
-
-                    if viewModel.showOverlay {
-                        WaterfallOverlayView(
-                            viewModel: viewModel,
-                            ft8ViewModel: ft8ViewModel,
-                            width: Int(geo.size.width),
-                            height: Int(geo.size.height)
-                        )
-                    }
-                } else {
+                if !viewModel.hasData {
                     Text("Waiting for audio data...")
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -48,170 +77,144 @@ struct WaterfallView: View {
                         .zIndex(1)
                 }
             }
-            .onAppear {
-                // Ensure enough waterfall rows
-                let rows = max(Int(geo.size.height), 1) + 1
-                viewModel.visibleRows = rows
-                viewModel.ensureBufferCanHold(visibleRows: rows)
-            }
-            .onChange(of: geo.size.height) { newHeight in
-                let rows = max(Int(newHeight), 1) + 1
-                viewModel.visibleRows = rows
-                viewModel.ensureBufferCanHold(visibleRows: rows)
-            }
+            .onAppear { syncSlotContextFlag() }
+            .onChange(of: flags.values) { _ in syncSlotContextFlag() }
+            .contentShape(Rectangle())
             .gesture(
+                // One gesture, three outcomes: a drag shows the cursor (and,
+                // in adjust mode, moves the TX frequency with it); a tap
+                // replies to the label it most likely meant (when enabled,
+                // honoring the reply gesture); holding near a label always
+                // replies. Only adjust mode changes the TX frequency.
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let w = max(geo.size.width, 1)
                         let x = min(max(value.location.x, 0), w)
 
+                        lastTouch = value.location
+                        if touchStart == nil {
+                            touchStart = (Date(), value.location)
+                            longPressFired = false
+                            if !isSettingFrequency { armLongPress(in: geo.size) }
+                        }
+                        cursorTimeout?.cancel()
                         cursorX = x
                         cursorFrequency = viewModel.frequencyAtPixel(x: x, width: w)
 
                         if isSettingFrequency {
-                            ft8ViewModel.frequency = cursorFrequency
+                            // Keep the whole signal inside the decoder's passband
+                            // even when the finger runs past the band edges.
+                            ft8ViewModel.frequency = cursorFrequency.clamped(
+                                to: WaterfallViewModel.txFrequencyRange(isFT4: ft8ViewModel.isFT4)
+                            )
+                        } else if let start = touchStart, distance(start.location, value.location) > Self.tapSlop {
+                            longPressTask?.cancel()   // it became a drag
                         }
                     }
-                    .onEnded { _ in
-                        cursorX = nil
-                        if isSettingFrequency { isSettingFrequency = false }
+                    .onEnded { value in
+                        defer { touchStart = nil }
+                        longPressTask?.cancel()
+                        let moved = touchStart.map { distance($0.location, value.location) } ?? .infinity
+                        if isSettingFrequency {
+                            isSettingFrequency = false
+                        } else if !longPressFired, moved <= Self.tapSlop {
+                            handleTap(at: value.location, in: geo.size)
+                        }
+                        lingerCursor()
                     }
             )
         }
     }
-}
 
-struct WaterfallOverlayView: View {
-    @ObservedObject var viewModel: WaterfallViewModel
-    @ObservedObject var ft8ViewModel: FT8ViewModel
-
-    let width: Int
-    let height: Int
-    let headerHeight: CGFloat = 15
-
-    var body: some View {
-        Canvas { ctx, size in
-            guard size.width > 1, size.height > 1 else { return }
-            let w = size.width
-            let h = size.height
-            let bodyOffset = headerHeight
-
-            let maxFreq = Double(viewModel.config.maxDisplayFrequency) * 4.0
-            guard maxFreq > 0 else { return }
-
-            // Frequency ticks
-            if viewModel.showFrequencyTicks {
-                let stepHz = 500.0
-                for f in stride(from: 0.0, through: maxFreq, by: stepHz) {
-                    let x = CGFloat(f / maxFreq) * w
-                    guard x.isFinite else { continue }
-                    
-                    var path = Path()
-                    path.move(to: CGPoint(x: x, y: bodyOffset))
-                    path.addLine(to: CGPoint(x: x, y: h))
-                    ctx.stroke(path, with: .color(.white.opacity(0.5)), lineWidth: 1)
-                    
-                    ctx.draw(
-                        Text(String(format: "%.1f kHz", f / 1000))
-                            .font(.system(size: 10, weight: .regular))
-                            .foregroundColor(.white),
-                        at: CGPoint(x: x + 2, y: 0),
-                        anchor: .topLeading
-                    )
-                }
-            }
-
-            // Horizontal timestamp lines
-            let timestamps = viewModel.timestampsForOverlay(height: Int(size.height))
-            for overlay in timestamps {
-                let y = CGFloat(overlay.row) + bodyOffset
-                
-                // Line
-                let path = Path { path in
-                    path.move(to: CGPoint(x: 0, y: y))
-                    path.addLine(to: CGPoint(x: w, y: y))
-                }
-                ctx.stroke(path, with: .color(.yellow), lineWidth: 1)
-                
-                // Label
-                ctx.draw(
-                    Text(overlay.text)
-                        .font(.system(size: 10, weight: .regular))
-                        .foregroundColor(.white),
-                    at: CGPoint(x: w - 4, y: CGFloat(overlay.row)),
-                    anchor: .topTrailing
-                )
-            }
-
-            if viewModel.showFrequencyMarker {
-                // TX frequency indicator
-                let txFreq = ft8ViewModel.frequency
-                let txX = CGFloat(txFreq / maxFreq) * w
-                guard txX.isFinite else { return }
-                
-                let labelText = String(format: "%.0f Hz", txFreq)
-                let approxCharWidth: CGFloat = 6.0
-                let approxHeight: CGFloat = 12.0
-                let labelWidth = CGFloat(labelText.count) * approxCharWidth + 8.0
-                let labelHeight = approxHeight + 6.0
-                let rect = CGRect(
-                    x: txX - labelWidth / 2,
-                    y: headerHeight / 2 + 5,
-                    width: labelWidth,
-                    height: labelHeight
-                )
-                ctx.fill(Path(roundedRect: rect, cornerRadius: 4), with: .color(.white.opacity(0.8)))
-                ctx.draw(
-                    Text(labelText)
-                        .font(.system(size: 10))
-                        .foregroundColor(.red),
-                    at: CGPoint(x: rect.midX, y: rect.midY),
-                    anchor: .center
-                )
-                
-                let bandwidthHz = (ft8ViewModel.isFT4 ? 90.0 : 50.0) * 2
-                for freq in [txFreq, txFreq + bandwidthHz] {
-                    let x = CGFloat(freq / maxFreq) * w
-                    let path = Path { path in
-                        path.move(to: CGPoint(x: x, y: bodyOffset + 15))
-                        path.addLine(to: CGPoint(x: x, y: h))
-                    }
-                    ctx.stroke(path, with: .color(.red), lineWidth: 1)
-                }
-            }
-
-            // Vertical moving labels
-            let vLabels = viewModel.verticalLabelsForOverlay(height: Int(size.height))
-            for overlay in vLabels {
-                let x = CGFloat(overlay.frequency / maxFreq) * w
-                var tctx = ctx
-                let text = overlay.text
-                let approxCharWidth: CGFloat = 6.0
-                let approxCharHeight: CGFloat = 12.0
-                let textWidth = CGFloat(text.count) * approxCharWidth
-                let textHeight = approxCharHeight
-                let y = CGFloat(overlay.row) + bodyOffset + textWidth
-
-                tctx.translateBy(x: x, y: y)
-                tctx.rotate(by: .radians(-.pi / 2))
-
-                let backgroundRect = CGRect(
-                    x: -2, y: -2,
-                    width: textWidth + 4,
-                    height: textHeight + 4
-                )
-                tctx.fill(Path(roundedRect: backgroundRect, cornerRadius: 4), with: .color(.black.opacity(0.3)))
-                tctx.draw(
-                    Text(text)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white),
-                    at: .zero,
-                    anchor: .topLeading
-                )
-            }
-
+    /// The slot stripe and greyed-out transmit rows live behind a feature
+    /// flag; the model is told about it rather than reading it itself.
+    private func syncSlotContextFlag() {
+        let enabled = flags.isEnabled(.waterfallSlotContext)
+        if viewModel.slotContextEnabled != enabled {
+            viewModel.slotContextEnabled = enabled
         }
-        .allowsHitTesting(false)
+    }
+
+    private func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
+        hypot(a.x - b.x, a.y - b.y)
+    }
+
+    /// DragGesture reports nothing while the finger is still, so the long
+    /// press is timed here and checked against the last known position.
+    private func armLongPress(in size: CGSize) {
+        longPressTask?.cancel()
+        longPressTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(Self.longPressSeconds * 1_000_000_000))
+            guard !Task.isCancelled, let start = touchStart,
+                  distance(start.location, lastTouch) <= Self.tapSlop else { return }
+            longPressFired = true
+            replyToLabel(at: lastTouch, in: size)
+        }
+    }
+
+    /// Keeps the cursor where the finger left it for a few seconds.
+    private func lingerCursor() {
+        cursorTimeout?.cancel()
+        cursorTimeout = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(Self.cursorLinger * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            cursorX = nil
+        }
+    }
+
+    /// Routes a plain tap to a reply. The TX frequency is left alone: it only
+    /// moves while the frequency button is on.
+    private func handleTap(at point: CGPoint, in size: CGSize) {
+        let now = Date()
+        let isSecondTap = lastTapEnd.map {
+            now.timeIntervalSince($0.time) <= Self.doubleTapSeconds
+                && distance($0.location, point) <= Self.tapSlop * 2
+        } ?? false
+        let outcome = WaterfallTapRouter.outcome(
+            tapToReply: tapToReply,
+            gesture: replyTapGesture,
+            isSecondTap: isSecondTap,
+            hasReplyableLabel: tapToReply && replyableMessage(at: point, in: size) != nil
+        )
+        switch outcome {
+        case .reply:
+            replyToLabel(at: point, in: size)
+        case .ignore:
+            break
+        }
+        lastTapEnd = (now, point)
+    }
+
+    /// The replyable decoded message the tap most likely meant: the closest
+    /// label still on screen, not only one exactly under the finger.
+    private func replyableMessage(at point: CGPoint, in size: CGSize) -> FT8Message? {
+        let hz = viewModel.frequencyAtPixel(x: point.x, width: max(size.width, 1))
+        let rowFromTop = Int(point.y / WaterfallRenderView.pointsPerRow)
+        let placed = viewModel.bestGuessLabel(
+            nearHz: hz, rowFromTop: rowFromTop, isFT4: ft8ViewModel.isFT4
+        ) { replyableMessage(for: $0) != nil }
+        return placed.flatMap { replyableMessage(for: $0.label) }
+    }
+
+    private func replyableMessage(for label: WaterfallLabel) -> FT8Message? {
+        guard
+            let id = label.messageID,
+            let message = ft8ViewModel.receivedMessages.last(where: { $0.id == id }),
+            message.allowsReply, !message.isTX
+        else { return nil }
+        return message
+    }
+
+    /// Replies to the decoded message whose label is under `point`, as a tap
+    /// on the message list would. Holding a label always lands here,
+    /// whatever the tap-to-reply setting says.
+    /// - Returns: Whether a reply was started.
+    @discardableResult
+    private func replyToLabel(at point: CGPoint, in size: CGSize) -> Bool {
+        guard let message = replyableMessage(at: point, in: size) else { return false }
+        Haptics.medium()
+        ft8ViewModel.reply(to: message)
+        return true
     }
 }
 

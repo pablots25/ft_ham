@@ -19,7 +19,7 @@ private let performanceLog = OSLog(subsystem: "com.ft8ham.app", category: "Perfo
 
 // MARK: - ViewModel
 @MainActor
-final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLLocationManagerDelegate {
+final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @preconcurrency CLLocationManagerDelegate {
     
     // MARK: - Location Manager
     private let locationManager = CLLocationManager()
@@ -28,9 +28,16 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     // MARK: - Constants
     internal enum Constants {
         static let sampleRate: Double = 12000
+        /// Microphone tap size in hardware-rate frames.
         static let waterfallFFTSize = 2048
+        /// Columns of the waterfall image; the monitor's ~900 bins map onto them.
+        static let waterfallImageWidth = 1024
         static let waterfallRows = 1200
         static let throttleInterval = 150
+        /// Upper bound for the decoded-message list. Without it the list grows
+        /// ~40 rows per FT8 slot for the whole session and every filter/body
+        /// pass over it gets slower; the oldest rows are dropped past this.
+        static let maxReceivedMessages = 2000
         static let modeTransitionDelay: UInt64 = 200_000_000
         static let driftThreshold = 0.01
         
@@ -66,6 +73,15 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     internal let timeProvider: TimeProviding
     
     let waterfallVM: WaterfallViewModel
+    /// Streaming spectrogram of the current slot. Fed from the audio tap; the
+    /// waterfall draws its rows and the sequencer decodes it at slot end.
+    let slotMonitor: FT8SlotMonitor
+
+    /// Lightweight state observed by the app root / `ContentView` so they do not
+    /// have to observe this whole object. See `RootUIState`.
+    let rootState = RootUIState()
+    /// State for the QSO-log confirmation alert (observed by the root modifier).
+    let logPrompt = QSOLogPrompt()
     
     // MARK: - State Management
     internal var cancellables = Set<AnyCancellable>()
@@ -76,8 +92,6 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     // progressTimerCancellable moved to ProgressViewModel
     internal var isHarvestingRX = false
 
-    internal var rxSampleBuffer = Data()
-    internal let rxBufferLock = NSLock()
     
     var lastTransmittedSlotIndex: Int?
     var pendingTXMessageVersion: Int = 0
@@ -93,12 +107,53 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     // MARK: - QSO Manager
     @Published private(set) var qsoManager = QSOStatusManager()
     internal var activeTXMessage: FT8Message?
+    /// Set while the audio in flight is a free-text message, so the QSO
+    /// state machine is not advanced when it finishes.
+    internal var activeTXIsFreeText = false
+
+    // MARK: - Free-text TX loop
+    /// Transmit `freeTextMessage` on every my-turn slot until stopped.
+    @Published var freeTextLoopActive = false
+    @AppStorage("freeTextMessage") var freeTextMessage: String = ""
     
     // MARK: - Loggers
     let rxLogger = AppLogger(category: "RX")
     let txLogger = AppLogger(category: "TX")
     internal let appLogger = AppLogger(category: "APP")
-    
+
+    /// Plays the "calling you" alerts. Replaced by a mock in tests.
+    internal var callAlerter: any CallAlerting = CallAlertService()
+    /// Limits watched-station alerts to one per station every few minutes.
+    internal var watchAlertThrottle = WatchAlertThrottle()
+    /// Parsed `watchedCallsignsStorage`, rebuilt only when the string changes.
+    internal var watchListCache = (storage: "", list: WatchList())
+    /// Keeps a repeating audio error from showing the same toast every slot.
+    internal var audioErrorToastThrottle = RepeatThrottle(interval: 10)
+
+    // MARK: - CAT (uses protocol-based dependency injection)
+    internal let catController = PremiumFeatures.catController
+    internal var catFrequencyUpdateWorkItem: DispatchWorkItem?
+    internal var catPollingTimer: Timer?
+    /// Tracks the in-flight poll Task so we can cancel-and-replace when a new timer tick fires
+    /// before the previous getFrequency() call has returned (BUG 3).
+    internal var catPollingTask: Task<Void, Never>?
+    /// Set to true while applying a radio-polled frequency update to suppress re-sending it back
+    internal var isCatPollingUpdate = false
+    /// Timestamp of the last frequency we sent to the radio (used to suppress polling echo)
+    internal var lastCatSendDate: Date?
+
+    // MARK: - CAT status (surfaced in the UI)
+    /// Live rigctld connection state, mirrored from the CAT controller.
+    @Published var catConnected: Bool = false
+    /// Most recent CAT error message (PTT/frequency/poll), nil when healthy.
+    @Published var catLastError: String?
+    /// False once a CAT operation has failed; cleared on the next success.
+    @Published var catStatusOK: Bool = true
+    /// Guards the one-time PTT-failure toast so it fires at most once until PTT
+    /// keying next succeeds (a later break re-notifies), not on every TX slot.
+    internal var catPTTFailureNotified: Bool = false
+
+
     // MARK: - Published Properties
     @Published var decodedMessage: FT8Message?
     @Published var receivedMessages: [FT8Message] = []
@@ -106,11 +161,23 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @Published var qsoList: [LogEntry] = []
     @Published var audioError: String?
     @Published var adifURL: URL?
+    @Published var logbookLoadError: String?
     
     @Published var isListening = false
-    @Published var isTransmitting = false
+    @Published var isTransmitting = false {
+        didSet {
+            guard isTransmitting != oldValue else { return }
+            // The waterfall greys out the rows we spend transmitting and
+            // marks the slot as ours.
+            waterfallVM.setTransmitting(isTransmitting)
+        }
+    }
     @Published var transmitLoopActive = false
-    @Published var toast: ToastMessage?
+    /// Forwarded to `rootState` so only the root toast host observes it.
+    var toast: ToastMessage? {
+        get { rootState.toast }
+        set { rootState.toast = newValue }
+    }
     var wasSequencerRunningBeforeBackground = false
     @Published var wavURL: URL?
     
@@ -126,11 +193,21 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     }
     
     internal var workedCountryPairsSet: Set<CountryPair> = []
-    
+
     @Published var workedCountryPairs: [CountryPair] = [] {
         didSet { workedCountryPairsSet = Set(workedCountryPairs) }
     }
-    
+
+    /// Uppercased set of every callsign in the logbook, rebuilt from qsoList.
+    /// Backs O(1) "have I worked this station?" lookups for new-callsign
+    /// highlighting and the auto-CQ-reply check.
+    @Published var workedCallsigns: Set<String> = []
+
+    /// Band/mode-aware lookup tables (callsign, grid, country) rebuilt from
+    /// qsoList. Backs the "Needed" decode filter and the NEW GRID / NEW DXCC
+    /// badges.
+    @Published var workedIndex = WorkedIndex()
+
     
     // MARK: - QSO State (delegated to QSOStatusManager - single source of truth)
     var dxCallsign: String {
@@ -183,8 +260,24 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
 
     // MARK: - QSO Logger
     internal var logAction: ((LogEntry) -> Void)?
-    @Published internal var showConfirmQSOAlert: Bool = false
-    @Published internal var pendingQSOToLog: LogEntry?
+    // The three properties below are stored on `logPrompt` (a small
+    // ObservableObject) so that the alert modifier at the app root does not have
+    // to observe the whole view model. Kept as forwarders for call sites/tests.
+    internal var showConfirmQSOAlert: Bool {
+        get { logPrompt.showConfirmQSOAlert }
+        set { logPrompt.showConfirmQSOAlert = newValue }
+    }
+    internal var pendingQSOToLog: LogEntry? {
+        get { logPrompt.pendingQSOToLog }
+        set { logPrompt.pendingQSOToLog = newValue }
+    }
+    /// True when the pending confirmation is for a QSO that timed out before the
+    /// final handshake (reports exchanged but unconfirmed). Drives a distinct
+    /// confirmation message so the operator knows it wasn't a clean completion.
+    internal var pendingQSOIsUnconfirmed: Bool {
+        get { logPrompt.pendingQSOIsUnconfirmed }
+        set { logPrompt.pendingQSOIsUnconfirmed = newValue }
+    }
     
     
     // MARK: - AppStorage Properties
@@ -195,12 +288,99 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("autoCQReplyEnabled") var autoCQReplyEnabled: Bool = false
     @AppStorage("autoCQReplyOnlyNewBandMode") var autoCQReplyOnlyNewBandMode: Bool = false
     @AppStorage("maxRetrySlots") var maxRetrySlots: Int = 3
+    /// Pick a random caller when several stations answer our CQ in one slot.
+    @AppStorage("pileupRandomCaller") var pileupRandomCaller: Bool = true
+    /// …and prefer stations not yet in the logbook when doing so.
+    @AppStorage("pileupPreferNewCallsigns") var pileupPreferNewCallsigns: Bool = true
     @AppStorage("autoQSOLogging") var autoQSOLogging: Bool = true
     @AppStorage("holdTXFrequency") var holdTXFrequency: Bool = false
+    /// Highlight CQ calls from stations not yet in the logbook (green tint).
+    @AppStorage("highlightNewCallsigns") var highlightNewCallsigns: Bool = true
+    /// Show the NEW GRID badge on decoded rows (per band/mode).
+    @AppStorage(NeededBadgeSettings.gridKey) var showNeededGridBadge: Bool = NeededBadgeSettings.legacyDefault()
+    /// Show the NEW DXCC badge on decoded rows (per band/mode).
+    @AppStorage(NeededBadgeSettings.dxccKey) var showNeededDXCCBadge: Bool = NeededBadgeSettings.legacyDefault()
+    /// Tint and bold decoded rows where another station calls our callsign.
+    @AppStorage("highlightMyCallsign") var highlightMyCallsign: Bool = true
+    /// Alerts when a station calls us while no QSO is in progress.
+    @AppStorage("callAlertSound") var callAlertSound: Bool = false
+    @AppStorage("callAlertHaptic") var callAlertHaptic: Bool = false
+    @AppStorage("callAlertNotification") var callAlertNotification: Bool = false
+    /// Callsigns to spot in the RX list (comma-separated, see `WatchList`).
+    @AppStorage("watchedCallsigns") var watchedCallsignsStorage: String = ""
+    /// Raise the enabled alerts when a watched station is heard.
+    @AppStorage("watchAlertEnabled") var watchAlertEnabled: Bool = true
+
+    @AppStorage("catEnabled") var catEnabled = false {
+        didSet {
+            if catEnabled {
+                connectCatController()
+                if catSyncFrequency {
+                    startCatFrequencyPolling()
+                }
+            } else {
+                stopCatFrequencyPolling()
+                catController.disconnect()
+                stopBandHopping()
+            }
+        }
+    }
+    @AppStorage("catHost") var catHost = "127.0.0.1"
+    @AppStorage("catPort") var catPort = 4532
+    @AppStorage("catPTTEnabled") var catPTTEnabled = true
+    @AppStorage("catSyncFrequency") var catSyncFrequency = true {
+        didSet {
+            if catEnabled && catSyncFrequency {
+                startCatFrequencyPolling()
+            } else {
+                stopCatFrequencyPolling()
+            }
+        }
+    }
+    @AppStorage("catApplyAudioOffset") var catApplyAudioOffset = false
+
+    // MARK: - Band hopping (premium)
+    @AppStorage("bandHopEnabled") var bandHopEnabled = false {
+        didSet { reconcileBandHopping() }
+    }
+    /// Tells the presence map which band/mode we moved to.
+    @MainActor
+    internal func notifyPresenceContextChanged() {
+        PresenceManager.shared.contextDidChange(
+            band: effectiveBand.rawValue, mode: isFT4 ? "FT4" : "FT8", grid: locator
+        )
+    }
+
+    /// Mirror of the scheduler state for the UI.
+    @Published var bandHopState: BandHopState = .stopped
+    internal var bandHopScheduler: any BandHopSchedulerProtocol = PremiumFeatures.bandHopScheduler
+    internal var bandHopCancellables = Set<AnyCancellable>()
+    internal var activeBandHopSchedule: BandHopSchedule?
+    /// Feature flag + entitlement check; tests override it.
+    internal var bandHopGate: () -> Bool = FT8ViewModel.defaultBandHopGate
+    /// Signals that `bandHopGate` may have changed; tests override it.
+    internal var bandHopGateChanges: AnyPublisher<Void, Never> = FT8ViewModel.defaultBandHopGateChanges()
+
+    @AppStorage("pskReporterEnabled") var pskReporterEnabled: Bool = false
     @AppStorage("cqIncludeGrid") var cqIncludeGrid: Bool = true
-    
-    @AppStorage("callsign") var callsign = ""
-    @AppStorage("locator") var locator = ""
+
+    // MARK: - QRZ Logbook Integration (Premium)
+    @AppStorage("qrzAutoUpload") var qrzAutoUpload: Bool = false
+    @AppStorage("qrzConfirmationIntervalHours") var qrzConfirmationIntervalHours: Int = 6
+
+    // MARK: - LoTW Integration (Premium)
+    @AppStorage("lotwAutoUpload") var lotwAutoUpload: Bool = false
+    @AppStorage("lotwConfirmationIntervalHours") var lotwConfirmationIntervalHours: Int = 6
+
+    // MARK: - Log Sync Strategy (Premium)
+    @AppStorage("logSyncStrategy") var logSyncStrategyRaw: String = LogSyncStrategy.either.rawValue
+
+    @AppStorage("callsign") var callsign = "" {
+        didSet { syncSettingsLoaded() }
+    }
+    @AppStorage("locator") var locator = "" {
+        didSet { syncSettingsLoaded() }
+    }
     @AppStorage("autoLocatorFromGPS") var autoLocatorFromGPS: Bool = true
 
     @AppStorage("frequency") private var _frequency = 1500.0
@@ -218,13 +398,22 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     
     var frequency: Double {
         get { _frequency }
-        set { _frequency = min(max(0, newValue), 3000) }
+        set {
+            _frequency = min(max(0, newValue), 3000)
+            if catApplyAudioOffset {
+                scheduleCatFrequencyUpdate(reason: "offset change")
+            }
+        }
     }
     
     @AppStorage("isFT4") var isFT4 = false {
         didSet {
+            if rootState.isFT4 != isFT4 { rootState.isFT4 = isFT4 }
             waterfallVM.mode = isFT4 ? .ft4 : .ft8
+            slotMonitor.reconfigureIsFT4(isFT4)
+            waterfallVM.rowPeriod = Double(slotMonitor.rowPeriod)
             restartLoopsForModeChange()
+            scheduleCatFrequencyUpdate(reason: "mode change")
         }
     }
     
@@ -240,7 +429,11 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     @AppStorage("band") private var selectedBandRaw = FT8Message.Band.band10m.rawValue
     var selectedBand: FT8Message.Band {
         get { FT8Message.Band(rawValue: selectedBandRaw) ?? .band10m }
-        set { selectedBandRaw = newValue.rawValue }
+        set {
+            selectedBandRaw = newValue.rawValue
+            guard !isCatPollingUpdate else { return }
+            scheduleCatFrequencyUpdate(reason: "band change")
+        }
     }
 
     /// Dial frequency in Hz used when the user selects the Custom band (default: 14.074 MHz)
@@ -257,10 +450,18 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     
     @AppStorage("inputGain") var inputGain = 1.0 {
         didSet {
-            let clamped = min(max(inputGain, 0.1), 2.0)
+            let clamped = min(max(inputGain, AudioGainLimits.minInput), AudioGainLimits.maxInput)
             let gainToSet = clamped != inputGain ? clamped : inputGain
             if gainToSet != inputGain { inputGain = gainToSet }
             audioManager.setInputGain(gainToSet)
+        }
+    }
+
+    @AppStorage("txOutputGain") var txOutputGain = 1.0 {
+        didSet {
+            let clamped = min(max(txOutputGain, AudioGainLimits.minOutput), AudioGainLimits.maxOutput)
+            if clamped != txOutputGain { txOutputGain = clamped }
+            audioManager.setOutputGain(clamped)
         }
     }
     
@@ -268,6 +469,17 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     var settingsLoaded: Bool {
         !callsign.isEmpty && isValidCallsign(callsign) &&
         !locator.isEmpty && isValidLocator(locator)
+    }
+
+    /// Mirrors `settingsLoaded` into `rootState` (only when it changes).
+    private func syncSettingsLoaded() {
+        let loaded = settingsLoaded
+        if rootState.settingsLoaded != loaded { rootState.settingsLoaded = loaded }
+    }
+
+    /// QSOs sorted by date descending. The view reads this instead of mutating qsoList.
+    var sortedQSOList: [LogEntry] {
+        qsoList.sorted { $0.date > $1.date }
     }
     
     // MARK: - Initialization
@@ -296,14 +508,16 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         self.slotManager = SlotManager()
         self.messageProcessor = MessageProcessor()
         
-        let savedGain = UserDefaults.standard.value(forKey: "inputGain") as? Double ?? 0.3
-        
+        let savedGain = UserDefaults.standard.value(forKey: "inputGain") as? Double ?? 1.0
+        let savedOutputGain = UserDefaults.standard.value(forKey: "txOutputGain") as? Double ?? 1.0
+
         // Inject or create default dependencies
         // For AudioManager, if not injected, create one with test mode enabled for unit tests
         self.audioManager = audioManager ?? AudioManager(
             waterfallFFTSize: Constants.waterfallFFTSize,
             sampleRate: Constants.sampleRate,
             initialGain: savedGain,
+            initialOutputGain: savedOutputGain,
             isTestMode: environment.isUnitTest
         )
         
@@ -314,61 +528,105 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         let storedIsFT4 = UserDefaults.standard.bool(forKey: "isFT4")
         
         waterfallVM = WaterfallViewModel(
-            sampleRate: Float(Constants.sampleRate),
-            waterfallFFTSize: Constants.waterfallFFTSize,
+            imageWidth: Constants.waterfallImageWidth,
             waterfallRows: Constants.waterfallRows,
             isFT4: storedIsFT4
         )
+        slotMonitor = FT8SlotMonitor(sampleRate: Int32(self.audioManager.sampleRate), isFT4: storedIsFT4)
+        waterfallVM.rowPeriod = Double(slotMonitor.rowPeriod)
         
         super.init()
         
-        self.selectedBandRaw = selectedBand.rawValue
         self.selectedBand = FT8Message.Band(rawValue: savedBandRaw) ?? .band10m
         self.isFT4 = storedIsFT4
+        syncSettingsLoaded()
         // Note: lastReceivedSNR is now a computed property delegating to qsoManager
         
         setupLogbook()
         setupAudioSubscriptions()
+        setupAudioErrorSubscription()
         setupQSOSubscriptions()
         setupMessageRefreshSubscriptions()
         setupPreviewData()
         configureLocationManager()
-        
+        setupCatStatusObserver()
+        startCatFrequencyPollingIfNeeded()
+        setupPremiumRevocationObserver()
+
         refreshMessagesIfNeeded(reason: "initial load")
     }
     
     @MainActor
     private func setupLogbook() {
         if !hasLoadedLogbook {
-            self.qsoList = logbookManager.loadEntries()
-            self.adifURL = logbookManager.saveInternalLog(self.qsoList) ?? logbookManager.getEmptyADIFURL()
+            do {
+                self.qsoList = try logbookManager.loadEntries()
+                // Just resolve the file URL (creating an empty log if needed).
+                // Rewriting the whole file plus a backup copy right after
+                // reading it added nothing and ran on the main thread at launch.
+                self.adifURL = logbookManager.getEmptyADIFURL()
+            } catch {
+                self.logbookLoadError = "Your logbook could not be read. It may be corrupted. (\(error.localizedDescription))"
+                appLogger.error("setupLogbook: failed to load entries: \(error.localizedDescription)")
+                // Do NOT overwrite the corrupted file — preserve it for potential manual recovery
+                self.adifURL = logbookManager.getEmptyADIFURL()
+            }
             hasLoadedLogbook = true
         }
 
+        // Persist off the main thread: this rewrites the whole ADIF file and
+        // copies a backup of it, which is not something to do on the UI thread.
+        let manager = logbookManager
         $qsoList
             .dropFirst()
-            .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
-            .sink { [weak self] list in
-                guard let self else { return }
-                _ = self.logbookManager.saveInternalLog(list)
+            .debounce(for: .seconds(1), scheduler: DispatchQueue.global(qos: .utility))
+            .sink { list in
+                _ = manager.saveInternalLog(list)
             }
             .store(in: &cancellables)
-        
+
+        // Keep the worked-callsign set current (no debounce so a just-logged
+        // call is reflected immediately in new-callsign highlighting).
+        $qsoList
+            .sink { [weak self] list in
+                guard let self else { return }
+                let index = WorkedIndex.build(from: list)
+                self.workedCallsigns = index.callsigns
+                self.workedIndex = index
+            }
+            .store(in: &cancellables)
+
         workedLocators = []
+
+        CloudLogbookSyncManager.shared.viewModel = self
+        Task { await CloudLogbookSyncManager.shared.pull() }
+
+        setupClockSyncObserver()
+        ClockSyncManager.shared.start()
+        setupBandHopObserver()
+        reconcileBandHopping()
     }
     
     @MainActor
     private func setupPreviewData() {
-        if isPreview {
-            receivedMessages = PreviewMocks.rxMessages
-            transmittedMessages = PreviewMocks.txMessages
-            
-            extractWorkedLocators(from: PreviewMocks.rxMessages)
-            extractWorkedCountryPairs(from: PreviewMocks.rxMessages)
-            
-            qsoList = PreviewMocks.qsoList
+        #if DEBUG
+        // `--mock-data` fills the lists at launch, for UI checks in the simulator.
+        if isPreview || ProcessInfo.processInfo.arguments.contains("--mock-data") {
+            loadMockData()
         }
+        #endif
     }
+
+    #if DEBUG
+    @MainActor
+    func loadMockData() {
+        receivedMessages = PreviewMocks.rxMessages
+        transmittedMessages = PreviewMocks.txMessages
+        extractWorkedLocators(from: PreviewMocks.rxMessages)
+        extractWorkedCountryPairs(from: PreviewMocks.rxMessages)
+        qsoList = PreviewMocks.qsoList
+    }
+    #endif
     
     @MainActor
     private func setupMessageRefreshSubscriptions() {
@@ -399,11 +657,28 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         ])
         .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
         .sink { [weak self] _ in
+            // Onboarding writes the callsign and locator straight to
+            // UserDefaults, which skips the property observers above.
+            self?.syncSettingsLoaded()
             self?.refreshMessagesIfNeeded(reason: "message-relevant state changed")
         }
         .store(in: &cancellables)
     }
     
+    // MARK: - Premium Revocation
+
+    private func setupPremiumRevocationObserver() {
+        NotificationCenter.default.publisher(for: .premiumRevoked)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                if self.catEnabled { self.catEnabled = false }
+                if self.pskReporterEnabled { self.pskReporterEnabled = false }
+                self.stopBandHopping()
+            }
+            .store(in: &cancellables)
+    }
+
     // MARK: - Private Helper for Message Refresh
     private func refreshMessagesIfNeeded(reason: String) {
         guard settingsLoaded else {
@@ -441,14 +716,22 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
     internal func handleTXDidFinishFromAudioManager() {
         guard let txMessage = activeTXMessage else {
             txLogger.debug("TX finished but no active TX message tracked")
+            setCatPTT(false, reason: "tx finished (no message)")
             return
         }
 
         activeTXMessage = nil  
+        setCatPTT(false, reason: "tx finished")
 
         txLogger.info("TX finished (AudioManager): \(txMessage.text)")
-        AnalyticsManager.shared.stopRadioActivity() 
-        
+        AnalyticsManager.shared.stopRadioActivity()
+
+        // Free text is not part of a QSO: nothing to advance.
+        if activeTXIsFreeText {
+            activeTXIsFreeText = false
+            return
+        }
+
         if let action = qsoManager.advanceStateOnTX(
             message: txMessage,
             frequency: frequency,
@@ -469,6 +752,25 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         adifURL = logbookManager.saveInternalLog([])
     }
 
+    @MainActor
+    func clearLogbookAfterError() {
+        logbookLoadError = nil
+        clearLogbookConfirmed()
+    }
+
+    @MainActor
+    func restoreLogbookFromBackup() {
+        do {
+            let restored = try logbookManager.restoreFromBackup()
+            qsoList = restored
+            adifURL = logbookManager.getEmptyADIFURL()
+            logbookLoadError = nil
+            appLogger.info("Logbook restored from backup: \(restored.count) entries")
+        } catch {
+            logbookLoadError = "Could not restore backup: \(error.localizedDescription)"
+        }
+    }
+
     // MARK: - Location Manager Setup
     @MainActor
     func configureLocationManager() {
@@ -486,8 +788,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, CLL
         
         switch status {
         case .notDetermined:
-            // Request authorization
-            locationManager.requestWhenInUseAuthorization()
+            appLogger.info("Location authorization not determined yet; waiting for guided permission flow")
         case .authorizedWhenInUse, .authorizedAlways:
             // Already authorized, start updates
             locationManager.startUpdatingLocation()

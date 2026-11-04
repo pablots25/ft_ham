@@ -184,6 +184,10 @@ final class InAppPrompts: ObservableObject {
 
     private func recordDonationTrigger(_ trigger: DonationTrigger) {
         guard isDonationPromptEnabled else { return }
+        guard FeatureFlagManager.shared.isEnabled(.donationsEnabled) else {
+            logDonationPromptSkipped(trigger: trigger, reason: "donations_disabled")
+            return
+        }
         guard !hasPresentedPromptThisSession else {
             logDonationPromptSkipped(trigger: trigger, reason: "prompt_presented_this_session")
             return

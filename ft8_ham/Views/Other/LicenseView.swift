@@ -57,7 +57,7 @@ struct LicenseDialogView: View {
             .navigationTitle("Licenses & EULA")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    CloseButton()
                 }
             }
             .onAppear { loadLicenses() }

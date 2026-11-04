@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+blocked_regex='^(ft8_ham/Premium/|ft8_ham/PremiumLocal/|premium-local/|LocalPackages/|.*FT_Ham_Premium/|.*ft_ham_premium/)'
+
+staged_files="$(git diff --cached --name-only)"
+if [[ -z "${staged_files}" ]]; then
+  exit 0
+fi
+
+violations="$(echo "${staged_files}" | grep -E "${blocked_regex}" || true)"
+
+if [[ -n "${violations}" ]]; then
+  echo ""
+  echo "❌ Push blocked: premium/private paths detected in staged changes"
+  echo ""
+  echo "Blocked files:"
+  echo "${violations}" | sed 's/^/  - /'
+  echo ""
+  echo "Allowed: MIT/public code only"
+  echo "Fix: unstage/remove blocked files, then push again"
+  echo ""
+  exit 1
+fi
+
+exit 0

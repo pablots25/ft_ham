@@ -1,0 +1,145 @@
+//
+//  StationSettingsView.swift
+//  ft_ham
+//
+//  Created by Pablo Turrion on 13/03/26.
+//
+
+import SwiftUI
+
+struct StationSettingsContent: View {
+    @EnvironmentObject private var viewModel: FT8ViewModel
+
+    @AppStorage("stationCallsignIsElevenMeter") private var isElevenMeter = false
+
+    @State private var callsignText: String = ""
+    @State private var locatorText: String = ""
+    @State private var validCallsign = false
+    @State private var validLocator = false
+    @State private var activeHelp: HelpTip?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Station details")
+                .font(.headline)
+
+            CallsignFieldView(
+                callsignText: $callsignText,
+                validCallsign: $validCallsign,
+                isElevenMeterEnabled: isElevenMeter,
+                onCommit: {
+                    let text = callsignText.uppercased()
+                    callsignText = text
+                    validCallsign = isValidStationCallsign(text, allowElevenMeter: isElevenMeter)
+                    if validCallsign { viewModel.callsign = text }
+                }
+            )
+
+            Toggle(isOn: $isElevenMeter) {
+                Text("11 m / CB callsign")
+                    .font(.body)
+            }
+            .onChange(of: isElevenMeter) { enabled in
+                // Re-validate the current entry under the new rule and store it
+                // if the operator has just made an 11 m call acceptable.
+                let text = callsignText.uppercased()
+                validCallsign = isValidStationCallsign(text, allowElevenMeter: enabled)
+                if validCallsign { viewModel.callsign = text }
+            }
+
+            Divider()
+
+            Text("Locator")
+                .font(.headline)
+
+            LocatorFieldView(
+                locatorText: $locatorText,
+                validLocator: $validLocator,
+                disabled: viewModel.autoLocatorFromGPS,
+                onCommit: {
+                    var text = locatorText.uppercased()
+                    text.removeAll(where: { $0.isWhitespace })
+                    if text.count > 4 { text = String(text.prefix(4)) }
+                    locatorText = text
+                    if isValidLocator(text) { viewModel.locator = text }
+                }
+            )
+
+            ToggleRow(
+                labelKey: "Auto (from GPS)",
+                helpTip: .locatorGPS,
+                isOn: Binding(
+                    get: { viewModel.autoLocatorFromGPS },
+                    set: { viewModel.setAutoLocatorFromGPS($0) }
+                ),
+                activeHelp: $activeHelp
+            )
+
+            Divider()
+
+            Text("CQ Message")
+                .font(.headline)
+
+            CQMessageSettingsContent(activeHelp: $activeHelp)
+        }
+        .onAppear {
+            callsignText = viewModel.callsign
+            locatorText = viewModel.locator
+            validCallsign = isValidStationCallsign(viewModel.callsign, allowElevenMeter: isElevenMeter)
+            validLocator = isValidLocator(viewModel.locator)
+            activeHelp = nil
+        }
+        .onChange(of: viewModel.callsign) { newValue in
+            callsignText = newValue
+            let isValid = isValidStationCallsign(newValue, allowElevenMeter: isElevenMeter)
+            if validCallsign != isValid { validCallsign = isValid }
+            if isValid && !newValue.isEmpty {
+                AnalyticsManager.shared.logConfigurationSaved()
+            }
+        }
+        .onChange(of: viewModel.locator) { newValue in
+            locatorText = newValue
+            let isValid = isValidLocator(newValue)
+            if validLocator != isValid { validLocator = isValid }
+            if isValid && !newValue.isEmpty {
+                AnalyticsManager.shared.logConfigurationSaved()
+            }
+        }
+    }
+}
+
+/// The modifier and grid that shape the operator's CQ: part of the station
+/// identity, next to the callsign it goes out with.
+struct CQMessageSettingsContent: View {
+    @EnvironmentObject private var viewModel: FT8ViewModel
+    @Binding var activeHelp: HelpTip?
+
+    var body: some View {
+        CQModifierView()
+
+        ToggleRow(
+            labelKey: "Include Grid in CQ",
+            helpTip: .cqIncludeGrid,
+            isOn: $viewModel.cqIncludeGrid,
+            activeHelp: $activeHelp
+        )
+    }
+}
+
+struct StationSettingsView: View {
+    var body: some View {
+        SettingsScrollContainer(title: "Station", spacing: 20, dismissKeyboardOnScroll: true) {
+            StationSettingsContent()
+        }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        StationSettingsView()
+            .environmentObject(FT8ViewModel(
+                txMessages: PreviewMocks.txMessages,
+                rxMessages: PreviewMocks.rxMessages
+            ))
+    }
+}

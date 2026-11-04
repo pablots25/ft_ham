@@ -1,0 +1,104 @@
+default_platform(:ios)
+
+# ─── Constants ───────────────────────────────────────────────────────────────
+PROJECT         = "ft8_ham.xcodeproj"
+SCHEME          = "ft8_ham"
+TEST_SCHEME     = "ft8_ham"
+BUNDLE_ID       = "pts.ft8-ham"
+OUTPUT_DIR      = "build"
+IPA_NAME        = "ft8_ham.ipa"
+# ─────────────────────────────────────────────────────────────────────────────
+
+platform :ios do
+
+  # ── Helper: load App Store Connect API key from env ──────────────────────
+  def load_asc_api_key
+    app_store_connect_api_key(
+      key_id:       ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id:    ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content:  ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+      in_house:     false
+    )
+  end
+
+  # ── Lane: tests ────────────────────────────────────────────────────────────
+  # Runs the unit test suite on the CI simulator.
+  # Usage: bundle exec fastlane tests
+  desc "Run unit tests"
+  lane :tests do
+    run_tests(
+      project:      PROJECT,
+      scheme:       TEST_SCHEME,
+      device:       "iPhone 16",
+      clean:        true,
+      output_files: "test_output/report.junit",
+      output_types: "junit"
+    )
+  end
+
+  # ── Lane: build_release ────────────────────────────────────────────────────
+  # Archives and exports a Release IPA.
+  # Usage: bundle exec fastlane build_release
+  desc "Build and archive the app (Release)"
+  lane :build_release do
+    build_app(
+      project:                    PROJECT,
+      scheme:                     SCHEME,
+      configuration:              "Release",
+      export_method:              "app-store",
+      output_directory:           OUTPUT_DIR,
+      output_name:                IPA_NAME,
+      include_symbols:            true,
+      include_bitcode:            false,
+      clean:                      true,
+      export_options: {
+        provisioningProfiles: {
+          BUNDLE_ID => ENV["PROVISIONING_PROFILE_NAME"] || "FT Ham Distribution"
+        }
+      }
+    )
+  end
+
+  # ── Lane: beta ─────────────────────────────────────────────────────────────
+  # Uploads the archived IPA to TestFlight.
+  # Requires build_release to have run first (or IPA present in OUTPUT_DIR).
+  # Usage: bundle exec fastlane beta
+  desc "Upload to TestFlight"
+  lane :beta do
+    api_key = load_asc_api_key
+    upload_to_testflight(
+      api_key:            api_key,
+      ipa:                "#{OUTPUT_DIR}/#{IPA_NAME}",
+      skip_waiting_for_build_processing: true,
+      distribute_external: false
+    )
+  end
+
+  # ── Lane: release ──────────────────────────────────────────────────────────
+  # Uploads the archived IPA directly to App Store (manual review submission).
+  # Usage: bundle exec fastlane release
+  desc "Upload to App Store (manual review submission)"
+  lane :release do
+    api_key = load_asc_api_key
+    upload_to_app_store(
+      api_key:               api_key,
+      ipa:                   "#{OUTPUT_DIR}/#{IPA_NAME}",
+      submit_for_review:     false,
+      automatic_release:     false,
+      skip_screenshots:      true,
+      skip_metadata:         true,
+      force:                 true
+    )
+  end
+
+  # ── Lane: deploy_beta ──────────────────────────────────────────────────────
+  # All-in-one: build + upload to TestFlight.
+  # Intended to be called from the GitHub Actions release workflow.
+  # Usage: bundle exec fastlane deploy_beta
+  desc "Build and upload to TestFlight (CI all-in-one)"
+  lane :deploy_beta do
+    build_release
+    beta
+  end
+
+end

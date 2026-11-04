@@ -16,6 +16,51 @@ struct MapVisibility: Hashable {
     let countryCircles: Bool
     let geodesics: Bool
     let annotations: Bool
+    var heardMe: Bool = true
+    var presence: Bool = true
+}
+
+/// Label for a worked grid square, drawn as a blue marker.
+final class GridLabelAnnotation: NSObject, MKAnnotation {
+    let locator: String
+    let coordinate: CLLocationCoordinate2D
+    var title: String? { locator }
+    init?(locator: String) {
+        guard let center = MaidenheadGrid.center(for: locator) else { return nil }
+        self.locator = locator
+        self.coordinate = center
+    }
+}
+
+/// A receiver that heard us (PSK Reporter), drawn as an orange marker.
+final class HeardMeAnnotation: NSObject, MKAnnotation {
+    let station: HeardMeStation
+    var coordinate: CLLocationCoordinate2D { station.coordinate }
+    var title: String? { station.callsign }
+    var subtitle: String? {
+        var parts: [String] = []
+        if let snr = station.bestSNR { parts.append(String(format: "%+d dB", snr)) }
+        if let km = station.distanceKm { parts.append("\(Int(km.rounded())) km") }
+        return parts.joined(separator: " · ")
+    }
+    init(station: HeardMeStation) { self.station = station }
+}
+
+/// Another FT Ham operator currently on the air, drawn as a cyan marker.
+final class PresenceAnnotation: NSObject, MKAnnotation {
+    let station: PresenceStation
+    let coordinate: CLLocationCoordinate2D
+    var title: String? { station.callsign }
+    var subtitle: String? {
+        let where_ = [station.band, station.mode].filter { !$0.isEmpty }.joined(separator: " ")
+        let minutes = max(0, Int(Date().timeIntervalSince(station.lastSeen) / 60))
+        return where_.isEmpty ? "\(minutes) min" : "\(where_) · \(minutes) min"
+    }
+    init?(station: PresenceStation) {
+        guard let center = MaidenheadGrid.center(for: station.grid) else { return nil }
+        self.station = station
+        self.coordinate = center
+    }
 }
 
 // MARK: - Map View with grids, countries, routes, and user location
@@ -23,7 +68,7 @@ struct MapVisibility: Hashable {
 struct GridMapView: UIViewRepresentable {
 
     /// Maidenhead locators to be displayed (including user grid)
-    @Binding var locators: [String]
+    var locators: [String]
 
     /// Optional list of country pairs
     var countries: [CountryPair] = []
@@ -31,79 +76,178 @@ struct GridMapView: UIViewRepresentable {
     /// Optional route points
     var routePoints: [CLLocationCoordinate2D] = []
 
+    /// Stations that heard us, from PSK Reporter.
+    var heardMeStations: [HeardMeStation] = []
+    /// Other FT Ham operators on the air (opt-in presence map).
+    var presenceStations: [PresenceStation] = []
+
     var showGrids: Bool = true
     var showCountryCircles: Bool = true
     var showGeodesics: Bool = true
     var showAnnotations: Bool = true
+    var showHeardMe: Bool = true
+    var showPresence: Bool = true
+    /// When false (map tab not selected) data changes are not applied; the
+    /// latest data is applied once the map becomes active again.
+    var isActive: Bool = true
+    /// The station's own locator. The map opens centered on it, or on the
+    /// device location when it is empty.
+    var homeLocator: String = ""
+    @Binding var userTrackingMode: MKUserTrackingMode
+    /// Invoked (on the main actor) when the device location resolves to a grid
+    /// square that is not yet in `locators`.
+    var onUserLocator: ((String) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(locators: $locators)
+        Coordinator(onUserLocator: onUserLocator, trackingMode: $userTrackingMode)
     }
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
+        context.coordinator.attachMapView(mapView)
 
-        mapView.showsCompass = true
+        // Flat terrain: tilting the map does not pay for 3D elevation.
+        let configuration = MKStandardMapConfiguration(elevationStyle: .flat)
+        configuration.pointOfInterestFilter = .excludingAll
+        mapView.preferredConfiguration = configuration
+
+        mapView.showsCompass = false   // replaced by positioned MKCompassButton below
         mapView.showsScale = true
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = true
         mapView.isScrollEnabled = true
         mapView.isZoomEnabled = true
         mapView.isUserInteractionEnabled = true
-        mapView.showsUserLocation = true
-        mapView.pointOfInterestFilter = .excludingAll
+        mapView.showsUserLocation = context.coordinator.canShowUserLocation
+        if #available(iOS 17.0, *) {
+            mapView.pitchButtonVisibility = .adaptive
+        }
 
         context.coordinator.configureLocationManager()
+
+        // MARK: - Native map buttons
+
+        // Compass only — tracking is handled by the SwiftUI toolbar button via userTrackingMode binding
+        let compass = MKCompassButton(mapView: mapView)
+        compass.compassVisibility = .adaptive
+        compass.translatesAutoresizingMaskIntoConstraints = false
+        mapView.addSubview(compass)
+
+        NSLayoutConstraint.activate([
+            compass.topAnchor.constraint(equalTo: mapView.safeAreaLayoutGuide.topAnchor, constant: 8),
+            compass.trailingAnchor.constraint(equalTo: mapView.trailingAnchor, constant: -12)
+        ])
 
         return mapView
     }
 
     func updateUIView(_ uiView: MKMapView, context: Context) {
+        if uiView.userTrackingMode != userTrackingMode {
+            uiView.setUserTrackingMode(userTrackingMode, animated: true)
+        }
+        guard isActive else { return }
+        context.coordinator.homeLocator = homeLocator
         let visibility = MapVisibility(
             grids: showGrids,
             countryCircles: showCountryCircles,
             geodesics: showGeodesics,
-            annotations: showAnnotations
+            annotations: showAnnotations,
+            heardMe: showHeardMe,
+            presence: showPresence
         )
-        context.coordinator.updateMap(uiView, locators: locators, countries: countries, visibility: visibility)
+        context.coordinator.updateMap(
+            uiView, locators: locators, countries: countries,
+            heardMe: heardMeStations, presence: presenceStations, visibility: visibility
+        )
+        // The station locator can arrive after the layers did.
+        context.coordinator.fitInitialRegionIfNeeded(uiView)
     }
 
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, MKMapViewDelegate, CLLocationManagerDelegate {
 
-        // Bindings
-        private let locatorsBinding: Binding<[String]>
+        /// Everything `updateMap` draws from. Arrays compare by storage
+        /// identity first, so an unchanged input costs almost nothing.
+        private struct Inputs: Equatable {
+            let locators: [String]
+            let countries: [CountryPair]
+            let heardMe: [HeardMeStation]
+            let presence: [PresenceStation]
+            let visibility: MapVisibility
+        }
 
-        // Location
+        // Callbacks / bindings
+        private let onUserLocator: ((String) -> Void)?
+        private let trackingModeBinding: Binding<MKUserTrackingMode>
+        private var knownLocators: Set<String> = []
+
+        // Location: the manager only handles authorization; positions come
+        // from MapKit's own user-location tracking.
         private let locationManager = CLLocationManager()
         private var lastUserLocator: String?
+        private weak var mapView: MKMapView?
 
-        // Rendering caches
-        private var polygonCache: [String: MKPolygon] = [:]
-        private var annotationCache: [String: MKPointAnnotation] = [:]
+        // One overlay per layer, each rebuilt only when its keys change.
+        private var lastInputs: Inputs?
+        private var gridKeys: [String] = []
+        private var circleKeys: [MapOverlayModel.PointKey] = []
+        private var segmentKeys: [MapOverlayModel.SegmentKey] = []
+        private var gridOverlay: MKMultiPolygon?
+        private var circleOverlay: MKMultiPolygon?
+        private var geodesicOverlay: MKMultiPolyline?
+        private var annotationsByKey: [MapAnnotationKey: MKAnnotation] = [:]
 
         private var hasEverFitRegion = false
-        private var lastHash: Int = 0
+        /// The station's own locator, set by `updateUIView`.
+        var homeLocator: String = ""
 
-        init(locators: Binding<[String]>) {
-            self.locatorsBinding = locators
+        init(onUserLocator: ((String) -> Void)?, trackingMode: Binding<MKUserTrackingMode>) {
+            self.onUserLocator = onUserLocator
+            self.trackingModeBinding = trackingMode
             super.init()
             locationManager.delegate = self
         }
 
         // MARK: - Location handling
 
-        func configureLocationManager() {
-            locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
-            locationManager.requestWhenInUseAuthorization()
-            locationManager.startUpdatingLocation()
+        var canShowUserLocation: Bool {
+            switch locationManager.authorizationStatus {
+            case .authorizedAlways, .authorizedWhenInUse:
+                return true
+            default:
+                return false
+            }
         }
 
-        func locationManager(_ manager: CLLocationManager,
-                             didUpdateLocations locations: [CLLocation]) {
-            guard let location = locations.last else { return }
+        func configureLocationManager() {
+            if locationManager.authorizationStatus == .notDetermined {
+                locationManager.requestWhenInUseAuthorization()
+            }
+        }
+
+        func attachMapView(_ mapView: MKMapView) {
+            self.mapView = mapView
+        }
+
+        func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+            guard let mapView else { return }
+
+            switch manager.authorizationStatus {
+            case .authorizedAlways, .authorizedWhenInUse:
+                mapView.showsUserLocation = true
+            case .denied, .restricted:
+                mapView.showsUserLocation = false
+            case .notDetermined:
+                break
+            @unknown default:
+                break
+            }
+        }
+
+        func mapView(_ mapView: MKMapView, didUpdate userLocation: MKUserLocation) {
+            guard let location = userLocation.location else { return }
 
             let locator = MaidenheadGrid.locator(
                 latitude: location.coordinate.latitude,
@@ -115,9 +259,15 @@ struct GridMapView: UIViewRepresentable {
             guard locator != lastUserLocator else { return }
             lastUserLocator = locator
 
-            DispatchQueue.main.async {
-                if !self.locatorsBinding.wrappedValue.contains(locator) {
-                    self.locatorsBinding.wrappedValue.append(locator)
+            Task { @MainActor in
+                if !self.knownLocators.contains(locator) {
+                    self.onUserLocator?(locator)
+                }
+                // No station locator yet: the first fix becomes the center.
+                self.fitInitialRegionIfNeeded(mapView)
+
+                if mapView.userTrackingMode == .follow || mapView.userTrackingMode == .followWithHeading {
+                    self.zoomToGridSquare(locator: locator, on: mapView, animated: true)
                 }
             }
         }
@@ -125,89 +275,115 @@ struct GridMapView: UIViewRepresentable {
         // MARK: - Map update
 
         @MainActor
-        func updateMap(_ mapView: MKMapView, locators: [String], countries: [CountryPair], visibility: MapVisibility) {
-            let currentHash = makeHash(locators: locators, countries: countries, visibility: visibility)
-            guard currentHash != lastHash else { return }
-            lastHash = currentHash
+        func updateMap(_ mapView: MKMapView, locators: [String], countries: [CountryPair],
+                       heardMe: [HeardMeStation] = [], presence: [PresenceStation] = [],
+                       visibility: MapVisibility) {
+            let inputs = Inputs(locators: locators, countries: countries,
+                                heardMe: heardMe, presence: presence, visibility: visibility)
+            guard inputs != lastInputs else { return }
+            lastInputs = inputs
+            knownLocators = Set(locators)
 
-            var overlaysToAdd: [MKOverlay] = []
-            var annotationsToAdd: [MKPointAnnotation] = []
-
-            if visibility.grids {
-                addGridOverlays(locators: locators, visibility: visibility, overlays: &overlaysToAdd, annotations: &annotationsToAdd)
+            let grids = visibility.grids ? MapOverlayModel.gridKeys(for: locators) : []
+            if grids != gridKeys {
+                gridKeys = grids
+                let old = gridOverlay
+                gridOverlay = MapOverlayModel.gridOverlay(for: grids)
+                install(gridOverlay, replacing: old, rank: 0, on: mapView)
             }
 
-            if visibility.countryCircles || visibility.geodesics {
-                addCountryOverlays(countries: countries, visibility: visibility, overlays: &overlaysToAdd)
+            let circles = visibility.countryCircles ? MapOverlayModel.circleKeys(for: countries) : []
+            if circles != circleKeys {
+                circleKeys = circles
+                let old = circleOverlay
+                circleOverlay = MapOverlayModel.circleOverlay(for: circles)
+                install(circleOverlay, replacing: old, rank: 1, on: mapView)
             }
 
-            updateMapOverlays(mapView, overlays: overlaysToAdd, annotations: annotationsToAdd, showAnnotations: visibility.annotations)
-
-            if !hasEverFitRegion && !overlaysToAdd.isEmpty {
-                fitAll(mapView, overlays: overlaysToAdd)
+            let segments = visibility.geodesics ? MapOverlayModel.segmentKeys(for: countries) : []
+            if segments != segmentKeys {
+                segmentKeys = segments
+                let old = geodesicOverlay
+                geodesicOverlay = MapOverlayModel.geodesicOverlay(for: segments)
+                install(geodesicOverlay, replacing: old, rank: 2, on: mapView)
             }
+
+            // The grid-label toggle only governs locator labels; heard-me and
+            // presence markers have their own switches.
+            var desired: [MapAnnotationKey] = []
+            if visibility.annotations {
+                desired += grids.map(MapAnnotationKey.grid)
+            }
+            if visibility.heardMe {
+                desired += heardMe.map(MapAnnotationKey.heardMe)
+            }
+            if visibility.presence {
+                desired += presence.map(MapAnnotationKey.presence)
+            }
+            applyAnnotations(MapAnnotationDiff(current: Set(annotationsByKey.keys), desired: desired), on: mapView)
+
+            fitInitialRegionIfNeeded(mapView)
+        }
+
+        /// Opens the map once on the station, showing what is drawn around
+        /// it. Without a station locator or a device fix it falls back to
+        /// fitting everything drawn, as before.
+        @MainActor
+        func fitInitialRegionIfNeeded(_ mapView: MKMapView) {
+            guard !hasEverFitRegion else { return }
+            let layers: [MKOverlay] = [gridOverlay, circleOverlay, geodesicOverlay].compactMap { $0 }
+            let content = layers.reduce(MKMapRect.null) { $0.union($1.boundingMapRect) }
+            if let home = homeCoordinate(on: mapView) {
+                let region = MapInitialRegion.region(home: home, content: content.isNull ? nil : content)
+                mapView.setRegion(region, animated: false)
+                hasEverFitRegion = true
+            } else if !layers.isEmpty {
+                fitAll(mapView, overlays: layers)
+            }
+        }
+
+        /// The station's locator center, or the device position.
+        private func homeCoordinate(on mapView: MKMapView) -> CLLocationCoordinate2D? {
+            if let center = MaidenheadGrid.center(for: homeLocator) {
+                return center
+            }
+            guard canShowUserLocation, let location = mapView.userLocation.location else { return nil }
+            return location.coordinate
         }
 
         // MARK: - Helper Methods
 
-        private func makeHash(locators: [String], countries: [CountryPair], visibility: MapVisibility) -> Int {
-            locators.hashValue ^ countries.count.hashValue ^ visibility.hashValue
-        }
-
-        private func addGridOverlays(locators: [String], visibility: MapVisibility,
-                                     overlays: inout [MKOverlay], annotations: inout [MKPointAnnotation]) {
-            for locator in locators {
-                if let polygon = polygonCache[locator], let annotation = annotationCache[locator] {
-                    overlays.append(polygon)
-                    if visibility.annotations {
-                        annotations.append(annotation)
-                    }
-                } else if let coords = MaidenheadGrid.gridPolygon(for: locator) {
-                    let polygon = MKPolygon(coordinates: coords, count: coords.count)
-                    let annotation = MKPointAnnotation()
-                    annotation.coordinate = polygonCenter(polygon)
-                    annotation.title = locator.uppercased()
-
-                    polygonCache[locator] = polygon
-                    annotationCache[locator] = annotation
-
-                    overlays.append(polygon)
-                    if visibility.annotations {
-                        annotations.append(annotation)
-                    }
-                }
+        /// Swaps one layer's overlay, keeping layers stacked grids → circles → geodesics.
+        private func install(_ overlay: MKOverlay?, replacing old: MKOverlay?, rank: Int, on mapView: MKMapView) {
+            if let old { mapView.removeOverlay(old) }
+            guard let overlay else { return }
+            let layers: [MKOverlay?] = [gridOverlay, circleOverlay, geodesicOverlay]
+            if let below = layers[..<rank].compactMap({ $0 }).last {
+                mapView.insertOverlay(overlay, above: below)
+            } else {
+                mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
             }
         }
 
-        private func addCountryOverlays(countries: [CountryPair], visibility: MapVisibility, overlays: inout [MKOverlay]) {
-            for pair in countries {
-                guard let sender = pair.sender.coordinates.map({ CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }) else { continue }
+        private func applyAnnotations(_ diff: MapAnnotationDiff, on mapView: MKMapView) {
+            guard !diff.isEmpty else { return }
+            let gone = diff.removed.compactMap { annotationsByKey.removeValue(forKey: $0) }
+            if !gone.isEmpty { mapView.removeAnnotations(gone) }
 
-                if visibility.countryCircles {
-                    overlays.append(MKCircle(center: sender, radius: 150_000))
-                }
-
-                if let receiver = pair.receiver?.coordinates.map({ CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }) {
-                    if visibility.countryCircles {
-                        overlays.append(MKCircle(center: receiver, radius: 150_000))
-                    }
-                    if visibility.geodesics {
-                        overlays.append(MKGeodesicPolyline(coordinates: [sender, receiver], count: 2))
-                    }
-                }
+            var added: [MKAnnotation] = []
+            for key in diff.added {
+                guard let annotation = makeAnnotation(for: key) else { continue }
+                annotationsByKey[key] = annotation
+                added.append(annotation)
             }
+            if !added.isEmpty { mapView.addAnnotations(added) }
         }
 
-        private func updateMapOverlays(_ mapView: MKMapView,
-                                      overlays: [MKOverlay],
-                                      annotations: [MKPointAnnotation],
-                                      showAnnotations: Bool) {
-            mapView.removeOverlays(mapView.overlays)
-            mapView.addOverlays(overlays)
-
-            mapView.removeAnnotations(mapView.annotations.filter { !($0 is MKUserLocation) })
-            if showAnnotations {
-                mapView.addAnnotations(annotations)
+        private func makeAnnotation(for key: MapAnnotationKey) -> MKAnnotation? {
+            switch key {
+            case .grid(let locator): return GridLabelAnnotation(locator: locator)
+            case .heardMe(let station): return HeardMeAnnotation(station: station)
+            case .presence(let station): return PresenceAnnotation(station: station)
             }
         }
 
@@ -217,6 +393,26 @@ struct GridMapView: UIViewRepresentable {
                      rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
 
             switch overlay {
+            case let multiPolygon as MKMultiPolygon:
+                let renderer = MKMultiPolygonRenderer(multiPolygon: multiPolygon)
+                if multiPolygon === circleOverlay {
+                    renderer.strokeColor = .systemGreen
+                    renderer.fillColor = UIColor.systemGreen.withAlphaComponent(0.15)
+                    renderer.lineWidth = 2
+                } else {
+                    renderer.strokeColor = .systemRed
+                    renderer.fillColor = UIColor.systemRed.withAlphaComponent(0.2)
+                    renderer.lineWidth = 1.5
+                }
+                return renderer
+
+            case let multiPolyline as MKMultiPolyline:
+                let renderer = MKMultiPolylineRenderer(multiPolyline: multiPolyline)
+                renderer.strokeColor = .systemBlue
+                renderer.lineWidth = 3
+                renderer.alpha = 0.8
+                return renderer
+
             case let polygon as MKPolygon:
                 let renderer = MKPolygonRenderer(polygon: polygon)
                 renderer.strokeColor = .systemRed
@@ -247,15 +443,92 @@ struct GridMapView: UIViewRepresentable {
                      viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             if annotation is MKUserLocation { return nil }
 
+            if let cluster = annotation as? MKClusterAnnotation {
+                let id = "cluster"
+                let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                    as? MKMarkerAnnotationView
+                    ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
+                view.annotation = cluster
+                view.glyphImage = nil
+                view.glyphText = "\(cluster.memberAnnotations.count)"
+                view.markerTintColor = Self.tint(for: cluster.memberAnnotations.first)
+                view.canShowCallout = false
+                return view
+            }
+
+            if annotation is PresenceAnnotation {
+                let id = "presence"
+                let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                    as? MKMarkerAnnotationView
+                    ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
+                view.annotation = annotation
+                view.glyphImage = UIImage(systemName: "person.fill")
+                view.glyphText = nil
+                view.markerTintColor = .systemCyan
+                view.clusteringIdentifier = "presence"
+                view.displayPriority = .defaultLow
+                view.canShowCallout = true
+                return view
+            }
+
+            if annotation is HeardMeAnnotation {
+                let id = "heardMe"
+                let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                    as? MKMarkerAnnotationView
+                    ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
+                view.annotation = annotation
+                view.glyphImage = UIImage(systemName: "ear")
+                view.glyphText = nil
+                view.markerTintColor = .systemOrange
+                view.clusteringIdentifier = "heardMe"
+                view.displayPriority = .defaultHigh
+                view.canShowCallout = true
+                return view
+            }
+
+            // Grid labels cluster when they overlap, so hundreds of worked
+            // squares do not each need a marker at world zoom.
             let id = "locator"
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
                 as? MKMarkerAnnotationView
                 ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
-
+            view.annotation = annotation
+            view.glyphImage = nil
             view.glyphText = annotation.title ?? ""
             view.markerTintColor = .blue
-            view.displayPriority = .required
+            view.clusteringIdentifier = "locator"
+            view.displayPriority = .defaultHigh
             return view
+        }
+
+        private static func tint(for member: MKAnnotation?) -> UIColor {
+            switch member {
+            case is HeardMeAnnotation: return .systemOrange
+            case is PresenceAnnotation: return .systemCyan
+            default: return .blue
+            }
+        }
+
+        func mapView(
+            _ mapView: MKMapView,
+            didChange mode: MKUserTrackingMode,
+            animated: Bool
+        ) {
+            Task { @MainActor in self.trackingModeBinding.wrappedValue = mode }
+            guard mode == .follow || mode == .followWithHeading else { return }
+
+            let locator =
+                lastUserLocator
+                ?? mapView.userLocation.location.map {
+                    MaidenheadGrid.locator(
+                        latitude: $0.coordinate.latitude,
+                        longitude: $0.coordinate.longitude,
+                        precision: 4
+                    )
+                }
+
+            guard let locator else { return }
+            zoomToGridSquare(locator: locator, on: mapView, animated: animated)
         }
 
         // MARK: - Helpers
@@ -270,21 +543,31 @@ struct GridMapView: UIViewRepresentable {
             hasEverFitRegion = true
         }
 
-        private func polygonCenter(_ polygon: MKPolygon) -> CLLocationCoordinate2D {
-            let points = polygon.points()
-            let count = polygon.pointCount
-            var lat: Double = 0
-            var lon: Double = 0
-            for i in 0..<count {
-                lat += points[i].coordinate.latitude
-                lon += points[i].coordinate.longitude
-            }
-            return CLLocationCoordinate2D(latitude: lat / Double(count),
-                                          longitude: lon / Double(count))
+        private func zoomToGridSquare(locator: String, on mapView: MKMapView, animated: Bool) {
+            guard let coordinates = MaidenheadGrid.gridPolygon(for: locator),
+                  !coordinates.isEmpty else { return }
+
+            let minLat = coordinates.map(\.latitude).min() ?? 0
+            let maxLat = coordinates.map(\.latitude).max() ?? 0
+            let minLon = coordinates.map(\.longitude).min() ?? 0
+            let maxLon = coordinates.map(\.longitude).max() ?? 0
+
+            let center = CLLocationCoordinate2D(
+                latitude: (minLat + maxLat) / 2,
+                longitude: (minLon + maxLon) / 2
+            )
+
+            // Keep map focus around one Maidenhead square with a small visual margin.
+            let paddingFactor = 1.15
+            let span = MKCoordinateSpan(
+                latitudeDelta: max((maxLat - minLat) * paddingFactor, 0.01),
+                longitudeDelta: max((maxLon - minLon) * paddingFactor, 0.01)
+            )
+
+            mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: animated)
         }
     }
 }
-
 
 // MARK: - Helper Maidenhead Grid
 // MARK: - Maidenhead Grid utilities
@@ -323,6 +606,14 @@ enum MaidenheadGrid {
         locator += String(Character(UnicodeScalar(subsquareLon + 97)!)) + String(Character(UnicodeScalar(subsquareLat + 97)!))
 
         return locator
+    }
+
+    /// Center of a 4- or 6-character Maidenhead locator; nil when malformed.
+    static func center(for locator: String) -> CLLocationCoordinate2D? {
+        guard let corners = gridPolygon(for: locator), corners.count == 4 else { return nil }
+        let lat = corners.map(\.latitude).reduce(0, +) / 4
+        let lon = corners.map(\.longitude).reduce(0, +) / 4
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 
     /// Returns polygon corners for a Maidenhead grid
@@ -371,7 +662,7 @@ private extension Array {
 /// fully edge-to-edge behind it (Apple Maps pattern). On iOS 17 and earlier the tab bar
 /// is an opaque, fixed bar, so extending behind it causes UIKit layout conflicts; we
 /// limit expansion to the top and side edges only.
-private struct MapSafeAreaModifier: ViewModifier {
+struct MapSafeAreaModifier: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 18.0, *) {
             content.ignoresSafeArea()
@@ -380,129 +671,3 @@ private struct MapSafeAreaModifier: ViewModifier {
         }
     }
 }
-
-// MARK: - Wrapper
-
-struct GridMapViewWrapper: View {
-    @Binding var locators: [String]
-    @Binding var countries: [CountryPair]
-    var routePoints: [CLLocationCoordinate2D] = []
-    @Binding var showGrids: Bool
-    @Binding var showCountryCircles: Bool
-    @Binding var showGeodesics: Bool
-    @Binding var showAnnotations: Bool
-    @State private var isControlsExpanded: Bool = false
-
-    @ViewBuilder
-    var body: some View {
-        if #available(iOS 18.0, *) {
-            mapContent.toolbarVisibility(.visible, for: .tabBar)
-        } else {
-            mapContent
-        }
-    }
-
-    private var mapContent: some View {
-        ZStack(alignment: .topTrailing) {
-            GridMapView(
-                locators: $locators,
-                countries: countries,
-                routePoints: routePoints,
-                showGrids: showGrids,
-                showCountryCircles: showCountryCircles,
-                showGeodesics: showGeodesics,
-                showAnnotations: showAnnotations
-            )
-            .modifier(MapSafeAreaModifier())
-
-            mapControlBar
-                .padding(10)
-        }
-    }
-
-    // MARK: - Floating Map Controls
-    private var mapControlBar: some View {
-        HStack(spacing: 12) {
-            // Settings Button
-            Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7, blendDuration: 0.3)) {
-                    isControlsExpanded.toggle()
-                }
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundStyle(isControlsExpanded ? .green : .primary)
-            }
-            .frame(height: 30)
-
-            if isControlsExpanded {
-                Divider()
-    
-                
-                // Grids Toggle
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showGrids.toggle()
-                    }
-                } label: {
-                    Image(systemName: showGrids ? "square.grid.3x3.fill" : "square.grid.3x3")
-                        .foregroundStyle(showGrids ? .blue : .primary)
-                }
-                
-                Divider()
-
-                // Countries Toggle
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showCountryCircles.toggle()
-                    }
-                } label: {
-                    Image(systemName: showCountryCircles ? "circle.dotted" : "circle")
-                        .foregroundStyle(showCountryCircles ? .blue : .primary)
-                }
-                
-                Divider()
-
-                // Geodesics Toggle
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showGeodesics.toggle()
-                    }
-                } label: {
-                    Image(systemName: showGeodesics ? "point.bottomleft.forward.to.point.topright.scurvepath.fill": "point.bottomleft.forward.to.point.topright.scurvepath")
-                        .foregroundStyle(showGeodesics ? .blue : .primary)
-                }
-                
-                Divider()
-
-                // Labels Toggle
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showAnnotations.toggle()
-                    }
-                } label: {
-                    Image(systemName: showAnnotations ? "tag.fill" : "tag")
-                        .foregroundStyle(showAnnotations ? .blue : .primary)
-                }
-            }
-        }
-
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 25, style: .continuous)
-                .fill(.thickMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 5, y: 2)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 25, style: .continuous)
-                .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
-        )
-        .frame(height: 40)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0.3), value: isControlsExpanded)
-    }
-}
-
-
-
-
-

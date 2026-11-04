@@ -1,8 +1,8 @@
 //
 //  RemoteConfigProvider.swift
-//  ft8_ham
+//  ft_ham
 //
-//  Created by Pablo Turrion on 2/2/26.
+//  Created by Pablo Turrion on 05/02/26.
 //
 
 import Foundation
@@ -91,25 +91,33 @@ struct WhatsNewConfig: Decodable {
 
 final class RemoteConfigProvider: FeatureFlagProvider {
 
-    private let remoteConfig: RemoteConfig?
     private var lastFetchDate: Date?
     private var cachedPromptConfig: PromptConfig?
     private var cachedWhatsNewConfig: WhatsNewConfig?
 
-    init() {
-        guard AppEnvironment.current.isProduction else {
-            remoteConfig = nil
-            return
-        }
+    // Resolved lazily rather than in `init`: `FeatureFlagManager.shared` is first
+    // touched by a stored-property initialiser of `ft8_hamApp`, which runs *before*
+    // the `init()` body that calls `FirebaseApp.configure()`. Deciding `nil` at
+    // construction time therefore left the app on compiled-in defaults forever and
+    // silently ignored every Remote Config value in Release builds.
+    private var resolvedRemoteConfig: RemoteConfig?
 
-        guard FirebaseApp.app() != nil else {
-            remoteConfig = nil
-            return
+    private var remoteConfig: RemoteConfig? {
+        if let resolvedRemoteConfig { return resolvedRemoteConfig }
+
+        guard AppEnvironment.current.isProduction, FirebaseApp.app() != nil else {
+            return nil
         }
 
         let remoteConfig = RemoteConfig.remoteConfig()
-        self.remoteConfig = remoteConfig
+        configureDefaults(on: remoteConfig)
+        resolvedRemoteConfig = remoteConfig
+        return remoteConfig
+    }
 
+    init() {}
+
+    private func configureDefaults(on remoteConfig: RemoteConfig) {
         let settings = RemoteConfigSettings()
         settings.minimumFetchInterval = 0
         remoteConfig.configSettings = settings
@@ -262,7 +270,9 @@ final class RemoteConfigProvider: FeatureFlagProvider {
             self.cachedWhatsNewConfig = nil  // Clear cache to fetch fresh config
             
             if let error = error {
-                logger.error("Firebase Remote Config fetch failed: \(error.localizedDescription)")
+                // Usually offline or a flaky network. The cached config stays in use,
+                // so this is not worth a Crashlytics non-fatal.
+                logger.warning("Firebase Remote Config fetch failed: \(error.localizedDescription)")
             } else {
                 logger.debug("Firebase Remote Config fetch completed successfully")
                 logger.debug("Status: \(status == .successFetchedFromRemote ? "Fetched from Remote" : "Fetched from Cache")")
@@ -306,7 +316,7 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         return config
       }
         
-        let jsonString = remoteConfig["prompt_config"].stringValue ?? defaultPromptConfigJSON()
+        let jsonString = remoteConfig["prompt_config"].stringValue
         let decoder = JSONDecoder()
         
         do {
@@ -332,7 +342,7 @@ final class RemoteConfigProvider: FeatureFlagProvider {
         return config
       }
         
-        let jsonString = remoteConfig["whats_new_config"].stringValue ?? defaultWhatsNewConfigJSON()
+        let jsonString = remoteConfig["whats_new_config"].stringValue
         let decoder = JSONDecoder()
         
         do {

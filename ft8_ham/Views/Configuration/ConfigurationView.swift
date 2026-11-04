@@ -6,1113 +6,594 @@
 //
 
 import SwiftUI
-import SafariServices
 
-// MARK: - In-app Safari View
+// MARK: - Settings Catalogue
 
-struct SafariView: UIViewControllerRepresentable {
-    let url: URL
+/// Screens reachable from the configuration list. Rows that only trigger an
+/// action (help links, the paywall) are not destinations; they are laid out
+/// by hand in the Help section.
+private enum SettingsDestination: Hashable {
+    case station, radio, audio, automation, display, waterfall, reporting
+    #if canImport(FTHamPremium)
+    case catControl, bandHopping, qrzLogbook, loTW, eQSL, iCloudSync
+    #endif
+    case tutorials
+    #if DEBUG
+    case debug
+    #endif
+    case legal
+}
 
-    func makeUIViewController(context: Context) -> SFSafariViewController {
-        let configuration = SFSafariViewController.Configuration()
-        configuration.entersReaderIfAvailable = false
+private struct SettingsItem: Identifiable {
+    let destination: SettingsDestination
+    let title: String
+    let systemImage: String
+    /// Terms the search box should also match, beyond the title: the
+    /// headings and notable controls inside the screen.
+    let keywords: [String]
+    /// Feature that must be unlocked to open the row; `nil` for free rows.
+    let premiumFeature: PremiumFeature?
+    /// Flag that must be on for the row to exist at all.
+    let flag: FeatureFlag?
 
-        let controller = SFSafariViewController(url: url, configuration: configuration)
-        controller.preferredControlTintColor = UIColor.systemBlue
-        return controller
+    // Stable identity: the catalogue is rebuilt on each body pass, and a fresh
+    // UUID per pass would make SwiftUI recreate every row.
+    var id: SettingsDestination { destination }
+
+    init(
+        _ destination: SettingsDestination,
+        title: String,
+        systemImage: String,
+        keywords: [String] = [],
+        premium: PremiumFeature? = nil,
+        flag: FeatureFlag? = nil
+    ) {
+        self.destination = destination
+        self.title = title
+        self.systemImage = systemImage
+        self.keywords = keywords
+        self.premiumFeature = premium
+        self.flag = flag
     }
 
-    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {
-        // No updates needed
+    func matches(_ query: String) -> Bool {
+        let q = query.lowercased()
+        return title.lowercased().contains(q)
+            || keywords.contains { $0.lowercased().contains(q) }
     }
 }
 
-// MARK: - HelpTip Enum (Fallback for iOS 16)
-
-enum HelpTip: Identifiable {
-    case autoRXAtStart
-    case autoCQReply
-    case autoCQNewBandMode
-    case decodeSelfTX
-    case holdTXFrequency
-    case autoSequencing
-    case autoQSOLogging
-    case analytics
-    case locatorGPS
-    case cqIncludeGrid
-
-    var id: Self { self }
-
-    var text: String {
-        switch self {
-        case .autoRXAtStart:
-            return String(localized: "Auto RX help")
-        case .autoCQReply:
-            return String(localized: "Auto CQ Reply help")
-        case .autoCQNewBandMode:
-            return String(localized: "Auto CQ New Band Mode help")
-        case .decodeSelfTX:
-            return String(localized: "Decode Self TX help")
-        case .holdTXFrequency:
-            return String(localized: "Hold TX Frequency help")
-        case .autoSequencing:
-            return String(localized: "Auto Sequencing help")
-        case .autoQSOLogging:
-            return String(localized: "Auto QSO Logging help")
-        case .analytics:
-            return String(localized: "Analytics help")
-        case .locatorGPS:
-            return String(localized: "Auto Locator help")
-        case .cqIncludeGrid:
-            return String(localized: "Include Grid in CQ help")
-        }
-    }
-    
-    var accessibilityHint: String {
-        text
-    }
+private struct SettingsGroup: Identifiable {
+    let title: String
+    let items: [SettingsItem]
+    var id: String { title }
 }
 
-// MARK: - Toggle Row Component
-
-struct ToggleRow: View, Equatable {
-    let labelKey: LocalizedStringKey
-    let helpTip: HelpTip
-    @Binding var isOn: Bool
-    @Binding var activeHelp: HelpTip?
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    
-    static func == (lhs: ToggleRow, rhs: ToggleRow) -> Bool {
-        lhs.labelKey == rhs.labelKey &&
-        lhs.helpTip == rhs.helpTip &&
-        lhs.isOn == rhs.isOn &&
-        lhs.activeHelp == rhs.activeHelp
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .center, spacing: 8) {
-                Toggle("", isOn: $isOn)
-                    .labelsHidden()
-                    .accessibilityLabel(Text(labelKey))
-                    .accessibilityHint(Text(helpTip.accessibilityHint))
-                
-                Text(labelKey)
-                    .font(.body)
-                    .lineLimit(2)
-                
-                Spacer()
-                
-                // Info button: toggle inline expandable help
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
-                        activeHelp = (activeHelp == helpTip) ? nil : helpTip
-                    }
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .frame(width: 20, height: 20)
-                .accessibilityLabel(Text("Help"))
-                .accessibilityHint(Text(helpTip.accessibilityHint))
-            }
-            .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
-            
-            // Inline expandable help with smooth spring animation
-            if activeHelp == helpTip {
-                HelpBubble(text: helpTip.text)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
-                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
-                    ))
-            }
-        }
-    }
-}
-
-private struct HelpBubble: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.systemGray6))
-            .cornerRadius(8)
-    }
+private struct SettingsSearchMatch: Identifiable {
+    let item: SettingsItem
+    let group: String
+    var id: SettingsDestination { item.id }
 }
 
 // MARK: - Configuration View
 
-enum ViewMode: String, Codable, CaseIterable, Identifiable {
-    case vertical = "Vertical"
-    case separated = "TX/RX Separated"
-    case condensed = "Condensed"
-
-    var id: String { rawValue }
-
-    var textKey: LocalizedStringKey { LocalizedStringKey(rawValue) }
-}
-
 struct ConfigurationView: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
+    @EnvironmentObject private var premiumManager: PremiumManager
     @EnvironmentObject private var flags: FeatureFlagManager
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Binding var shouldScrollToDonations: Bool
-    
+
     @State private var showHelp = false
-    @State private var showWhatsNew = false
-    @State private var showMessagesSection = false
-    @State private var sliderTempValue: Float = 1.0
-    
-    private let appLogger = AppLogger(category: "APP")
-    
-    // New typed focus state
-    private enum FocusField {
-        case callsign
-        case locator
-        case frequency
-        case retries
-        case customDialFrequency
-    }
-    
-    @FocusState private var focusedInput: FocusField?
-        @State private var lastFocusedInput: FocusField?
-    
-    @State private var validCallsign = false
-    @State private var validLocator = false
-    @State private var activeHelp: HelpTip?
-    
-    private let minGain: Float = 0.1
-    private let maxGain: Float = 2.0
-    
-    // Editable local state
-    @State private var callsignText: String = ""
-    @State private var frequencyText: String = ""
-    @State private var customDialFrequencyText: String = ""
-    
-    // CQ modifier state - stored in AppStorage, managed by CQModifierView
-    
-    // Type-safe computed property for reading CQ modifier from AppStorage
-    private var cqModifier: CQModifier {
-        let raw = UserDefaults.standard.string(forKey: "cqModifier") ?? CQModifier.none.rawValue
-        return CQModifier(rawValue: raw) ?? .none
-    }
-    
-    // MARK: - Number formatter for frequency input
-    // ⚠️ Unit consistency: All frequency values are stored in Hz internally.
-    // TextField displays/accepts kHz (user-facing).
-    // Slider range: 0.1 ... 3000 Hz (= 3 kHz max)
-    // Conversion: kHz input × 1000 = Hz stored
-    
-    private static let frequencyFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.locale = .current
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 3
-        formatter.maximumFractionDigits = 3
-        return formatter
-    }()
+    @State private var showSupport = false
+    @State private var showPremium = false
+    /// Feature whose locked row opened the paywall, for analytics attribution.
+    @State private var paywallFeature: PremiumFeature?
+    @State private var searchText = ""
 
-    private static let dialFrequencyFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.locale = .current
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 3
-        formatter.maximumFractionDigits = 6
-        return formatter
-    }()
-    
-    // MARK: - Frequency parsing
-    
-    private func commitFrequencyText() {
-        let formatter = Self.frequencyFormatter
-        
-        if let number = formatter.number(from: frequencyText) {
-            // Convert kHz (user input) to Hz (internal storage), clamped to 3000 Hz (3 kHz max)
-            let valueHz = min(max(0, number.doubleValue * 1000), 3000)
-            viewModel.frequency = valueHz
-            frequencyText = formatter.string(from: NSNumber(value: valueHz / 1000)) ?? frequencyText
-        } else {
-            // Revert to current model value if parsing fails
-            frequencyText = formatter.string(
-                from: NSNumber(value: viewModel.frequency / 1000)
-            ) ?? frequencyText
-        }
-    }
-
-    /// Parses and validates the custom dial frequency text (entered in MHz).
-    /// Uses the same locale-aware NumberFormatter as the offset frequency field.
-    private func commitCustomDialFrequency() {
-        let formatter = Self.dialFrequencyFormatter
-        if let number = formatter.number(from: customDialFrequencyText), number.doubleValue > 0 {
-            viewModel.customDialFrequencyHz = number.doubleValue * 1_000_000
-            customDialFrequencyText = formatter.string(from: NSNumber(value: number.doubleValue)) ?? customDialFrequencyText
-        } else {
-            // Revert to current model value if parsing fails
-            customDialFrequencyText = formatter.string(
-                from: NSNumber(value: viewModel.customDialFrequencyHz / 1_000_000)
-            ) ?? customDialFrequencyText
-        }
-    }
-    
-    private func commitCallsign() {
-        let text = callsignText.uppercased()
-        callsignText = text
-        validCallsign = isValidCallsign(text)
-        
-        if validCallsign {
-            viewModel.callsign = text
-        }
-    }
-    
-    private func commitLocator() {
-        let text = viewModel.locator.uppercased()
-        validLocator = isValidLocator(text)
-    }
-    
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(spacing: 20) {
-                    // MARK: Configuration fields
-                    
-                    Text("Station details").font(.headline)
-                    
-                    callsignView
-                    
-                    Divider()
-
-                    locatorView
-                    
-                    Divider()
-                    
-                    CQModifierView()
-                    
-                    Divider()
-                    
-                    Text("Mode and frequency").font(.headline)
-                    
-                    HStack(spacing: 20) {
-                        modeView
-                        cycleView
-                    }
-                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
-                    
-                    Divider()
-                    
-                    bandView
-                    
-                    frequencyView
-                    
-                    Divider()
-                    
-                    inputGainView
-        
-                    Divider()
-                    
-                    Text("QSO settings").font(.headline)
-                    
-                    qsoConfigSection
-                    
-                    Divider()
-                    
-                    togglesView
-                    
-                    Divider()
-                    
-                    Text("Interface").font(.headline)
-                    
-                    viewModeView
-                    
-                    Divider()
-
-                    VStack(alignment: .center, spacing: 0) {
-                        Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                showMessagesSection.toggle()
-                            }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Text("Messages")
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                Image(systemName: "chevron.right")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                    .rotationEffect(.degrees(showMessagesSection ? 90 : 0))
-                            }
-                            .frame(maxWidth: .infinity)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        if showMessagesSection {
-                            GenMessagesView()
-                                .padding(.top, 16)
-                                .transition(.move(edge: .top).combined(with: .opacity))
+        List {
+            if searchText.isEmpty {
+                sectionedList
+            } else {
+                searchResultsList
+            }
+        }
+        .listStyle(.plain)
+        .searchable(text: $searchText, prompt: "Search settings…")
+        .sheet(isPresented: $showSupport) {
+            NavigationStack {
+                SupportView()
+                    .navigationTitle("Support FT HAM")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            CloseButton()
                         }
                     }
-                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
-                    .clipped()
-
-                    Divider()
-                    
-                    Text("Support FT HAM").font(.headline)
-                    SupportView()
-                        .id("donations") // Add ID for scrolling
-                    
-                    Divider()
-                    
-                    Text("User support").font(.headline)
-                    
-                    Button {
-                        showHelp = true
-                    } label: {
-                        Text("Help")
-                            .font(.headline)
-                    }
-                    
-                    Button("Reset help messages") {
-                        AppStorageResetter.resetTutorials()
-                    }
-                    Button("Show initial tutorial") {
-                        AppStorageResetter.resetOnboarding()
-                    }
-                    
-                    Divider()
-                    
-                    ContactView()
-                    
-                    Divider()
-                    
-                    Text("Privacy & Anonymous Statistics").font(.headline)
-                    
-                    analyticsSection
-                        
-                #if DEBUG
-                Divider()
-                    
-                Text("Debug").font(.headline)
-                    
-                if flags.isEnabled(.showLogsView) {
-                    NavigationLink(destination: LogsView()) {
-                        Text("View app logs")
-                            .foregroundStyle(.blue)
-                    }
-                }
-                    
-                Section {
-                    Button {
-                        triggerRatePrompt()
-                    } label: {
-                        Label("Test Rate Prompt", systemImage: "star.fill")
-                    }
-                    
-                    Button {
-                        triggerSharePrompt()
-                    } label: {
-                        Label("Test Share Prompt", systemImage: "square.and.arrow.up")
-                    }
-                    
-                    Button {
-                        triggerDonationPrompt()
-                    } label: {
-                        Label("Test Donation Prompt", systemImage: "heart.fill")
-                    }
-                    
-                    Button {
-                        showWhatsNew = true
-                    } label: {
-                        Label("Show What's New", systemImage: "sparkles")
-                    }
-                    
-                    Button(role: .destructive) {
-                        fatalError("Intentional debug crash for testing crash reporting")
-                    } label: {
-                        Label("Crash reporter test", systemImage: "exclamationmark.triangle")
-                    }
-                }
-                #endif
-
-                
-                Divider()
-                    
-                Text("Legal").font(.headline)
-                
-                LicenseView()
-                
-                versionSection
-                
-                copyrightSection
             }
-            .padding(.horizontal)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                focusedInput = nil
-            }
+            .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showPremium) {
+            // The paywall brings its own navigation bar and close button.
+            PremiumPaywallView(source: paywallFeature.map(PaywallSource.feature) ?? .screen("configuration"))
         }
         .sheet(isPresented: $showHelp) {
-            SafariView(
-                url: URL(string: "https://ftham.turrion.dev/#getting-started")!
-            )
-            .ignoresSafeArea()
-        }
-        .sheet(isPresented: $showWhatsNew) {
-            WhatsNewView()
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .ignoresSafeArea(.keyboard, edges: .bottom)
-        .onAppear {
-            activeHelp = nil
+            SafariView(url: URL(string: "https://ftham.turrion.dev/#getting-started")!)
+                .ignoresSafeArea()
         }
         .onChange(of: shouldScrollToDonations) { shouldScroll in
             if shouldScroll {
-                withAnimation {
-                    proxy.scrollTo("donations", anchor: .top)
-                }
-                // Reset the flag after scrolling
+                showSupport = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     shouldScrollToDonations = false
                 }
             }
         }
-        
-        // Commit on focus change
-        .onChange(of: focusedInput) { newValue in
-            // Only commit if we're leaving a field (not entering one)
-            if let lastField = lastFocusedInput, lastField != newValue {
-                switch lastField {
-                case .callsign:
-                    commitCallsign()
-                case .locator:
-                    commitLocator()
-                case .frequency:
-                    commitFrequencyText()
-                case .retries:
-                    break
-                case .customDialFrequency:
-                    commitCustomDialFrequency()
+    }
+
+    // MARK: - Sectioned List (default state)
+
+    @ViewBuilder
+    private var sectionedList: some View {
+        Group {
+            Section {
+                accountRow
+            }
+
+            // Sections are laid out one by one rather than through a
+            // ForEach over `groups`: a List with a ForEach of Sections jumps
+            // to the bottom when a flag flips and a row disappears.
+            section(for: radioGroup)
+            section(for: operatingGroup)
+            #if canImport(FTHamPremium)
+            section(for: logbookGroup)
+            #endif
+
+            if !premiumManager.isPremiumUnlocked {
+                premiumSection
+            }
+
+            // MARK: Help
+            Section {
+                Button {
+                    showHelp = true
+                } label: {
+                    ExternalActionRow(title: "Getting Started", systemImage: "book")
                 }
-            }
-            lastFocusedInput = newValue
-        }
-        .safeAreaInset(edge: .bottom) {
-            Color.clear.frame(height: 50)
-        }
-        .onAppear {
-            callsignText = viewModel.callsign
-            validCallsign = isValidCallsign(viewModel.callsign)
-            validLocator = isValidLocator(viewModel.locator)
-            
-            frequencyText = Self.frequencyFormatter.string(
-                from: NSNumber(value: viewModel.frequency / 1000)
-            ) ?? ""
 
-            customDialFrequencyText = Self.dialFrequencyFormatter.string(
-                from: NSNumber(value: viewModel.customDialFrequencyHz / 1_000_000)
-            ) ?? ""
-        }
-        .onChange(of: viewModel.callsign) { newValue in
-            let isValid = isValidCallsign(newValue)
-            if validCallsign != isValid {
-                validCallsign = isValid
-            }
-            if isValid && !newValue.isEmpty {
-                AnalyticsManager.shared.logConfigurationSaved()
-            }
-        }
-        .onChange(of: viewModel.locator) { newValue in
-            let isValid = isValidLocator(newValue)
-            if validLocator != isValid {
-                validLocator = isValid
-            }
-            if isValid && !newValue.isEmpty {
-                AnalyticsManager.shared.logConfigurationSaved()
-            }
-        }
-        .onChange(of: viewModel.frequency) { newValue in
-            if focusedInput != .frequency {
-                let newText = Self.frequencyFormatter.string(
-                    from: NSNumber(value: newValue / 1000)
-                ) ?? frequencyText
-                if frequencyText != newText {
-                    frequencyText = newText
+                row(for: tutorialsItem)
+
+                Button {
+                    if let url = URL(string: "mailto:ftham@turrion.dev?subject=FT8%20Ham%20App%20Feedback") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    ExternalActionRow(title: "Send Feedback", systemImage: "envelope")
                 }
-            }
-            if newValue > 0 {
-                AnalyticsManager.shared.logConfigurationSaved()
-            }
-        }
-        } // Close ScrollViewReader
-    }
-    
-    // MARK: - Debug Helpers
-    #if DEBUG
-    private func triggerRatePrompt() {
-        let prompts = InAppPrompts.shared
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            prompts.requestRate()
-        }
-    }
-    
-    private func triggerSharePrompt() {
-        let prompts = InAppPrompts.shared
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            prompts.showPreShareAlert = true
-        }
-    }
-    
-    private func triggerDonationPrompt() {
-        let prompts = InAppPrompts.shared
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            prompts.showDonationAlert = true
-        }
-    }
-    #endif
-    
-    enum AppStorageResetter {
-        static let onboardingKey = "hasCompletedOnboarding"
-        
-        static let tutorialKeys = [
-            "hasSeenFloatingButtonTutorial",
-            "hasSeenSlideToReplyTutorial"
-        ]
-        
-        static func resetTutorials() {
-            for key in tutorialKeys {
-                UserDefaults.standard.removeObject(forKey: key)
-            }
-            UserDefaults.standard.synchronize()
-        }
-        
-        static func resetOnboarding() {
-            UserDefaults.standard.removeObject(forKey: onboardingKey)
-            UserDefaults.standard.synchronize()
-        }
-    }
-    
-    // MARK: - Subviews
-    private var callsignView: some View {
-        VStack(alignment: .leading, spacing: 6){
-            HStack{
-                Text("Callsign:")
-                TextField("", text: $callsignText)
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.center)
-                    .focused($focusedInput, equals: .callsign)
-                    .lineLimit(1)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .onChange(of: callsignText) { newValue in
-                        validCallsign = isValidCallsign(newValue.uppercased())
-                    }
-                    .onSubmit {
-                        commitCallsign()
-                    }
-                    .border(validCallsign ? Color.clear : Color.red)
-                
-            }
 
-            Text("Callsign modifiers are allowed")
-                .font(.footnote)
-                .multilineTextAlignment(.center)
-                .lineLimit(1)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
-        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
-    }
-    
-    private var locatorView: some View {
-        VStack(alignment: .leading, spacing: 12){
-            HStack{
-                Text("Locator:")
-                Spacer()
-                TextField("", text: $viewModel.locator)
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.center)
-                    .textCase(.uppercase)
-                    .focused($focusedInput, equals: .locator)
-                    .lineLimit(1)
-                    .disabled(viewModel.autoLocatorFromGPS)
-                    .onChange(of: viewModel.locator) { newValue in
-                        var text = newValue.uppercased()
-                        text.removeAll(where: { $0.isWhitespace })
-                        if text.count > 4 {
-                            text = String(text.prefix(4))
-                        }
-                        if text != viewModel.locator {
-                            viewModel.locator = text
-                        }
-                        validLocator = isValidLocator(text)
-                    }
-                    .border(validLocator ? Color.clear : Color.red)
-
-            }
-            
-            ToggleRow(
-                labelKey: "Auto (from GPS)",
-                helpTip: .locatorGPS,
-                isOn: Binding(
-                    get: { viewModel.autoLocatorFromGPS },
-                    set: { viewModel.setAutoLocatorFromGPS($0) }
-                ),
-                activeHelp: $activeHelp
-            )
-
-            ToggleRow(
-                labelKey: "Include Grid in CQ",
-                helpTip: .cqIncludeGrid,
-                isOn: $viewModel.cqIncludeGrid,
-                activeHelp: $activeHelp
-            )
-
-        }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
-        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
-    }
-    
-    private var modeView: some View {
-        VStack(spacing: 6) {
-            Text("Mode:")
-            Picker("", selection: Binding(
-                get: { viewModel.isFT4 },
-                set: { newValue in
-                    Task { @MainActor in
-                        viewModel.switchModeWhileRX(isFT4: newValue)
-                        AnalyticsManager.shared.trackRadioModeChange(isFT4: newValue)
-                        let modeStr = newValue ? "FT4" : "FT8"
-                        let cycleStr: String
-                        if newValue { // FT4
-                            cycleStr = viewModel.evenCycle ? "even (0s)" : "odd (7.5s)"
-                        } else { // FT8
-                            cycleStr = viewModel.evenCycle ? "even (0/30s)" : "odd (15/45s)"
-                        }
-                        appLogger.log(.info, "Mode changed to \(modeStr), current cycle: \(cycleStr)")
+                if flags.isEnabled(.donationsEnabled) {
+                    Button {
+                        showSupport = true
+                    } label: {
+                        ExternalActionRow(title: "Support FT HAM", systemImage: "heart")
                     }
                 }
-            )) {
-                Text("FT8").tag(false)
-                Text("FT4").tag(true)
+            } header: {
+                Text("Help")
             }
-            .pickerStyle(.segmented)
-            .frame(width: 120)
+
+            // MARK: About
+            Section {
+                row(for: legalItem)
+            } header: {
+                Text("About")
+            } footer: {
+                versionFooter
+            }
+
+            #if DEBUG
+            Section {
+                row(for: debugItem)
+            } header: {
+                Text("Debug")
+            }
+            #endif
         }
+        .padding(.horizontal)
     }
-    
-    private var cycleView: some View {
-        VStack(spacing: 6) {
-            Text("Transmission cycle:")
-            Picker("", selection: Binding(
-                get: { viewModel.evenCycle },
-                set: { newValue in
-                    viewModel.evenCycle = newValue
-                    if viewModel.isFT4 {
-                        let offset = newValue ? 0.0 : 7.5
-                        appLogger.log(.info, "FT4 cycle changed to \(newValue ? "even" : "odd") — offset: \(offset)s")
+
+    /// Account-style row at the top, in the manner of the Apple Account row
+    /// in Settings: who is operating, from where, and on which tier. Leads
+    /// to the Station screen, where those details are edited.
+    private var accountRow: some View {
+        let callsign = viewModel.callsign.trimmingCharacters(in: .whitespacesAndNewlines)
+        let locator = viewModel.locator.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tier = premiumManager.isPremiumUnlocked
+            ? String(localized: "Premium")
+            : String(localized: "Free")
+        let details = [locator, tier].filter { !$0.isEmpty }.joined(separator: " · ")
+
+        return NavigationLink {
+            destination(for: .station)
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.gradient)
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 48, height: 48)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if callsign.isEmpty {
+                        Text("Set up your station")
+                            .font(.title3.weight(.semibold))
+                        Text("Callsign and locator")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     } else {
-                        let offset = newValue ? 0.0 : 15.0
-                        appLogger.log(.info, "FT8 cycle changed to \(newValue ? "even" : "odd") — offsets: \(offset)/\(offset + 30.0)s")
-                    }
-                }
-            )) {
-                if viewModel.isFT4 {
-                    Text("0").tag(true)
-                    Text("7.5").tag(false)
-                } else {
-                    Text("0/30").tag(true)
-                    Text("15/45").tag(false)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 120)
-        }
-    }
-    
-    private var frequencyView: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text("Frequency offset:")
-                Spacer()
-                HStack(spacing: 0) {
-                    TextField("Frequency", text: $frequencyText)
-                        .keyboardType(.decimalPad)
-                        .submitLabel(.done)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
-                        .focused($focusedInput, equals: .frequency)
-                        .lineLimit(1)
-                        .onSubmit {
-                            commitFrequencyText()
-                        }
-                        .frame(width: 80)
-                    Text("kHz")
-                        .padding(5)
-                }
-            }
-            
-            HStack {
-                Button {
-                    viewModel.frequency = max(0, viewModel.frequency - 10)
-                } label: {
-                    Image(systemName: "chevron.left")
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Slider(value: $viewModel.frequency, in: 0.1 ... 3000, step: 10)
-                
-                Button {
-                    viewModel.frequency = min(3000, viewModel.frequency + 10)
-                } label: {
-                    Image(systemName: "chevron.right")
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
-        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
-    }
-    
-    private var bandView: some View {
-        let bands = FT8Message.Band.validBands
-        let mode: FT8Message.FT8MessageMode = viewModel.isFT4 ? .ft4 : .ft8
-        let isCustom = viewModel.selectedBand == .custom
-        let frequencyHz = viewModel.selectedBand.frequency(for: mode)
-
-        let dialFrequencyLabel: String = {
-            if isCustom {
-                let detectedBand = FT8Message.Band.fromFrequency(viewModel.customDialFrequencyHz)
-                let detectedText = detectedBand != .unknown ? " · \(detectedBand.rawValue)" : ""
-                return String(format: "%.3f MHz%@", viewModel.customDialFrequencyHz / 1_000_000, detectedText)
-            }
-            guard let hz = frequencyHz else { return "— " + String(localized: "MHz") }
-            return String(format: "%.3f ", hz / 1_000_000) + String(localized: "MHz")
-        }()
-
-        let selectedIndex: Int? = bands.firstIndex(of: viewModel.selectedBand)
-
-        return VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Text("Band:")
-                Text(dialFrequencyLabel)
-                    .foregroundStyle(.secondary)
-            }
-
-            ScrollViewReader { proxy in
-                HStack(spacing: 6) {
-
-                    // MARK: - Left arrow
-                    Button {
-                        guard let index = selectedIndex, index > 0 else { return }
-                        let newBand = bands[index - 1]
-                        withAnimation {
-                            viewModel.selectedBand = newBand
-                            proxy.scrollTo(newBand, anchor: .center)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedIndex == 0)
-
-                    // MARK: - Scrollable bands
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(bands, id: \.self) { band in
-                                Button {
-                                    withAnimation {
-                                        viewModel.selectedBand = band
-                                        proxy.scrollTo(band, anchor: .center)
-                                    }
-                                } label: {
-                                    Text(band.rawValue)
-                                        .font(.subheadline)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(
-                                            band == viewModel.selectedBand
-                                            ? Color.accentColor
-                                            : Color.secondary.opacity(0.2)
-                                        )
-                                        .foregroundColor(
-                                            band == viewModel.selectedBand
-                                            ? .white
-                                            : .primary
-                                        )
-                                        .clipShape(Capsule())
-                                }
-                                .id(band)
-                            }
-                        }
-                        .padding(.horizontal, 4)
-                    }
-
-                    // MARK: - Right arrow
-                    Button {
-                        guard let index = selectedIndex, index < bands.count - 1 else { return }
-                        let newBand = bands[index + 1]
-                        withAnimation {
-                            viewModel.selectedBand = newBand
-                            proxy.scrollTo(newBand, anchor: .center)
-                        }
-                    } label: {
-                        Image(systemName: "chevron.right")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedIndex == bands.count - 1)
-                }
-                .onAppear {
-                    proxy.scrollTo(viewModel.selectedBand, anchor: .center)
-                }
-                .onChange(of: viewModel.selectedBand) { newBand in
-                    withAnimation {
-                        proxy.scrollTo(newBand, anchor: .center)
+                        Text(callsign)
+                            .font(.title3.weight(.semibold))
+                        Text(details)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
-
-            // MARK: - Custom frequency input (shown when Custom band is selected)
-            if isCustom {
-                HStack(spacing: 8) {
-                    Text("Dial freq:")
-                        .foregroundStyle(.secondary)
-                    TextField("e.g. 14.074", text: $customDialFrequencyText)
-                        .keyboardType(.decimalPad)
-                        .submitLabel(.done)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.center)
-                        .focused($focusedInput, equals: .customDialFrequency)
-                        .onSubmit { commitCustomDialFrequency() }
-                        .frame(width: 130)
-                    Text("MHz")
-                        .foregroundStyle(.secondary)
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-
-            }
+            .padding(.vertical, 4)
         }
-        .animation(.easeInOut(duration: 0.2), value: isCustom)
-        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
-        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
+        .listRowSeparator(.hidden, edges: .top)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("row_account")
     }
 
-
-
-    
-    private var viewModeView: some View {
-        VStack(spacing: 6) {
-            Text("View mode: ")
-            Picker("View mode", selection: Binding(
-                get: { viewModel.selectedViewMode },
-                set: { newMode in
-                    viewModel.selectedViewMode = newMode
-                    AnalyticsManager.shared.trackViewMode(newMode)
-                }
-            )) {
-                ForEach(ViewMode.allCases) { mode in
-                    Text(mode.textKey)
-                        .tag(mode)
-                }
+    /// Entry point for free users. The paywall it opens also restores a
+    /// purchase made on another device or before a reinstall.
+    private var premiumSection: some View {
+        Section {
+            Button {
+                paywallFeature = nil
+                showPremium = true
+            } label: {
+                Label("Become Premium", systemImage: "star")
             }
-            .pickerStyle(.segmented)
+            .accessibilityIdentifier("button_become_premium")
+        } header: {
+            Text("Premium")
         }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 10 : 0)
-        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
     }
 
-    private var inputGainView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Input Gain:")
-                Spacer()
-                Text(String(format: "%.2f×", sliderTempValue))
-                    .foregroundStyle(.secondary)
+    // MARK: - Rows
+
+    /// A locked row for gated features, a navigation link otherwise. The
+    /// subtitle names the row's group in search results.
+    @ViewBuilder
+    private func row(for item: SettingsItem, subtitle: String? = nil) -> some View {
+        if let feature = item.premiumFeature, !premiumManager.isPremiumUnlocked {
+            PremiumLockedRow(feature: feature, title: item.title, systemImage: item.systemImage) {
+                presentPaywall(for: feature)
             }
-            
-            Slider(
-                value: $sliderTempValue,
-                in: Float(minGain)...Float(maxGain),
-                onEditingChanged: { isEditing in
-                    if !isEditing {
-                        viewModel.inputGain = Double(sliderTempValue)
-                    }
-                }
-            )
-            .accentColor(.blue)
-            .onAppear {
-                sliderTempValue = Float(viewModel.inputGain)
-            }
-        }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 20 : 0)
-        .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
-    }
-
-    private var togglesView: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            ToggleRow(
-                labelKey: "Auto RX at start",
-                helpTip: .autoRXAtStart,
-                isOn: $viewModel.autoRXAtStart,
-                activeHelp: $activeHelp
-            )
-
-            ToggleRow(
-                labelKey: "Hold TX frequency",
-                helpTip: .holdTXFrequency,
-                isOn: $viewModel.holdTXFrequency,
-                activeHelp: $activeHelp
-            )
-
-            ToggleRow(
-                labelKey: "Show TX messages in RX list",
-                helpTip: .decodeSelfTX,
-                isOn: $viewModel.decodeSelfTXMessages,
-                activeHelp: $activeHelp
-            )
-            
-            ToggleRow(
-                labelKey: "Reply to CQ received",
-                helpTip: .autoCQReply,
-                isOn: $viewModel.autoCQReplyEnabled,
-                activeHelp: $activeHelp
-            )
-
-            ToggleRow(
-                labelKey: "Only if new band/mode",
-                helpTip: .autoCQNewBandMode,
-                isOn: $viewModel.autoCQReplyOnlyNewBandMode,
-                activeHelp: $activeHelp
-            )
-        }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
-    }
-
-    private var qsoConfigSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            ToggleRow(
-                labelKey: "Auto-sequence",
-                helpTip: .autoSequencing,
-                isOn: $viewModel.autoSequencingEnabled,
-                activeHelp: $activeHelp
-            )
-            
-            HStack(spacing: 6) {
-                TextField("Retries", value: $viewModel.maxRetrySlots, format: .number)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.center)
-                    .focused($focusedInput, equals: .retries)
-                    .lineLimit(1)
-                    .frame(width: 50)
-                Text("Retries")
-                    .font(.body)
-                    .accessibilityLabel(Text("Retransmission retries"))
-                    .accessibilityHint(Text("Number of times to resend messages if not acknowledged"))
-            }
-            
-            ToggleRow(
-                labelKey: "Auto QSO logging",
-                helpTip: .autoQSOLogging,
-                isOn: $viewModel.autoQSOLogging,
-                activeHelp: $activeHelp
-            )
-        }
-        .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
-    }
-    
-    private var analyticsSection: some View {
-        VStack(alignment: .center, spacing: 8) {
-            VStack(spacing: 6) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Toggle("", isOn: Binding(
-                            get: { AnalyticsManager.shared.isAnalyticsEnabled },
-                            set: { AnalyticsManager.shared.isAnalyticsEnabled = $0 }
-                        ))
-                        .labelsHidden()
-                        .accessibilityLabel(Text("Share usage statistics"))
-                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
-                        
-                        Text("Share usage statistics")
-                            .font(.body)
-                        Spacer()
-                        
-                        // Info button: toggle inline expandable help
-                        Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0.1)) {
-                                activeHelp = (activeHelp == .analytics) ? nil : .analytics
-                            }
-                        } label: {
-                            Image(systemName: "info.circle")
+        } else {
+            NavigationLink {
+                destination(for: item.destination)
+            } label: {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.title)
+                        if let subtitle {
+                            Text(subtitle)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
-                        .frame(width: 20, height: 20)
-                        .accessibilityLabel(Text("Help"))
-                        .accessibilityHint(Text(HelpTip.analytics.accessibilityHint))
                     }
-                    .frame(maxWidth: horizontalSizeClass == .regular ? 640 : .infinity)
-                    
-                    // Inline expandable help with smooth spring animation
-                    if activeHelp == .analytics {
-                        HelpBubble(text: HelpTip.analytics.text)
-                            .transition(.asymmetric(
-                                insertion: .scale(scale: 0.98, anchor: .top).combined(with: .opacity),
-                                removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
-                            ))
-                    }
+                } icon: {
+                    Image(systemName: item.systemImage)
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
             }
-            .padding(.horizontal, horizontalSizeClass == .compact ? 16 : 0)
         }
     }
-    
-    private var versionSection: some View {
+
+    private func presentPaywall(for feature: PremiumFeature) {
+        paywallFeature = feature
+        showPremium = true
+    }
+
+    private func section(for group: SettingsGroup) -> some View {
+        Section {
+            ForEach(visibleItems(in: group)) { item in
+                row(for: item)
+            }
+        } header: {
+            Text(group.title)
+        }
+    }
+
+    private func visibleItems(in group: SettingsGroup) -> [SettingsItem] {
+        group.items.filter { item in
+            item.flag.map { flags.isEnabled($0) } ?? true
+        }
+    }
+
+    // MARK: - Search Results
+
+    @ViewBuilder
+    private var searchResultsList: some View {
+        if filteredItems.isEmpty {
+            Section {
+                Text("No results for \"\(searchText)\"")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .listRowBackground(Color.clear)
+            }
+        } else {
+            Section("Results") {
+                ForEach(filteredItems) { match in
+                    row(for: match.item, subtitle: match.group)
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    private var filteredItems: [SettingsSearchMatch] {
+        guard !searchText.isEmpty else { return [] }
+        let searchable = [SettingsGroup(title: String(localized: "Station"), items: [stationItem])] + groups + [
+            SettingsGroup(title: String(localized: "Help"), items: [tutorialsItem]),
+            SettingsGroup(title: String(localized: "About"), items: [legalItem]),
+        ]
+        return searchable.flatMap { group in
+            visibleItems(in: group)
+                .filter { $0.matches(searchText) }
+                .map { SettingsSearchMatch(item: $0, group: group.title) }
+        }
+    }
+
+    // MARK: - Catalogue
+
+    /// The navigable groups, in display order. Locked premium rows stay in
+    /// the catalogue so they show up in search and lead to the paywall.
+    private var groups: [SettingsGroup] {
+        var result = [radioGroup, operatingGroup]
+        #if canImport(FTHamPremium)
+        result.append(logbookGroup)
+        #endif
+        return result
+    }
+
+    private var radioGroup: SettingsGroup {
+        var items: [SettingsItem] = [
+            .init(.radio,
+                  title: String(localized: "Mode & Band"),
+                  systemImage: "dial.low",
+                  keywords: ["radio", "band", "dial", "frequency", "mode", "ft8", "ft4",
+                             "cycle", "even", "odd", "clock", "time", "sync", "sntp"]),
+            .init(.audio,
+                  title: String(localized: "Audio"),
+                  systemImage: "waveform",
+                  keywords: ["audio", "offset", "tone", "gain", "rx gain", "input",
+                             "microphone", "tx output", "level", "vox", "volume", "db"]),
+        ]
+        #if canImport(FTHamPremium)
+        items += [
+            .init(.catControl,
+                  title: String(localized: "CAT Control"),
+                  systemImage: "dot.radiowaves.left.and.right",
+                  keywords: ["rig", "transceiver", "serial", "hamlib", "cat", "udp"],
+                  premium: .catControl),
+            .init(.bandHopping,
+                  title: String(localized: "Band Hopping"),
+                  systemImage: "arrow.triangle.2.circlepath",
+                  keywords: ["band", "hop", "rotate", "schedule", "cat"],
+                  premium: .bandHopping,
+                  flag: .enableBandHopping),
+        ]
+        #endif
+        return SettingsGroup(title: String(localized: "Radio"), items: items)
+    }
+
+    private var operatingGroup: SettingsGroup {
+        SettingsGroup(title: String(localized: "Operating"), items: [
+            .init(.automation,
+                  title: String(localized: "Behavior"),
+                  systemImage: "gearshape.2",
+                  keywords: ["auto rx", "cq", "reply", "auto-sequence", "sequence",
+                             "retries", "pile-up", "pileup", "logging", "hold tx",
+                             "transmit", "automation", "automatic"]),
+            .init(.display,
+                  title: String(localized: "Display"),
+                  systemImage: "rectangle.3.group",
+                  keywords: ["view mode", "list", "highlight", "badges", "new grid",
+                             "dxcc", "gesture", "double tap", "appearance", "interface"]),
+            .init(.waterfall,
+                  title: String(localized: "Waterfall"),
+                  systemImage: "waveform",
+                  keywords: ["waterfall", "spectrum", "palette", "color", "colour",
+                             "gain", "zero", "level", "flatten", "noise"]),
+            .init(.reporting,
+                  title: String(localized: "Reporting"),
+                  systemImage: "dot.radiowaves.up.forward",
+                  keywords: ["psk", "pskreporter", "spots", "map", "online",
+                             "presence", "community"],
+                  premium: .pskReporter),
+        ])
+    }
+
+    #if canImport(FTHamPremium)
+    private var logbookGroup: SettingsGroup {
+        SettingsGroup(title: String(localized: "Logbook"), items: [
+            .init(.iCloudSync,
+                  title: String(localized: "iCloud Sync"),
+                  systemImage: "icloud",
+                  keywords: ["icloud", "sync", "backup", "devices", "cloudkit"],
+                  premium: .iCloudSync,
+                  flag: .enableICloudSync),
+            .init(.qrzLogbook,
+                  title: String(localized: "QRZ Logbook"),
+                  systemImage: "network",
+                  keywords: ["qrz", "logbook", "xml", "upload", "log"],
+                  premium: .qrzLogbook),
+            .init(.loTW,
+                  title: String(localized: "LoTW"),
+                  systemImage: "checkmark.seal",
+                  keywords: ["lotw", "arrl", "certificate", "award"],
+                  premium: .lotwSync),
+            .init(.eQSL,
+                  title: String(localized: "eQSL"),
+                  systemImage: "envelope.badge.shield.half.filled",
+                  keywords: ["eqsl", "digital", "qsl", "card"],
+                  premium: .eqslSync),
+        ])
+    }
+    #endif
+
+    /// Reached through the account row rather than a list row, but still
+    /// offered by search.
+    private var stationItem: SettingsItem {
+        .init(.station,
+              title: String(localized: "Station"),
+              systemImage: "antenna.radiowaves.left.and.right",
+              keywords: ["callsign", "grid", "locator", "gps", "11 m", "cb",
+                         "cq", "modifier", "pota", "sota"])
+    }
+
+    private var tutorialsItem: SettingsItem {
+        .init(.tutorials,
+              title: String(localized: "Tutorials"),
+              systemImage: "graduationcap",
+              keywords: ["onboarding", "help", "tips", "tutorial", "reset"])
+    }
+
+    private var legalItem: SettingsItem {
+        .init(.legal,
+              title: String(localized: "Legal & Licenses"),
+              systemImage: "hand.raised",
+              keywords: ["privacy", "license", "terms", "legal", "open source"])
+    }
+
+    #if DEBUG
+    private var debugItem: SettingsItem {
+        .init(.debug,
+              title: String(localized: "Debug"),
+              systemImage: "ladybug",
+              keywords: ["developer", "flags", "feature", "testing"])
+    }
+    #endif
+
+    /// Bands with an FT8 dial frequency, as offered by the band-hop editor.
+    static var bandHopBands: [String] {
+        FT8Message.Band.allCases
+            .filter { $0.frequency(for: .ft8) != nil && $0 != .custom && $0 != .unknown }
+            .map(\.rawValue)
+    }
+
+    // MARK: - Navigation Destinations
+
+    @ViewBuilder
+    private func destination(for dest: SettingsDestination) -> some View {
+        switch dest {
+        case .station:
+            StationSettingsView().padding(.horizontal)
+        case .radio:
+            RadioSettingsView().padding(.horizontal)
+        case .audio:
+            AudioSettingsView().padding(.horizontal)
+        case .automation:
+            AutomationSettingsView().padding(.horizontal)
+        case .display:
+            DisplaySettingsView().padding(.horizontal)
+        case .waterfall:
+            WaterfallSettingsView().padding(.horizontal)
+        case .reporting:
+            ReportingSettingsView().padding(.horizontal)
+        #if canImport(FTHamPremium)
+        case .catControl:
+            CatSettingsView(initialFrequencyMHz: viewModel.catDialFrequencyMHz)
+                .padding(.horizontal)
+        case .bandHopping:
+            BandHopSettingsView(allowedBands: Self.bandHopBands)
+        case .iCloudSync:
+            ICloudSyncSettingsView()
+        case .qrzLogbook:
+            ScrollView {
+                QRZSettingsView()
+                    .padding(.horizontal)
+                    .padding(.bottom, 20)
+            }
+            .navigationTitle("QRZ Logbook")
+            .navigationBarTitleDisplayMode(.inline)
+        case .loTW:
+            ScrollView {
+                LoTWSettingsView()
+                    .padding(.horizontal)
+                    .padding(.bottom, 20)
+            }
+            .navigationTitle("LoTW")
+            .navigationBarTitleDisplayMode(.inline)
+        case .eQSL:
+            ScrollView {
+                eQSLSettingsView()
+                    .padding(.horizontal)
+                    .padding(.bottom, 20)
+            }
+            .navigationTitle("eQSL")
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
+        case .tutorials:
+            TutorialsSettingsView().padding(.horizontal)
+        #if DEBUG
+        case .debug:
+            DebugSettingsView().padding(.horizontal)
+        #endif
+        case .legal:
+            LegalAndPrivacyView().padding(.horizontal)
+        }
+    }
+
+    // MARK: - Version Footer
+
+    private var versionFooter: some View {
         VStack(spacing: 4) {
-            Text("Version")
             if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                 Text(String(format: String(localized: "Version %@ (Build %@)"), version, build))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            } else {
-                Text("Version unknown")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
         }
+        .frame(maxWidth: .infinity)
         .multilineTextAlignment(.center)
-        .padding(.vertical, 2)
+        .padding(.top, 8)
     }
-    
-    private var copyrightSection: some View {
-        VStack(spacing: 4) {
-            Text(".copyright")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Text("Pablo Turrión San Pedro (EA4IQL)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+}
+
+private struct ExternalActionRow: View {
+    let title: LocalizedStringKey
+    let systemImage: String
+
+    var body: some View {
+        HStack {
+            Label(title, systemImage: systemImage)
+            Spacer()
+            Image(systemName: "arrow.up.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
-        .multilineTextAlignment(.center)
     }
 }
 
 #Preview("ConfigurationView") {
-    ConfigurationView(shouldScrollToDonations: .constant(false))
-        .environmentObject(
-            FT8ViewModel(
-                txMessages: PreviewMocks.txMessages,
-                rxMessages: PreviewMocks.rxMessages
-            )
+    NavigationStack {
+        ConfigurationView(shouldScrollToDonations: .constant(false))
+            .navigationTitle("Configuration")
+            .navigationBarTitleDisplayMode(.inline)
+    }
+    .environmentObject(
+        FT8ViewModel(
+            txMessages: PreviewMocks.txMessages,
+            rxMessages: PreviewMocks.rxMessages
         )
-        .environmentObject(FeatureFlagManager.shared)
+    )
+    .environmentObject(FeatureFlagManager.shared)
 }

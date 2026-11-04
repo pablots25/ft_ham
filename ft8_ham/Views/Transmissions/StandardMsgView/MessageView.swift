@@ -10,6 +10,13 @@ import SwiftUI
 
 struct MessageView: View {
     let msg: FT8Message
+    var needed: NeededStatus = []
+    /// Calling you or watched station: bold text and a marker.
+    var highlight: RowHighlight = .none
+    /// Show "(FT4)" / "(FT8)" when the row's mode differs from the current one.
+    var showsMode: Bool = false
+    /// The row belongs to the QSO in progress: draws a leading bar.
+    var isActiveQSO: Bool = false
 
     var body: some View {
         if msg.msgType == .internalTimestamp {
@@ -22,47 +29,34 @@ struct MessageView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
             }
-            .padding(.horizontal, 5)
+            .padding(.horizontal, DecodeRowMetrics.horizontalPadding)
         } else {
-            VStack(alignment: .center, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(DateFormatter.utcFormatterClock.string(from: msg.timestamp))
-                        .foregroundStyle(.secondary)
+            // Metadata columns on top (aligned with the header), message below.
+            VStack(alignment: .leading, spacing: 2) {
+                DecodeRowColumns(msg: msg)
 
-                    Text(!msg.measuredSNR.isNaN ? String(format: "%.0f", msg.measuredSNR) : "0.0")
-                        .foregroundStyle(!msg.measuredSNR.isNaN ? .secondary : Color.clear)
-
-                    Text(!msg.frequency.isNaN ? String(format: "%.0f", msg.frequency) : "0.0")
-                        .foregroundStyle(!msg.frequency.isNaN ? .secondary : Color.clear)
-
-                    Text(!msg.timeOffset.isNaN ? String(format: "%.2fs", msg.timeOffset) : "0.00")
-                        .foregroundStyle(
-                            !msg.timeOffset.isNaN
-                            ? (msg.timeOffset > 0.2 ? .red : .secondary)
-                            : Color.clear
-                        )
-                }
-                .font(.caption2)
-
-                HStack(alignment: .top, spacing: 4) {
-                    if msg.isTX {
-                        Text("TX")
-                            .font(.caption)
-                            .foregroundStyle(.blue)
-                    }
-
-                    Text(msg.text)
-                        .font(.system(size: 12))
-                        .foregroundStyle((msg.forMe && !msg.isTX) ? Color.blue : Color.primary)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text("(\(msg.mode.rawValue.uppercased()))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                DecodeRowMessage(
+                    msg: msg,
+                    needed: needed,
+                    highlight: highlight,
+                    showsMode: showsMode,
+                    font: .caption,
+                    forMeColor: .blue
+                )
             }
-            .padding(.horizontal, 5)
+            .padding(.horizontal, DecodeRowMetrics.horizontalPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .activeQSOBar(isActiveQSO)
         }
     }
+}
+
+#Preview("MessageView") {
+    VStack(spacing: 0) {
+        MessageListHeaderView(allowReply: true)
+        MessageView(msg: PreviewMocks.rxMessages[0])
+        MessageView(msg: PreviewMocks.rxMessages[1], needed: [.dxcc, .grid], showsMode: true)
+        MessageView(msg: PreviewMocks.rxMessages[0], highlight: .callingMe, isActiveQSO: true)
+    }
+    .frame(width: 393)
 }

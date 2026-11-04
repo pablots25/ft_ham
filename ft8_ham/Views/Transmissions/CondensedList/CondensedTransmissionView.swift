@@ -14,8 +14,14 @@ struct CondensedTransmissionView: View {
     @State private var showTutorial: Bool = false
     @State private var columnFrame: CGRect = .zero
 
-    @AppStorage("showOnlyInvolved")
-    private var showOnlyInvolved: Bool = false
+    @AppStorage("rxFilterMode")
+    private var filterMode: Int = 0
+
+    @State private var showLegend: Bool = false
+
+    private var needsTutorial: Bool {
+        !hasSeenTutorial
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -36,7 +42,7 @@ struct CondensedTransmissionView: View {
                 if showTutorial {
                     TutorialOverlay(
                         highlightedFrame: columnFrame,
-                        text: "Swipe any message to automatically reply in the frequency used."
+                        text: String(localized: "tutorial_swipe_reply")
                     ) {
                         hasSeenTutorial = true
                         showTutorial = false
@@ -46,9 +52,7 @@ struct CondensedTransmissionView: View {
             .coordinateSpace(name: "CondensedTransmissionSpace")
         }
         .onAppear {
-            if !hasSeenTutorial {
-                showTutorial = true
-            }
+            showTutorial = needsTutorial
         }
     }
 
@@ -58,11 +62,13 @@ struct CondensedTransmissionView: View {
         VStack(spacing: 10) {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
-            LazyVGrid(columns: columns, spacing: 12) {
-                StatusView().gridCellColumns(2)
-                ClockView().gridCellColumns(2)
+            if UIDevice.current.userInterfaceIdiom != .pad {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    StatusView().gridCellColumns(2)
+                    ClockView().gridCellColumns(2)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
 
             TransmissionButtonsBar()
                 .padding(.horizontal)
@@ -76,7 +82,7 @@ struct CondensedTransmissionView: View {
 //                DXInfoFields()
                 MessageSelector()
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, LayoutConstants.largePadding)
             .padding(.bottom, 10)
         }
     }
@@ -104,7 +110,7 @@ struct CondensedTransmissionView: View {
                 .padding(.leading,50)
                 .multilineTextAlignment(.center)
 
-            QSOStatusView()
+            QSOStatusView(density: .compact)
                 .frame(maxWidth: .infinity)
                 .padding(.leading,30)
                 .multilineTextAlignment(.center)
@@ -146,17 +152,10 @@ struct CondensedTransmissionView: View {
     private var messagesSectionLandscape: some View {
         GeometryReader { geo in
             HStack(spacing: 12) {
-                let receivedFiltered = showOnlyInvolved
-                    ? viewModel.receivedMessages.filter { $0.forMe || $0.isTX }
-                    : viewModel.receivedMessages
-                
-                let txFiltered = showOnlyInvolved
-                    ? viewModel.transmittedMessages.filter { $0.forMe || $0.isTX }
-                    : viewModel.transmittedMessages
-                
+                // Filtering by `filterMode` happens once, inside the list views.
                 messagesColumn(
                     section: .received,
-                    messages: receivedFiltered,
+                    messages: viewModel.receivedMessages,
                     clearAction: viewModel.clearReceived,
                     allowReply: true
                 )
@@ -165,7 +164,7 @@ struct CondensedTransmissionView: View {
 
                 messagesColumn(
                     section: .transmitted,
-                    messages: txFiltered,
+                    messages: viewModel.transmittedMessages,
                     clearAction: viewModel.clearTransmitted,
                     allowReply: false
                 )
@@ -192,29 +191,29 @@ struct CondensedTransmissionView: View {
                     Spacer()
                     
                     if(allowReply){
+                        RXFilterButton(filterMode: $filterMode)
+
                         Button {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                showOnlyInvolved.toggle()
-                            }
+                            showLegend.toggle()
                         } label: {
-                            Image(systemName: showOnlyInvolved
-                                  ? "line.3.horizontal.decrease.circle.fill"
-                                  : "line.3.horizontal.decrease.circle")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
-                            .accessibilityLabel("Filter messages")
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .sheet(isPresented: $showLegend) {
+                            MessageColorLegendView()
+                        }
                     }
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 6)
-                if !hasSeenTutorial, allowReply {
+                if showTutorial, allowReply {
                     
                     CondensedMsgListView(
-                        messages: [PreviewMocks.rxMessages.first!],
+                        messages: tutorialSampleMessages(from: messages),
                         allowReply: allowReply,
-                        showOnlyInvolved: $showOnlyInvolved
+                        filterMode: $filterMode
                     )
                     .background(
                         GeometryReader { proxy in
@@ -231,13 +230,25 @@ struct CondensedTransmissionView: View {
                     CondensedMsgListView(
                         messages: messages,
                         allowReply: allowReply,
-                        showOnlyInvolved: $showOnlyInvolved
+                        filterMode: $filterMode
                     )
                 }
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 2)
+    }
+
+    private func tutorialSampleMessages(from messages: [FT8Message]) -> [FT8Message] {
+        if let previewSample = PreviewMocks.rxMessages.first {
+            return [previewSample]
+        }
+
+        if let firstLiveMessage = messages.first {
+            return [firstLiveMessage]
+        }
+
+        return []
     }
 }
 

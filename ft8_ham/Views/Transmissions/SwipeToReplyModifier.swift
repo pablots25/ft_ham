@@ -8,19 +8,52 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Reply Tap Gesture Setting
+
+/// How a tap on a decoded row initiates a reply. Single- and double-tap are
+/// mutually exclusive: attaching both would delay the single tap ~0.35s while
+/// SwiftUI waits for a possible second tap, which hurts the time-critical FT8
+/// cycle. Double-tap also helps operators who trigger accidental replies.
+enum ReplyTapGesture: String, CaseIterable, Identifiable {
+    case single
+    case double
+
+    var id: String { rawValue }
+
+    var tapCount: Int { self == .double ? 2 : 1 }
+
+    var label: LocalizedStringKey {
+        self == .double ? "Double tap" : "Single tap"
+    }
+}
+
 // MARK: - SwipeToReplyModifier
 
 struct SwipeToReplyModifier: ViewModifier {
     let allowReply: Bool
     let messageID: UUID
     let onReply: () -> Void
+    /// Tap-to-reply handler. Kept in this modifier (rather than a separate
+    /// .onTapGesture at the call site) so the tap and the swipe drag share the
+    /// same view level and coordinate space. Previously the call-site tap sat
+    /// on the un-offset inner content while this modifier applied .offset and
+    /// .clipped() around it, which shifted the tap's hit-test region on wider
+    /// iPad layouts and let the drag recognizer swallow pointer/trackpad clicks.
+    let onTap: () -> Void
     @Binding var dragOffset: [UUID: CGFloat]
     @Binding var didTriggerHaptic: [UUID: Bool]
     @Binding var userDragging: Bool
 
+    @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
+
     private let triggerThreshold: CGFloat = -60
     private let maxDrag: CGFloat = -90         // clamp so the row doesn't slide too far
     private let dampingFactor: CGFloat = 0.4   // resistance past trigger threshold
+    // Pointer/trackpad "clicks" on iPad carry small incidental movement. A larger
+    // activation distance keeps those from being claimed as a drag (which would
+    // swallow the tap); the onChanged handler additionally requires the motion to
+    // be horizontal-dominant before it moves the row.
+    private let dragActivation: CGFloat = 25
 
     func body(content: Content) -> some View {
         ZStack(alignment: .trailing) {
@@ -39,10 +72,16 @@ struct SwipeToReplyModifier: ViewModifier {
             }
 
             content
+                .contentShape(Rectangle())
                 .offset(x: dragOffset[messageID] ?? 0)
+                .onTapGesture(count: replyTapGesture.tapCount) {
+                    guard allowReply else { return }
+                    Haptics.light()
+                    onTap()
+                }
                 // simultaneousGesture lets the parent ScrollView still scroll vertically
                 .simultaneousGesture(
-                    DragGesture(minimumDistance: 15)
+                    DragGesture(minimumDistance: dragActivation)
                         .onChanged { value in
                             guard allowReply else { return }
                             // Ignore if movement is more vertical than horizontal
@@ -60,7 +99,7 @@ struct SwipeToReplyModifier: ViewModifier {
 
                             if (dragOffset[messageID] ?? 0) <= triggerThreshold &&
                                didTriggerHaptic[messageID] != true {
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                Haptics.medium()
                                 didTriggerHaptic[messageID] = true
                             }
                         }
@@ -92,12 +131,14 @@ extension View {
         dragOffset: Binding<[UUID: CGFloat]>,
         didTriggerHaptic: Binding<[UUID: Bool]>,
         userDragging: Binding<Bool>,
+        onTap: @escaping () -> Void,
         onReply: @escaping () -> Void
     ) -> some View {
         self.modifier(SwipeToReplyModifier(
             allowReply: allowReply,
             messageID: messageID,
             onReply: onReply,
+            onTap: onTap,
             dragOffset: dragOffset,
             didTriggerHaptic: didTriggerHaptic,
             userDragging: userDragging

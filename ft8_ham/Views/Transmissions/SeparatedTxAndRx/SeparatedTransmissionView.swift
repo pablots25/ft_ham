@@ -17,8 +17,14 @@ struct SeparatedTransmissionView: View {
     @AppStorage("hasSeenSlideToReplyTutorial") private var hasSeenTutorial: Bool = false
     @State private var showTutorial: Bool = false
 
-    @AppStorage("showOnlyInvolvedSeparatedTX")
-    private var showOnlyInvolved: Bool = false
+    @AppStorage("rxFilterModeSeparated")
+    private var filterMode: Int = 0
+
+    @State private var showLegend: Bool = false
+
+    private var needsTutorial: Bool {
+        !hasSeenTutorial
+    }
 
     init(section: TransmissionSection, allowReply: Bool = false) {
         self.section = section
@@ -44,7 +50,7 @@ struct SeparatedTransmissionView: View {
                 if showTutorial {
                     TutorialOverlay(
                         highlightedFrame: adjustedTutorialFrame,
-                        text: "Swipe any message to automatically reply in the frequency used."
+                        text: String(localized: "tutorial_swipe_reply")
                     ) {
                         hasSeenTutorial = true
                         showTutorial = false
@@ -54,9 +60,7 @@ struct SeparatedTransmissionView: View {
             .coordinateSpace(name: "SeparatedTransmissionSpace")
         }
         .onAppear {
-            if !hasSeenTutorial, allowReply {
-                showTutorial = true
-            }
+            showTutorial = allowReply && needsTutorial
         }
     }
 
@@ -79,11 +83,13 @@ struct SeparatedTransmissionView: View {
         VStack(spacing: 10) {
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
-            LazyVGrid(columns: columns, spacing: 12) {
-                StatusView().gridCellColumns(2)
-                ClockView().gridCellColumns(2)
+            if UIDevice.current.userInterfaceIdiom != .pad {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    StatusView().gridCellColumns(2)
+                    ClockView().gridCellColumns(2)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
 
             TransmissionButtonsBar()
                 .padding(.horizontal)
@@ -97,7 +103,7 @@ struct SeparatedTransmissionView: View {
 //                DXInfoFields()
                 MessageSelector()
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, LayoutConstants.largePadding)
             .padding(.bottom, 10)
         }
     }
@@ -130,16 +136,13 @@ struct SeparatedTransmissionView: View {
 
     private var messagesSection: some View {
         HStack(alignment: .top, spacing: 12) {
-            let filtered = showOnlyInvolved
-                ? (allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages)
-                    .filter { $0.forMe || $0.isTX }
-                : (allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages)
-            
+            // Filtering by `filterMode` happens once, inside the list view.
+            let baseMessages = allowReply ? viewModel.receivedMessages : viewModel.transmittedMessages
             let clearAction = allowReply ? viewModel.clearReceived : viewModel.clearTransmitted
             
             messagesColumn(
                 section: section,
-                messages: filtered,
+                messages: baseMessages,
                 clearAction: clearAction,
                 allowReply: allowReply
             )
@@ -164,28 +167,29 @@ struct SeparatedTransmissionView: View {
 
                         Spacer()
 
-                        if(allowReply){
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    showOnlyInvolved.toggle()
-                                }
-                            } label: {
-                                Image(systemName: showOnlyInvolved
-                                      ? "line.3.horizontal.decrease.circle.fill"
-                                      : "line.3.horizontal.decrease.circle")
+                        if allowReply {
+                            RXFilterButton(filterMode: $filterMode)
+                        }
+
+                        Button {
+                            showLegend.toggle()
+                        } label: {
+                            Image(systemName: "info.circle")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(showOnlyInvolved ? .primary : .secondary)
-                                .accessibilityLabel("Filter messages")
-                            }
-                            .buttonStyle(.plain)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Message Colors"))
+                        .sheet(isPresented: $showLegend) {
+                            MessageColorLegendView()
                         }
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 6)
-                    if !hasSeenTutorial, allowReply {
-                        SeparatedMsgListView(
-                            messages: [PreviewMocks.rxMessages.first!],
-                            allowReply: allowReply, showOnlyInvolved: $showOnlyInvolved
+                    if showTutorial, allowReply {
+                        CondensedMsgListView(
+                            messages: tutorialSampleMessages(from: messages),
+                            allowReply: allowReply, filterMode: $filterMode
                         )
                         .background(
                             GeometryReader { proxy in
@@ -199,13 +203,25 @@ struct SeparatedTransmissionView: View {
                             }
                         )
                     } else {
-                        SeparatedMsgListView(messages: messages, allowReply: allowReply, showOnlyInvolved: $showOnlyInvolved)
+                        CondensedMsgListView(messages: messages, allowReply: allowReply, filterMode: $filterMode)
                     }
                 
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 2)
+    }
+
+    private func tutorialSampleMessages(from messages: [FT8Message]) -> [FT8Message] {
+        if let previewSample = PreviewMocks.rxMessages.first {
+            return [previewSample]
+        }
+
+        if let firstLiveMessage = messages.first {
+            return [firstLiveMessage]
+        }
+
+        return []
     }
 }
 

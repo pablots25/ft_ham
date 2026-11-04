@@ -10,7 +10,7 @@ private let performanceLog = OSLog(subsystem: "com.ft8ham.app", category: "Perfo
 
 internal struct BatchProcessResult {
     let messages: [FT8Message]
-    let labels: [(String, Double)]
+    let labels: [WaterfallLabel]
     let waterfallSamples: [Float]
     let newLocators: [String]
     let workedCountries: [CountryPair]
@@ -62,7 +62,7 @@ actor MessageProcessor {
         var messagesToAdd: [FT8Message] = []
         messagesToAdd.reserveCapacity(batch.count + 1)
         
-        var labelsToAdd: [(String, Double)] = []
+        var labelsToAdd: [WaterfallLabel] = []
         labelsToAdd.reserveCapacity(batch.count)
         
         var waterfallSamples: [Float] = []
@@ -71,7 +71,7 @@ actor MessageProcessor {
         var shouldResetFirstLoop = false
         
         // Add timestamp marker
-        let now = Date()
+        let now = AppClock.now()
         let slotDuration: Double = isFT4 ? 7.5 : 15.0
         let roundedTimestamp = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970 / (slotDuration / 2.0)) * (slotDuration / 2.0))
         
@@ -116,7 +116,7 @@ actor MessageProcessor {
                 )
             )
             
-            labelsToAdd.append((text, message.frequency))
+            labelsToAdd.append(WaterfallLabel(message: message))
             
             if let audioSamples = msgDict["audioSamples"] as? [Float] {
                 waterfallSamples.append(contentsOf: audioSamples)
@@ -182,7 +182,9 @@ actor MessageProcessor {
     // MARK: - Message Creation
     private static func createMessage(from dict: [String: Any], isFT4: Bool, selectedBand: FT8Message.Band, isTX: Bool) -> FT8Message {
         let text = (dict["text"] as? String) ?? ""
-        let timestampRaw = (dict["timestamp"] as? Double) ?? (dict["time"] as? Double) ?? Date().timeIntervalSince1970
+        // The engine stamps with the raw system clock; shift it onto the corrected clock.
+        let timestampRaw = ((dict["timestamp"] as? Double) ?? (dict["time"] as? Double) ?? Date().timeIntervalSince1970)
+            + AppClock.shared.offset
         let slotLen = isFT4 ? 7.5 : 15.0
         let computedTimestamp = Date(timeIntervalSince1970: timestampRaw - slotLen)
         

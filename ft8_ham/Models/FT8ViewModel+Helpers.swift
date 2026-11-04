@@ -20,9 +20,36 @@ extension FT8ViewModel{
     }
     
     
+    /// Adds the operator's own grid (from the map's location updates) once.
+    func addUserLocator(_ locator: String) {
+        guard !workedLocatorsSet.contains(locator) else { return }
+        workedLocators.append(locator)
+    }
+
+    /// Appends the locators not yet known, in a single assignment so
+    /// `workedLocators` publishes (and rebuilds its mirror Set) once.
     internal func addNewLocators(from newLocators: [String]) {
-        for loc in newLocators where !workedLocatorsSet.contains(loc) {
-            workedLocators.append(loc)
+        var seen = workedLocatorsSet
+        var additions: [String] = []
+        for loc in newLocators where !seen.contains(loc) {
+            seen.insert(loc)
+            additions.append(loc)
+        }
+        guard !additions.isEmpty else { return }
+        workedLocators.append(contentsOf: additions)
+    }
+
+    /// Replaces the displayed country pairs (deduplicated, order preserved),
+    /// publishing only when the result differs from what is already shown.
+    internal func setWorkedCountryPairs(_ pairs: [CountryPair]) {
+        var seen = Set<CountryPair>()
+        var unique: [CountryPair] = []
+        for pair in pairs where !seen.contains(pair) {
+            seen.insert(pair)
+            unique.append(pair)
+        }
+        if unique != workedCountryPairs {
+            workedCountryPairs = unique
         }
     }
 
@@ -37,34 +64,187 @@ extension FT8ViewModel{
     }
 
     internal func addNewCountryPairs(from newPairs: [CountryPair]) {
-        for pair in newPairs where !workedCountryPairsSet.contains(pair) {
-            workedCountryPairs.append(pair)
-            workedCountryPairsSet.insert(pair)
+        var seen = workedCountryPairsSet
+        var additions: [CountryPair] = []
+        for pair in newPairs where !seen.contains(pair) {
+            seen.insert(pair)
+            additions.append(pair)
+        }
+        guard !additions.isEmpty else { return }
+        workedCountryPairs.append(contentsOf: additions)
+    }
+
+    // MARK: - Worked checks
+
+    /// Where to look when asking whether a station is already in the log.
+    enum WorkedScope: Equatable {
+        /// Any band, any mode.
+        case anyBand
+        /// The band and mode the operator is on now (`effectiveBand`, FT8/FT4).
+        case currentBandAndMode
+        /// A specific band and mode ("FT8" or "FT4").
+        case bandAndMode(FT8Message.Band, mode: String)
+    }
+
+    /// Single source of truth for "is this station already in the logbook?".
+    /// Case-insensitive and whitespace-tolerant. Uses the O(1) `workedIndex`
+    /// lookups rebuilt from `qsoList`. Defaults to the current band and mode.
+    internal func isWorked(_ callsign: String?, scope: WorkedScope = .currentBandAndMode) -> Bool {
+        guard let trimmed = callsign?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return false
+        }
+        let call = trimmed.uppercased()
+
+        switch scope {
+        case .anyBand:
+            return workedIndex.callsigns.contains(call)
+        case .currentBandAndMode:
+            return workedIndex.callsignBandMode.contains(
+                WorkedIndex.key(call, band: effectiveBand.rawValue, mode: currentModeName)
+            )
+        case .bandAndMode(let band, let mode):
+            return workedIndex.callsignBandMode.contains(
+                WorkedIndex.key(call, band: band.rawValue, mode: mode.uppercased())
+            )
         }
     }
 
-    internal func hasConfirmedQSO(
-        with callsign: String?,
-        band: String,
-        mode: String,
-        matchBandModeOnly: Bool
-    ) -> Bool {
-        guard let callsign = callsign?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !callsign.isEmpty else {
+    /// Mode name as stored in the logbook ("FT8" or "FT4").
+    internal var currentModeName: String { isFT4 ? "FT4" : "FT8" }
+
+    /// True when a callsign is not yet in the logbook (any band/mode).
+    internal func isNewCallsign(_ callsign: String?) -> Bool {
+        guard let callsign, !callsign.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return false
         }
+        return !isWorked(callsign, scope: .anyBand)
+    }
 
-        return qsoList.contains { entry in
-            guard entry.callsign.caseInsensitiveCompare(callsign) == .orderedSame else {
-                return false
+    /// True when a decoded row should get the "new callsign" highlight: an
+    /// incoming CQ from a station not yet worked, when the setting is enabled.
+    internal func isNewCQCallsign(_ msg: FT8Message) -> Bool {
+        guard highlightNewCallsigns, msg.msgType == .cq, !msg.isTX,
+              let call = msg.callsign, !call.isEmpty else { return false }
+        return !isWorked(call, scope: .anyBand)
+    }
+
+    /// True when a decoded row should get the "calling you" highlight.
+    internal func isCallingMeHighlighted(_ msg: FT8Message) -> Bool {
+        highlightMyCallsign && CallAlertDetector.isCallingMe(msg, myCallsign: callsign)
+    }
+
+    /// The operator's watchlist, parsed once per change of the stored string.
+    internal var watchList: WatchList {
+        get {
+            if watchListCache.storage != watchedCallsignsStorage {
+                watchListCache = (watchedCallsignsStorage, WatchList(storage: watchedCallsignsStorage))
             }
-
-            if matchBandModeOnly {
-                return entry.band == band && entry.mode == mode
-            }
-
-            return true
+            return watchListCache.list
         }
+        set {
+            objectWillChange.send()
+            watchedCallsignsStorage = newValue.storage
+        }
+    }
+
+    /// True when a received row was sent by a station on the watchlist.
+    internal func isWatched(_ msg: FT8Message) -> Bool {
+        guard !msg.isTX,
+              msg.msgType != .internalTimestamp, msg.msgType != .unknown else { return false }
+        return watchList.contains(msg.callsign)
+    }
+
+    /// The highlight for a decoded row. A call to us wins over a watched sender.
+    internal func rowHighlight(for msg: FT8Message) -> RowHighlight {
+        if isCallingMeHighlighted(msg) { return .callingMe }
+        if isWatched(msg) { return .watched }
+        return .none
+    }
+
+    /// Raises the enabled alerts at most once per slot:
+    /// - a station calls us and no QSO was in progress at the start of the slot;
+    /// - otherwise, a watched station is heard, at most once per station every
+    ///   few minutes, and not while we are already working it.
+    /// The sound is held back while we transmit so it cannot go on air.
+    @MainActor
+    internal func raiseAlerts(in messages: [FT8Message], qsoStateBeforeSlot: QSOState) {
+        guard callAlertSound || callAlertHaptic || callAlertNotification else { return }
+
+        let kind: CallAlertKind
+        let message: FT8Message
+        if let call = CallAlertDetector.alertMessage(
+            in: messages, myCallsign: callsign, qsoState: qsoStateBeforeSlot
+        ) {
+            kind = .callingMe
+            message = call
+        } else if watchAlertEnabled, let watched = firstWatchedToAlert(in: messages) {
+            kind = .watched
+            message = watched
+        } else {
+            return
+        }
+
+        callAlerter.alert(
+            kind,
+            for: message,
+            sound: callAlertSound && !isTransmitting,
+            haptic: callAlertHaptic,
+            notification: callAlertNotification
+        )
+    }
+
+    /// The first watched station in the slot that is due an alert.
+    private func firstWatchedToAlert(in messages: [FT8Message]) -> FT8Message? {
+        guard !watchList.isEmpty else { return nil }
+        let working = qsoManager.qsoState.lockedCallsign?.uppercased()
+        let now = AppClock.now()
+        for msg in messages where isWatched(msg) {
+            guard let call = msg.callsign?.uppercased(), call != working else { continue }
+            if watchAlertThrottle.shouldAlert(for: call, at: now) { return msg }
+        }
+        return nil
+    }
+
+    /// The GRID / DXCC badges a decoded row shows, per the Display settings.
+    internal func neededBadges(for msg: FT8Message) -> NeededStatus {
+        guard showNeededGridBadge || showNeededDXCCBadge else { return [] }
+        return NeededBadgeSettings.visible(
+            neededStatus(for: msg), showGrid: showNeededGridBadge, showDXCC: showNeededDXCCBadge
+        )
+    }
+
+    /// What a decoded station would still add to the logbook on the current
+    /// band and mode: an unworked callsign, an unworked 4-char grid, an
+    /// unworked country. Empty for our own TX rows and non-station rows.
+    internal func neededStatus(for msg: FT8Message) -> NeededStatus {
+        guard !msg.isTX,
+              msg.msgType != .internalTimestamp, msg.msgType != .unknown,
+              let call = msg.callsign, !call.isEmpty else { return [] }
+
+        let band = effectiveBand.rawValue
+        let mode = isFT4 ? "FT4" : "FT8"
+        var status: NeededStatus = []
+
+        if !workedIndex.callsignBandMode.contains(WorkedIndex.key(call, band: band, mode: mode)) {
+            status.insert(.callsign)
+        }
+        if let locator = msg.locator, locator.count >= 4 {
+            let grid4 = String(locator.prefix(4))
+            if !workedIndex.gridBandMode.contains(WorkedIndex.key(grid4, band: band, mode: mode)) {
+                status.insert(.grid)
+            }
+        }
+        if let country = msg.senderCountry.country, !country.isEmpty,
+           !workedIndex.countryBandMode.contains(WorkedIndex.key(country, band: band, mode: mode)) {
+            status.insert(.dxcc)
+        }
+        return status
+    }
+
+    /// True when the row should survive the "Needed" decode filter.
+    internal func isNeeded(_ msg: FT8Message) -> Bool {
+        !neededStatus(for: msg).isEmpty
     }
 
     func generateMessages() -> [String] {

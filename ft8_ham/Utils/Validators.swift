@@ -5,7 +5,19 @@
 //  Created by Pablo Turrion on 16/11/25.
 //
 
+import Foundation
+
 // MARK: Validators
+
+// Compiled once. `String.range(of:options:.regularExpression)` re-parses the
+// pattern on every call, and these validators run on every view body that
+// reads `settingsLoaded`. The callsign pattern is compiled the same way inside
+// `CompoundCallsign`, which owns callsign parsing.
+private let locatorRegex = try! NSRegularExpression(pattern: #"^[A-R]{2}\d{2}$"#)
+
+private func wholeMatch(_ regex: NSRegularExpression, _ text: String) -> Bool {
+    regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+}
 
 func isValidLocator(_ text: String) -> Bool {
     let upper = text.uppercased()
@@ -15,45 +27,28 @@ func isValidLocator(_ text: String) -> Bool {
     }
 
     // Maidenhead 4-character locator
-    let pattern = #"^[A-R]{2}\d{2}$"#
-    return upper.range(of: pattern, options: .regularExpression) != nil
+    return wholeMatch(locatorRegex, upper)
 }
 
+/// True when `text` is a callsign the app can work with.
+///
+/// Accepts plain calls ("VE6XAD"), calls carrying a foreign prefix
+/// ("I/VE6XAD") and calls carrying a suffix ("VE6XAD/P", "W1AW/VE3").
+/// See `CompoundCallsign` for the exact grammar.
 func isValidCallsign(_ text: String) -> Bool {
-    let upper = text.uppercased()
+    CompoundCallsign.parse(text) != nil
+}
 
-    // protocol tokens that are NOT callsigns
-    let forbiddenTokens: Set<String> = [
-        "CQ",
-        "QRZ",
-        "DE",
-        "RR73",
-        "73"
-    ]
-
-    if forbiddenTokens.contains(upper) {
-        return false
+/// Validates the operator's own station callsign.
+///
+/// An 11 m / CB call (e.g. "26TE231") is not a standard amateur callsign, so it
+/// is accepted only when the operator has explicitly opted in via
+/// `allowElevenMeter`. Amateur calls are unaffected by the flag.
+func isValidStationCallsign(_ text: String, allowElevenMeter: Bool) -> Bool {
+    if CompoundCallsign.isElevenMeterFormat(text) {
+        return allowElevenMeter && isValidCallsign(text)
     }
-
-    // Excludes anything that looks like a locator or a signal report
-    if isValidLocator(upper) {
-        return false
-    }
-
-    if isSignalReport(Substring(upper)) {
-        return false
-    }
-
-    // FT8/FT4 callsign validation: 
-    // In FT8, any callsign with "/" is valid - there's no closed list of modifiers
-    // 1–3 alphanumeric prefix characters
-    // Exactly one digit  
-    // 1–3 trailing letters
-    // Optional: slash followed by any alphanumeric suffix (P, MM, QRP, 1, /ABC, etc.)
-    // Multiple suffixes are NOT allowed
-    let pattern = #"^[A-Z0-9]{1,3}\d[A-Z]{1,3}(/[A-Z0-9]+)?$"#
-
-    return upper.range(of: pattern, options: .regularExpression) != nil
+    return isValidCallsign(text)
 }
 
 
@@ -63,11 +58,12 @@ func isSignalReport(_ token: Substring) -> Bool {
     // Single zero is a valid report
     if raw == "0" { return true }
 
+    // "73" is a protocol farewell token, not a signal report
+    if raw == "73" { return false }
+
     // Handle optional leading 'R' (ack) e.g. R+12, R-8
     var text = raw
-    var hasRPrefix = false
     if text.hasPrefix("R") {
-        hasRPrefix = true
         text = String(text.dropFirst())
     }
 
