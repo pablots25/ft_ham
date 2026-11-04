@@ -212,6 +212,41 @@
         }
       }
     },
+    "Confirm QSOs on LoTW?" : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSOs auf LoTW bestätigen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm QSOs on LoTW?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Confirmar QSOs en LoTW?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmer vos QSO sur LoTW ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confermare i QSO su LoTW?"
+          }
+        }
+      }
+    },
     "Couldn't create the TX audio." : {
       "comment" : "Short audio error shown in a toast. Keep it within two lines.",
       "extractionState" : "manual",
@@ -460,6 +495,216 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nessuna uscita audio. Controlla il dispositivo audio."
+          }
+        }
+      }
+    },
+    "Premium reports to PSK Reporter so you can see where your signal is received." : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium meldet an PSK Reporter, damit du siehst, wo dein Signal empfangen wird."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium reports to PSK Reporter so you can see where your signal is received."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium informa a PSK Reporter para que veas dónde se recibe tu señal."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium transmet à PSK Reporter pour que vous voyiez où votre signal est reçu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium invia i dati a PSK Reporter così vedi dove viene ricevuto il tuo segnale."
+          }
+        }
+      }
+    },
+    "Premium sends your QSOs to QRZ, LoTW and eQSL automatically." : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium sendet deine QSOs automatisch an QRZ, LoTW und eQSL."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium sends your QSOs to QRZ, LoTW and eQSL automatically."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium envía tus QSOs a QRZ, LoTW y eQSL automáticamente."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium envoie automatiquement vos QSO vers QRZ, LoTW et eQSL."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium invia automaticamente i tuoi QSO a QRZ, LoTW ed eQSL."
+          }
+        }
+      }
+    },
+    "Premium uploads every QSO to LoTW, QRZ and eQSL as you log it." : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium lädt jedes QSO beim Loggen zu LoTW, QRZ und eQSL hoch."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium uploads every QSO to LoTW, QRZ and eQSL as you log it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium sube cada QSO a LoTW, QRZ y eQSL en cuanto lo registras."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium envoie chaque QSO vers LoTW, QRZ et eQSL dès que vous l'enregistrez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium carica ogni QSO su LoTW, QRZ ed eQSL appena lo registri."
+          }
+        }
+      }
+    },
+    "See Premium" : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium ansehen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See Premium"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver Premium"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir Premium"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scopri Premium"
+          }
+        }
+      }
+    },
+    "Skip the export next time?" : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Den Export künftig sparen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip the export next time?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Te ahorras la exportación la próxima vez?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éviter l'export la prochaine fois ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saltare l'esportazione la prossima volta?"
+          }
+        }
+      }
+    },
+    "Where is your signal heard?" : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wo wird dein Signal gehört?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where is your signal heard?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Dónde se escucha tu señal?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Où votre signal est-il entendu ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dove viene ascoltato il tuo segnale?"
           }
         }
       }

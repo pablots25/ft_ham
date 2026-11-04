@@ -84,6 +84,20 @@ struct DebugSettingsView: View {
                     Label("Quick Config Sheet", systemImage: "list.bullet")
                 }
 
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.premiumMoments) },
+                    set: { flags.setOverride(.premiumMoments, value: $0) }
+                )) {
+                    Label("Premium Moments", systemImage: "star.circle")
+                }
+
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.rateAfterQSO) },
+                    set: { flags.setOverride(.rateAfterQSO, value: $0) }
+                )) {
+                    Label("Rate After QSO", systemImage: "star.bubble")
+                }
+
                 Button {
                     flags.resetOverrides()
                 } label: {

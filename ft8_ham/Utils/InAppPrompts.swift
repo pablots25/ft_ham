@@ -31,6 +31,7 @@ final class InAppPrompts: ObservableObject {
         static let donationADIFCount = "donationADIFCount"
         static let donationTXCount = "donationTXCount"
         static let donationLastPromptLaunch = "donationLastPromptLaunch"
+        static let rateQSOCount = "rateQSOCount"
     }
 
     // MARK: - Rate Threshold (from Firebase JSON config)
@@ -62,6 +63,10 @@ final class InAppPrompts: ObservableObject {
     @Published var shareItem: ShareItem?
     @Published var showDonationAlert = false
     @Published var shouldNavigateToDonations = false
+    /// Milestone that is asking a free user about Premium (`premiumMoments`).
+    @Published var premiumMomentAlert: PremiumMoment?
+    /// Milestone whose "See Premium" opened the paywall.
+    @Published var premiumMomentPaywall: PremiumMoment?
 
     struct ShareItem: Identifiable {
         let id = UUID()
@@ -154,6 +159,7 @@ final class InAppPrompts: ObservableObject {
 
     // MARK: - Donation triggers
     func recordQSOLogged() {
+        if requestReviewAfterQSOIfDue() { return }
         recordDonationTrigger(.qsoLogged)
     }
 
@@ -180,9 +186,49 @@ final class InAppPrompts: ObservableObject {
                 return "tx"
             }
         }
+
+        var premiumMoment: PremiumMoment {
+            switch self {
+            case .qsoLogged: return .qsoLogged
+            case .adifExport: return .adifExport
+            case .txStarted: return .txStarted
+            }
+        }
+    }
+
+    // MARK: - Rate after QSO
+
+    /// Counts the logged QSO and, with `rateAfterQSO` on, asks for a rating
+    /// once the threshold is reached. Returns whether it asked, so the same
+    /// QSO does not also raise a milestone prompt.
+    private func requestReviewAfterQSOIfDue() -> Bool {
+        let defaults = UserDefaults.standard
+        let qsoCount = defaults.integer(forKey: Keys.rateQSOCount) + 1
+        defaults.set(qsoCount, forKey: Keys.rateQSOCount)
+
+        guard PromptMomentPolicy.shouldRequestReviewAfterQSO(
+            flagEnabled: FeatureFlagManager.shared.isEnabled(.rateAfterQSO),
+            ratePromptEnabled: isRatePromptEnabled,
+            alreadyRequested: defaults.bool(forKey: Keys.hasShownRatePrompt),
+            presentedThisSession: hasPresentedPromptThisSession,
+            qsoCount: qsoCount
+        ) else { return false }
+
+        appLogger.debug("Requesting review after QSO #\(qsoCount)")
+        hasPresentedPromptThisSession = true
+        Task {
+            // Let the QSO confirmation settle before the system sheet.
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            requestRate()
+        }
+        return true
     }
 
     private func recordDonationTrigger(_ trigger: DonationTrigger) {
+        if FeatureFlagManager.shared.isEnabled(.premiumMoments) {
+            recordPremiumMoment(trigger)
+            return
+        }
         guard isDonationPromptEnabled else { return }
         guard FeatureFlagManager.shared.isEnabled(.donationsEnabled) else {
             logDonationPromptSkipped(trigger: trigger, reason: "donations_disabled")
@@ -210,6 +256,22 @@ final class InAppPrompts: ObservableObject {
         }
     }
 
+    /// `premiumMoments` path: free users get a Premium prompt about the
+    /// feature behind this milestone. Thresholds, cooldown and probability
+    /// are the donation ones from the prompt config. Tip prompts stay off
+    /// while the flag is on, since tips no longer unlock anything.
+    private func recordPremiumMoment(_ trigger: DonationTrigger) {
+        guard PromptMomentPolicy.offersPremium(
+            flagEnabled: FeatureFlagManager.shared.isEnabled(.premiumMoments),
+            isPremium: PremiumManager.shared.isPremiumUnlocked
+        ) else { return }
+        guard !hasPresentedPromptThisSession, shareItem == nil else { return }
+
+        Task {
+            await processDonationTrigger(trigger, offeringPremium: true)
+        }
+    }
+
     private func logDonationPromptSkipped(trigger: DonationTrigger, reason: String, roll: Int? = nil) {
         let launches = UserDefaults.standard.integer(forKey: Keys.appLaunches)
         AnalyticsManager.shared.logDonationPromptSkipped(
@@ -220,13 +282,15 @@ final class InAppPrompts: ObservableObject {
         )
     }
     
-    private func processDonationTrigger(_ trigger: DonationTrigger) async {
+    private func processDonationTrigger(_ trigger: DonationTrigger, offeringPremium: Bool = false) async {
         let defaults = UserDefaults.standard
         let launches = defaults.integer(forKey: Keys.appLaunches)
         let lastPromptLaunch = defaults.integer(forKey: Keys.donationLastPromptLaunch)
 
         if launches - lastPromptLaunch < donationCooldownLaunches {
-            logDonationPromptSkipped(trigger: trigger, reason: "cooldown")
+            if !offeringPremium {
+                logDonationPromptSkipped(trigger: trigger, reason: "cooldown")
+            }
             return
         }
 
@@ -250,14 +314,22 @@ final class InAppPrompts: ObservableObject {
         defaults.set(0, forKey: countKey)
 
         guard roll <= donationProbabilityPercent else {
-            appLogger.debug("Donation prompt skipped (roll=\(roll))")
-            logDonationPromptSkipped(trigger: trigger, reason: "probability_roll", roll: roll)
+            appLogger.debug("Milestone prompt skipped (roll=\(roll))")
+            if !offeringPremium {
+                logDonationPromptSkipped(trigger: trigger, reason: "probability_roll", roll: roll)
+            }
             return
         }
 
         hasPresentedPromptThisSession = true
         lastDonationTriggerSource = trigger.analyticsSource
         defaults.set(launches, forKey: Keys.donationLastPromptLaunch)
+
+        if offeringPremium {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            premiumMomentAlert = trigger.premiumMoment
+            return
+        }
 
         AnalyticsManager.shared.logDonationPromptShown(
             triggerSource: trigger.analyticsSource,
@@ -332,6 +404,16 @@ final class InAppPrompts: ObservableObject {
         shouldNavigateToDonations = true
     }
 
+    // MARK: - Premium moment actions
+    func openPremiumMoment(_ moment: PremiumMoment) {
+        premiumMomentAlert = nil
+        premiumMomentPaywall = moment
+    }
+
+    func postponePremiumMoment() {
+        premiumMomentAlert = nil
+    }
+
     func postponeDonation() {
         let defaults = UserDefaults.standard
         let launches = defaults.integer(forKey: Keys.appLaunches)
@@ -383,6 +465,31 @@ struct InAppPromptsViewModifier: ViewModifier {
                 Text("Optional tips help maintain the app. The app works the same without donating.")
             }
             // Note: Donation navigation is handled by ContentView switching to Configuration tab
+
+            // MARK: - Premium moment (replaces the tip prompt with `premiumMoments`)
+            .alert(
+                prompts.premiumMomentAlert?.title ?? "",
+                isPresented: Binding(
+                    get: { prompts.premiumMomentAlert != nil },
+                    set: { if !$0 { prompts.premiumMomentAlert = nil } }
+                ),
+                presenting: prompts.premiumMomentAlert
+            ) { moment in
+                Button("See Premium") {
+                    prompts.openPremiumMoment(moment)
+                }
+                Button("Not now", role: .cancel) {
+                    prompts.postponePremiumMoment()
+                }
+            } message: { moment in
+                Text(moment.message)
+            }
+            .sheet(item: $prompts.premiumMomentPaywall) { moment in
+                // This modifier sits outside the app's environmentObject
+                // chain, so the paywall gets the manager explicitly.
+                PremiumPaywallView(source: moment.paywallSource)
+                    .environmentObject(PremiumManager.shared)
+            }
     }
 }
 

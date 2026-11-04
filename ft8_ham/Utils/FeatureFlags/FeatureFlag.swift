@@ -27,6 +27,12 @@ enum FeatureFlag: String, CaseIterable {
     case waterfallSlotContext
     /// Map: "heard me" layer (stations that decoded us, from PSK Reporter).
     case enableHeardMe
+    /// Free users: offer Premium at usage milestones (QSO logged, ADIF
+    /// export, transmit) instead of the tip prompt.
+    case premiumMoments
+    /// Ask for an App Store rating after the first few logged QSOs instead
+    /// of waiting for a launch count.
+    case rateAfterQSO
 
     var defaultValue: Bool {
         switch self {
@@ -43,6 +49,8 @@ enum FeatureFlag: String, CaseIterable {
         // Off everywhere, including debug builds: switch it on from the
         // Debug screen (or Remote Config in release) when wanted.
         case .enableFreeText, .controlsSheet, .enableHeardMe: return false
+        // Off everywhere until switched on from the Debug screen or Remote Config.
+        case .premiumMoments, .rateAfterQSO: return false
         // Off everywhere until the look is settled.
         case .waterfallSlotContext: return false
         case .enableBandHopping, .enableICloudSync, .enablePresence:
