@@ -103,15 +103,16 @@ final class LegacyDonorStoreKitTests: XCTestCase {
         XCTAssertFalse(sut.isLegacyDonor)
     }
 
-    /// Any tip bought today is past the real 1.3.0 cutoff.
-    func test_tipToday_withDefaultCutoff_doesNotUnlockPremium() async throws {
+    /// A tip bought today follows the real cutoff: premium until the 1.3.0
+    /// phased release ends, nothing after it.
+    func test_tipToday_withDefaultCutoff_followsTheRealCutoff() async throws {
         try requireConsumableHistory()
         _ = try await buyAndFinishTip()
         let sut = PremiumManager(fetcher: NoProductFetcher(), observesTransactions: false)
 
         await sut.loadPremiumStatus()
 
-        XCTAssertFalse(sut.isPremiumUnlocked)
+        XCTAssertEqual(sut.isPremiumUnlocked, Date() < PremiumManager.legacyDonationCutoff)
     }
 
     func test_refundedLegacyTip_revokesPremium() async throws {
