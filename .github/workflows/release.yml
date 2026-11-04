@@ -92,7 +92,7 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.3"
           bundler-cache: true
@@ -138,7 +138,7 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.3"
           bundler-cache: true
@@ -207,14 +207,16 @@ jobs:
       - name: Write ASC API key
         env:
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           mkdir -p /tmp/asc
           echo "$APP_STORE_CONNECT_API_KEY_CONTENT" > /tmp/asc/api_key.p8
           # Build a JSON key file that Fastlane's app_store_connect_api_key accepts
           cat > /tmp/asc/key.json <<EOF
           {
-            "key_id":     "${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}",
-            "issuer_id":  "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}",
+            "key_id":     "$APP_STORE_CONNECT_API_KEY_ID",
+            "issuer_id":  "$APP_STORE_CONNECT_ISSUER_ID",
             "key":        "$(cat /tmp/asc/api_key.p8 | tr -d '\n')"
           }
           EOF
@@ -277,7 +279,7 @@ jobs:
 
     steps:
       - name: Dispatch release event to ft_ham_premium
-        uses: peter-evans/repository-dispatch@v3
+        uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0 # v3.0.0
         with:
           token: ${{ secrets.PREMIUM_REPO_TOKEN }}
           repository: pablots25/ft_ham_premium
