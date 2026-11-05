@@ -122,6 +122,128 @@ final class CrashlyticsStabilityTests: XCTestCase {
             input: AVAudioFormat(), output: AVAudioFormat()).isEmpty)
     }
 
+    /// Regression for 1.3.0 (23): input and output were both rejected after a
+    /// route change, so the session's hardware rate is the last candidate.
+    func test_tapFormatCandidates_addsTheSessionRateWhenBothSidesAreStale() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+        let output = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+
+        let candidates = AudioManager.tapFormatCandidates(
+            input: input, output: output, hardwareSampleRate: 48_000)
+
+        XCTAssertEqual(candidates.map(\.sampleRate), [44_100, 48_000])
+    }
+
+    func test_tapFormatCandidates_dropsTheSessionRateWhenItMatchesTheInput() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+
+        let candidates = AudioManager.tapFormatCandidates(
+            input: input, output: AVAudioFormat(), hardwareSampleRate: 48_000)
+
+        XCTAssertEqual(candidates, [input])
+    }
+
+    func test_tapFormatCandidates_sessionRateKeepsTheInputChannelCount() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
+
+        let candidates = AudioManager.tapFormatCandidates(
+            input: input, output: AVAudioFormat(), hardwareSampleRate: 48_000)
+
+        XCTAssertEqual(candidates.last?.sampleRate, 48_000)
+        XCTAssertEqual(candidates.last?.channelCount, 2)
+    }
+
+    func test_tapFormatCandidates_sessionRateUsesOneChannelWhenTheNodeIsNotReady() {
+        let candidates = AudioManager.tapFormatCandidates(
+            input: AVAudioFormat(), output: AVAudioFormat(), hardwareSampleRate: 48_000)
+
+        XCTAssertEqual(candidates.map(\.channelCount), [1])
+    }
+
+    func test_tapFormatCandidates_ignoresAnInvalidSessionRate() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+
+        XCTAssertEqual(AudioManager.tapFormatCandidates(
+            input: input, output: AVAudioFormat(), hardwareSampleRate: 0), [input])
+    }
+
+    // MARK: - Mic tap retry
+
+    @MainActor
+    func test_retryMicTap_stopsAtTheFirstSuccess() async {
+        var finalFlags: [Bool] = []
+
+        let installed = await AudioManager.retryMicTap(
+            delays: [.zero, .zero, .zero],
+            sleep: { _ in }
+        ) { isFinalAttempt in
+            finalFlags.append(isFinalAttempt)
+            return finalFlags.count == 2
+        }
+
+        XCTAssertTrue(installed)
+        XCTAssertEqual(finalFlags, [false, false])
+    }
+
+    /// Only the last attempt may record a non-fatal and show a toast.
+    @MainActor
+    func test_retryMicTap_marksOnlyTheLastAttemptAsFinal() async {
+        var finalFlags: [Bool] = []
+
+        let installed = await AudioManager.retryMicTap(
+            delays: [.zero, .zero, .zero],
+            sleep: { _ in }
+        ) { isFinalAttempt in
+            finalFlags.append(isFinalAttempt)
+            return false
+        }
+
+        XCTAssertFalse(installed)
+        XCTAssertEqual(finalFlags, [false, false, true])
+    }
+
+    @MainActor
+    func test_retryMicTap_waitsForEachDelayBeforeItsAttempt() async {
+        var events: [String] = []
+
+        _ = await AudioManager.retryMicTap(
+            delays: [.milliseconds(1), .milliseconds(2)],
+            sleep: { events.append("sleep \($0)") }
+        ) { _ in
+            events.append("attempt")
+            return false
+        }
+
+        XCTAssertEqual(events, [
+            "sleep \(Duration.milliseconds(1))", "attempt",
+            "sleep \(Duration.milliseconds(2))", "attempt"
+        ])
+    }
+
+    @MainActor
+    func test_retryMicTap_makesNoAttemptAfterCancellation() async {
+        var attempts = 0
+
+        let installed = await AudioManager.retryMicTap(
+            delays: [.zero, .zero],
+            sleep: { _ in throw CancellationError() }
+        ) { _ in
+            attempts += 1
+            return true
+        }
+
+        XCTAssertFalse(installed)
+        XCTAssertEqual(attempts, 0)
+    }
+
+    /// RX must come back within the slot after a route change, not a slot later.
+    func test_micTapRetryDelays_fitWithinOneFT4Slot() {
+        let total = AudioManager.micTapRetryDelays.reduce(Duration.zero, +)
+
+        XCTAssertFalse(AudioManager.micTapRetryDelays.isEmpty)
+        XCTAssertLessThan(total, .milliseconds(7_500))
+    }
+
     // MARK: - Recovery in test mode
 
     @MainActor
