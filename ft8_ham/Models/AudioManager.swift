@@ -62,6 +62,57 @@ enum AudioManagerError: LocalizedError {
             return "Invalid audio data size or format"
         }
     }
+
+    /// The text for logs and Crashlytics, with the code of the underlying error.
+    /// `errorDescription` stays as it is because the toast matches on its prefix.
+    /// "Session activation failed" is the same text for several session errors,
+    /// so without the code the failure cannot be told apart.
+    var diagnosticDescription: String {
+        let description = errorDescription ?? "Unknown audio error"
+        guard let underlying = underlyingError else { return description }
+        return "\(description) \(Self.codeTag(for: underlying))"
+    }
+
+    private var underlyingError: Error? {
+        switch self {
+        case .sessionCategoryConfiguration(let error),
+             .sessionModeConfiguration(let error),
+             .sessionSampleRateConfiguration(let error),
+             .sessionActivationFailed(let error),
+             .engineStartFailed(let error),
+             .tapInstallationFailed(let error):
+            return error
+        case .invalidInputFormat, .audioGenerationFailed, .invalidAudioData:
+            return nil
+        }
+    }
+
+    /// Log text for any error, wrapped or raw.
+    static func diagnosticDescription(of error: Error) -> String {
+        if let audioError = error as? AudioManagerError {
+            return audioError.diagnosticDescription
+        }
+        return "\(error.localizedDescription) \(codeTag(for: error))"
+    }
+
+    /// For example `[NSOSStatusErrorDomain 561015905 '!pla']`.
+    static func codeTag(for error: Error) -> String {
+        let nsError = error as NSError
+        var tag = "\(nsError.domain) \(nsError.code)"
+        if let fourCharacterCode = fourCharacterCode(nsError.code) {
+            tag += " '\(fourCharacterCode)'"
+        }
+        return "[\(tag)]"
+    }
+
+    /// Core Audio status codes are four printable ASCII characters. Returns `nil`
+    /// for anything else, such as -10868.
+    static func fourCharacterCode(_ code: Int) -> String? {
+        guard let value = UInt32(exactly: code) else { return nil }
+        let bytes = [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: value >> $0) }
+        guard bytes.allSatisfy({ (0x20...0x7E).contains($0) }) else { return nil }
+        return String(decoding: bytes, as: UTF8.self)
+    }
 }
 
 final class AudioManager: NSObject, AudioManaging {
@@ -102,6 +153,10 @@ final class AudioManager: NSObject, AudioManaging {
     /// at launch (a phone call or another app holds the session), so every
     /// entry point that needs audio retries the setup while this is `false`.
     private(set) var isSessionConfigured = false
+
+    /// `true` once this failure run has recorded its non-fatal. Cleared when the
+    /// session comes up, so a later failure gets its own event.
+    private var hasReportedActiveSessionFailure = false
 
     /// `true` between `startMicInput()` and `stopMicInput()`, even when the tap
     /// could not be installed. Recovery paths use it to bring RX back.
@@ -241,7 +296,7 @@ final class AudioManager: NSObject, AudioManaging {
             try configureSessionIfNeeded()
             try startEngineIfNeeded()
         } catch {
-            audioLogger.log(.warning, "Audio not ready during init (will retry): \(error.localizedDescription)")
+            audioLogger.log(.warning, "Audio not ready during init (will retry): \(AudioManagerError.diagnosticDescription(of: error))")
             audioErrorPublisher.send(error.localizedDescription)
         }
 
@@ -295,6 +350,7 @@ final class AudioManager: NSObject, AudioManaging {
         }
 
         isSessionConfigured = true
+        hasReportedActiveSessionFailure = false
         audioLogger.log(
             .info,
             "AVAudioSession active. HW SR: \(session.sampleRate)"
@@ -309,7 +365,7 @@ final class AudioManager: NSObject, AudioManaging {
         do {
             try configureAudioSession()
         } catch {
-            audioLogger.log(.warning, "Audio session not available: \(error.localizedDescription)")
+            audioLogger.log(.warning, "Audio session not available: \(AudioManagerError.diagnosticDescription(of: error))")
             throw error
         }
     }
@@ -697,7 +753,7 @@ final class AudioManager: NSObject, AudioManaging {
             try configureSessionIfNeeded()
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            audioLogger.log(.warning, "Audio session activation failed, skipping playback: \(error.localizedDescription)")
+            audioLogger.log(.warning, "Audio session activation failed, skipping playback: \(AudioManagerError.diagnosticDescription(of: error))")
             audioErrorPublisher.send(error.localizedDescription)
             return
         }
@@ -864,7 +920,7 @@ final class AudioManager: NSObject, AudioManaging {
             try configureAudioSession()
             try startEngineIfNeeded()
         } catch {
-            audioLogger.log(.warning, "Failed to reconfigure after route change: \(error.localizedDescription)")
+            audioLogger.log(.warning, "Failed to reconfigure after route change: \(AudioManagerError.diagnosticDescription(of: error))")
             audioErrorPublisher.send(error.localizedDescription)
             // The tap is gone; let recoverAudioIfNeeded() reinstall it later.
             if wasListening { isListening = false }
@@ -910,12 +966,34 @@ final class AudioManager: NSObject, AudioManaging {
         do {
             try ensureSessionAndEngine()
         } catch {
+            reportActiveSessionFailureIfNeeded(error)
             return
         }
 
         if wantsMicInput && !isListening {
             startMicInput()
         }
+    }
+
+    /// A session that fails at launch is expected and only logs a warning. Failing
+    /// again with the app active is what the user notices, so it records one
+    /// non-fatal per failure run. An engine start failure has its own non-fatal.
+    private func reportActiveSessionFailureIfNeeded(_ error: Error) {
+        guard Self.shouldReportActiveSessionFailure(
+            isSessionConfigured: isSessionConfigured,
+            alreadyReported: hasReportedActiveSessionFailure
+        ) else { return }
+
+        hasReportedActiveSessionFailure = true
+        audioLogger.log(
+            .error,
+            "Audio session still unavailable with the app active: \(AudioManagerError.diagnosticDescription(of: error))"
+        )
+    }
+
+    /// Exposed as `internal` for deterministic unit testing.
+    static func shouldReportActiveSessionFailure(isSessionConfigured: Bool, alreadyReported: Bool) -> Bool {
+        !isSessionConfigured && !alreadyReported
     }
 
     // MARK: - Engine Configuration Change Recovery
@@ -974,7 +1052,7 @@ final class AudioManager: NSObject, AudioManaging {
                     try configureAudioSession()
                     try startEngineIfNeeded()
                 } catch {
-                    audioLogger.log(.warning, "Failed to recover from interruption: \(error.localizedDescription)")
+                    audioLogger.log(.warning, "Failed to recover from interruption: \(AudioManagerError.diagnosticDescription(of: error))")
                     audioErrorPublisher.send(error.localizedDescription)
                 }
             } else {

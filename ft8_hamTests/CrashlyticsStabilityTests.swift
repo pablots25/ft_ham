@@ -258,6 +258,93 @@ final class CrashlyticsStabilityTests: XCTestCase {
         XCTAssertFalse(sut.wantsMicInput)
     }
 
+    // MARK: - Audio session diagnostics (issue 93f6a2a7)
+
+    private let sessionError = NSError(
+        domain: NSOSStatusErrorDomain, code: 561_015_905,
+        userInfo: [NSLocalizedDescriptionKey: "Session activation failed"])
+
+    func test_diagnosticDescription_addsDomainCodeAndFourCharacterCode() {
+        let error = AudioManagerError.sessionActivationFailed(underlying: sessionError)
+
+        XCTAssertEqual(
+            error.diagnosticDescription,
+            "Failed to activate audio session: Session activation failed [NSOSStatusErrorDomain 561015905 '!pla']")
+    }
+
+    /// The toast groups messages by prefix and must not show the code.
+    func test_localizedDescription_doesNotIncludeTheCode() {
+        let error = AudioManagerError.sessionActivationFailed(underlying: sessionError)
+
+        XCTAssertEqual(error.localizedDescription,
+                       "Failed to activate audio session: Session activation failed")
+        XCTAssertEqual(AudioErrorToastText.kind(of: error.localizedDescription), .setup)
+    }
+
+    func test_diagnosticDescription_coversEverySessionStep() {
+        let errors: [AudioManagerError] = [
+            .sessionCategoryConfiguration(underlying: sessionError),
+            .sessionModeConfiguration(underlying: sessionError),
+            .sessionSampleRateConfiguration(underlying: sessionError),
+            .sessionActivationFailed(underlying: sessionError)
+        ]
+
+        for error in errors {
+            XCTAssertTrue(error.diagnosticDescription.contains("561015905"), "\(error)")
+        }
+    }
+
+    func test_diagnosticDescription_isThePlainTextWithoutAnUnderlyingError() {
+        XCTAssertEqual(AudioManagerError.invalidAudioData.diagnosticDescription,
+                       "Invalid audio data size or format")
+    }
+
+    func test_diagnosticDescriptionOfRawError_addsTheCode() {
+        XCTAssertEqual(
+            AudioManagerError.diagnosticDescription(of: sessionError),
+            "Session activation failed [NSOSStatusErrorDomain 561015905 '!pla']")
+    }
+
+    func test_diagnosticDescriptionOfWrappedError_doesNotRepeatTheCode() {
+        let wrapped = AudioManagerError.sessionActivationFailed(underlying: sessionError)
+
+        XCTAssertEqual(AudioManagerError.diagnosticDescription(of: wrapped),
+                       wrapped.diagnosticDescription)
+    }
+
+    func test_fourCharacterCode_decodesPrintableCodes() {
+        XCTAssertEqual(AudioManagerError.fourCharacterCode(561_015_905), "!pla")
+    }
+
+    func test_fourCharacterCode_rejectsOtherCodes() {
+        XCTAssertNil(AudioManagerError.fourCharacterCode(-10_868))
+        XCTAssertNil(AudioManagerError.fourCharacterCode(0))
+        XCTAssertNil(AudioManagerError.fourCharacterCode(5))
+        XCTAssertNil(AudioManagerError.fourCharacterCode(Int(UInt32.max) + 1))
+    }
+
+    func test_sanitize_keepsTheSessionErrorCode() {
+        let error = AudioManagerError.sessionActivationFailed(underlying: sessionError)
+
+        XCTAssertEqual(logger.sanitize(error.diagnosticDescription), error.diagnosticDescription)
+    }
+
+    func test_activeSessionFailure_reportsTheFirstFailureOfARun() {
+        XCTAssertTrue(AudioManager.shouldReportActiveSessionFailure(
+            isSessionConfigured: false, alreadyReported: false))
+    }
+
+    func test_activeSessionFailure_reportsOncePerRun() {
+        XCTAssertFalse(AudioManager.shouldReportActiveSessionFailure(
+            isSessionConfigured: false, alreadyReported: true))
+    }
+
+    /// With the session up, the failure came from the engine, which reports itself.
+    func test_activeSessionFailure_ignoresEngineFailures() {
+        XCTAssertFalse(AudioManager.shouldReportActiveSessionFailure(
+            isSessionConfigured: true, alreadyReported: false))
+    }
+
     // MARK: - 3a. Lag after suspend/resume
 
     func test_isSuspensionGap_FT8_wholeSlotLate() {
