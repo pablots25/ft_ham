@@ -25,6 +25,7 @@ final class FreeTextSequencerTests: XCTestCase {
 
         decoder = MockMessageDecoder()
         viewModel = FT8ViewModel(audioManager: MockAudioManager(), engine: decoder)
+        viewModel.applicationState = { .active }
         viewModel.callsign = "EA4IQL"
         viewModel.locator = "IN80"
         viewModel.freeTextMessage = "TNX 73 GL"
@@ -90,6 +91,17 @@ final class FreeTextSequencerTests: XCTestCase {
     }
 
     // MARK: - performTransmission
+
+    /// Audio started in the background has no IO cycle and crashes the player node.
+    func test_performTransmission_inBackground_doesNotStartTheTX() async {
+        viewModel.applicationState = { .background }
+        viewModel.freeTextLoopActive = true
+
+        await viewModel.performTransmission(slot: slot(even: true))
+
+        XCTAssertNil(viewModel.activeTXMessage)
+        XCTAssertFalse(viewModel.activeTXIsFreeText)
+    }
 
     func test_performTransmission_freeText_usesFreeTextEncoderAndSkipsQSOAdvance() async {
         viewModel.freeTextLoopActive = true

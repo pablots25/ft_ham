@@ -360,6 +360,40 @@ final class CrashlyticsStabilityTests: XCTestCase {
         XCTAssertFalse(FT8ViewModel.isSuspensionGap(lag: 8.0, isFT4: false))
     }
 
+    /// A few seconds late while not active is the system delaying the app. These
+    /// made up 37 of the 39 lag non-fatals reviewed in November 2026.
+    func test_isExpectedSlotLag_shortLagIsExpectedWhenNotActive() {
+        for state in [UIApplication.State.inactive, .background] {
+            XCTAssertTrue(FT8ViewModel.isExpectedSlotLag(lag: 3.2, isFT4: false, applicationState: state))
+        }
+    }
+
+    func test_isExpectedSlotLag_shortLagWhileActiveIsARealStall() {
+        XCTAssertFalse(FT8ViewModel.isExpectedSlotLag(lag: 3.2, isFT4: false, applicationState: .active))
+    }
+
+    func test_isExpectedSlotLag_wholeSlotLateIsExpectedWhileActive() {
+        XCTAssertTrue(FT8ViewModel.isExpectedSlotLag(lag: 15.5, isFT4: false, applicationState: .active))
+        XCTAssertTrue(FT8ViewModel.isExpectedSlotLag(lag: 8.0, isFT4: true, applicationState: .active))
+    }
+
+    func test_stateDescription_namesEachState() {
+        XCTAssertEqual(FT8ViewModel.stateDescription(.active), "active")
+        XCTAssertEqual(FT8ViewModel.stateDescription(.inactive), "inactive")
+        XCTAssertEqual(FT8ViewModel.stateDescription(.background), "background")
+    }
+
+    /// The log level changes with the state, but a late slot is skipped either way.
+    @MainActor
+    func test_determineAction_skipsLateSlotsInEveryAppState() {
+        let viewModel = FT8ViewModel(audioManager: MockAudioManager(), engine: MockMessageDecoder())
+        for state in [UIApplication.State.active, .inactive, .background] {
+            viewModel.applicationState = { state }
+            let slot = SlotInfo(startTime: Date().addingTimeInterval(-3), slotIndex: 10, isEven: true, isFT4: false)
+            XCTAssertEqual(viewModel.determineAction(for: slot), .skip, "state \(state.rawValue)")
+        }
+    }
+
     /// A slot that started a whole period ago (resume after suspension) and
     /// one that is a few seconds late (a real stall) are both skipped. Only
     /// the log level differs, which `isSuspensionGap` decides.

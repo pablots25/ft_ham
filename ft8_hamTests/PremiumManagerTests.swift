@@ -9,6 +9,7 @@
 import XCTest
 import Combine
 import StoreKit
+import StoreKitTest
 @testable import ft8_ham
 
 // MARK: - PremiumError
@@ -315,28 +316,94 @@ final class PremiumManagerDebugTests: XCTestCase {
     }
     #endif
 
-    func test_fetchPremiumProduct_isIdempotent() async {
-        // First call loads (or attempts to load) the product.
-        // Subsequent calls must return early without flipping isLoading.
-        let manager = PremiumManager.shared
+}
 
-        await manager.fetchPremiumProduct()
-        let loadingAfterFirst = manager.isLoading
+// MARK: - Product cache
 
-        // Snapshot isLoading transitions during a second call
+/// `Product` cannot be built synthetically, so the cached case needs a StoreKit
+/// test session that really serves the premium product.
+@MainActor
+final class PremiumManagerProductCacheTests: XCTestCase {
+
+    private var session: SKTestSession!
+    private var configURL: URL!
+
+    override func setUp() async throws {
+        try await super.setUp()
+        configURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PremiumProduct-\(UUID().uuidString).storekit")
+        try Self.configuration.write(to: configURL, atomically: true, encoding: .utf8)
+        session = try SKTestSession(contentsOf: configURL)
+        session.disableDialogs = true
+    }
+
+    override func tearDown() async throws {
+        session = nil
+        if let configURL { try? FileManager.default.removeItem(at: configURL) }
+        try await super.tearDown()
+    }
+
+    func test_fetchPremiumProduct_isIdempotentOnceTheProductIsCached() async throws {
+        let sut = PremiumManager(fetcher: StoreKitProductFetcher(), observesTransactions: false)
+
+        await sut.fetchPremiumProduct()
+        XCTAssertNotNil(sut.premiumProduct, "The test session must serve the premium product")
+        XCTAssertFalse(sut.isLoading, "isLoading must be false after fetchPremiumProduct() completes")
+
         var loadingTransitions: [Bool] = []
-        let cancellable = manager.$isLoading
+        let cancellable = sut.$isLoading
             .dropFirst()
             .sink { loadingTransitions.append($0) }
+        defer { cancellable.cancel() }
 
-        await manager.fetchPremiumProduct()
+        await sut.fetchPremiumProduct()
 
-        XCTAssertFalse(loadingAfterFirst, "isLoading must be false after fetchPremiumProduct() completes")
-        XCTAssertTrue(
-            loadingTransitions.isEmpty,
-            "Second fetchPremiumProduct() call must not toggle isLoading — product already cached"
-        )
-        cancellable.cancel()
+        XCTAssertTrue(loadingTransitions.isEmpty, "A cached product must not toggle isLoading")
+        XCTAssertEqual(sut.productLoadState, .loaded)
+    }
+
+    /// Without a cached product the paywall has to be able to try again.
+    func test_fetchPremiumProduct_fetchesAgainWhenNoProductWasFound() async {
+        let fetcher = CountingPremiumFetcher()
+        let sut = PremiumManager(fetcher: fetcher, observesTransactions: false)
+
+        await sut.fetchPremiumProduct()
+        await sut.fetchPremiumProduct()
+
+        XCTAssertEqual(fetcher.calls, 2)
+        XCTAssertEqual(sut.productLoadState, .failed)
+    }
+
+    private static let configuration = """
+    {
+      "identifier" : "PremiumManagerProductCacheTests",
+      "nonRenewingSubscriptions" : [],
+      "products" : [
+        {
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "internalID" : "9100000",
+          "localizations" : [
+            { "description" : "Premium", "displayName" : "Premium", "locale" : "en_US" }
+          ],
+          "productID" : "\(PremiumManager.premiumProductID)",
+          "referenceName" : "Premium",
+          "type" : "NonConsumable"
+        }
+      ],
+      "settings" : {},
+      "subscriptionGroups" : [],
+      "version" : { "major" : 3, "minor" : 0 }
+    }
+    """
+}
+
+private final class CountingPremiumFetcher: ProductFetching, @unchecked Sendable {
+    private(set) var calls = 0
+
+    func fetchProducts(for identifiers: [String]) async throws -> [Product] {
+        calls += 1
+        return []
     }
 }
 

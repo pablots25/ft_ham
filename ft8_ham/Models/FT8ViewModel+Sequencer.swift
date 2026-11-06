@@ -195,6 +195,25 @@ extension FT8ViewModel {
         lag >= (isFT4 ? 7.5 : 15.0)
     }
 
+    /// `true` when a late slot says nothing about the app's performance. A stall
+    /// with the app active and less than a whole slot late is the only real one.
+    nonisolated static func isExpectedSlotLag(
+        lag: TimeInterval,
+        isFT4: Bool,
+        applicationState: UIApplication.State
+    ) -> Bool {
+        applicationState != .active || isSuspensionGap(lag: lag, isFT4: isFT4)
+    }
+
+    nonisolated static func stateDescription(_ state: UIApplication.State) -> String {
+        switch state {
+        case .active: return "active"
+        case .inactive: return "inactive"
+        case .background: return "background"
+        @unknown default: return "unknown"
+        }
+    }
+
     @MainActor
     internal func determineAction(for slot: SlotInfo) -> SequencerAction {
         if case .completed = qsoManager.qsoState {
@@ -203,10 +222,13 @@ extension FT8ViewModel {
         
         let lag = AppClock.now().timeIntervalSince(slot.startTime)
         if lag > Self.maxSlotLag {
-            if Self.isSuspensionGap(lag: lag, isFT4: slot.isFT4) {
-                // A whole slot or more went by: the app was suspended (screen
-                // lock, background) and just resumed. Expected, not a bug.
-                appLogger.warning("Slot \(slot.slotIndex) skipped after resuming (\(lag)s late)")
+            let state = applicationState()
+            if Self.isExpectedSlotLag(lag: lag, isFT4: slot.isFT4, applicationState: state) {
+                // The app was suspended or is not active, so the system can
+                // delay it. Expected, not a bug.
+                appLogger.warning(
+                    "Slot \(slot.slotIndex) skipped (\(lag)s late, app state: \(Self.stateDescription(state)))"
+                )
             } else {
                 appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
             }
@@ -439,7 +461,7 @@ extension FT8ViewModel {
         // The scenePhase handler stops the sequencer on backgrounding, but a TX
         // task already in flight can reach this point afterwards. Starting audio
         // in the background has no IO cycle and crashes AVAudioPlayerNode.
-        guard UIApplication.shared.applicationState != .background else {
+        guard applicationState() != .background else {
             txLogger.warning("TX skipped for slot \(slot.slotIndex): app is in background")
             return
         }
