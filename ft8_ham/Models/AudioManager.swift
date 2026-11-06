@@ -566,8 +566,9 @@ final class AudioManager: NSObject, AudioManaging {
         return false
     }
 
-    /// Retries the tap without waiting for the app to become active: RX runs in
-    /// the background, where `recoverAudioIfNeeded()` never fires.
+    /// Retries the tap without waiting for the next activation. With the app
+    /// already active, `recoverAudioIfNeeded()` does not fire again, so nothing
+    /// else would reinstall the tap.
     private func scheduleMicTapRetry() {
         micTapRetryTask?.cancel()
         micTapRetryTask = Task { @MainActor [weak self] in
