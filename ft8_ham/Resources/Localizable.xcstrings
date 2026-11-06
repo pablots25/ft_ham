@@ -4414,7 +4414,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CAT-PTT fehlgeschlagen, Senden über Audio. Nutze VOX oder rigctld."
+            "value" : "CAT-PTT-Fehler, Senden über Audio. Nutze VOX oder rigctld."
           }
         },
         "en" : {
@@ -4438,7 +4438,7 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PTT CAT non riuscito, invio via audio. Usa il VOX o controlla rigctld."
+            "value" : "Errore PTT CAT, invio via audio. Usa il VOX o controlla rigctld."
           }
         }
       }

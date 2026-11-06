@@ -110,6 +110,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     /// Set while the audio in flight is a free-text message, so the QSO
     /// state machine is not advanced when it finishes.
     internal var activeTXIsFreeText = false
+    /// The app's state, which decides whether TX audio can start and how a late
+    /// slot is logged. Tests replace it because the test host's real state
+    /// changes between runs.
+    internal var applicationState: () -> UIApplication.State = { UIApplication.shared.applicationState }
 
     // MARK: - Free-text TX loop
     /// Transmit `freeTextMessage` on every my-turn slot until stopped.

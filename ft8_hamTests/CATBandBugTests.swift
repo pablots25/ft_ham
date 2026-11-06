@@ -15,10 +15,16 @@ import Combine
 @MainActor
 final class CATBandBugTests: XCTestCase {
 
+    private static let audioOffsetKey = "catApplyAudioOffset"
+
     var viewModel: FT8ViewModel!
 
     override func setUp() async throws {
         try await super.setUp()
+        // @AppStorage persists across test runs. An offset left on by
+        // testCustomBandWithAudioOffset_sendsCorrectFrequency shifted every polled
+        // frequency in the next run.
+        UserDefaults.standard.removeObject(forKey: Self.audioOffsetKey)
         viewModel = FT8ViewModel(txMessages: [], rxMessages: [])
         // Pre-configure CAT with valid host/port defaults so only
         // catDialFrequencyHz() is the variable under test.
@@ -30,6 +36,7 @@ final class CATBandBugTests: XCTestCase {
     override func tearDown() async throws {
         viewModel.catEnabled = false
         viewModel = nil
+        UserDefaults.standard.removeObject(forKey: Self.audioOffsetKey)
         try await super.tearDown()
     }
 
