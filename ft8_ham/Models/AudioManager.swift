@@ -62,6 +62,57 @@ enum AudioManagerError: LocalizedError {
             return "Invalid audio data size or format"
         }
     }
+
+    /// The text for logs and Crashlytics, with the code of the underlying error.
+    /// `errorDescription` stays as it is because the toast matches on its prefix.
+    /// "Session activation failed" is the same text for several session errors,
+    /// so without the code the failure cannot be told apart.
+    var diagnosticDescription: String {
+        let description = errorDescription ?? "Unknown audio error"
+        guard let underlying = underlyingError else { return description }
+        return "\(description) \(Self.codeTag(for: underlying))"
+    }
+
+    private var underlyingError: Error? {
+        switch self {
+        case .sessionCategoryConfiguration(let error),
+             .sessionModeConfiguration(let error),
+             .sessionSampleRateConfiguration(let error),
+             .sessionActivationFailed(let error),
+             .engineStartFailed(let error),
+             .tapInstallationFailed(let error):
+            return error
+        case .invalidInputFormat, .audioGenerationFailed, .invalidAudioData:
+            return nil
+        }
+    }
+
+    /// Log text for any error, wrapped or raw.
+    static func diagnosticDescription(of error: Error) -> String {
+        if let audioError = error as? AudioManagerError {
+            return audioError.diagnosticDescription
+        }
+        return "\(error.localizedDescription) \(codeTag(for: error))"
+    }
+
+    /// For example `[NSOSStatusErrorDomain 561015905 '!pla']`.
+    static func codeTag(for error: Error) -> String {
+        let nsError = error as NSError
+        var tag = "\(nsError.domain) \(nsError.code)"
+        if let fourCharacterCode = fourCharacterCode(nsError.code) {
+            tag += " '\(fourCharacterCode)'"
+        }
+        return "[\(tag)]"
+    }
+
+    /// Core Audio status codes are four printable ASCII characters. Returns `nil`
+    /// for anything else, such as -10868.
+    static func fourCharacterCode(_ code: Int) -> String? {
+        guard let value = UInt32(exactly: code) else { return nil }
+        let bytes = [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: value >> $0) }
+        guard bytes.allSatisfy({ (0x20...0x7E).contains($0) }) else { return nil }
+        return String(decoding: bytes, as: UTF8.self)
+    }
 }
 
 final class AudioManager: NSObject, AudioManaging {
@@ -102,6 +153,10 @@ final class AudioManager: NSObject, AudioManaging {
     /// at launch (a phone call or another app holds the session), so every
     /// entry point that needs audio retries the setup while this is `false`.
     private(set) var isSessionConfigured = false
+
+    /// `true` once this failure run has recorded its non-fatal. Cleared when the
+    /// session comes up, so a later failure gets its own event.
+    private var hasReportedActiveSessionFailure = false
 
     /// `true` between `startMicInput()` and `stopMicInput()`, even when the tap
     /// could not be installed. Recovery paths use it to bring RX back.
@@ -175,6 +230,15 @@ final class AudioManager: NSObject, AudioManaging {
 
     private var fakeSamplesTask: Task<Void, Never>?
 
+    // MARK: - Mic Tap Retry
+
+    /// Waits between mic tap attempts after a route change. The hardware rate
+    /// can take a moment to settle, and the attempts run outside the user's
+    /// control, so the total stays under one FT4 slot.
+    static let micTapRetryDelays: [Duration] = [.milliseconds(250), .seconds(1), .seconds(2)]
+
+    private var micTapRetryTask: Task<Void, Never>?
+
     // MARK: - Init
 
     init(waterfallFFTSize: Int = 1024,
@@ -232,7 +296,7 @@ final class AudioManager: NSObject, AudioManaging {
             try configureSessionIfNeeded()
             try startEngineIfNeeded()
         } catch {
-            audioLogger.log(.warning, "Audio not ready during init (will retry): \(error.localizedDescription)")
+            audioLogger.log(.warning, "Audio not ready during init (will retry): \(AudioManagerError.diagnosticDescription(of: error))")
             audioErrorPublisher.send(error.localizedDescription)
         }
 
@@ -286,6 +350,7 @@ final class AudioManager: NSObject, AudioManaging {
         }
 
         isSessionConfigured = true
+        hasReportedActiveSessionFailure = false
         audioLogger.log(
             .info,
             "AVAudioSession active. HW SR: \(session.sampleRate)"
@@ -300,7 +365,7 @@ final class AudioManager: NSObject, AudioManaging {
         do {
             try configureAudioSession()
         } catch {
-            audioLogger.log(.warning, "Audio session not available: \(error.localizedDescription)")
+            audioLogger.log(.warning, "Audio session not available: \(AudioManagerError.diagnosticDescription(of: error))")
             throw error
         }
     }
@@ -379,6 +444,7 @@ final class AudioManager: NSObject, AudioManaging {
         }
 
         wantsMicInput = true
+        micTapRetryTask?.cancel()
 
         // Ensure session and engine are up BEFORE attempting to tap
         do {
@@ -405,11 +471,23 @@ final class AudioManager: NSObject, AudioManaging {
     /// `outputFormat` can keep the old rate for a while, and tapping with it
     /// failed with "format.sampleRate == inputHWFormat.sampleRate" (1.3.0 build
     /// 15). It stays as a second attempt for the case where the input side is
-    /// rejected instead. Invalid (0 Hz / 0 channel) formats and duplicates are
-    /// dropped.
-    static func tapFormatCandidates(input: AVAudioFormat, output: AVAudioFormat) -> [AVAudioFormat] {
+    /// rejected instead. Both sides of the node can be stale at once (1.3.0
+    /// build 23), so the rate the audio session reports is the last attempt.
+    /// Invalid (0 Hz / 0 channel) formats and duplicates are dropped.
+    static func tapFormatCandidates(
+        input: AVAudioFormat,
+        output: AVAudioFormat,
+        hardwareSampleRate: Double = 0
+    ) -> [AVAudioFormat] {
+        var formats = [input, output]
+        let channels = input.channelCount > 0 ? input.channelCount : max(output.channelCount, 1)
+        if hardwareSampleRate > 0,
+           let hardware = AVAudioFormat(standardFormatWithSampleRate: hardwareSampleRate, channels: channels) {
+            formats.append(hardware)
+        }
+
         var candidates: [AVAudioFormat] = []
-        for format in [input, output] where format.sampleRate > 0 && format.channelCount > 0 {
+        for format in formats where format.sampleRate > 0 && format.channelCount > 0 {
             let isDuplicate = candidates.contains {
                 $0.sampleRate == format.sampleRate && $0.channelCount == format.channelCount
             }
@@ -419,12 +497,14 @@ final class AudioManager: NSObject, AudioManaging {
     }
 
     /// Installs the mic tap with the first candidate format the node accepts.
-    /// Returns `false` when none worked; the error is already logged and published.
-    private func installMicTap(on inputNode: AVAudioInputNode) -> Bool {
+    /// Returns `false` when none worked. The error is logged and published only
+    /// on a final attempt. An attempt that will be retried logs a warning.
+    private func installMicTap(on inputNode: AVAudioInputNode, isFinalAttempt: Bool = true) -> Bool {
         let input = inputNode.inputFormat(forBus: 0)
         let candidates = Self.tapFormatCandidates(
             input: input,
-            output: inputNode.outputFormat(forBus: 0)
+            output: inputNode.outputFormat(forBus: 0),
+            hardwareSampleRate: AVAudioSession.sharedInstance().sampleRate
         )
 
         guard !candidates.isEmpty else {
@@ -432,8 +512,7 @@ final class AudioManager: NSObject, AudioManaging {
                 sampleRate: input.sampleRate,
                 channels: input.channelCount
             )
-            audioLogger.log(.error, error.localizedDescription)
-            audioErrorPublisher.send(error.localizedDescription)
+            reportMicTapFailure(error.localizedDescription, isFinalAttempt: isFinalAttempt)
             return false
         }
 
@@ -454,9 +533,68 @@ final class AudioManager: NSObject, AudioManaging {
         }
 
         let wrapped = AudioManagerError.tapInstallationFailed(underlying: lastError)
-        audioLogger.log(.error, wrapped.localizedDescription)
-        audioErrorPublisher.send(wrapped.localizedDescription)
+        reportMicTapFailure(wrapped.localizedDescription, isFinalAttempt: isFinalAttempt)
         return false
+    }
+
+    private func reportMicTapFailure(_ message: String, isFinalAttempt: Bool) {
+        guard isFinalAttempt else {
+            audioLogger.log(.warning, "Mic tap attempt failed, will retry: \(message)")
+            return
+        }
+        audioLogger.log(.error, message)
+        audioErrorPublisher.send(message)
+    }
+
+    /// Runs `attempt` after each delay until it succeeds. Stops early when a
+    /// wait is cancelled. `attempt` receives `true` on the last try, so only that
+    /// one reports the failure. Exposed as `internal` for deterministic unit testing.
+    @MainActor
+    static func retryMicTap(
+        delays: [Duration],
+        sleep: (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        attempt: (_ isFinalAttempt: Bool) -> Bool
+    ) async -> Bool {
+        for (index, delay) in delays.enumerated() {
+            do {
+                try await sleep(delay)
+            } catch {
+                return false
+            }
+            if attempt(index == delays.count - 1) { return true }
+        }
+        return false
+    }
+
+    /// Retries the tap without waiting for the next activation. With the app
+    /// already active, `recoverAudioIfNeeded()` does not fire again, so nothing
+    /// else would reinstall the tap.
+    private func scheduleMicTapRetry() {
+        micTapRetryTask?.cancel()
+        micTapRetryTask = Task { @MainActor [weak self] in
+            _ = await AudioManager.retryMicTap(delays: AudioManager.micTapRetryDelays) { isFinalAttempt in
+                self?.retryMicTapInstall(isFinalAttempt: isFinalAttempt) ?? true
+            }
+        }
+    }
+
+    /// Returns `true` when no further attempt is needed.
+    @MainActor
+    private func retryMicTapInstall(isFinalAttempt: Bool) -> Bool {
+        guard wantsMicInput, !isListening, let inputNode else { return true }
+
+        do {
+            try ensureSessionAndEngine()
+        } catch {
+            return false
+        }
+
+        inputNode.removeTap(onBus: 0)
+        isListening = installMicTap(on: inputNode, isFinalAttempt: isFinalAttempt)
+        if isListening {
+            audioLogger.log(.info, "Mic tap reinstalled on retry")
+        }
+        return isListening
     }
 
     /// Installs the mic tap with `format`, or throws without touching the
@@ -546,6 +684,7 @@ final class AudioManager: NSObject, AudioManaging {
     func stopMicInput() {
         audioLogger.log(.info, "stopMicInput called")
         wantsMicInput = false
+        micTapRetryTask?.cancel()
 
         if !environment.shouldDisableAudio {
             inputNode?.removeTap(onBus: 0)
@@ -615,7 +754,7 @@ final class AudioManager: NSObject, AudioManaging {
             try configureSessionIfNeeded()
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            audioLogger.log(.warning, "Audio session activation failed, skipping playback: \(error.localizedDescription)")
+            audioLogger.log(.warning, "Audio session activation failed, skipping playback: \(AudioManagerError.diagnosticDescription(of: error))")
             audioErrorPublisher.send(error.localizedDescription)
             return
         }
@@ -766,6 +905,7 @@ final class AudioManager: NSObject, AudioManaging {
             return
         }
         lastRouteChangeDate = now
+        micTapRetryTask?.cancel()
         isReconfiguring = true
         defer { isReconfiguring = false }
 
@@ -781,7 +921,7 @@ final class AudioManager: NSObject, AudioManaging {
             try configureAudioSession()
             try startEngineIfNeeded()
         } catch {
-            audioLogger.log(.warning, "Failed to reconfigure after route change: \(error.localizedDescription)")
+            audioLogger.log(.warning, "Failed to reconfigure after route change: \(AudioManagerError.diagnosticDescription(of: error))")
             audioErrorPublisher.send(error.localizedDescription)
             // The tap is gone; let recoverAudioIfNeeded() reinstall it later.
             if wasListening { isListening = false }
@@ -791,7 +931,10 @@ final class AudioManager: NSObject, AudioManaging {
         guard wasListening, let inputNode else { return }
 
         audioLogger.log(.info, "Reinstalling mic tap after route change")
-        isListening = installMicTap(on: inputNode)
+        isListening = installMicTap(on: inputNode, isFinalAttempt: false)
+        if !isListening {
+            scheduleMicTapRetry()
+        }
     }
 
     // MARK: - App Lifecycle Recovery
@@ -824,12 +967,34 @@ final class AudioManager: NSObject, AudioManaging {
         do {
             try ensureSessionAndEngine()
         } catch {
+            reportActiveSessionFailureIfNeeded(error)
             return
         }
 
         if wantsMicInput && !isListening {
             startMicInput()
         }
+    }
+
+    /// A session that fails at launch is expected and only logs a warning. Failing
+    /// again with the app active is what the user notices, so it records one
+    /// non-fatal per failure run. An engine start failure has its own non-fatal.
+    private func reportActiveSessionFailureIfNeeded(_ error: Error) {
+        guard Self.shouldReportActiveSessionFailure(
+            isSessionConfigured: isSessionConfigured,
+            alreadyReported: hasReportedActiveSessionFailure
+        ) else { return }
+
+        hasReportedActiveSessionFailure = true
+        audioLogger.log(
+            .error,
+            "Audio session still unavailable with the app active: \(AudioManagerError.diagnosticDescription(of: error))"
+        )
+    }
+
+    /// Exposed as `internal` for deterministic unit testing.
+    static func shouldReportActiveSessionFailure(isSessionConfigured: Bool, alreadyReported: Bool) -> Bool {
+        !isSessionConfigured && !alreadyReported
     }
 
     // MARK: - Engine Configuration Change Recovery
@@ -888,7 +1053,7 @@ final class AudioManager: NSObject, AudioManaging {
                     try configureAudioSession()
                     try startEngineIfNeeded()
                 } catch {
-                    audioLogger.log(.warning, "Failed to recover from interruption: \(error.localizedDescription)")
+                    audioLogger.log(.warning, "Failed to recover from interruption: \(AudioManagerError.diagnosticDescription(of: error))")
                     audioErrorPublisher.send(error.localizedDescription)
                 }
             } else {
@@ -903,6 +1068,7 @@ final class AudioManager: NSObject, AudioManaging {
 
     func cleanup() {
         fakeSamplesTask?.cancel()
+        micTapRetryTask?.cancel()
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name.AVAudioEngineConfigurationChange, object: nil)
