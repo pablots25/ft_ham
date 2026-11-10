@@ -11,12 +11,11 @@ struct WhatsNewView: View {
     @Environment(\.dismiss) var dismiss
     
     private let currentVersion = AppVersionManager.shared.currentVersion
-    private let remoteConfig = RemoteConfigProvider()
-    
-    private var whatsNewConfig: WhatsNewConfig.WhatsNewSettings? {
-        let config = remoteConfig.getWhatsNewConfig()
-        return config.whatsNew.enabled ? config.whatsNew : nil
-    }
+
+    // Captured once: closing the screen marks items as seen, which changes
+    // what the manager would return while the dismissal animates.
+    @State private var whatsNewConfig: WhatsNewConfig.WhatsNewSettings? =
+        AppVersionManager.shared.whatsNewContent
     
     var body: some View {
         NavigationStack {
