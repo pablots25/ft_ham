@@ -45,8 +45,8 @@ struct QSOEditView: View {
         _frequencyMHz   = State(initialValue: entry.frequencyHz.map { String(format: "%.6f", $0 / 1_000_000) } ?? "")
         _mode           = State(initialValue: entry.mode.isEmpty ? "FT8" : entry.mode)
         _band           = State(initialValue: entry.band)
-        _rstSent        = State(initialValue: entry.rstSent)
-        _rstRcvd        = State(initialValue: entry.rstRcvd)
+        _rstSent        = State(initialValue: LogEntry.editableReport(entry.rstSent))
+        _rstRcvd        = State(initialValue: LogEntry.editableReport(entry.rstRcvd))
         _stationCallsign = State(initialValue: entry.stationCallsign ?? "")
         _cqModifier     = State(initialValue: entry.cqModifier ?? "")
         _mySigInfo      = State(initialValue: entry.mySigInfo ?? "")
@@ -83,8 +83,8 @@ struct QSOEditView: View {
         frequencyMHz != (entry.frequencyHz.map { String(format: "%.6f", $0 / 1_000_000) } ?? "") ||
         mode != (entry.mode.isEmpty ? "FT8" : entry.mode) ||
         band != entry.band ||
-        rstSent != entry.rstSent ||
-        rstRcvd != entry.rstRcvd ||
+        rstSent != LogEntry.editableReport(entry.rstSent) ||
+        rstRcvd != LogEntry.editableReport(entry.rstRcvd) ||
         stationCallsign != (entry.stationCallsign ?? "") ||
         cqModifier != (entry.cqModifier ?? "") ||
         mySigInfo != (entry.mySigInfo ?? "")

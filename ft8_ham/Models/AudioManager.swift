@@ -237,6 +237,19 @@ final class AudioManager: NSObject, AudioManaging {
     /// control, so the total stays under one FT4 slot.
     static let micTapRetryDelays: [Duration] = [.milliseconds(250), .seconds(1), .seconds(2)]
 
+    /// Waits between attempts to bring the session and the engine back after
+    /// they failed with the app active. The engine failed with -50 right after
+    /// activation in 1.3.0 build 23 and nothing retried it, so RX stayed silent
+    /// for minutes. The route or another app's hold on the mic usually settles
+    /// within seconds.
+    static let audioRecoveryRetryDelays: [Duration] = [.seconds(1), .seconds(3), .seconds(10)]
+
+    /// `true` while the audio setup is still incomplete: the session never came
+    /// up, or RX is wanted and the tap is missing.
+    static func needsAudioRecovery(isSessionConfigured: Bool, wantsMicInput: Bool, isListening: Bool) -> Bool {
+        !isSessionConfigured || (wantsMicInput && !isListening)
+    }
+
     private var micTapRetryTask: Task<Void, Never>?
 
     // MARK: - Init
@@ -415,19 +428,123 @@ final class AudioManager: NSObject, AudioManaging {
             // interruption recovery should not re-arm the Crashlytics gate. It is cleared
             // only after a complete successful playback (see playAudio).
         } catch {
-            let wrappedError = AudioManagerError.engineStartFailed(underlying: error)
+            let firstError = AudioManagerError.engineStartFailed(underlying: error)
+            let context = engineStartContext()
+            audioLogger.log(.warning, "Engine start failed, resetting the engine: \(firstError.diagnosticDescription) \(context)")
+
+            guard let resetError = restartEngineAfterReset() else {
+                audioLogger.log(.info, "AudioEngine started after a reset")
+                return
+            }
+
+            let wrappedError = AudioManagerError.engineStartFailed(underlying: resetError)
             audioErrorPublisher.send(wrappedError.localizedDescription)
 
             if shouldRecordEngineStartError() {
-                // First failure (or cooldown expired) — record to Crashlytics once
-                audioLogger.log(.error, wrappedError.localizedDescription)
+                // First failure (or cooldown expired) — record to Crashlytics once.
+                // The localized text comes first so the issue keeps its title.
+                audioLogger.log(.error, "\(wrappedError.localizedDescription) \(AudioManagerError.codeTag(for: resetError)) \(context)")
                 engineStartFirstFailureDate = Date()
             } else {
                 // Within cooldown window — suppress Crashlytics, log locally only
-                audioLogger.log(.warning, "Engine start still failing: \(wrappedError.localizedDescription)")
+                audioLogger.log(.warning, "Engine start still failing: \(wrappedError.diagnosticDescription)")
             }
 
             throw wrappedError
+        }
+    }
+
+    /// Rebuilds the graph and starts the engine again. Starting the same graph
+    /// again keeps failing when a node holds a format from before a hardware or
+    /// permission change. Returns the error of the second start, or `nil` when
+    /// the engine runs. A tap that was in place is installed again.
+    private func restartEngineAfterReset() -> Error? {
+        let hadTap = isListening
+        inputNode?.removeTap(onBus: 0)
+        if hadTap { isListening = false }
+        playerNode.stop()
+        audioEngine.stop()
+        audioEngine.reset()
+        attachPlaybackChain()
+
+        // The callers schedule the retry. Scheduling here would restart the
+        // retry sequence from inside each of its own attempts.
+        do {
+            try audioEngine.start()
+        } catch {
+            return error
+        }
+
+        if hadTap, let inputNode {
+            isListening = installMicTap(on: inputNode, isFinalAttempt: false)
+            if !isListening { scheduleAudioRetry(delays: Self.micTapRetryDelays) }
+        }
+        return nil
+    }
+
+    /// State that tells the causes of an engine start failure apart: mic
+    /// permission, input availability, the route, the formats and the app state.
+    private func engineStartContext() -> String {
+        let session = AVAudioSession.sharedInstance()
+        let route = session.currentRoute
+        let inputFormat = inputNode?.inputFormat(forBus: 0)
+        return Self.engineStartDiagnostics(
+            recordPermission: Self.recordPermissionDescription(),
+            isInputAvailable: session.isInputAvailable,
+            hardwareSampleRate: session.sampleRate,
+            inputChannels: session.inputNumberOfChannels,
+            inputFormat: inputFormat.map { ($0.sampleRate, $0.channelCount) },
+            inputPorts: route.inputs.map(\.portType.rawValue),
+            outputPorts: route.outputs.map(\.portType.rawValue),
+            appState: Self.currentAppStateDescription()
+        )
+    }
+
+    /// Exposed as `internal` for deterministic unit testing.
+    static func engineStartDiagnostics(
+        recordPermission: String,
+        isInputAvailable: Bool,
+        hardwareSampleRate: Double,
+        inputChannels: Int,
+        inputFormat: (sampleRate: Double, channels: AVAudioChannelCount)?,
+        inputPorts: [String],
+        outputPorts: [String],
+        appState: String
+    ) -> String {
+        let format = inputFormat.map { "\(Int($0.sampleRate)) Hz \($0.channels) ch" } ?? "none"
+        let inputs = inputPorts.isEmpty ? "none" : inputPorts.joined(separator: ",")
+        let outputs = outputPorts.isEmpty ? "none" : outputPorts.joined(separator: ",")
+        return "(mic: \(recordPermission), input available: \(isInputAvailable), "
+            + "HW: \(Int(hardwareSampleRate)) Hz \(inputChannels) ch, input node: \(format), "
+            + "route: \(inputs) -> \(outputs), app: \(appState))"
+    }
+
+    private static func recordPermissionDescription() -> String {
+        if #available(iOS 17, *) {
+            switch AVAudioApplication.shared.recordPermission {
+            case .granted: return "granted"
+            case .denied: return "denied"
+            case .undetermined: return "undetermined"
+            @unknown default: return "unknown"
+            }
+        }
+        switch AVAudioSession.sharedInstance().recordPermission {
+        case .granted: return "granted"
+        case .denied: return "denied"
+        case .undetermined: return "undetermined"
+        @unknown default: return "unknown"
+        }
+    }
+
+    /// The app state, read only on the main thread. The init path runs elsewhere.
+    private static func currentAppStateDescription() -> String {
+        guard Thread.isMainThread else { return "unknown" }
+        let state = MainActor.assumeIsolated { UIApplication.shared.applicationState }
+        switch state {
+        case .active: return "active"
+        case .inactive: return "inactive"
+        case .background: return "background"
+        @unknown default: return "unknown"
         }
     }
 
@@ -451,6 +568,7 @@ final class AudioManager: NSObject, AudioManaging {
             try ensureSessionAndEngine()
         } catch {
             audioErrorPublisher.send(error.localizedDescription)
+            scheduleAudioRetry(delays: Self.audioRecoveryRetryDelays)
             return
         }
 
@@ -566,27 +684,37 @@ final class AudioManager: NSObject, AudioManaging {
         return false
     }
 
-    /// Retries the tap without waiting for the next activation. With the app
-    /// already active, `recoverAudioIfNeeded()` does not fire again, so nothing
-    /// else would reinstall the tap.
-    private func scheduleMicTapRetry() {
+    /// Retries the session, the engine and the tap without waiting for the next
+    /// activation. With the app already active, `recoverAudioIfNeeded()` does not
+    /// fire again, so nothing else would bring them back. A new schedule
+    /// replaces the one in flight.
+    private func scheduleAudioRetry(delays: [Duration]) {
         micTapRetryTask?.cancel()
         micTapRetryTask = Task { @MainActor [weak self] in
-            _ = await AudioManager.retryMicTap(delays: AudioManager.micTapRetryDelays) { isFinalAttempt in
-                self?.retryMicTapInstall(isFinalAttempt: isFinalAttempt) ?? true
+            _ = await AudioManager.retryMicTap(delays: delays) { isFinalAttempt in
+                self?.retryAudioSetup(isFinalAttempt: isFinalAttempt) ?? true
             }
         }
     }
 
     /// Returns `true` when no further attempt is needed.
     @MainActor
-    private func retryMicTapInstall(isFinalAttempt: Bool) -> Bool {
-        guard wantsMicInput, !isListening, let inputNode else { return true }
+    private func retryAudioSetup(isFinalAttempt: Bool) -> Bool {
+        guard Self.needsAudioRecovery(
+            isSessionConfigured: isSessionConfigured,
+            wantsMicInput: wantsMicInput,
+            isListening: isListening
+        ) else { return true }
 
         do {
             try ensureSessionAndEngine()
         } catch {
             return false
+        }
+
+        guard wantsMicInput, !isListening, let inputNode else {
+            audioLogger.log(.info, "Audio setup recovered on retry")
+            return true
         }
 
         inputNode.removeTap(onBus: 0)
@@ -923,8 +1051,12 @@ final class AudioManager: NSObject, AudioManaging {
         } catch {
             audioLogger.log(.warning, "Failed to reconfigure after route change: \(AudioManagerError.diagnosticDescription(of: error))")
             audioErrorPublisher.send(error.localizedDescription)
-            // The tap is gone; let recoverAudioIfNeeded() reinstall it later.
-            if wasListening { isListening = false }
+            // The tap is gone. Retry shortly instead of waiting for the next
+            // activation, which may never come with the app already active.
+            if wasListening {
+                isListening = false
+                scheduleAudioRetry(delays: Self.audioRecoveryRetryDelays)
+            }
             return
         }
 
@@ -933,7 +1065,7 @@ final class AudioManager: NSObject, AudioManaging {
         audioLogger.log(.info, "Reinstalling mic tap after route change")
         isListening = installMicTap(on: inputNode, isFinalAttempt: false)
         if !isListening {
-            scheduleMicTapRetry()
+            scheduleAudioRetry(delays: Self.micTapRetryDelays)
         }
     }
 
@@ -961,13 +1093,18 @@ final class AudioManager: NSObject, AudioManaging {
     @MainActor
     func recoverAudioIfNeeded() {
         guard !environment.shouldDisableAudio, inputNode != nil else { return }
-        guard !isSessionConfigured || (wantsMicInput && !isListening) else { return }
+        guard Self.needsAudioRecovery(
+            isSessionConfigured: isSessionConfigured,
+            wantsMicInput: wantsMicInput,
+            isListening: isListening
+        ) else { return }
 
         audioLogger.log(.info, "App active, retrying audio setup")
         do {
             try ensureSessionAndEngine()
         } catch {
             reportActiveSessionFailureIfNeeded(error)
+            scheduleAudioRetry(delays: Self.audioRecoveryRetryDelays)
             return
         }
 

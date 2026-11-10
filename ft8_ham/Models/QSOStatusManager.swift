@@ -950,7 +950,8 @@ final class QSOStatusManager: ObservableObject {
         isFT4: Bool,
         rstSent: Int,
         rstRcvd: Int,
-        customFrequencyHz: Double? = nil
+        customFrequencyHz: Double? = nil,
+        isManualLog: Bool = false
     ) -> LogEntry {
         // Station callsign as-is from UserDefaults (may include /suffix)
         let stationCallsign = UserDefaults.standard.string(forKey: "callsign")
@@ -974,33 +975,23 @@ final class QSOStatusManager: ObservableObject {
         // Use the custom frequency when provided (Custom band), otherwise use the standard band frequency
         let frequencyHz = customFrequencyHz ?? band.frequency(for: mode)
 
-        guard rstSent != invalidSNR, rstRcvd != invalidSNR else {
-            appLogger.error("""
+        if rstSent == invalidSNR || rstRcvd == invalidSNR {
+            let details = """
                 Attempting to log QSO without valid SNRs for \(dxCallsign)
                 - RST_SENT: \(rstSent == invalidSNR ? "INVALID" : String(rstSent))
                 - RST_RCVD: \(rstRcvd == invalidSNR ? "INVALID" : String(rstRcvd))
                 - Current locked: \(lockedDXCallsign)
                 - CQ Modifier: \(currentCQModifier ?? "none")
-                This usually indicates a problem with signal report tracking in interleaved QSOs
-                """)
-            let countryInfo = CountryResolver.countryAndCoordinates(for: dxCallsign)
-            return LogEntry(
-                callsign: dxCallsign,
-                grid: dxLocator,
-                date: qsoDate,
-                frequencyHz: frequencyHz,
-                mode: isFT4 ? "FT4" : "FT8",
-                band: band.rawValue,
-                rstSent: "Invalid",
-                rstRcvd: "Invalid",
-                stationCallsign: stationCallsign,
-                cqModifier: currentCQModifier,
-                mySigInfo: mySigInfo,
-                country: countryInfo.country,
-                flag: FlagUtility.flag(for: countryInfo.country)
-            )
+                """
+            if isManualLog {
+                // "Log QSO" before the reports were exchanged is a normal use
+                // of the button, not a tracking bug.
+                appLogger.warning(details)
+            } else {
+                appLogger.error(details + "\nThis usually indicates a problem with signal report tracking in interleaved QSOs")
+            }
         }
-        
+
         let countryInfo = CountryResolver.countryAndCoordinates(for: dxCallsign)
         return LogEntry(
             callsign: dxCallsign,
@@ -1009,8 +1000,8 @@ final class QSOStatusManager: ObservableObject {
             frequencyHz: frequencyHz,
             mode: isFT4 ? "FT4" : "FT8",
             band: band.rawValue,
-            rstSent: String(rstSent),
-            rstRcvd: String(rstRcvd),
+            rstSent: LogEntry.storedReport(snr: rstSent, invalidSNR: invalidSNR),
+            rstRcvd: LogEntry.storedReport(snr: rstRcvd, invalidSNR: invalidSNR),
             stationCallsign: stationCallsign,
             cqModifier: currentCQModifier,
             mySigInfo: mySigInfo,
