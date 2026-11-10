@@ -47,7 +47,18 @@ final class LegacyDonorStoreKitTests: XCTestCase {
 
     private func buyAndFinishTip(_ id: String = "coffee_large") async throws -> Transaction {
         guard #available(iOS 17, *) else { throw XCTSkip("SKTestSession.buyProduct(identifier:) needs iOS 17") }
-        let transaction = try await session.buyProduct(identifier: id)
+        let transaction: Transaction
+        do {
+            transaction = try await session.buyProduct(identifier: id)
+        } catch let error as StoreKitError {
+            // On the iOS 26 simulators (Xcode 26.6) SKTestSession cannot reach
+            // StoreKit (SKInternalErrorDomain 3), so the buy goes out
+            // "off-device" and fails with notEntitled. These tests still run on iOS 18.
+            if case .notEntitled = error {
+                throw XCTSkip("SKTestSession cannot buy on this simulator (notEntitled). Run on iOS 18 to cover legacy donors.")
+            }
+            throw error
+        }
         // Only finished consumables count as purchase history.
         await transaction.finish()
         // The finished tip reaches `Transaction.all` asynchronously too. Reading it
