@@ -20,7 +20,7 @@ struct OnboardingView: View {
     @State private var showTermsSafari = false
     @State private var showPrivacySafari = false
     
-    private let contentPageCount = 9
+    private let contentPageCount = 10
     // After content pages: 1 terms page + 1 station page + permission pages + 1 finish page
     private var permissionSteps: [InitialPermissionStep] {
         [.location, .notifications, .microphone]
@@ -85,6 +85,18 @@ struct OnboardingView: View {
                 Text("onb_welcome_text")
             }
         case 1:
+            onboardingPage(image: "cable.connector", color: .green, title: "onb_title_equipment") {
+                VStack(alignment: .leading, spacing: 12) {
+                    equipmentRow(image: "radio", text: "onb_equipment_radio")
+                    equipmentRow(image: "cable.connector.horizontal", text: "onb_equipment_interface")
+                    equipmentRow(image: "mic.fill", text: "onb_equipment_microphone")
+                    Text("onb_equipment_license")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .multilineTextAlignment(.leading)
+            }
+        case 2:
             onboardingPage(image: "wave.3.right", color: .orange, title: "onb_title_rx") {
                 VStack(spacing: 8) {
                     Text("onb_rx_ft8_explainer")
@@ -93,21 +105,21 @@ struct OnboardingView: View {
                     Text("onb_rx_text2")
                 }
             }
-        case 2:
+        case 3:
             onboardingPage(image: "waveform", color: .cyan, title: "onb_title_waterfall") {
                 VStack(spacing: 8) {
                     Text("onb_waterfall_text1")
                     Text("onb_waterfall_text2")
                 }
             }
-        case 3:
+        case 4:
             onboardingPage(image: "arrowshape.turn.up.left.fill", color: .mint, title: "onb_title_reply") {
                 VStack(spacing: 8) {
                     Text("onb_reply_text1")
                     Text("onb_reply_text2")
                 }
             }
-        case 4:
+        case 5:
             onboardingPage(image: "text.bubble.fill", color: .teal, title: "onb_title_views") {
                 VStack(spacing: 8) {
                     Text("onb_views_condensed").bold()
@@ -118,21 +130,21 @@ struct OnboardingView: View {
                     Text("onb_views_vertical_desc")
                 }
             }
-        case 5:
+        case 6:
             onboardingPage(image: "map.fill", color: .purple, title: "onb_title_map") {
                 VStack(spacing: 8) {
                     Text("onb_map_text1")
                     Text("onb_map_text2")
                 }
             }
-        case 6:
+        case 7:
             onboardingPage(image: "paperplane.fill", color: .red, title: "onb_title_tx") {
                 VStack(spacing: 8) {
                     Text("onb_tx_text1")
                     Text("onb_tx_text2")
                 }
             }
-        case 7:
+        case 8:
             onboardingPage(image: "book.fill", color: .brown, title: "onb_title_logbook") {
                 VStack(spacing: 8) {
                     Text("onb_logbook_text1")
@@ -140,7 +152,7 @@ struct OnboardingView: View {
                     Text("onb_logbook_text3")
                 }
             }
-        case 8:
+        case 9:
             onboardingPage(image: "gearshape.fill", color: .purple, title: "onb_title_autosequencing") {
                 VStack(spacing: 8) {
                     Text("onb_autosequencing_text1")
@@ -317,6 +329,18 @@ struct OnboardingView: View {
         }
     }
     
+    /// One line of the "What You Need" page: an SF Symbol and a short sentence.
+    private func equipmentRow(image: String, text: LocalizedStringKey) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: image)
+                .foregroundStyle(.green)
+                .frame(width: 28)
+                .accessibilityHidden(true)
+            Text(text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     private func finishPage() -> some View {
         VStack(spacing: 24) {
             Spacer()
