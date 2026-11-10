@@ -122,6 +122,128 @@ final class CrashlyticsStabilityTests: XCTestCase {
             input: AVAudioFormat(), output: AVAudioFormat()).isEmpty)
     }
 
+    /// Regression for 1.3.0 (23): input and output were both rejected after a
+    /// route change, so the session's hardware rate is the last candidate.
+    func test_tapFormatCandidates_addsTheSessionRateWhenBothSidesAreStale() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+        let output = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+
+        let candidates = AudioManager.tapFormatCandidates(
+            input: input, output: output, hardwareSampleRate: 48_000)
+
+        XCTAssertEqual(candidates.map(\.sampleRate), [44_100, 48_000])
+    }
+
+    func test_tapFormatCandidates_dropsTheSessionRateWhenItMatchesTheInput() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+
+        let candidates = AudioManager.tapFormatCandidates(
+            input: input, output: AVAudioFormat(), hardwareSampleRate: 48_000)
+
+        XCTAssertEqual(candidates, [input])
+    }
+
+    func test_tapFormatCandidates_sessionRateKeepsTheInputChannelCount() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
+
+        let candidates = AudioManager.tapFormatCandidates(
+            input: input, output: AVAudioFormat(), hardwareSampleRate: 48_000)
+
+        XCTAssertEqual(candidates.last?.sampleRate, 48_000)
+        XCTAssertEqual(candidates.last?.channelCount, 2)
+    }
+
+    func test_tapFormatCandidates_sessionRateUsesOneChannelWhenTheNodeIsNotReady() {
+        let candidates = AudioManager.tapFormatCandidates(
+            input: AVAudioFormat(), output: AVAudioFormat(), hardwareSampleRate: 48_000)
+
+        XCTAssertEqual(candidates.map(\.channelCount), [1])
+    }
+
+    func test_tapFormatCandidates_ignoresAnInvalidSessionRate() {
+        let input = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+
+        XCTAssertEqual(AudioManager.tapFormatCandidates(
+            input: input, output: AVAudioFormat(), hardwareSampleRate: 0), [input])
+    }
+
+    // MARK: - Mic tap retry
+
+    @MainActor
+    func test_retryMicTap_stopsAtTheFirstSuccess() async {
+        var finalFlags: [Bool] = []
+
+        let installed = await AudioManager.retryMicTap(
+            delays: [.zero, .zero, .zero],
+            sleep: { _ in }
+        ) { isFinalAttempt in
+            finalFlags.append(isFinalAttempt)
+            return finalFlags.count == 2
+        }
+
+        XCTAssertTrue(installed)
+        XCTAssertEqual(finalFlags, [false, false])
+    }
+
+    /// Only the last attempt may record a non-fatal and show a toast.
+    @MainActor
+    func test_retryMicTap_marksOnlyTheLastAttemptAsFinal() async {
+        var finalFlags: [Bool] = []
+
+        let installed = await AudioManager.retryMicTap(
+            delays: [.zero, .zero, .zero],
+            sleep: { _ in }
+        ) { isFinalAttempt in
+            finalFlags.append(isFinalAttempt)
+            return false
+        }
+
+        XCTAssertFalse(installed)
+        XCTAssertEqual(finalFlags, [false, false, true])
+    }
+
+    @MainActor
+    func test_retryMicTap_waitsForEachDelayBeforeItsAttempt() async {
+        var events: [String] = []
+
+        _ = await AudioManager.retryMicTap(
+            delays: [.milliseconds(1), .milliseconds(2)],
+            sleep: { events.append("sleep \($0)") }
+        ) { _ in
+            events.append("attempt")
+            return false
+        }
+
+        XCTAssertEqual(events, [
+            "sleep \(Duration.milliseconds(1))", "attempt",
+            "sleep \(Duration.milliseconds(2))", "attempt"
+        ])
+    }
+
+    @MainActor
+    func test_retryMicTap_makesNoAttemptAfterCancellation() async {
+        var attempts = 0
+
+        let installed = await AudioManager.retryMicTap(
+            delays: [.zero, .zero],
+            sleep: { _ in throw CancellationError() }
+        ) { _ in
+            attempts += 1
+            return true
+        }
+
+        XCTAssertFalse(installed)
+        XCTAssertEqual(attempts, 0)
+    }
+
+    /// RX must come back within the slot after a route change, not a slot later.
+    func test_micTapRetryDelays_fitWithinOneFT4Slot() {
+        let total = AudioManager.micTapRetryDelays.reduce(Duration.zero, +)
+
+        XCTAssertFalse(AudioManager.micTapRetryDelays.isEmpty)
+        XCTAssertLessThan(total, .milliseconds(7_500))
+    }
+
     // MARK: - Recovery in test mode
 
     @MainActor
@@ -134,6 +256,93 @@ final class CrashlyticsStabilityTests: XCTestCase {
 
         XCTAssertFalse(sut.isListening)
         XCTAssertFalse(sut.wantsMicInput)
+    }
+
+    // MARK: - Audio session diagnostics (issue 93f6a2a7)
+
+    private let sessionError = NSError(
+        domain: NSOSStatusErrorDomain, code: 561_015_905,
+        userInfo: [NSLocalizedDescriptionKey: "Session activation failed"])
+
+    func test_diagnosticDescription_addsDomainCodeAndFourCharacterCode() {
+        let error = AudioManagerError.sessionActivationFailed(underlying: sessionError)
+
+        XCTAssertEqual(
+            error.diagnosticDescription,
+            "Failed to activate audio session: Session activation failed [NSOSStatusErrorDomain 561015905 '!pla']")
+    }
+
+    /// The toast groups messages by prefix and must not show the code.
+    func test_localizedDescription_doesNotIncludeTheCode() {
+        let error = AudioManagerError.sessionActivationFailed(underlying: sessionError)
+
+        XCTAssertEqual(error.localizedDescription,
+                       "Failed to activate audio session: Session activation failed")
+        XCTAssertEqual(AudioErrorToastText.kind(of: error.localizedDescription), .setup)
+    }
+
+    func test_diagnosticDescription_coversEverySessionStep() {
+        let errors: [AudioManagerError] = [
+            .sessionCategoryConfiguration(underlying: sessionError),
+            .sessionModeConfiguration(underlying: sessionError),
+            .sessionSampleRateConfiguration(underlying: sessionError),
+            .sessionActivationFailed(underlying: sessionError)
+        ]
+
+        for error in errors {
+            XCTAssertTrue(error.diagnosticDescription.contains("561015905"), "\(error)")
+        }
+    }
+
+    func test_diagnosticDescription_isThePlainTextWithoutAnUnderlyingError() {
+        XCTAssertEqual(AudioManagerError.invalidAudioData.diagnosticDescription,
+                       "Invalid audio data size or format")
+    }
+
+    func test_diagnosticDescriptionOfRawError_addsTheCode() {
+        XCTAssertEqual(
+            AudioManagerError.diagnosticDescription(of: sessionError),
+            "Session activation failed [NSOSStatusErrorDomain 561015905 '!pla']")
+    }
+
+    func test_diagnosticDescriptionOfWrappedError_doesNotRepeatTheCode() {
+        let wrapped = AudioManagerError.sessionActivationFailed(underlying: sessionError)
+
+        XCTAssertEqual(AudioManagerError.diagnosticDescription(of: wrapped),
+                       wrapped.diagnosticDescription)
+    }
+
+    func test_fourCharacterCode_decodesPrintableCodes() {
+        XCTAssertEqual(AudioManagerError.fourCharacterCode(561_015_905), "!pla")
+    }
+
+    func test_fourCharacterCode_rejectsOtherCodes() {
+        XCTAssertNil(AudioManagerError.fourCharacterCode(-10_868))
+        XCTAssertNil(AudioManagerError.fourCharacterCode(0))
+        XCTAssertNil(AudioManagerError.fourCharacterCode(5))
+        XCTAssertNil(AudioManagerError.fourCharacterCode(Int(UInt32.max) + 1))
+    }
+
+    func test_sanitize_keepsTheSessionErrorCode() {
+        let error = AudioManagerError.sessionActivationFailed(underlying: sessionError)
+
+        XCTAssertEqual(logger.sanitize(error.diagnosticDescription), error.diagnosticDescription)
+    }
+
+    func test_activeSessionFailure_reportsTheFirstFailureOfARun() {
+        XCTAssertTrue(AudioManager.shouldReportActiveSessionFailure(
+            isSessionConfigured: false, alreadyReported: false))
+    }
+
+    func test_activeSessionFailure_reportsOncePerRun() {
+        XCTAssertFalse(AudioManager.shouldReportActiveSessionFailure(
+            isSessionConfigured: false, alreadyReported: true))
+    }
+
+    /// With the session up, the failure came from the engine, which reports itself.
+    func test_activeSessionFailure_ignoresEngineFailures() {
+        XCTAssertFalse(AudioManager.shouldReportActiveSessionFailure(
+            isSessionConfigured: true, alreadyReported: false))
     }
 
     // MARK: - 3a. Lag after suspend/resume
@@ -149,6 +358,40 @@ final class CrashlyticsStabilityTests: XCTestCase {
     func test_isSuspensionGap_FT4_usesTheShorterSlot() {
         XCTAssertTrue(FT8ViewModel.isSuspensionGap(lag: 8.0, isFT4: true))
         XCTAssertFalse(FT8ViewModel.isSuspensionGap(lag: 8.0, isFT4: false))
+    }
+
+    /// A few seconds late while not active is the system delaying the app. These
+    /// made up 37 of the 39 lag non-fatals reviewed in November 2026.
+    func test_isExpectedSlotLag_shortLagIsExpectedWhenNotActive() {
+        for state in [UIApplication.State.inactive, .background] {
+            XCTAssertTrue(FT8ViewModel.isExpectedSlotLag(lag: 3.2, isFT4: false, applicationState: state))
+        }
+    }
+
+    func test_isExpectedSlotLag_shortLagWhileActiveIsARealStall() {
+        XCTAssertFalse(FT8ViewModel.isExpectedSlotLag(lag: 3.2, isFT4: false, applicationState: .active))
+    }
+
+    func test_isExpectedSlotLag_wholeSlotLateIsExpectedWhileActive() {
+        XCTAssertTrue(FT8ViewModel.isExpectedSlotLag(lag: 15.5, isFT4: false, applicationState: .active))
+        XCTAssertTrue(FT8ViewModel.isExpectedSlotLag(lag: 8.0, isFT4: true, applicationState: .active))
+    }
+
+    func test_stateDescription_namesEachState() {
+        XCTAssertEqual(FT8ViewModel.stateDescription(.active), "active")
+        XCTAssertEqual(FT8ViewModel.stateDescription(.inactive), "inactive")
+        XCTAssertEqual(FT8ViewModel.stateDescription(.background), "background")
+    }
+
+    /// The log level changes with the state, but a late slot is skipped either way.
+    @MainActor
+    func test_determineAction_skipsLateSlotsInEveryAppState() {
+        let viewModel = FT8ViewModel(audioManager: MockAudioManager(), engine: MockMessageDecoder())
+        for state in [UIApplication.State.active, .inactive, .background] {
+            viewModel.applicationState = { state }
+            let slot = SlotInfo(startTime: Date().addingTimeInterval(-3), slotIndex: 10, isEven: true, isFT4: false)
+            XCTAssertEqual(viewModel.determineAction(for: slot), .skip, "state \(state.rawValue)")
+        }
     }
 
     /// A slot that started a whole period ago (resume after suspension) and

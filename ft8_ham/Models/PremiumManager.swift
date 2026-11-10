@@ -23,8 +23,21 @@ final class PremiumManager: ObservableObject {
     // Beta access granted via promo offer code FTHAMBETAUSER
     static let betaProductID = "beta_users"
 
-    // Donation (consumable) tip product IDs. Tips are optional and never unlock premium.
+    // Donation (consumable) tip product IDs. Tips are optional and never unlock premium,
+    // except tips bought before `legacyDonationCutoff` (see `isLegacyDonation`).
     static let donationProductIDs: Set<String> = ["coffe_small", "coffe_medium", "coffee_large"]
+
+    /// Tips bought before this moment came from 1.2.x, where the tip sheet was the only
+    /// way to support the app, so those donors get premium. 1.3.0 went live on 4 Nov 2026
+    /// with a 7-day phased release, so the cutoff is the end of that rollout.
+    static let legacyDonationCutoff: Date = {
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 11
+        components.day = 11
+        components.timeZone = TimeZone(identifier: "UTC")
+        return Calendar(identifier: .gregorian).date(from: components)!
+    }()
 
     /// Where loading the premium product stands, so the paywall can offer a retry
     /// instead of spinning forever when the App Store does not answer.
@@ -43,8 +56,14 @@ final class PremiumManager: ObservableObject {
 
     private let fetcher: ProductFetching
 
+    /// Tips bought before this unlock premium. `legacyDonationCutoff` unless a test injects one.
+    private let donationCutoff: Date
+
     /// Whether the user redeemed a beta access offer code.
     @Published private(set) var isBetaUser: Bool = false
+
+    /// Whether premium comes from a tip bought before `legacyDonationCutoff`.
+    @Published private(set) var isLegacyDonor: Bool = false
 
     #if DEBUG
     /// Debug-only override: when true, premium is treated as unlocked regardless of purchases.
@@ -62,8 +81,15 @@ final class PremiumManager: ObservableObject {
     ///   - fetcher: Loads the premium product. Tests inject a stub.
     ///   - observesTransactions: When false, skips the transaction listener, the
     ///     legacy Keychain cleanup and the entitlement check, so tests stay deterministic.
-    init(fetcher: ProductFetching = StoreKitProductFetcher(), observesTransactions: Bool = true) {
+    ///   - donationCutoff: Tips bought before this unlock premium. Tests move it to
+    ///     cover tips bought in a StoreKit test session, which are always dated now.
+    init(
+        fetcher: ProductFetching = StoreKitProductFetcher(),
+        observesTransactions: Bool = true,
+        donationCutoff: Date = PremiumManager.legacyDonationCutoff
+    ) {
         self.fetcher = fetcher
+        self.donationCutoff = donationCutoff
         guard observesTransactions else { return }
 
         // Start listening for transactions on init
@@ -82,7 +108,8 @@ final class PremiumManager: ObservableObject {
     // MARK: - Load Premium Status
 
     /// Grants premium if the user owns the premium product or redeemed beta access,
-    /// both checked via `Transaction.currentEntitlements`. Tips never grant premium.
+    /// both checked via `Transaction.currentEntitlements`, or tipped before
+    /// `legacyDonationCutoff`, checked via `Transaction.all`.
     func loadPremiumStatus() async {
         logger.info("Loading premium status...")
 
@@ -114,9 +141,28 @@ final class PremiumManager: ObservableObject {
             }
         }
 
+        // Finished consumables only show up in `Transaction.all` on iOS 18+, and only
+        // with SKIncludeConsumableInAppPurchaseHistory in Info.plist. Earlier systems
+        // see nothing here, and those donors ask for an offer code instead.
+        for await result in Transaction.all {
+            if case let .verified(transaction) = result,
+               Self.isLegacyDonation(
+                   productID: transaction.productID,
+                   purchaseDate: transaction.purchaseDate,
+                   revocationDate: transaction.revocationDate,
+                   cutoff: donationCutoff
+               ) {
+                logger.info("Premium unlocked via legacy donation: \(transaction.id)")
+                isLegacyDonor = true
+                isPremiumUnlocked = true
+                return
+            }
+        }
+
         logger.info("No qualifying purchase found — premium not unlocked")
         isPremiumUnlocked = false
         isBetaUser = false
+        isLegacyDonor = false
 
         // Notify owning models to clean up premium-gated settings only on actual revocation
         if previouslyUnlocked {
@@ -128,6 +174,17 @@ final class PremiumManager: ObservableObject {
     /// beta access do. Tips (`donationProductIDs`) are optional and unlock nothing.
     static func grantsPremium(productID: String) -> Bool {
         productID == premiumProductID || productID == betaProductID
+    }
+
+    /// Whether a transaction is a tip from before `legacyDonationCutoff` that was
+    /// not refunded. Those donors keep premium. Later tips unlock nothing.
+    static func isLegacyDonation(
+        productID: String,
+        purchaseDate: Date,
+        revocationDate: Date?,
+        cutoff: Date = legacyDonationCutoff
+    ) -> Bool {
+        donationProductIDs.contains(productID) && revocationDate == nil && purchaseDate < cutoff
     }
 
     // MARK: - Fetch Product
@@ -233,12 +290,16 @@ final class PremiumManager: ObservableObject {
                     let isDonationTx = Self.donationProductIDs.contains(transaction.productID)
 
                     // Tips completing outside purchase() (Ask to Buy, interrupted purchases)
-                    // are logged and finished, but do not touch premium state.
+                    // are logged and finished. Only a refund can change premium state, for
+                    // a donor whose premium came from that tip.
                     if isDonationTx {
                         if transaction.revocationDate == nil {
                             logExternalPurchase(transaction)
                         }
                         await transaction.finish()
+                        if transaction.revocationDate != nil && isLegacyDonor {
+                            await loadPremiumStatus()
+                        }
                         continue
                     }
 

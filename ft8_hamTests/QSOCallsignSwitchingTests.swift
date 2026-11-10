@@ -190,7 +190,8 @@ final class QSOCallsignSwitchingTests: XCTestCase {
     }
 
     func testInvalidLogEntryHandling() {
-        // Test that we properly mark log entries as Invalid when SNRs are missing
+        // A missing report is left empty. The report that did arrive is kept
+        // (1.3.0 stored "Invalid" in both, losing the valid one).
 
         let logEntry = manager.createLogEntry(
             dxCallsign: stationA,
@@ -202,8 +203,8 @@ final class QSOCallsignSwitchingTests: XCTestCase {
             rstRcvd: -10
         )
 
-        XCTAssertEqual(logEntry.rstSent, "Invalid", "Should mark RST_SENT as Invalid when missing")
-        XCTAssertEqual(logEntry.rstRcvd, "Invalid", "Should mark RST_RCVD as Invalid when partner SNR missing")
+        XCTAssertEqual(logEntry.rstSent, "", "A missing RST_SENT should be left empty")
+        XCTAssertEqual(logEntry.rstRcvd, "-10", "A valid RST_RCVD should be kept when RST_SENT is missing")
     }
 
     func testMultipleCallsignValidation() {
