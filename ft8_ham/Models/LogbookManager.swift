@@ -109,6 +109,41 @@ struct LogEntry: Identifiable {
     }
 }
 
+extension LogEntry {
+    /// Text stored for a signal report that never arrived. Entries logged
+    /// before 1.3.1 stored "Invalid" instead.
+    static let missingReport = ""
+
+    /// The report as stored in the log, or `missingReport` when it is unknown.
+    static func storedReport(snr: Int, invalidSNR: Int = Int.min) -> String {
+        snr == invalidSNR ? missingReport : String(snr)
+    }
+
+    /// The report to write to an ADIF field, or `nil` to leave the field out.
+    /// Covers empty reports and the "Invalid" text older entries hold.
+    static func adifReport(_ stored: String) -> String? {
+        let trimmed = stored.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed.caseInsensitiveCompare("Invalid") != .orderedSame else {
+            return nil
+        }
+        return trimmed
+    }
+
+    /// The report to prefill in the QSO editor. A missing report, or the
+    /// "Invalid" text older entries hold, starts as an empty field.
+    static func editableReport(_ stored: String) -> String {
+        adifReport(stored) ?? missingReport
+    }
+
+    /// The report to show in the logbook, with a placeholder when it is missing.
+    static func displayReport(_ stored: String) -> String {
+        adifReport(stored) ?? missingReportPlaceholder
+    }
+
+    /// Shown in the logbook in place of a missing report.
+    static let missingReportPlaceholder = "--"
+}
+
 final class LogbookManager: LogbookManaging {
     private let appLogger = AppLogger(category: "LOGBK")
     
@@ -543,8 +578,12 @@ final class LogbookManager: LogbookManaging {
                 adifContent += "<BAND:\(band.count)>\(band) "
             }
             adifContent += "<MODE:3>\(entry.mode) "
-            adifContent += "<RST_SENT:\(entry.rstSent.count)>\(entry.rstSent) "
-            adifContent += "<RST_RCVD:\(entry.rstRcvd.count)>\(entry.rstRcvd) "
+            if let rstSent = LogEntry.adifReport(entry.rstSent) {
+                adifContent += "<RST_SENT:\(rstSent.count)>\(rstSent) "
+            }
+            if let rstRcvd = LogEntry.adifReport(entry.rstRcvd) {
+                adifContent += "<RST_RCVD:\(rstRcvd.count)>\(rstRcvd) "
+            }
             adifContent += "<QSO_DATE:8>\(dateFormatter.string(from: entry.date)) "
             adifContent += "<TIME_ON:6>\(timeFormatter.string(from: entry.date)) "
             let special = adifFields(for: entry)

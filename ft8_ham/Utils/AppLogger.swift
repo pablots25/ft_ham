@@ -73,14 +73,15 @@ struct AppLogger {
             options: [.regularExpression, .caseInsensitive]
         )
 
-        // Remove amateur radio callsigns (e.g., EA4IQL, K1ABC, G0XYZ, etc.)
-        // Pattern: 1-2 alphanumeric prefix + digit + 1-4 alphanumeric suffix,
-        // with at least one letter somewhere
-        let callsignPattern = "\\b(?=[A-Z0-9]*[A-Z])[A-Z0-9]{1,2}[0-9][A-Z0-9]{1,4}\\b"
+        // Remove amateur radio callsigns (e.g., EA4IQL, K1ABC, 8J1RL, 3DA0RU),
+        // in any letter case. Prefix: 1-3 letters, a digit and 1-2 letters, or a
+        // letter and a digit. Then the area digit and a 1-4 letter suffix. A
+        // suffix of letters only keeps OSStatus codes and plain numbers intact.
+        let callsignPattern = "\\b(?:[A-Z]{1,3}|[0-9][A-Z]{1,2}|[A-Z][0-9])[0-9][A-Z]{1,4}\\b"
         sanitized = sanitized.replacingOccurrences(
             of: callsignPattern,
             with: "[CALLSIGN]",
-            options: .regularExpression
+            options: [.regularExpression, .caseInsensitive]
         )
 
         return sanitized

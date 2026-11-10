@@ -1,0 +1,96 @@
+{
+  "whatsNew": {
+    "enabled": true,
+    "features": [
+      {
+        "id": "premium",
+        "title": "⭐ FT Ham Premium",
+        "description": "Una única compra desbloquea el control CAT mediante rigctld con sincronización de frecuencia y PTT, PSK Reporter, la sincronización con QRZ, LoTW y eQSL, las estadísticas y el panel para iPad. Todo lo que ya usabas sigue siendo gratis."
+      },
+      {
+        "id": "donors",
+        "title": "💛 Gracias a quienes donasteis",
+        "description": "¿Donaste en una versión anterior? Premium es gratis para ti.\n1. Escribe a ftham@turrion.dev con el número de pedido de tu recibo de Apple.\n2. Te responderemos con un código de un solo uso.\n3. En la App Store, toca tu foto de perfil, luego Canjear tarjeta regalo o código, e introdúcelo."
+      },
+      {
+        "id": "statistics",
+        "title": "📊 Estadísticas",
+        "description": "Gráficos por banda y modo, contador de DXCC y mapas de calor de actividad, con horas en formato de 12 o 24 h. Premium."
+      },
+      {
+        "id": "callsigns_bands",
+        "title": "📻 Indicativos y bandas",
+        "description": "Indicativos compuestos como I/VE6XAD o VE6XAD/P con el país correcto, indicativos de 11 m y CB opcionales, y las bandas de 2 m, 1,25 m, 70 cm, 33 cm y 23 cm."
+      },
+      {
+        "id": "waterfall",
+        "title": "🌊 Cascada rediseñada",
+        "description": "Paletas de color, control de niveles y una etiqueta sobre cada señal. Toca cerca de una señal para responder. La frecuencia de TX solo se mueve con el botón de frecuencia."
+      },
+      {
+        "id": "ipad_dashboard",
+        "title": "🖥️ Panel para iPad",
+        "description": "Una vista a pantalla completa con la cascada y la lista de mensajes una al lado de la otra. Premium."
+      }
+    ],
+    "improvements": [
+      {
+        "id": "sequencer",
+        "title": "🔁 Secuenciador de QSO",
+        "description": "Toca o haz doble toque en cualquier mensaje para responder y registra un contacto a mano con Registrar QSO. Los QSO que caducan tras intercambiar los dos reportes se registran."
+      },
+      {
+        "id": "decode_list",
+        "title": "📋 Lista de decodificaciones",
+        "description": "Indicativos nuevos en verde, distintivos NEW GRID y NEW DXCC que puedes activar por separado, un filtro de mensajes con modo de necesarios y una guía de mensajes que explica cada color."
+      },
+      {
+        "id": "audio_levels",
+        "title": "🎚️ Niveles de audio",
+        "description": "Ganancia de salida TX independiente, que soluciona el VOX que no saltaba en equipos QRP, y ganancia de RX en dB hasta -40 dB para tarjetas de sonido con mucha señal."
+      },
+      {
+        "id": "logbook",
+        "title": "📒 Libro de guardia",
+        "description": "Selección múltiple, borrado en bloque, deshacer, filtro por fecha y edición de cualquier QSO. Importación y exportación ADIF con informe de errores, banderas de país y carga mucho más rápida."
+      },
+      {
+        "id": "interface",
+        "title": "✨ Interfaz",
+        "description": "Ajustes con buscador, barra de herramientas unificada, ayuda real en cada burbuja ?, indicador de estado CAT con aviso de fallo de PTT, mejor contraste en modo oscuro y un mapa que se abre en tu ubicación."
+      },
+      {
+        "id": "performance",
+        "title": "🚀 Rendimiento",
+        "description": "Cascada vectorizada que solo se dibuja cuando está en pantalla y actualizaciones de decodificación agrupadas, con menos consumo de CPU y memoria."
+      },
+      {
+        "id": "translations",
+        "title": "🌍 Traducciones y accesibilidad",
+        "description": "Traducciones completas al alemán, francés, italiano y español, y etiquetas para VoiceOver."
+      }
+    ],
+    "bugFixes": [
+      {
+        "id": "crashes",
+        "title": "🛡️ Cierres inesperados",
+        "description": "Corregidos cuatro cierres en la reproducción de audio, la lista de mensajes, la copia del libro de guardia y el gestor de audio."
+      },
+      {
+        "id": "qso_fixes",
+        "title": "⚡ Correcciones de QSO",
+        "description": "Se acabaron el bucle de espera tras el 73, las llamadas a tu propio indicativo y el contador de reintentos erróneo. La banda, la frecuencia y el modo se guardan desde el inicio de cada QSO."
+      },
+      {
+        "id": "cat_adif",
+        "title": "📡 CAT y ADIF",
+        "description": "Corregidos cuatro fallos de banda y frecuencia en CAT. El campo BAND de ADIF se calcula a partir de la frecuencia, así que los QSO de 144 MHz ya no se registran como 6 m."
+      },
+      {
+        "id": "cq_modifiers",
+        "title": "🏔️ Llamadas SOTA y POTA",
+        "description": "Los mensajes CQ con SOTA o POTA ya no se cortan."
+      }
+    ]
+  }
+}

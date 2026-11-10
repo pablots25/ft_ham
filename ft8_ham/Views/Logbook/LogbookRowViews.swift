@@ -88,6 +88,7 @@ struct LogbookExpandedRow: View {
     let entry: LogEntry
     let displayLocalTime: Bool
     var onActivationTap: ((String) -> Void)? = nil
+    var onEdit: (() -> Void)? = nil
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -136,9 +137,9 @@ struct LogbookExpandedRow: View {
                     // One Text so it wraps as a sentence when stacked
                     // instead of truncating each piece.
                     (Text("SNR:").foregroundColor(.primary)
-                     + Text(verbatim: " \(entry.rstSent) ").foregroundColor(.primary)
+                     + Text(verbatim: " \(LogEntry.displayReport(entry.rstSent)) ").foregroundColor(.primary)
                      + Text("(TX)").foregroundColor(.secondary)
-                     + Text(verbatim: " / \(entry.rstRcvd) ").foregroundColor(.primary)
+                     + Text(verbatim: " / \(LogEntry.displayReport(entry.rstRcvd)) ").foregroundColor(.primary)
                      + Text("(RX)").foregroundColor(.secondary))
                         .font(.caption)
                         .lineLimit(isStacked ? nil : 1)
@@ -187,8 +188,16 @@ struct LogbookExpandedRow: View {
                     }
                 }
 
-                // Row 5: date/time (always visible)
+                // Row 5: edit button + date/time (always visible)
                 HStack {
+                    if let onEdit {
+                        Button(action: onEdit) {
+                            Label("Edit", systemImage: "pencil")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityHint("Opens the QSO editor")
+                    }
                     if !isStacked { Spacer(minLength: 8) }
                     (isStacked
                         ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
@@ -340,8 +349,13 @@ struct LogbookRowCell: View {
         HStack(alignment: .top) {
             Group {
                 if isExpanded {
-                    LogbookExpandedRow(entry: entry, displayLocalTime: displayLocalTime, onActivationTap: onActivationTap)
-                        .transition(.opacity)
+                    LogbookExpandedRow(
+                        entry: entry,
+                        displayLocalTime: displayLocalTime,
+                        onActivationTap: onActivationTap,
+                        onEdit: onEdit
+                    )
+                    .transition(.opacity)
                 } else {
                     LogbookCompactRow(entry: entry, displayLocalTime: displayLocalTime, onActivationTap: onActivationTap)
                         .transition(.opacity)

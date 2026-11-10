@@ -2,8 +2,8 @@
 //  PaywallDonorNoteTests.swift
 //  ft8_hamTests
 //
-//  Past donors get Premium through an offer code they ask for by email.
-//  Tips themselves still unlock nothing.
+//  Past donors whose Premium did not unlock on its own ask by email for an
+//  offer code and redeem it from the paywall. New tips still unlock nothing.
 //
 
 import XCTest
@@ -19,18 +19,53 @@ final class PaywallDonorNoteTests: XCTestCase {
         XCTAssertEqual(components?.queryItems?.first(where: { $0.name == "subject" })?.value, PaywallDonorNote.subject)
     }
 
-    /// The note sends donors to the same address it shows.
-    func testNoteNamesTheSameAddressInEveryLanguage() throws {
-        let key = "If you donated in an earlier version, write to ftham@turrion.dev and we will send you a code for free Premium."
+    private func localized(_ key: String, _ language: String) throws -> String {
+        let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"), language)
+        return try XCTUnwrap(Bundle(path: path)).localizedString(forKey: key, value: nil, table: nil)
+    }
+
+    private static let stepKeys = [
+        "Email ftham@turrion.dev with the order ID from your Apple receipt for the donation.",
+        "We reply with a one-time code.",
+        "Tap Redeem Code and enter it.",
+    ]
+
+    func testThreeStepsInOrder() {
+        XCTAssertEqual(PaywallDonorNote.steps.count, 3)
+        XCTAssertTrue(PaywallDonorNote.steps[0].contains(PaywallDonorNote.email))
+    }
+
+    /// The first step sends donors to the same address the Email Us button opens.
+    func testFirstStepNamesTheSupportAddressInEveryLanguage() throws {
         for language in ["en", "de", "es", "fr", "it"] {
-            let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"), language)
-            let text = try XCTUnwrap(Bundle(path: path)).localizedString(forKey: key, value: nil, table: nil)
+            let text = try localized(Self.stepKeys[0], language)
             XCTAssertTrue(text.contains(PaywallDonorNote.email), "\(language): \(text)")
-            if language != "en" { XCTAssertNotEqual(text, key, language) }
         }
     }
 
-    /// Donors are handled with offer codes, not by unlocking premium for tips.
+    func testStepsAreTranslated() throws {
+        for language in ["de", "es", "fr", "it"] {
+            for key in Self.stepKeys {
+                XCTAssertNotEqual(try localized(key, language), key, "\(language): \(key)")
+            }
+        }
+    }
+
+    /// The last step names the Redeem Code button as the button itself reads.
+    func testLastStepNamesTheRedeemButtonInEveryLanguage() throws {
+        for language in ["en", "de", "es", "fr", "it"] {
+            let button = try localized("Redeem Code", language)
+            let step = try localized(Self.stepKeys[2], language)
+            XCTAssertTrue(step.contains(button), "\(language): \(step) / \(button)")
+        }
+    }
+
+    func testRedeemErrorHasAMessage() {
+        XCTAssertFalse((OfferCodeRedeemer.RedeemError.noActiveScene.errorDescription ?? "").isEmpty)
+    }
+
+    /// A tip is never a premium entitlement. Only tips from before 1.3.0 count,
+    /// through `PremiumManager.isLegacyDonation`.
     @MainActor
     func testTipsStillDoNotUnlockPremium() {
         for tip in PremiumManager.donationProductIDs {

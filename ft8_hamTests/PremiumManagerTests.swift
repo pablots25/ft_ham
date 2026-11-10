@@ -9,6 +9,7 @@
 import XCTest
 import Combine
 import StoreKit
+import StoreKitTest
 @testable import ft8_ham
 
 // MARK: - PremiumError
@@ -173,6 +174,87 @@ final class PremiumGrantTests: XCTestCase {
     }
 }
 
+// MARK: - Tips from before 1.3.0 unlock premium
+
+@MainActor
+final class LegacyDonationTests: XCTestCase {
+
+    private let cutoff = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func test_tipBeforeCutoff_isLegacyDonation() {
+        for id in PremiumManager.donationProductIDs {
+            XCTAssertTrue(
+                PremiumManager.isLegacyDonation(
+                    productID: id,
+                    purchaseDate: cutoff.addingTimeInterval(-86_400),
+                    revocationDate: nil,
+                    cutoff: cutoff
+                ),
+                id
+            )
+        }
+    }
+
+    func test_tipAtOrAfterCutoff_isNotLegacyDonation() {
+        for date in [cutoff, cutoff.addingTimeInterval(1)] {
+            XCTAssertFalse(
+                PremiumManager.isLegacyDonation(
+                    productID: "coffee_large",
+                    purchaseDate: date,
+                    revocationDate: nil,
+                    cutoff: cutoff
+                )
+            )
+        }
+    }
+
+    func test_refundedTip_isNotLegacyDonation() {
+        XCTAssertFalse(
+            PremiumManager.isLegacyDonation(
+                productID: "coffe_small",
+                purchaseDate: cutoff.addingTimeInterval(-86_400),
+                revocationDate: cutoff.addingTimeInterval(-3_600),
+                cutoff: cutoff
+            )
+        )
+    }
+
+    func test_otherProducts_areNotLegacyDonations() {
+        for id in [PremiumManager.premiumProductID, PremiumManager.betaProductID, "something_else"] {
+            XCTAssertFalse(
+                PremiumManager.isLegacyDonation(
+                    productID: id,
+                    purchaseDate: cutoff.addingTimeInterval(-86_400),
+                    revocationDate: nil,
+                    cutoff: cutoff
+                ),
+                id
+            )
+        }
+    }
+
+    /// 1.3.0 went live on 4 Nov 2026 with a 7-day phased release.
+    func test_defaultCutoff_isTheEndOfThe130PhasedRelease() {
+        let components = Calendar(identifier: .gregorian)
+            .dateComponents(in: TimeZone(identifier: "UTC")!, from: PremiumManager.legacyDonationCutoff)
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 11)
+        XCTAssertEqual(components.day, 11)
+        XCTAssertEqual(components.hour, 0)
+    }
+
+    func test_newManager_isNotLegacyDonor() {
+        let sut = PremiumManager(fetcher: EmptyPremiumFetcher(), observesTransactions: false)
+        XCTAssertFalse(sut.isLegacyDonor)
+    }
+
+    /// Without this key iOS hides finished tips from `Transaction.all`.
+    func test_infoPlist_includesConsumableHistory() {
+        let value = Bundle.main.object(forInfoDictionaryKey: "SKIncludeConsumableInAppPurchaseHistory") as? Bool
+        XCTAssertEqual(value, true)
+    }
+}
+
 // MARK: - Notification.Name.premiumRevoked
 
 final class PremiumRevokedNotificationTests: XCTestCase {
@@ -234,28 +316,94 @@ final class PremiumManagerDebugTests: XCTestCase {
     }
     #endif
 
-    func test_fetchPremiumProduct_isIdempotent() async {
-        // First call loads (or attempts to load) the product.
-        // Subsequent calls must return early without flipping isLoading.
-        let manager = PremiumManager.shared
+}
 
-        await manager.fetchPremiumProduct()
-        let loadingAfterFirst = manager.isLoading
+// MARK: - Product cache
 
-        // Snapshot isLoading transitions during a second call
+/// `Product` cannot be built synthetically, so the cached case needs a StoreKit
+/// test session that really serves the premium product.
+@MainActor
+final class PremiumManagerProductCacheTests: XCTestCase {
+
+    private var session: SKTestSession!
+    private var configURL: URL!
+
+    override func setUp() async throws {
+        try await super.setUp()
+        configURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PremiumProduct-\(UUID().uuidString).storekit")
+        try Self.configuration.write(to: configURL, atomically: true, encoding: .utf8)
+        session = try SKTestSession(contentsOf: configURL)
+        session.disableDialogs = true
+    }
+
+    override func tearDown() async throws {
+        session = nil
+        if let configURL { try? FileManager.default.removeItem(at: configURL) }
+        try await super.tearDown()
+    }
+
+    func test_fetchPremiumProduct_isIdempotentOnceTheProductIsCached() async throws {
+        let sut = PremiumManager(fetcher: StoreKitProductFetcher(), observesTransactions: false)
+
+        await sut.fetchPremiumProduct()
+        XCTAssertNotNil(sut.premiumProduct, "The test session must serve the premium product")
+        XCTAssertFalse(sut.isLoading, "isLoading must be false after fetchPremiumProduct() completes")
+
         var loadingTransitions: [Bool] = []
-        let cancellable = manager.$isLoading
+        let cancellable = sut.$isLoading
             .dropFirst()
             .sink { loadingTransitions.append($0) }
+        defer { cancellable.cancel() }
 
-        await manager.fetchPremiumProduct()
+        await sut.fetchPremiumProduct()
 
-        XCTAssertFalse(loadingAfterFirst, "isLoading must be false after fetchPremiumProduct() completes")
-        XCTAssertTrue(
-            loadingTransitions.isEmpty,
-            "Second fetchPremiumProduct() call must not toggle isLoading — product already cached"
-        )
-        cancellable.cancel()
+        XCTAssertTrue(loadingTransitions.isEmpty, "A cached product must not toggle isLoading")
+        XCTAssertEqual(sut.productLoadState, .loaded)
+    }
+
+    /// Without a cached product the paywall has to be able to try again.
+    func test_fetchPremiumProduct_fetchesAgainWhenNoProductWasFound() async {
+        let fetcher = CountingPremiumFetcher()
+        let sut = PremiumManager(fetcher: fetcher, observesTransactions: false)
+
+        await sut.fetchPremiumProduct()
+        await sut.fetchPremiumProduct()
+
+        XCTAssertEqual(fetcher.calls, 2)
+        XCTAssertEqual(sut.productLoadState, .failed)
+    }
+
+    private static let configuration = """
+    {
+      "identifier" : "PremiumManagerProductCacheTests",
+      "nonRenewingSubscriptions" : [],
+      "products" : [
+        {
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "internalID" : "9100000",
+          "localizations" : [
+            { "description" : "Premium", "displayName" : "Premium", "locale" : "en_US" }
+          ],
+          "productID" : "\(PremiumManager.premiumProductID)",
+          "referenceName" : "Premium",
+          "type" : "NonConsumable"
+        }
+      ],
+      "settings" : {},
+      "subscriptionGroups" : [],
+      "version" : { "major" : 3, "minor" : 0 }
+    }
+    """
+}
+
+private final class CountingPremiumFetcher: ProductFetching, @unchecked Sendable {
+    private(set) var calls = 0
+
+    func fetchProducts(for identifiers: [String]) async throws -> [Product] {
+        calls += 1
+        return []
     }
 }
 

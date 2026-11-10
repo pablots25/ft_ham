@@ -28,6 +28,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     // MARK: - Constants
     internal enum Constants {
         static let sampleRate: Double = 12000
+        /// Raw `audioError` when the FT8 engine returns no TX audio. Matches the
+        /// `.txAudio` prefix in `AudioErrorToastText`, so the user sees a toast.
+        static let audioGenerationFailedMessage = "Failed to generate audio"
         /// Microphone tap size in hardware-rate frames.
         static let waterfallFFTSize = 2048
         /// Columns of the waterfall image; the monitor's ~900 bins map onto them.
@@ -110,6 +113,10 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     /// Set while the audio in flight is a free-text message, so the QSO
     /// state machine is not advanced when it finishes.
     internal var activeTXIsFreeText = false
+    /// The app's state, which decides whether TX audio can start and how a late
+    /// slot is logged. Tests replace it because the test host's real state
+    /// changes between runs.
+    internal var applicationState: () -> UIApplication.State = { UIApplication.shared.applicationState }
 
     // MARK: - Free-text TX loop
     /// Transmit `freeTextMessage` on every my-turn slot until stopped.
