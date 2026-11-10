@@ -13470,6 +13470,150 @@
         }
       }
     },
+    "onb_equipment_interface" : {
+      "comment" : "Onboarding equipment item: the audio connection between radio and device.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An audio connection between the radio and your device (a radio with built-in USB audio, a USB sound card or an audio interface cable)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una conexión de audio entre la radio y tu dispositivo (una radio con audio USB integrado, una tarjeta de sonido USB o un cable de interfaz de audio)."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Audioverbindung zwischen Funkgerät und deinem Gerät (ein Funkgerät mit eingebautem USB-Audio, eine USB-Soundkarte oder ein Audio-Interface-Kabel)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une liaison audio entre la radio et votre appareil (une radio avec audio USB intégré, une carte son USB ou un câble d'interface audio)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un collegamento audio tra la radio e il tuo dispositivo (una radio con audio USB integrato, una scheda audio USB o un cavo di interfaccia audio)."
+          }
+        }
+      }
+    },
+    "onb_equipment_license" : {
+      "comment" : "Onboarding footnote about the license needed to transmit.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transmitting requires an amateur radio license. Anyone can listen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para transmitir necesitas una licencia de radioaficionado. Escuchar está al alcance de cualquiera."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Senden brauchst du eine Amateurfunklizenz. Zuhören kann jeder."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'émission nécessite une licence de radioamateur. Tout le monde peut écouter."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per trasmettere serve una licenza di radioamatore. Ascoltare è alla portata di tutti."
+          }
+        }
+      }
+    },
+    "onb_equipment_microphone" : {
+      "comment" : "Onboarding equipment item: receiving with the built-in microphone.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No interface yet? Place your device next to the radio speaker. The microphone is enough to receive and decode signals."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Aún no tienes interfaz? Coloca tu dispositivo junto al altavoz de la radio. El micrófono basta para recibir y decodificar señales."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch kein Interface? Lege dein Gerät neben den Lautsprecher des Funkgeräts. Das Mikrofon reicht aus, um Signale zu empfangen und zu dekodieren."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas encore d'interface ? Placez votre appareil près du haut-parleur de la radio. Le microphone suffit pour recevoir et décoder les signaux."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non hai ancora un'interfaccia? Metti il dispositivo vicino all'altoparlante della radio. Il microfono basta per ricevere e decodificare i segnali."
+          }
+        }
+      }
+    },
+    "onb_equipment_radio" : {
+      "comment" : "Onboarding equipment item: the radio.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A transceiver that can work in USB mode (upper sideband)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un transceptor que pueda trabajar en modo USB (banda lateral superior)."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einen Transceiver, der im USB-Modus (oberes Seitenband) arbeiten kann."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un émetteur-récepteur capable de fonctionner en mode USB (bande latérale supérieure)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un ricetrasmettitore in grado di lavorare in modo USB (banda laterale superiore)."
+          }
+        }
+      }
+    },
     "onb_finish_button" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -14068,6 +14212,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sequenza automatica"
+          }
+        }
+      }
+    },
+    "onb_title_equipment" : {
+      "comment" : "Onboarding page title listing the equipment needed to use the app.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What You Need"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qué necesitas"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was du brauchst"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce qu'il vous faut"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cosa ti serve"
           }
         }
       }

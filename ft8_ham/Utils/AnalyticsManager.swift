@@ -202,6 +202,10 @@ final class AnalyticsManager {
         logEvent(AnalyticsEventPurchase, parameters: parameters)
     }
 
+    func logPurchaseCompleted(productID: String, revenue: PurchaseRevenue) {
+        logPurchaseCompleted(productID: productID, value: revenue.value, currency: revenue.currency)
+    }
+
     // MARK: - Errors
 
     /// Logs a prefix missing from the country table. Only the prefix is sent,
