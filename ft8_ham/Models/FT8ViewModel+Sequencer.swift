@@ -409,6 +409,7 @@ extension FT8ViewModel {
             }
             guard let data = engine.generateFreeText(text, frequency: Float(frequency), isFT4: isFT4) else {
                 txLogger.error("Failed to generate free text audio for: \(text)")
+                audioError = Constants.audioGenerationFailedMessage
                 return
             }
             message = text
@@ -439,6 +440,7 @@ extension FT8ViewModel {
                 toFile: nil
             ) else {
                 txLogger.error("Failed to generate audio for: \(message)")
+                audioError = Constants.audioGenerationFailedMessage
                 return
             }
             audioData = data

@@ -28,6 +28,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     // MARK: - Constants
     internal enum Constants {
         static let sampleRate: Double = 12000
+        /// Raw `audioError` when the FT8 engine returns no TX audio. Matches the
+        /// `.txAudio` prefix in `AudioErrorToastText`, so the user sees a toast.
+        static let audioGenerationFailedMessage = "Failed to generate audio"
         /// Microphone tap size in hardware-rate frames.
         static let waterfallFFTSize = 2048
         /// Columns of the waterfall image; the monitor's ~900 bins map onto them.

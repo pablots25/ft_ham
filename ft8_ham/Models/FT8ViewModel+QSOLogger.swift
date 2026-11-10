@@ -24,8 +24,8 @@ extension FT8ViewModel  {
     /// Manually logs the QSO currently in progress, for when the operator is
     /// confident it completed but the other station never sent the closing
     /// RR73/73 (so auto-sequencing is still retrying or waiting). Builds the
-    /// entry from the live QSO state — missing signal reports are recorded as
-    /// "Invalid" — routes it through the confirmation prompt, then ends the QSO.
+    /// entry from the live QSO state (a missing signal report is left empty),
+    /// routes it through the confirmation prompt, then ends the QSO.
     @MainActor
     func forceLogCurrentQSO() {
         guard !qsoManager.lockedDXCallsign.isEmpty else {
@@ -43,7 +43,8 @@ extension FT8ViewModel  {
             rstRcvd: qsoManager.lastReceivedSNR,
             customFrequencyHz: qsoManager.qsoStartBand != nil
                 ? qsoManager.qsoStartCustomFrequencyHz
-                : (selectedBand == .custom ? customDialFrequencyHz : nil)
+                : (selectedBand == .custom ? customDialFrequencyHz : nil),
+            isManualLog: true
         )
 
         // Stop auto-sequencing from also logging/continuing this QSO, then end it.
@@ -96,6 +97,16 @@ extension FT8ViewModel  {
     }
 
 
+    /// Notifications the user turned off ("Source is not authorized") are an
+    /// expected choice, so they only leave a breadcrumb. Anything else is a
+    /// non-fatal. Exposed as `internal` for deterministic unit testing.
+    nonisolated static func notificationErrorLevel(for error: Error) -> LogLevel {
+        if let notificationError = error as? UNError, notificationError.code == .notificationsNotAllowed {
+            return .warning
+        }
+        return .error
+    }
+
     private func logQSO(qso: LogEntry) {
         appLogger.log(.info, "QSO with \(qso.callsign) successfully completed.")
         qsoList.append(qso)
@@ -125,11 +136,10 @@ extension FT8ViewModel  {
 
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                self.appLogger
-                    .log(
-                        .error,
-                        "Error showing notification: \(error.localizedDescription)"
-                    )
+                self.appLogger.log(
+                    Self.notificationErrorLevel(for: error),
+                    "Error showing notification: \(error.localizedDescription)"
+                )
             }
         }
 

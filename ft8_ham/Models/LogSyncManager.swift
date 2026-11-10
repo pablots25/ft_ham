@@ -254,8 +254,12 @@ final class LogSyncManager: ObservableObject {
         if let band = FT8Message.Band.adifBand(frequencyHz: entry.frequencyHz, storedBand: entry.band) {
             adif += adifField("BAND", band)
         }
-        adif += adifField("RST_SENT", entry.rstSent)
-        adif += adifField("RST_RCVD", entry.rstRcvd)
+        if let rstSent = LogEntry.adifReport(entry.rstSent) {
+            adif += adifField("RST_SENT", rstSent)
+        }
+        if let rstRcvd = LogEntry.adifReport(entry.rstRcvd) {
+            adif += adifField("RST_RCVD", rstRcvd)
+        }
         if !entry.grid.isEmpty {
             adif += adifField("GRIDSQUARE", entry.grid)
         }

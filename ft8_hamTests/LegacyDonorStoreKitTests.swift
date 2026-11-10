@@ -50,23 +50,35 @@ final class LegacyDonorStoreKitTests: XCTestCase {
         let transaction = try await session.buyProduct(identifier: id)
         // Only finished consumables count as purchase history.
         await transaction.finish()
+        // The finished tip reaches `Transaction.all` asynchronously too. Reading it
+        // too early left premium locked and failed the refund test now and then.
+        try await waitUntilInHistory(transaction.id) { $0.revocationDate == nil }
         return transaction
     }
 
     /// The test session applies refunds asynchronously, so `Transaction.all` can
     /// still show the tip as unrevoked right after `refundTransaction`.
-    private func waitUntilRevoked(_ id: UInt64, timeout: Duration = .seconds(5)) async throws {
+    private func waitUntilRevoked(_ id: UInt64) async throws {
+        try await waitUntilInHistory(id) { $0.revocationDate != nil }
+    }
+
+    /// Polls `Transaction.all` until transaction `id` shows up matching `condition`.
+    private func waitUntilInHistory(
+        _ id: UInt64,
+        timeout: Duration = .seconds(5),
+        where condition: (Transaction) -> Bool
+    ) async throws {
         let deadline = ContinuousClock.now + timeout
         while ContinuousClock.now < deadline {
             for await result in Transaction.all {
                 if case let .verified(transaction) = result,
-                   transaction.id == id, transaction.revocationDate != nil {
+                   transaction.id == id, condition(transaction) {
                     return
                 }
             }
             try await Task.sleep(for: .milliseconds(100))
         }
-        XCTFail("Refund of transaction \(id) never showed up in Transaction.all")
+        XCTFail("Transaction \(id) never showed up as expected in Transaction.all")
     }
 
     private func requireConsumableHistory() throws {
