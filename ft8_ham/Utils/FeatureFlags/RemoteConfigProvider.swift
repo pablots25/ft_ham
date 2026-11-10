@@ -68,10 +68,21 @@ struct WhatsNewConfig: Decodable {
         let improvements: [WhatsNewItem]
         let bugFixes: [WhatsNewItem]
         
-        struct WhatsNewItem: Decodable, Identifiable {
+        struct WhatsNewItem: Decodable, Identifiable, Equatable {
             let id: String
             let title: String
             let description: String
+            /// Optional `FeatureFlag` raw value. When set, the item is only
+            /// shown while that flag is on, and it is announced on its own
+            /// (without a version bump) the first time the flag turns on.
+            let flag: String?
+
+            init(id: String, title: String, description: String, flag: String? = nil) {
+                self.id = id
+                self.title = title
+                self.description = description
+                self.flag = flag
+            }
         }
     }
     

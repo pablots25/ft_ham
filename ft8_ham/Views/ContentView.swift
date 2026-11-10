@@ -108,6 +108,9 @@ struct ContentView: View {
                         shouldNavigateToConfiguration = true
                     }
                 }
+                // After the decision above: on a fresh install this stores the
+                // version What's New compares against on the next update.
+                AppVersionManager.shared.recordInstallBaselineIfNeeded()
                 // Once UI is ready, evaluate RX start
                 evaluateAutoRX()
                 presentMessagesGuideIfNeeded()
