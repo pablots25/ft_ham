@@ -64,8 +64,19 @@ extension FT8ViewModel {
                     // The slot monitor has been analysing the audio as it
                     // arrived; take that spectrogram and start the next slot's
                     // in one step, so the new slot's block 0 sits on the boundary.
-                    let completedSlotIndex = nextSlot.slotIndex - 1
-                    let snapshot = self.slotMonitor.snapshotAndReset()
+                    // When this wake-up comes late (the system delays the app
+                    // in the background) the monitor has already cut the slot
+                    // at its boundary on the audio's own time; that snapshot
+                    // says which slot it holds.
+                    let snapshot = self.slotMonitor.snapshotAndReset(forSlot: Int64(nextSlot.slotIndex - 1))
+                    let completedSlotIndex = snapshot.slotIndex >= 0
+                        ? Int(snapshot.slotIndex)
+                        : nextSlot.slotIndex - 1
+                    if snapshot.slotIndex >= 0 {
+                        self.rxLogger.debug(
+                            "Slot \(completedSlotIndex) was cut at its boundary before the sequencer woke up"
+                        )
+                    }
                     let coveredSeconds = snapshot.duration
 
                     // FT8 needs ~12.6s of signal. FT4 needs ~4.5s.

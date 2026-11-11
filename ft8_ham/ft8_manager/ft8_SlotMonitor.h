@@ -31,6 +31,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) double duration;
 /// Which slot this is (see `FT8SlotMonitor.slotSequence`).
 @property(nonatomic, readonly) NSUInteger slotSequence;
+/// UTC slot index (seconds since 1970 / slot period) when the monitor cut
+/// the slot itself at its boundary, -1 when it was cut on request.
+@property(nonatomic, readonly) int64_t slotIndex;
 
 @end
 
@@ -72,8 +75,17 @@ typedef void (^FT8SlotMonitorRowHandler)(const uint8_t *row, int count,
 @property(nonatomic, copy, nullable) FT8SlotMonitorRowHandler rowHandler;
 
 /// Appends audio at `sampleRate`. Any count is fine; whole symbol blocks are
-/// analysed as soon as they complete.
+/// analysed as soon as they complete. Audio fed this way carries no time,
+/// so slots are only cut on request.
 - (void)feedSamples:(const float *)samples count:(NSUInteger)count;
+
+/// Same, with the time the last sample arrived, in seconds since 1970 on
+/// the corrected app clock. The monitor then knows when each block was
+/// captured and cuts the slot itself at the UTC slot boundary, so a
+/// sequencer that wakes up late still gets the slot it asked for.
+- (void)feedSamples:(const float *)samples
+              count:(NSUInteger)count
+        arrivalTime:(NSTimeInterval)arrivalTime;
 
 /// Switches protocol. Discards the slot in progress.
 - (void)reconfigureIsFT4:(BOOL)isFT4;
@@ -85,6 +97,14 @@ typedef void (^FT8SlotMonitorRowHandler)(const uint8_t *row, int count,
 /// Copies the slot analysed so far and then does what `resetSlot` does, as
 /// one atomic step so no block is lost or counted twice.
 - (FT8WaterfallSnapshot *)snapshotAndReset;
+
+/// The snapshot of slot `slotIndex` at the boundary that ended it.
+///
+/// When the monitor already cut that slot (or a later one) at its boundary,
+/// that snapshot is returned and the slot in progress is left alone; its
+/// `slotIndex` says which slot it is. Otherwise this does what
+/// `snapshotAndReset` does and the slot that starts is `slotIndex + 1`.
+- (FT8WaterfallSnapshot *)snapshotAndResetForSlot:(int64_t)slotIndex;
 
 @end
 

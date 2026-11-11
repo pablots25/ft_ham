@@ -42,9 +42,12 @@ extension FT8ViewModel {
                 guard let self else { return }
                 // One FFT pass serves both the waterfall (rows as they are
                 // analysed) and the decoder (snapshot at the slot boundary).
+                // The arrival time lets the monitor cut each slot at its UTC
+                // boundary itself, so a late sequencer loses no audio.
+                let arrivalTime = AppClock.now().timeIntervalSince1970
                 samples.withUnsafeBufferPointer { buffer in
                     guard let base = buffer.baseAddress else { return }
-                    self.slotMonitor.feedSamples(base, count: UInt(buffer.count))
+                    self.slotMonitor.feedSamples(base, count: UInt(buffer.count), arrivalTime: arrivalTime)
                 }
             }
             .store(in: &cancellables)
