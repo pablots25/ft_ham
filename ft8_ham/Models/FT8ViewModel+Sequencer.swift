@@ -32,6 +32,11 @@ extension FT8ViewModel {
 
         // Track first-run milestone
         UserDefaults.standard.set(true, forKey: "hasStartedRX")
+        // The first RX start is when the "RX paused in the background"
+        // notification starts to matter, so permission is asked here.
+        if AppEnvironment.current.isProduction {
+            Task { await NotificationPermissionPrompt.requestIfNeeded() }
+        }
         
         sequencerTask = Task { [weak self] in
             guard let self else { return }

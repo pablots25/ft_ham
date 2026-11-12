@@ -71,6 +71,7 @@ enum InitialPermissionStep: Int, CaseIterable, Identifiable {
 final class LocationPermissionRequester: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
     private var continuation: CheckedContinuation<CLAuthorizationStatus, Never>?
+    private var locationContinuation: CheckedContinuation<CLLocation?, Never>?
 
     override init() {
         super.init()
@@ -86,9 +87,38 @@ final class LocationPermissionRequester: NSObject, ObservableObject, @preconcurr
         }
     }
 
+    /// Asks for permission when needed, then returns one position fix.
+    /// Returns `nil` when access is denied or the fix fails.
+    func requestCurrentLocation() async -> CLLocation? {
+        let status = await requestWhenInUseAuthorization()
+        guard status == .authorizedWhenInUse || status == .authorizedAlways else { return nil }
+        // A new request replaces one still waiting for a fix.
+        if let pending = locationContinuation {
+            locationContinuation = nil
+            pending.resume(returning: nil)
+        }
+        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
+        return await withCheckedContinuation { continuation in
+            self.locationContinuation = continuation
+            locationManager.requestLocation()
+        }
+    }
+
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         guard let continuation, manager.authorizationStatus != .notDetermined else { return }
         self.continuation = nil
         continuation.resume(returning: manager.authorizationStatus)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let locationContinuation else { return }
+        self.locationContinuation = nil
+        locationContinuation.resume(returning: locations.last)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        guard let locationContinuation else { return }
+        self.locationContinuation = nil
+        locationContinuation.resume(returning: nil)
     }
 }

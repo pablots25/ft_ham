@@ -35,6 +35,7 @@ struct FirstRunChecklistView: View {
                     .padding(.top, 4)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(12)

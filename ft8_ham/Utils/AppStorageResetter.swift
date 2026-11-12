@@ -29,6 +29,7 @@ enum AppStorageResetter {
     static func resetOnboarding() {
         UserDefaults.standard.removeObject(forKey: onboardingKey)
         UserDefaults.standard.removeObject(forKey: initialPermissionFlowKey)
+        UserDefaults.standard.removeObject(forKey: NotificationPermissionPrompt.askedKey)
         UserDefaults.standard.synchronize()
     }
 }
