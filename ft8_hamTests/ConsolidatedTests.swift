@@ -1067,7 +1067,10 @@ final class FT8EngineTests: XCTestCase {
         let engine = ft8_Engine()
         let decoded = engine.decode(nil, isFT4: false)
         XCTAssertNotNil(decoded)
-        XCTAssertTrue(decoded.count >= 0)
+        #if targetEnvironment(simulator)
+        // Without an input file the Simulator has no microphone to read from.
+        XCTAssertTrue(decoded.isEmpty, "Decoding nil input in the Simulator should yield no messages")
+        #endif
     }
 }
 
