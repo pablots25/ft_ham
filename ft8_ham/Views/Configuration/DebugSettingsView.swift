@@ -84,6 +84,13 @@ struct DebugSettingsView: View {
                     Label("Quick Config Sheet", systemImage: "list.bullet")
                 }
 
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.macBackgroundOperation) },
+                    set: { flags.setOverride(.macBackgroundOperation, value: $0) }
+                )) {
+                    Label("Mac: Keep Running When Hidden", systemImage: "macwindow")
+                }
+
                 Button {
                     flags.resetOverrides()
                 } label: {

@@ -89,6 +89,9 @@ struct MessageListView: View {
                                     .swipeActionsIfNeeded(allowReply: msg.allowsReply && allowReply) {
                                         viewModel.reply(to: msg)
                                     }
+                                    .decodedMessageContextMenu(msg, allowReply: allowReply) {
+                                        viewModel.reply(to: msg)
+                                    }
                                     .listRowInsets(EdgeInsets())
                                     .listRowBackground(backgroundColor(for: msg, isNewCallsign: viewModel.isNewCQCallsign(msg), highlight: highlight, colors: rowColors))
                                     .id(msg.id)

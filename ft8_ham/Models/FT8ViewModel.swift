@@ -117,6 +117,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
     /// slot is logged. Tests replace it because the test host's real state
     /// changes between runs.
     internal var applicationState: () -> UIApplication.State = { UIApplication.shared.applicationState }
+    /// Whether TX audio may start while the app is in the background. Only a
+    /// Mac keeps the audio engine running there. Tests replace it.
+    internal var keepsRadioRunningInBackground: @MainActor () -> Bool = { BackgroundOperationPolicy.current }
 
     // MARK: - Free-text TX loop
     /// Transmit `freeTextMessage` on every my-turn slot until stopped.

@@ -130,6 +130,7 @@ struct ft8_hamApp: App {
 
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var viewModel = FT8ViewModel()
+    @StateObject private var radioCommands = RadioCommandsModel()
     // Injected as environment objects only; observing them here would
     // re-evaluate the whole WindowGroup on every publish.
     private let featureFlags = FeatureFlagManager.shared
@@ -144,6 +145,7 @@ struct ft8_hamApp: App {
                 .environmentObject(premiumManager)
                 .modifier(QSOLogConfirmationModifier(manager: viewModel))
                 .inAppPrompts()
+                .onAppear { radioCommands.attach(to: viewModel) }
                 .task {
 #if canImport(TipKit)
                     if #available(iOS 17.0, *) {
@@ -152,12 +154,17 @@ struct ft8_hamApp: App {
 #endif
                 }
         }
+        .commands {
+            RadioCommands(model: radioCommands)
+        }
         .onChange(of: scenePhase) { newPhase in
             AnalyticsManager.shared.flushAllOnBackground(scenePhase: newPhase)
 
             switch newPhase {
             case .background:
-                if viewModel.isSequencerRunning {
+                // On a Mac the process keeps running while hidden or
+                // minimized, so the policy can keep the radio going there.
+                if viewModel.isSequencerRunning && !BackgroundOperationPolicy.current {
                     Task { @MainActor in
                         await viewModel.stopSequencer(rememberState: true)
                         NotificationHelper.sendSequencerPausedNotification()

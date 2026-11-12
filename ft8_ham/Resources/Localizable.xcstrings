@@ -24796,6 +24796,398 @@
           }
         }
       }
+    },
+    "Click any received message to reply on the frequency it used." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klicke auf eine empfangene Nachricht, um auf ihrer Frequenz zu antworten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic en cualquier mensaje recibido para responder en la frecuencia que usó."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cliquez sur un message reçu pour répondre sur la fréquence qu'il a utilisée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fai clic su un messaggio ricevuto per rispondere sulla frequenza che ha usato."
+          }
+        }
+      }
+    },
+    "Double-click any received message to reply on the frequency it used." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doppelklicke auf eine empfangene Nachricht, um auf ihrer Frequenz zu antworten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz doble clic en cualquier mensaje recibido para responder en la frecuencia que usó."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-cliquez sur un message reçu pour répondre sur la fréquence qu'il a utilisée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fai doppio clic su un messaggio ricevuto per rispondere sulla frequenza che ha usato."
+          }
+        }
+      }
+    },
+    "Click to reply" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Antworten klicken"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic para responder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cliquez pour répondre"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fai clic per rispondere"
+          }
+        }
+      }
+    },
+    "Double-click to reply" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Antworten doppelklicken"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz doble clic para responder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double-cliquez pour répondre"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fai doppio clic per rispondere"
+          }
+        }
+      }
+    },
+    "On any received message, click to pre-fill it as your current QSO target." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klicke auf eine empfangene Nachricht, um sie als aktuelles QSO-Ziel zu übernehmen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cualquier mensaje recibido, haz clic para precargarlo como tu objetivo de QSO actual."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur tout message reçu, cliquez pour le préremplir comme cible de QSO actuelle."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su qualsiasi messaggio ricevuto, fai clic per impostarlo come obiettivo QSO corrente."
+          }
+        }
+      }
+    },
+    "On any received message, double-click to pre-fill it as your current QSO target." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Doppelklicke auf eine empfangene Nachricht, um sie als aktuelles QSO-Ziel zu übernehmen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cualquier mensaje recibido, haz doble clic para precargarlo como tu objetivo de QSO actual."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur tout message reçu, double-cliquez pour le préremplir comme cible de QSO actuelle."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su qualsiasi messaggio ricevuto, fai doppio clic per impostarlo come obiettivo QSO corrente."
+          }
+        }
+      }
+    },
+    "RX Gain: adjust input sensitivity for decoding. TX Output: raise if your radio's VOX won't activate." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RX-Verstärkung: Eingangsempfindlichkeit für die Dekodierung anpassen. TX-Ausgang: erhöhen, wenn das VOX deines Funkgeräts nicht auslöst."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganancia RX: ajusta la sensibilidad de entrada para decodificar. Salida TX: súbela si el VOX de tu radio no se activa."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gain RX : ajustez la sensibilité d'entrée pour le décodage. Sortie TX : augmentez-la si le VOX de votre radio ne se déclenche pas."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guadagno RX: regola la sensibilità di ingresso per la decodifica. Uscita TX: aumentala se il VOX della radio non si attiva."
+          }
+        }
+      }
+    },
+    "Audio device" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audiogerät"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo de audio"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Périphérique audio"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo audio"
+          }
+        }
+      }
+    },
+    "Input: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eingang: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrada: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrée : %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingresso: %@"
+          }
+        }
+      }
+    },
+    "Output: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgang: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salida: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sortie : %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uscita: %@"
+          }
+        }
+      }
+    },
+    "FT Ham uses your Mac's default sound input and output. To use your radio's audio interface, choose it in System Settings > Sound." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham verwendet den Standard-Toneingang und -ausgang deines Mac. Um das Audio-Interface deines Funkgeräts zu nutzen, wähle es in Systemeinstellungen > Ton aus."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham usa la entrada y salida de sonido predeterminadas del Mac. Para usar la interfaz de audio de tu radio, elígela en Ajustes del Sistema > Sonido."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham utilise l'entrée et la sortie audio par défaut de votre Mac. Pour utiliser l'interface audio de votre radio, choisissez-la dans Réglages Système > Son."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT Ham usa l'ingresso e l'uscita audio predefiniti del Mac. Per usare l'interfaccia audio della radio, sceglila in Impostazioni di Sistema > Suono."
+          }
+        }
+      }
+    },
+    "Copy Callsign" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rufzeichen kopieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar indicativo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier l'indicatif"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia nominativo"
+          }
+        }
+      }
+    },
+    "Copy Message" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nachricht kopieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar mensaje"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le message"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia messaggio"
+          }
+        }
+      }
+    },
+    "Mac: Keep Running When Hidden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac: im Hintergrund weiterlaufen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac: seguir funcionando al ocultar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac : continuer une fois masquée"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac: continua quando nascosta"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

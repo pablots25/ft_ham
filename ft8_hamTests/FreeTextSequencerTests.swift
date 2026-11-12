@@ -26,6 +26,7 @@ final class FreeTextSequencerTests: XCTestCase {
         decoder = MockMessageDecoder()
         viewModel = FT8ViewModel(audioManager: MockAudioManager(), engine: decoder)
         viewModel.applicationState = { .active }
+        viewModel.keepsRadioRunningInBackground = { false }
         viewModel.callsign = "EA4IQL"
         viewModel.locator = "IN80"
         viewModel.freeTextMessage = "TNX 73 GL"
@@ -101,6 +102,19 @@ final class FreeTextSequencerTests: XCTestCase {
 
         XCTAssertNil(viewModel.activeTXMessage)
         XCTAssertFalse(viewModel.activeTXIsFreeText)
+    }
+
+    /// A Mac keeps the audio engine running while hidden, so the policy lets
+    /// the TX go ahead there.
+    func test_performTransmission_inBackground_startsTheTXWhenThePolicyKeepsTheRadioRunning() async {
+        viewModel.applicationState = { .background }
+        viewModel.keepsRadioRunningInBackground = { true }
+        viewModel.freeTextLoopActive = true
+
+        await viewModel.performTransmission(slot: slot(even: true))
+
+        XCTAssertNotNil(viewModel.activeTXMessage)
+        XCTAssertTrue(viewModel.activeTXIsFreeText)
     }
 
     func test_performTransmission_freeText_usesFreeTextEncoderAndSkipsQSOAdvance() async {

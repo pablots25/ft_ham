@@ -50,7 +50,7 @@ struct TransmissionView: View {
                 if showTutorial {
                     TutorialOverlay(
                         highlightedFrame: adjustedTutorialFrame,
-                        text: String(localized: "tutorial_swipe_reply")
+                        text: String(localized: ReplyGuidance.tutorialText(isMac: RunningPlatform.isMac, gesture: ReplyGuidance.storedGesture()))
                     ) {
                         hasSeenTutorial = true
                         showTutorial = false
