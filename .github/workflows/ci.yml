@@ -1,0 +1,57 @@
+# Checks that run on every pull request and on pushes to develop and main.
+#
+# ft8_ham.xcodeproj is not in git, so the app cannot be built or tested here.
+# Unit tests run locally (docs/RELEASING.md). This workflow checks what can be
+# checked from the repository alone:
+#   * String Catalogs are valid, with translation gaps reported as warnings
+#     (the Release workflow runs the same check in strict mode)
+#   * .github/RELEASE_NOTES.md follows the style rules when it is present
+#   * FTHamPremium is only imported inside #if canImport(FTHamPremium)
+#   * shell scripts and workflows lint clean
+
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main, "hotfix/**", "release/**"]
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Repository checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: String catalogs
+        run: python3 scripts/check_strings.py
+
+      - name: Release notes style
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if python3 scripts/check_release_notes.py "$version" --names-version; then
+            python3 scripts/check_release_notes.py "$version"
+          else
+            # Notes for an older version, or none yet: check the style only.
+            python3 scripts/check_release_notes.py --allow-missing
+          fi
+
+      - name: Premium imports are guarded
+        run: python3 scripts/check_premium_guard.py
+
+      - name: ShellCheck
+        # The release scripts only. Older helper scripts are not held to it yet.
+        run: shellcheck --severity=warning scripts/bump_version.sh scripts/release.sh scripts/release_notes.sh scripts/tag_release.sh
+
+      - name: actionlint
+        uses: raven-actions/actionlint@v2
+        with:
+          shellcheck: false

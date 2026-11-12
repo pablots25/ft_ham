@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: FT Ham help and guides
+    url: https://ftham.turrion.dev/
+    about: Setup guides, supported equipment and frequently asked questions
+  - name: Purchases, Premium and private questions
+    url: mailto:ftham@turrion.dev
+    about: For anything about your account or purchases, please write by email instead of opening a public issue

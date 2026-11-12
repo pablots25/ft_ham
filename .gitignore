@@ -106,3 +106,10 @@ ENV/
 .swiftlint.yml
 *.md
 *.storekit
+
+# Release process files (tracked on purpose, despite *.md above)
+!.github/**/*.md
+!docs/RELEASING.md
+!CREDITS.md
+!SUPPORTERS.md
+!TODO.md
