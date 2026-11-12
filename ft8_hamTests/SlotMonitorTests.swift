@@ -350,6 +350,215 @@ final class SlotMonitorTests: XCTestCase {
         XCTAssertEqual(monitor.snapshotAndReset(forSlot: slot + 1).slotIndex, -1)
     }
 
+    /// The common on-time case where the boundary audio wins the race: the
+    /// sequencer wakes a few hundred ms after the boundary and the monitor
+    /// has already cut. The sequencer gets that slot, and the blocks analysed
+    /// since the boundary stay with slot N+1 (no reset, nothing dropped).
+    func test_slightlyLateCollection_keepsTheBlocksSinceTheBoundary() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        feedTimed(monitor, sine(hz: 1000, seconds: 15.5), from: slotStart)
+
+        let snapshot = monitor.snapshotAndReset(forSlot: slot)
+        XCTAssertEqual(snapshot.slotIndex, slot)
+        XCTAssertEqual(snapshot.waterfall.pointee.num_blocks, 94)
+
+        // Up to 30.5 s, so the audio of the next boundary has arrived too.
+        feedTimed(monitor, sine(hz: 1000, seconds: 15.0), from: slotStart + 15.5)
+        let next = monitor.snapshotAndReset(forSlot: slot + 1)
+        XCTAssertEqual(next.slotIndex, slot + 1, "slot N+1 was cut at its own boundary too")
+        XCTAssertEqual(next.slotSequence, snapshot.slotSequence + 1)
+        XCTAssertEqual(next.duration, 15.0, accuracy: 0.2)
+    }
+
+    /// A slot cut but never collected (the sequencer skipped it, e.g. TX)
+    /// must not be handed out for a later slot: the later request gets the
+    /// audio of the slot it asked for.
+    func test_staleCutSlot_isNotReturnedForALaterSlot() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        // Slot N, then 14.9 s of slot N+1. Slot N is cut but nobody takes it.
+        feedTimed(monitor, sine(hz: 1000, seconds: 29.9), from: slotStart)
+
+        let snapshot = monitor.snapshotAndReset(forSlot: slot + 1)
+        XCTAssertEqual(snapshot.slotIndex, -1, "slot N+1 cut on request, not the stale slot N")
+        XCTAssertEqual(snapshot.duration, 14.9, accuracy: 0.2)
+
+        // And it is gone for good: the next request is a normal one too.
+        feedTimed(monitor, sine(hz: 1000, seconds: 14.9), from: slotStart + 30)
+        XCTAssertEqual(monitor.snapshotAndReset(forSlot: slot + 2).slotIndex, -1)
+    }
+
+    /// A cut slot is handed out once. A second request for the same slot
+    /// gets the slot in progress, cut on request.
+    func test_cutSlot_isHandedOutOnce() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        feedTimed(monitor, sine(hz: 1000, seconds: 17.0), from: slotStart)
+
+        XCTAssertEqual(monitor.snapshotAndReset(forSlot: slot).slotIndex, slot)
+        let again = monitor.snapshotAndReset(forSlot: slot)
+        XCTAssertEqual(again.slotIndex, -1)
+        XCTAssertEqual(again.duration, 2.0, accuracy: 0.2, "the 2 s of slot N+1 so far")
+    }
+
+    /// The sequencer starts mid-slot: the first slot is partial and is cut
+    /// at its boundary like any other.
+    func test_startMidSlot_firstSlotIsPartial() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        monitor.resetSlot()
+        feedTimed(monitor, sine(hz: 1000, seconds: 6.0), from: slotStart + 10)
+
+        let snapshot = monitor.snapshotAndReset(forSlot: slot)
+        XCTAssertEqual(snapshot.slotIndex, slot)
+        XCTAssertEqual(snapshot.duration, 5.0, accuracy: 0.2)
+    }
+
+    /// The app clock is corrected backwards mid-slot (SNTP sync). Times go
+    /// back, so the monitor does not cut before the stamped boundary.
+    func test_clockStepBackwards_neverCutsEarly() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        feedTimed(monitor, sine(hz: 1000, seconds: 10.0), from: slotStart)
+        // The clock steps back 2 s: the audio of 10..15 s is stamped 8..13 s.
+        feedTimed(monitor, sine(hz: 1000, seconds: 5.0), from: slotStart + 8)
+        let snapshot = monitor.snapshotAndReset(forSlot: slot)
+        XCTAssertEqual(snapshot.slotIndex, -1, "no cut before the stamped boundary")
+        XCTAssertEqual(snapshot.duration, 15.0, accuracy: 0.2, "no audio lost either")
+    }
+
+    /// The app clock is corrected forwards by more than a slot (first SNTP
+    /// sync on a device far off). The slot in progress is cut as soon as the
+    /// time moves on, and the sequencer still gets it.
+    func test_clockStepForwards_cutsTheSlotInProgress() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        feedTimed(monitor, sine(hz: 1000, seconds: 5.0), from: slotStart)
+        // Stamped 20 s ahead from here on: now 25 s into the run, slot N+1.
+        feedTimed(monitor, sine(hz: 1000, seconds: 3.0), from: slotStart + 25)
+
+        let snapshot = monitor.snapshotAndReset(forSlot: slot)
+        XCTAssertEqual(snapshot.slotIndex, slot)
+        XCTAssertEqual(snapshot.duration, 5.0, accuracy: 0.2)
+    }
+
+    /// The sound card runs 0.1 % fast or slow against the wall clock (far
+    /// worse than real hardware). Over ten slots every cut lands on the
+    /// right slot and within 0.3 s of 15 s.
+    func test_sampleClockDrift_keepsEveryCutNearItsBoundary() {
+        for drift in [1.001, 0.999] {
+            let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+            _ = monitor.snapshotAndReset(forSlot: slot - 1)
+            let realRate = 12_000.0 * drift
+            let audio = sine(hz: 1000, seconds: 15.4)
+            var captured = 0
+            for k in 0 ..< 10 {
+                var pos = 0
+                while pos < audio.count {
+                    let n = min(557, audio.count - pos)
+                    let arrival = slotStart + Double(captured + pos + n) / realRate
+                    audio[pos ..< pos + n].withUnsafeBufferPointer {
+                        monitor.feedSamples($0.baseAddress!, count: UInt($0.count), arrivalTime: arrival)
+                    }
+                    pos += n
+                }
+                captured += audio.count
+                let wallNow = slotStart + Double(captured) / realRate
+                let expected = Int64(floor(wallNow / 15)) - 1
+                let snapshot = monitor.snapshotAndReset(forSlot: expected)
+                XCTAssertEqual(snapshot.slotIndex, expected, "drift \(drift), slot \(k)")
+                XCTAssertEqual(snapshot.duration, 15.0, accuracy: 0.3, "drift \(drift), slot \(k)")
+            }
+        }
+    }
+
+    /// The tap and the sequencer run on different threads. Hammer both at
+    /// once: no crash, and no block is ever handed out twice.
+    func test_concurrentFeedAndCollect_neverDuplicatesABlock() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        let audio = sine(hz: 1000, seconds: 60.0)
+        let start = slotStart
+        let doneLock = NSLock()
+        var feedDone = false
+        let isDone = { doneLock.lock(); defer { doneLock.unlock() }; return feedDone }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            var pos = 0
+            while pos < audio.count {
+                let n = min(557, audio.count - pos)
+                let arrival = start + Double(pos + n) / 12_000
+                audio[pos ..< pos + n].withUnsafeBufferPointer {
+                    monitor.feedSamples($0.baseAddress!, count: UInt($0.count), arrivalTime: arrival)
+                }
+                pos += n
+            }
+            doneLock.lock(); feedDone = true; doneLock.unlock()
+        }
+        var collectedBlocks = 0
+        var lastSequence: UInt = 0
+        var requested = slot
+        var finished = false
+        let deadline = Date().addingTimeInterval(30)
+        while !finished && Date() < deadline {
+            let snapshot = monitor.snapshotAndReset(forSlot: requested)
+            collectedBlocks += Int(snapshot.waterfall.pointee.num_blocks)
+            XCTAssertGreaterThan(UInt(snapshot.slotSequence), lastSequence)
+            lastSequence = UInt(snapshot.slotSequence)
+            if snapshot.slotIndex >= 0 { requested = snapshot.slotIndex + 1 }
+            finished = isDone()
+            usleep(1_000)
+        }
+        XCTAssertTrue(finished, "the feed thread finished")
+        collectedBlocks += Int(monitor.snapshotAndReset().waterfall.pointee.num_blocks)
+        XCTAssertLessThanOrEqual(collectedBlocks, 375, "60 s is 375 blocks")
+    }
+
+    // MARK: - Kill switch (rxSlotCutOnAudioTime)
+
+    /// Switched off, timed audio is treated exactly like untimed audio: the
+    /// slot is only cut on request, as in 1.3.1.
+    func test_cutsAtSlotBoundaryOff_onlyCutsOnRequest() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        XCTAssertTrue(monitor.cutsAtSlotBoundary, "on unless the app turns it off")
+        monitor.cutsAtSlotBoundary = false
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        feedTimed(monitor, sine(hz: 1000, seconds: 19.0), from: slotStart)
+
+        let snapshot = monitor.snapshotAndReset(forSlot: slot)
+        XCTAssertEqual(snapshot.slotIndex, -1)
+        XCTAssertEqual(snapshot.waterfall.pointee.num_blocks, 118, "the same as untimed audio")
+    }
+
+    /// Switched off mid-run: from the next buffer on no slot is cut, and a
+    /// slot already cut before that is still handed out (it holds real audio).
+    func test_cutsAtSlotBoundary_switchedOffMidRun() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        feedTimed(monitor, sine(hz: 1000, seconds: 16.0), from: slotStart)
+        monitor.cutsAtSlotBoundary = false
+        feedTimed(monitor, sine(hz: 1000, seconds: 16.0), from: slotStart + 16)
+
+        XCTAssertEqual(monitor.snapshotAndReset(forSlot: slot).slotIndex, slot, "cut while it was on")
+        feedTimed(monitor, sine(hz: 1000, seconds: 16.0), from: slotStart + 32)
+        XCTAssertEqual(monitor.snapshotAndReset(forSlot: slot + 2).slotIndex, -1, "no cut once off")
+    }
+
+    /// Switched on mid-run: the monitor picks the clock up again and cuts at
+    /// the next boundary.
+    func test_cutsAtSlotBoundary_switchedOnMidRun() {
+        let monitor = FT8SlotMonitor(sampleRate: 12_000, isFT4: false)
+        monitor.cutsAtSlotBoundary = false
+        _ = monitor.snapshotAndReset(forSlot: slot - 1)
+        feedTimed(monitor, sine(hz: 1000, seconds: 10.0), from: slotStart)
+        monitor.cutsAtSlotBoundary = true
+        feedTimed(monitor, sine(hz: 1000, seconds: 7.0), from: slotStart + 10)
+
+        let snapshot = monitor.snapshotAndReset(forSlot: slot)
+        XCTAssertEqual(snapshot.slotIndex, slot)
+        XCTAssertEqual(snapshot.duration, 15.0, accuracy: 0.2)
+    }
+
     /// End to end: a message in slot N+1, collected 4 s late, still decodes,
     /// with a DT near its real start. Cut on request at that point, the slot
     /// would start 4 s into the message and the decoder would not find it.

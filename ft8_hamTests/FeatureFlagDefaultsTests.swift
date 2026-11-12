@@ -24,4 +24,19 @@ final class FeatureFlagDefaultsTests: XCTestCase {
         XCTAssertEqual(FeatureFlag.enableHeardMe.rawValue, "enableHeardMe")
         XCTAssertEqual(FeatureFlag.controlsSheet.rawValue, "controlsSheet")
     }
+
+    /// The Remote Config key the 1.3.2 rollout uses.
+    func test_rxSlotCutFlag_usesItsRemoteConfigKey() {
+        XCTAssertEqual(FeatureFlag.rxSlotCutOnAudioTime.rawValue, "rxSlotCutOnAudioTime")
+    }
+
+    /// Tests build in debug, where the flag is on for device testing. The
+    /// release default (off) is checked by `#if DEBUG` in FeatureFlag.swift.
+    func test_rxSlotCutFlag_isOnInDebugBuilds() {
+        #if DEBUG
+        XCTAssertTrue(FeatureFlag.rxSlotCutOnAudioTime.defaultValue)
+        #else
+        XCTAssertFalse(FeatureFlag.rxSlotCutOnAudioTime.defaultValue)
+        #endif
+    }
 }

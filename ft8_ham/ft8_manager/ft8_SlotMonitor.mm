@@ -118,6 +118,7 @@ static double monotonicSeconds(void) {
   if (self) {
     _sampleRate = sampleRate;
     _isFT4 = isFT4;
+    _cutsAtSlotBoundary = YES;
     [self setUpMonitorLocked];
   }
   return self;
@@ -229,7 +230,7 @@ static double monotonicSeconds(void) {
   }
   std::lock_guard<std::mutex> guard(_lock);
 
-  if (std::isnan(arrivalTime)) {
+  if (std::isnan(arrivalTime) || !self.cutsAtSlotBoundary) {
     _clockValid = NO;
   } else {
     [self updateClockLockedWithEndSample:_totalSamples + count arrivalTime:arrivalTime];

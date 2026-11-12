@@ -73,6 +73,11 @@ typedef void (^FT8SlotMonitorRowHandler)(const uint8_t *row, int count,
 @property(nonatomic, readonly) float minFrequency;
 @property(nonatomic, readonly) float maxFrequency;
 @property(nonatomic, copy, nullable) FT8SlotMonitorRowHandler rowHandler;
+/// Whether timed audio (`feedSamples:count:arrivalTime:`) may cut a slot at
+/// its UTC boundary on its own. When NO the arrival time is ignored and slots
+/// are only cut on request, exactly as for untimed audio. Defaults to YES.
+/// Can be flipped from any thread; it takes effect with the next buffer.
+@property(atomic) BOOL cutsAtSlotBoundary;
 
 /// Appends audio at `sampleRate`. Any count is fine; whole symbol blocks are
 /// analysed as soon as they complete. Audio fed this way carries no time,
