@@ -124,6 +124,7 @@ final class LogSyncManager: ObservableObject {
             persistPendingIDs(pendingQRZIDs, forKey: StorageKeys.pendingQRZIDs)
             Task {
                 let result = await qrzService.uploadADIF(adif)
+                UsageAnalytics.shared.recordUpload(.qrz, success: result.success)
                 if result.success {
                     pendingQRZIDs.remove(idString)
                     persistPendingIDs(pendingQRZIDs, forKey: StorageKeys.pendingQRZIDs)
@@ -139,6 +140,7 @@ final class LogSyncManager: ObservableObject {
             persistPendingIDs(pendingLoTWIDs, forKey: StorageKeys.pendingLoTWIDs)
             Task {
                 let result = await lotwService.uploadADIF(adif)
+                UsageAnalytics.shared.recordUpload(.lotw, success: result.success)
                 if result.success {
                     pendingLoTWIDs.remove(idString)
                     persistPendingIDs(pendingLoTWIDs, forKey: StorageKeys.pendingLoTWIDs)
@@ -153,6 +155,7 @@ final class LogSyncManager: ObservableObject {
             persistPendingIDs(pendingEQSLIDs, forKey: StorageKeys.pendingEQSLIDs)
             Task {
                 let result = await eqslService.uploadADIF(adif)
+                UsageAnalytics.shared.recordUpload(.eqsl, success: result.success)
                 if result.success {
                     pendingEQSLIDs.remove(idString)
                     persistPendingIDs(pendingEQSLIDs, forKey: StorageKeys.pendingEQSLIDs)
@@ -175,6 +178,7 @@ final class LogSyncManager: ObservableObject {
             let idString = entry.id.uuidString
             Task {
                 let result = await qrzService.uploadADIF(adif)
+                UsageAnalytics.shared.recordUpload(.qrz, success: result.success)
                 if result.success {
                     pendingQRZIDs.remove(idString)
                     persistPendingIDs(pendingQRZIDs, forKey: StorageKeys.pendingQRZIDs)
@@ -187,6 +191,7 @@ final class LogSyncManager: ObservableObject {
             let idString = entry.id.uuidString
             Task {
                 let result = await lotwService.uploadADIF(adif)
+                UsageAnalytics.shared.recordUpload(.lotw, success: result.success)
                 if result.success {
                     pendingLoTWIDs.remove(idString)
                     persistPendingIDs(pendingLoTWIDs, forKey: StorageKeys.pendingLoTWIDs)
@@ -200,6 +205,7 @@ final class LogSyncManager: ObservableObject {
             let idString = entry.id.uuidString
             Task {
                 let result = await eqslService.uploadADIF(adif)
+                UsageAnalytics.shared.recordUpload(.eqsl, success: result.success)
                 if result.success {
                     pendingEQSLIDs.remove(idString)
                     persistPendingIDs(pendingEQSLIDs, forKey: StorageKeys.pendingEQSLIDs)

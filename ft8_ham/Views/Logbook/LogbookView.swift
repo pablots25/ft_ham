@@ -434,6 +434,7 @@ struct LogbookView: View {
             QSOEditView(entry: entry) { updated in
                 if let idx = viewModel.qsoList.firstIndex(where: { $0.id == updated.id }) {
                     viewModel.qsoList[idx] = updated
+                    UsageAnalytics.shared.recordAction(.qsoEdit, .completed)
                 }
             }
         }

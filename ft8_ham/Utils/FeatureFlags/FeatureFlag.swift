@@ -33,6 +33,9 @@ enum FeatureFlag: String, CaseIterable {
     /// Ask for an App Store rating after the first few logged QSOs instead
     /// of waiting for a launch count.
     case rateAfterQSO
+    /// Feature usage analytics: daily feature_state snapshot, feature_action,
+    /// sync and service error counts, purchase funnel and `is_premium`.
+    case enableUsageAnalytics
 
     var defaultValue: Bool {
         switch self {
@@ -53,7 +56,7 @@ enum FeatureFlag: String, CaseIterable {
         case .premiumMoments, .rateAfterQSO: return false
         // Off everywhere until the look is settled.
         case .waterfallSlotContext: return false
-        case .enableBandHopping, .enableICloudSync, .enablePresence:
+        case .enableBandHopping, .enableICloudSync, .enablePresence, .enableUsageAnalytics:
             #if DEBUG
             return true
             #else
