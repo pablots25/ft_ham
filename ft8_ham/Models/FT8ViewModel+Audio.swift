@@ -439,7 +439,7 @@ extension FT8ViewModel {
 
             // An unconfirmed contact is never auto-logged: always ask, even when
             // autoQSOLogging is on, so the operator can vet the doubtful QSO.
-            offerLogging(qso: logEntry, unconfirmed: true)
+            offerLogging(qso: logEntry, reason: .timedOut)
 
 
         case .abortQSO:
