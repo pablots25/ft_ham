@@ -146,7 +146,7 @@ extension FT8ViewModel {
             self.audioManager.stopPlayback()
             self.audioManager.stopMicInput()
             self.appLogger.info("Sequencer stopped clean.")
-            AnalyticsManager.shared.stopRadioActivity()
+            AnalyticsManager.shared.stopRadioActivity(outcome: .interrupted(.sequencerStopped))
         }
     }
     
@@ -472,6 +472,11 @@ extension FT8ViewModel {
         sendCatFrequency(reason: "tx start")
         setCatPTT(true, reason: "tx start")
         audioManager.playAudio(audioData)
+        // playAudio sets isPlaying synchronously. Still false means the engine
+        // refused the buffer, so this TX never went on air.
+        if !audioManager.isPlaying {
+            AnalyticsManager.shared.interruptTransmission(.playbackFailed)
+        }
         InAppPrompts.shared.recordTXStarted()
         txLogger.info("TX Started: \(message)")
         txLogger.info(
