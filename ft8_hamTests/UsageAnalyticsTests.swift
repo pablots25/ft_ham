@@ -74,6 +74,64 @@ final class UsageAnalyticsTests: XCTestCase {
         XCTAssertEqual(logger.lastEvent?.string(AnalyticsParam.triggerSource), "daily")
     }
 
+    func test_collection_needsTheFlagAndTheUsersConsent() {
+        XCTAssertTrue(UsageAnalytics.isCollectionAllowed(flagEnabled: true, userOptedIn: true))
+        XCTAssertFalse(UsageAnalytics.isCollectionAllowed(flagEnabled: true, userOptedIn: false))
+        XCTAssertFalse(UsageAnalytics.isCollectionAllowed(flagEnabled: false, userOptedIn: true))
+        XCTAssertFalse(UsageAnalytics.isCollectionAllowed(flagEnabled: false, userOptedIn: false))
+    }
+
+    func test_optedOutUser_turningStatisticsBackOn_getsAFullSnapshot() {
+        enabled = false
+        analytics.recordFeatureStates([.catControl: .on])
+        analytics.setPremium(true)
+
+        enabled = true
+        analytics.recordFeatureStates([.catControl: .on])
+        analytics.setPremium(true)
+        XCTAssertEqual(logger.events(named: "feature_state").count, 1)
+        XCTAssertEqual(logger.userProperties[AnalyticsUserProperty.isPremium], "true")
+    }
+
+    // MARK: - Privacy
+
+    /// Every value sent must come from a closed set or be a number: no
+    /// callsigns, grids, references or free text can slip into an event.
+    func test_events_carryOnlyClosedSetValuesAndNumbers() {
+        analytics.setPremium(true)
+        analytics.recordFeatureStates(FeatureStateCollector.states(
+            defaults: defaults,
+            context: .init(isPremium: true, isFlagEnabled: { _ in true },
+                           hasQRZKey: true, hasLoTWCertificate: true, hasEQSLCredentials: true)
+        ))
+        analytics.recordAction(.logbookImport, .completed)
+        analytics.handle(PremiumServiceEvent(service: .qrz, action: .upload, errorCode: "rejected"))
+        analytics.recordServiceError(.iCloudSync, action: "push", error: CloudLogbookSyncError.server("EA4IQL IN85 secret"))
+        analytics.recordServiceError(.presence, action: "publish", error: PresenceError.network("host.example.com"))
+        analytics.recordUpload(.qrz, success: true)
+        analytics.catConnectionChanged(true)
+        advance(60)
+        analytics.catConnectionChanged(false)
+        analytics.flushPSKReporter(sent: 3, failed: 0)
+        analytics.flush()
+
+        XCTAssertFalse(logger.events.isEmpty)
+        for event in logger.events {
+            for (key, value) in event.parameters {
+                if value is NSNumber { continue }
+                let text = value as? String ?? ""
+                XCTAssertNotNil(
+                    text.range(of: "^[a-z][a-z0-9_]*$", options: .regularExpression),
+                    "\(event.name).\(key) = \(text)"
+                )
+            }
+        }
+        let everything = logger.events.flatMap { $0.parameters.values.compactMap { $0 as? String } }.joined(separator: " ")
+        XCTAssertFalse(everything.contains("EA4IQL"))
+        XCTAssertFalse(everything.contains("IN85"))
+        XCTAssertFalse(everything.contains("example.com"))
+    }
+
     // MARK: - User properties
 
     func test_setPremium_setsTheUserPropertyOnlyWhenItChanges() {

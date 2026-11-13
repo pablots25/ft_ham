@@ -11,7 +11,11 @@ import SwiftUI
 
 /// Records how features are used: which are switched on, what users do with
 /// them and how the services behind them perform. Everything goes through
-/// `log(_:)`, which drops events while `enableUsageAnalytics` is off.
+/// `log(_:)`, which drops events unless `isCollectionAllowed` holds.
+///
+/// Privacy (see the Privacy Policy, "Usage Statistics"): events carry only
+/// closed-set values and counts. Never callsigns, grid squares, activation
+/// references, logbook content, hosts, credentials or error messages.
 ///
 /// Volume rules: nothing is sent per FT8/FT4 cycle. Uploads and PSK Reporter
 /// spots are counted and sent when the app goes to the background, and each
@@ -21,8 +25,21 @@ final class UsageAnalytics {
 
     static let shared = UsageAnalytics(
         logger: AnalyticsManager.shared,
-        isEnabled: { FeatureFlagManager.shared.isEnabled(.enableUsageAnalytics) }
+        isEnabled: {
+            isCollectionAllowed(
+                flagEnabled: FeatureFlagManager.shared.isEnabled(.enableUsageAnalytics),
+                userOptedIn: AnalyticsManager.shared.isAnalyticsEnabled
+            )
+        }
     )
+
+    /// Usage analytics runs only when the remote flag is on and the user has
+    /// not turned off "Share usage statistics". Checking the opt-out here, and
+    /// not only in `AnalyticsManager`, also stops the snapshot bookkeeping, so
+    /// nothing about an opted-out user is even prepared for sending.
+    nonisolated static func isCollectionAllowed(flagEnabled: Bool, userOptedIn: Bool) -> Bool {
+        flagEnabled && userOptedIn
+    }
 
     /// Time between two daily `feature_state` snapshots.
     static let snapshotInterval: TimeInterval = 24 * 60 * 60
