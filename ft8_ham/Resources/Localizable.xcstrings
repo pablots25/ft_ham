@@ -140,6 +140,35 @@
         }
       }
     },
+    "Both signal reports were exchanged with %@, but the final 73 has not arrived. Log it anyway?" : {
+      "comment" : "Message of the alert that confirms logging an unfinished QSO. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beide Rapporte wurden mit %@ ausgetauscht, aber das abschließende 73 ist noch nicht angekommen. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se intercambiaron ambos reportes de señal con %@, pero no ha llegado el 73 final. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les deux reports ont été échangés avec %@, mais le 73 final n’est pas arrivé. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrambi i rapporti sono stati scambiati con %@, ma il 73 finale non è arrivato. Registrarlo comunque?"
+          }
+        }
+      }
+    },
     "Can't read the audio input. Check your audio device." : {
       "comment" : "Short audio error shown in a toast. Keep it within two lines.",
       "extractionState" : "manual",
@@ -495,6 +524,93 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nessuna uscita audio. Controlla il dispositivo audio."
+          }
+        }
+      }
+    },
+    "No signal report received from %@. It will be logged without the received report. Log it anyway?" : {
+      "comment" : "Message of the alert that confirms logging an unfinished QSO. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Rapport von %@ empfangen. Das QSO wird ohne empfangenen Rapport geloggt. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha recibido reporte de señal de %@. Se registrará sin el reporte recibido. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun report reçu de %@. Le QSO sera enregistré sans le report reçu. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun rapporto ricevuto da %@. Il QSO verrà registrato senza il rapporto ricevuto. Registrarlo comunque?"
+          }
+        }
+      }
+    },
+    "No signal report sent to %@. It will be logged without the sent report. Log it anyway?" : {
+      "comment" : "Message of the alert that confirms logging an unfinished QSO. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Rapport an %@ gesendet. Das QSO wird ohne gesendeten Rapport geloggt. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha enviado reporte de señal a %@. Se registrará sin el reporte enviado. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun report envoyé à %@. Le QSO sera enregistré sans le report envoyé. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun rapporto inviato a %@. Il QSO verrà registrato senza il rapporto inviato. Registrarlo comunque?"
+          }
+        }
+      }
+    },
+    "No signal reports were exchanged with %@. It will be logged without reports. Log it anyway?" : {
+      "comment" : "Message of the alert that confirms logging an unfinished QSO. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit %@ wurden keine Rapporte ausgetauscht. Das QSO wird ohne Rapporte geloggt. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se intercambiaron reportes de señal con %@. Se registrará sin reportes. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun report n’a été échangé avec %@. Le QSO sera enregistré sans reports. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun rapporto è stato scambiato con %@. Il QSO verrà registrato senza rapporti. Registrarlo comunque?"
           }
         }
       }

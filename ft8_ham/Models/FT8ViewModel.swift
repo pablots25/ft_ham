@@ -278,12 +278,16 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         get { logPrompt.pendingQSOToLog }
         set { logPrompt.pendingQSOToLog = newValue }
     }
-    /// True when the pending confirmation is for a QSO that timed out before the
-    /// final handshake (reports exchanged but unconfirmed). Drives a distinct
-    /// confirmation message so the operator knows it wasn't a clean completion.
+    /// Why the pending confirmation is shown (normal completion, timeout or
+    /// manual "Log QSO"). Drives the alert's wording.
+    internal var pendingLogReason: QSOLogPromptReason {
+        get { logPrompt.pendingReason }
+        set { logPrompt.pendingReason = newValue }
+    }
+    /// True when the pending confirmation is for a QSO that did not finish its
+    /// handshake (timed out, or logged by hand with "Log QSO").
     internal var pendingQSOIsUnconfirmed: Bool {
-        get { logPrompt.pendingQSOIsUnconfirmed }
-        set { logPrompt.pendingQSOIsUnconfirmed = newValue }
+        logPrompt.pendingQSOIsUnconfirmed
     }
     
     
