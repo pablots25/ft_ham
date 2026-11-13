@@ -9,7 +9,7 @@ import StoreKit
 import XCTest
 @testable import ft8_ham
 
-/// The usage analytics recorder: kill switch, de-duplication, counters,
+/// The usage analytics recorder: user opt-out, de-duplication, counters,
 /// CAT sessions, PSK Reporter batches and the feature_state snapshot.
 @MainActor
 final class UsageAnalyticsTests: XCTestCase {
@@ -17,7 +17,7 @@ final class UsageAnalyticsTests: XCTestCase {
     private var logger: MockAnalyticsLogger!
     private var defaults: UserDefaults!
     private var clock: Date!
-    private var enabled = true
+    private var optedIn = true
     private var analytics: UsageAnalytics!
 
     private let suiteName = "UsageAnalyticsTests"
@@ -28,10 +28,10 @@ final class UsageAnalyticsTests: XCTestCase {
         UserDefaults().removePersistentDomain(forName: suiteName)
         defaults = UserDefaults(suiteName: suiteName)
         clock = Date(timeIntervalSince1970: 1_800_000_000)
-        enabled = true
+        optedIn = true
         analytics = UsageAnalytics(
             logger: logger,
-            isEnabled: { [unowned self] in self.enabled },
+            isOptedIn: { [unowned self] in self.optedIn },
             defaults: defaults,
             now: { [unowned self] in self.clock }
         )
@@ -49,10 +49,10 @@ final class UsageAnalyticsTests: XCTestCase {
         clock = clock.addingTimeInterval(seconds)
     }
 
-    // MARK: - Kill switch
+    // MARK: - User opt-out ("Share usage statistics")
 
     func test_disabled_sendsNothing() {
-        enabled = false
+        optedIn = false
         analytics.log(.featureAction(.statistics, .opened))
         analytics.setPremium(true)
         analytics.recordServiceError(.qrzLogbook, action: "upload", errorCode: "network")
@@ -65,28 +65,21 @@ final class UsageAnalyticsTests: XCTestCase {
     }
 
     func test_disabled_doesNotStoreTheSnapshot_soTheFirstEnabledRunIsDaily() {
-        enabled = false
+        optedIn = false
         analytics.recordFeatureStates([.catControl: .on])
         XCTAssertNil(defaults.object(forKey: UsageAnalytics.Keys.lastSnapshotDate))
 
-        enabled = true
+        optedIn = true
         analytics.recordFeatureStates([.catControl: .on])
         XCTAssertEqual(logger.lastEvent?.string(AnalyticsParam.triggerSource), "daily")
     }
 
-    func test_collection_needsTheFlagAndTheUsersConsent() {
-        XCTAssertTrue(UsageAnalytics.isCollectionAllowed(flagEnabled: true, userOptedIn: true))
-        XCTAssertFalse(UsageAnalytics.isCollectionAllowed(flagEnabled: true, userOptedIn: false))
-        XCTAssertFalse(UsageAnalytics.isCollectionAllowed(flagEnabled: false, userOptedIn: true))
-        XCTAssertFalse(UsageAnalytics.isCollectionAllowed(flagEnabled: false, userOptedIn: false))
-    }
-
     func test_optedOutUser_turningStatisticsBackOn_getsAFullSnapshot() {
-        enabled = false
+        optedIn = false
         analytics.recordFeatureStates([.catControl: .on])
         analytics.setPremium(true)
 
-        enabled = true
+        optedIn = true
         analytics.recordFeatureStates([.catControl: .on])
         analytics.setPremium(true)
         XCTAssertEqual(logger.events(named: "feature_state").count, 1)
@@ -537,15 +530,9 @@ final class UsageAnalyticsEventTests: XCTestCase {
         XCTAssertEqual(UsageErrorCode.code(for: PresenceError.notAvailable as Error), "not_available")
     }
 
-    // MARK: - Flag
-
-    func test_usageAnalyticsFlag_isOffInRelease() {
-        XCTAssertEqual(FeatureFlag.enableUsageAnalytics.rawValue, "enableUsageAnalytics")
-        #if DEBUG
-        XCTAssertTrue(FeatureFlag.enableUsageAnalytics.defaultValue)
-        #else
-        XCTAssertFalse(FeatureFlag.enableUsageAnalytics.defaultValue)
-        #endif
+    /// Usage analytics follows only the user's opt-out, with no remote flag.
+    func test_usageAnalytics_hasNoFeatureFlag() {
+        XCTAssertNil(FeatureFlag(rawValue: "enableUsageAnalytics"))
     }
 }
 

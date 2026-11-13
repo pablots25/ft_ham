@@ -11,7 +11,10 @@ import SwiftUI
 
 /// Records how features are used: which are switched on, what users do with
 /// them and how the services behind them perform. Everything goes through
-/// `log(_:)`, which drops events unless `isCollectionAllowed` holds.
+/// `log(_:)`, which drops events while the user has turned off "Share usage
+/// statistics". Checking the opt-out here, and not only in `AnalyticsManager`,
+/// also stops the snapshot bookkeeping, so nothing about an opted-out user is
+/// even prepared for sending.
 ///
 /// Privacy (see the Privacy Policy, "Usage Statistics"): events carry only
 /// closed-set values and counts. Never callsigns, grid squares, activation
@@ -25,21 +28,8 @@ final class UsageAnalytics {
 
     static let shared = UsageAnalytics(
         logger: AnalyticsManager.shared,
-        isEnabled: {
-            isCollectionAllowed(
-                flagEnabled: FeatureFlagManager.shared.isEnabled(.enableUsageAnalytics),
-                userOptedIn: AnalyticsManager.shared.isAnalyticsEnabled
-            )
-        }
+        isOptedIn: { AnalyticsManager.shared.isAnalyticsEnabled }
     )
-
-    /// Usage analytics runs only when the remote flag is on and the user has
-    /// not turned off "Share usage statistics". Checking the opt-out here, and
-    /// not only in `AnalyticsManager`, also stops the snapshot bookkeeping, so
-    /// nothing about an opted-out user is even prepared for sending.
-    nonisolated static func isCollectionAllowed(flagEnabled: Bool, userOptedIn: Bool) -> Bool {
-        flagEnabled && userOptedIn
-    }
 
     /// Time between two daily `feature_state` snapshots.
     static let snapshotInterval: TimeInterval = 24 * 60 * 60
@@ -52,7 +42,7 @@ final class UsageAnalytics {
     }
 
     private let logger: AnalyticsLogging
-    private let isEnabled: @MainActor () -> Bool
+    private let isOptedIn: @MainActor () -> Bool
     private let defaults: UserDefaults
     private let now: () -> Date
 
@@ -71,12 +61,12 @@ final class UsageAnalytics {
 
     init(
         logger: AnalyticsLogging,
-        isEnabled: @escaping @MainActor () -> Bool,
+        isOptedIn: @escaping @MainActor () -> Bool,
         defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init
     ) {
         self.logger = logger
-        self.isEnabled = isEnabled
+        self.isOptedIn = isOptedIn
         self.defaults = defaults
         self.now = now
     }
@@ -84,14 +74,14 @@ final class UsageAnalytics {
     // MARK: - Sending
 
     func log(_ event: UsageAnalyticsEvent) {
-        guard isEnabled() else { return }
+        guard isOptedIn() else { return }
         logger.logEvent(event.name, parameters: event.parameters)
     }
 
     // MARK: - User properties
 
     func setPremium(_ isPremium: Bool) {
-        guard isEnabled(), lastPremium != isPremium else { return }
+        guard isOptedIn(), lastPremium != isPremium else { return }
         lastPremium = isPremium
         logger.setUserProperty(isPremium ? "true" : "false", forName: AnalyticsUserProperty.isPremium)
     }
@@ -106,7 +96,7 @@ final class UsageAnalytics {
     /// reconnecting on its own after a dropout).
     func recordActionOncePerSession(_ feature: AnalyticsFeature, _ action: FeatureAction) {
         let key = "\(feature.rawValue)|\(action.rawValue)"
-        guard isEnabled(), !reportedActions.contains(key) else { return }
+        guard isOptedIn(), !reportedActions.contains(key) else { return }
         reportedActions.insert(key)
         recordAction(feature, action)
     }
@@ -116,7 +106,7 @@ final class UsageAnalytics {
     /// Sends `service_error` once per feature, action and code each session.
     func recordServiceError(_ feature: AnalyticsFeature, action: String, errorCode: String) {
         let key = "\(feature.rawValue)|\(action)|\(errorCode)"
-        guard isEnabled(), !reportedErrors.contains(key) else { return }
+        guard isOptedIn(), !reportedErrors.contains(key) else { return }
         reportedErrors.insert(key)
         log(.serviceError(feature, action: action, errorCode: errorCode))
     }
@@ -197,7 +187,7 @@ final class UsageAnalytics {
     /// Sends every state once a day, and in between only the ones that
     /// changed since the last send.
     func recordFeatureStates(_ states: [AnalyticsFeature: FeatureUsageState]) {
-        guard isEnabled() else { return }
+        guard isOptedIn() else { return }
 
         let previous = defaults.dictionary(forKey: Keys.lastFeatureStates) as? [String: String] ?? [:]
         let lastSnapshot = defaults.object(forKey: Keys.lastSnapshotDate) as? Date
