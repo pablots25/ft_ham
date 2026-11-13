@@ -735,7 +735,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         setCatPTT(false, reason: "tx finished")
 
         txLogger.info("TX finished (AudioManager): \(txMessage.text)")
-        AnalyticsManager.shared.stopRadioActivity()
+        // A manual or sequencer stop has already reported the TX as failed,
+        // so this only counts when the audio really played to the end.
+        AnalyticsManager.shared.stopRadioActivity(outcome: .completed)
 
         // Free text is not part of a QSO: nothing to advance.
         if activeTXIsFreeText {

@@ -143,8 +143,7 @@ final class AnalyticsManager: AnalyticsLogging {
     static let shared = AnalyticsManager()
 
     // MARK: - Radio Activity State
-    private var activeRadioActivity: RadioActivityType?
-    private var radioActivityStartTime: Date?
+    private lazy var radioActivity = RadioActivityTracker(logger: self)
 
     private init() {
         UserDefaults.standard.register(defaults: ["analyticsEnabled": true])
@@ -319,52 +318,17 @@ final class AnalyticsManager: AnalyticsLogging {
 
     func startRadioActivity(_ activity: RadioActivityType) {
         guard isAnalyticsEnabled else { return }
-        guard activeRadioActivity != activity else { return }
-
-        flushRadioActivityUsage()
-
-        activeRadioActivity = activity
-        radioActivityStartTime = Date()
-
-        if activity == .tx {
-            logEvent("transmission_started")
-        }
+        radioActivity.start(activity)
     }
 
-    func stopRadioActivity(success: Bool? = nil, failureReason: String? = nil) {
-        if let success {
-            if success {
-                logEvent("transmission_success")
-            } else {
-                logEvent("transmission_failed", parameters: [
-                    AnalyticsParam.reason: failureReason ?? "unknown"
-                ])
-            }
-        }
-        flushRadioActivityUsage()
+    /// Stops timing RX or TX. `outcome` is reported only if a TX is running.
+    func stopRadioActivity(outcome: TransmissionOutcome? = nil) {
+        radioActivity.stop(outcome: outcome)
     }
 
-    private func flushRadioActivityUsage() {
-        guard
-            isAnalyticsEnabled,
-            let activity = activeRadioActivity,
-            let start = radioActivityStartTime
-        else { return }
-
-        let duration = Int(Date().timeIntervalSince(start))
-        guard duration > 2 else {
-            activeRadioActivity = nil
-            radioActivityStartTime = nil
-            return
-        }
-
-        logEvent("radio_activity_usage", parameters: [
-            AnalyticsParam.activity: activity.rawValue,
-            AnalyticsParam.durationSec: NSNumber(value: duration)
-        ])
-
-        activeRadioActivity = nil
-        radioActivityStartTime = nil
+    /// Reports the running TX as failed. Leaves RX timing alone.
+    func interruptTransmission(_ reason: TransmissionFailureReason) {
+        radioActivity.interruptTransmission(reason)
     }
 
     // MARK: - Decoded Messages Logic
@@ -410,7 +374,12 @@ final class AnalyticsManager: AnalyticsLogging {
         if scenePhase == .background || scenePhase == .inactive {
             flushDecodedMessages()
             flushQSOs()
-            stopRadioActivity()
+        }
+        // Only .background ends radio activity. .inactive (Control Center, a
+        // notification banner) leaves the TX audio playing, and it always
+        // comes before .background, so stopping here would hide the outcome.
+        if scenePhase == .background {
+            stopRadioActivity(outcome: .interrupted(.appBackground))
         }
     }
 
