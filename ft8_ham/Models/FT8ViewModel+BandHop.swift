@@ -91,6 +91,9 @@ extension FT8ViewModel {
         }
         // Restart only when the rotation itself changed.
         if bandHopState != .stopped, schedule == activeBandHopSchedule { return }
+        if activeBandHopSchedule == nil {
+            UsageAnalytics.shared.recordAction(.bandHopping, .started)
+        }
         activeBandHopSchedule = schedule
         bandHopScheduler.start(schedule: schedule, startingAt: selectedBand.rawValue)
         syncBandHopPause()
@@ -103,6 +106,9 @@ extension FT8ViewModel {
 
     @MainActor
     func stopBandHopping() {
+        if activeBandHopSchedule != nil {
+            UsageAnalytics.shared.recordAction(.bandHopping, .stopped)
+        }
         activeBandHopSchedule = nil
         bandHopScheduler.stop()
     }

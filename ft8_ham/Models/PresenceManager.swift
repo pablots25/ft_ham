@@ -183,6 +183,7 @@ final class PresenceManager: ObservableObject {
         } catch {
             lastError = String(describing: error)
             logger.warning("Presence publish failed: \(String(describing: error))")
+            UsageAnalytics.shared.recordServiceError(.presence, action: "publish", error: error)
         }
     }
 
@@ -194,6 +195,7 @@ final class PresenceManager: ObservableObject {
         } catch {
             lastError = String(describing: error)
             logger.warning("Presence fetch failed: \(String(describing: error))")
+            UsageAnalytics.shared.recordServiceError(.presence, action: "fetch", error: error)
         }
     }
 }

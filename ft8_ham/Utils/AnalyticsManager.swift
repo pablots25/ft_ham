@@ -41,6 +41,21 @@ enum AnalyticsParam {
     static let viewMode = "view_mode"
     static let radioMode = "radio_mode"
     static let prefix = "prefix"
+    // Usage analytics vocabulary. Each one is a GA4 custom dimension, so
+    // reuse these before adding a new key.
+    static let feature = "feature"
+    static let action = "action"
+    static let state = "state"
+    static let service = "service"
+    static let source = "source"
+    static let failed = "failed"
+    static let errorCode = "error_code"
+    static let outcome = "outcome"
+}
+
+/// GA4 user properties. Values are at most 36 characters.
+enum AnalyticsUserProperty {
+    static let isPremium = "is_premium"
 }
 
 /// Event names shared by the prompt helpers and their tests.
@@ -67,6 +82,7 @@ enum RatePromptTrigger: String {
 /// sends to Firebase; tests record the calls instead.
 protocol AnalyticsLogging: AnyObject {
     func logEvent(_ name: String, parameters: [String: Any]?)
+    func setUserProperty(_ value: String?, forName name: String)
 }
 
 extension AnalyticsLogging {
@@ -184,6 +200,12 @@ final class AnalyticsManager: AnalyticsLogging {
         guard isAnalyticsEnabled else { return }
         appLogger.debug("Analytics event: \(name) \(parameters ?? [:])")
         Analytics.logEvent(name, parameters: parameters)
+    }
+
+    func setUserProperty(_ value: String?, forName name: String) {
+        guard isAnalyticsEnabled else { return }
+        appLogger.debug("Analytics user property: \(name)=\(value ?? "nil")")
+        Analytics.setUserProperty(value, forName: name)
     }
 
     // MARK: - App Lifecycle

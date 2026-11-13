@@ -117,6 +117,7 @@ final class CloudLogbookSyncManager: ObservableObject {
         defer { isSyncing = false }
         do {
             try await service.push(entries.map(\.cloudRecord))
+            UsageAnalytics.shared.recordUpload(.icloud, success: true, count: entries.count)
             pendingKeys.subtract(keys)
             savePending()
             lastError = nil
@@ -124,6 +125,8 @@ final class CloudLogbookSyncManager: ObservableObject {
             logger.info("Pushed \(entries.count) QSO(s) to iCloud")
         } catch {
             // Keep the keys queued; the next hook retries.
+            UsageAnalytics.shared.recordUpload(.icloud, success: false, count: entries.count)
+            UsageAnalytics.shared.recordServiceError(.iCloudSync, action: "push", error: error)
             lastError = String(describing: error)
             logger.warning("iCloud push failed: \(String(describing: error))")
         }
@@ -151,6 +154,7 @@ final class CloudLogbookSyncManager: ObservableObject {
         } catch {
             lastError = String(describing: error)
             logger.warning("iCloud pull failed: \(String(describing: error))")
+            UsageAnalytics.shared.recordServiceError(.iCloudSync, action: "pull", error: error)
         }
     }
 
@@ -168,6 +172,7 @@ final class CloudLogbookSyncManager: ObservableObject {
             logger.info("Deleted the iCloud copy of the logbook")
         } catch {
             lastError = String(describing: error)
+            UsageAnalytics.shared.recordServiceError(.iCloudSync, action: "delete_all", error: error)
         }
     }
 

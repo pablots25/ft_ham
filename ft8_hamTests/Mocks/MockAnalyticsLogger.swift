@@ -19,10 +19,24 @@ final class MockAnalyticsLogger: AnalyticsLogging {
     }
 
     private(set) var events: [Event] = []
+    private(set) var userProperties: [String: String?] = [:]
 
     var lastEvent: Event? { events.last }
 
+    func events(named name: String) -> [Event] {
+        events.filter { $0.name == name }
+    }
+
     func logEvent(_ name: String, parameters: [String: Any]?) {
         events.append(Event(name: name, parameters: parameters ?? [:]))
+    }
+
+    func setUserProperty(_ value: String?, forName name: String) {
+        userProperties[name] = value
+    }
+
+    func reset() {
+        events.removeAll()
+        userProperties.removeAll()
     }
 }
