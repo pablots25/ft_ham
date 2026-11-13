@@ -131,7 +131,7 @@ struct DebugSettingsView: View {
                 Button {
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(500))
-                        InAppPrompts.shared.requestRate()
+                        InAppPrompts.shared.requestRate(trigger: .debug)
                     }
                 } label: {
                     Label("Test Rate Prompt", systemImage: "star.fill")

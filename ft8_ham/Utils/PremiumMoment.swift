@@ -53,6 +53,21 @@ enum PremiumMoment: String, Identifiable, CaseIterable {
     }
 }
 
+/// Why a milestone did not raise its Premium prompt, sent as `reason` on
+/// `premium_moment_skipped`.
+enum PremiumMomentSkipReason: String, CaseIterable {
+    /// The user already has Premium.
+    case isPremium = "is_premium"
+    /// Another prompt already showed this session.
+    case promptPresentedThisSession = "prompt_presented_this_session"
+    /// The share sheet is on screen.
+    case shareSheetActive = "share_sheet_active"
+    /// Too few launches since the last milestone prompt.
+    case cooldown
+    /// The threshold was reached but the probability roll failed.
+    case probabilityRoll = "probability_roll"
+}
+
 /// Pure decisions behind the usage-milestone prompts, kept out of
 /// `InAppPrompts` so they can be unit tested without UserDefaults or UI.
 enum PromptMomentPolicy {
@@ -64,6 +79,19 @@ enum PromptMomentPolicy {
     /// Whether a usage milestone should offer Premium instead of a tip.
     static func offersPremium(flagEnabled: Bool, isPremium: Bool) -> Bool {
         flagEnabled && !isPremium
+    }
+
+    /// The reason a milestone stops before counting toward its threshold,
+    /// or nil when it goes on to the cooldown and threshold checks.
+    static func premiumMomentSkipReason(
+        isPremium: Bool,
+        presentedThisSession: Bool,
+        shareSheetActive: Bool
+    ) -> PremiumMomentSkipReason? {
+        if isPremium { return .isPremium }
+        if presentedThisSession { return .promptPresentedThisSession }
+        if shareSheetActive { return .shareSheetActive }
+        return nil
     }
 
     /// Whether logging the QSO number `qsoCount` should ask for a rating.

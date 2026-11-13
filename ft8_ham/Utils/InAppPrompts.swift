@@ -125,7 +125,7 @@ final class InAppPrompts: ObservableObject {
             Task {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 await MainActor.run {
-                    self.requestRate()
+                    self.requestRate(trigger: .launches)
                 }
             }
             return
@@ -219,7 +219,7 @@ final class InAppPrompts: ObservableObject {
         Task {
             // Let the QSO confirmation settle before the system sheet.
             try? await Task.sleep(nanoseconds: 2_000_000_000)
-            requestRate()
+            requestRate(trigger: .qso)
         }
         return true
     }
@@ -261,15 +261,32 @@ final class InAppPrompts: ObservableObject {
     /// are the donation ones from the prompt config. Tip prompts stay off
     /// while the flag is on, since tips no longer unlock anything.
     private func recordPremiumMoment(_ trigger: DonationTrigger) {
-        guard PromptMomentPolicy.offersPremium(
-            flagEnabled: FeatureFlagManager.shared.isEnabled(.premiumMoments),
-            isPremium: PremiumManager.shared.isPremiumUnlocked
-        ) else { return }
-        guard !hasPresentedPromptThisSession, shareItem == nil else { return }
+        guard FeatureFlagManager.shared.isEnabled(.premiumMoments) else { return }
+        if let reason = PromptMomentPolicy.premiumMomentSkipReason(
+            isPremium: PremiumManager.shared.isPremiumUnlocked,
+            presentedThisSession: hasPresentedPromptThisSession,
+            shareSheetActive: shareItem != nil
+        ) {
+            logPremiumMomentSkipped(trigger: trigger, reason: reason)
+            return
+        }
 
         Task {
             await processDonationTrigger(trigger, offeringPremium: true)
         }
+    }
+
+    private func logPremiumMomentSkipped(
+        trigger: DonationTrigger,
+        reason: PremiumMomentSkipReason,
+        roll: Int? = nil
+    ) {
+        AnalyticsManager.shared.logPremiumMomentSkipped(
+            trigger.premiumMoment,
+            reason: reason,
+            appLaunches: UserDefaults.standard.integer(forKey: Keys.appLaunches),
+            roll: roll
+        )
     }
 
     private func logDonationPromptSkipped(trigger: DonationTrigger, reason: String, roll: Int? = nil) {
@@ -288,7 +305,9 @@ final class InAppPrompts: ObservableObject {
         let lastPromptLaunch = defaults.integer(forKey: Keys.donationLastPromptLaunch)
 
         if launches - lastPromptLaunch < donationCooldownLaunches {
-            if !offeringPremium {
+            if offeringPremium {
+                logPremiumMomentSkipped(trigger: trigger, reason: .cooldown)
+            } else {
                 logDonationPromptSkipped(trigger: trigger, reason: "cooldown")
             }
             return
@@ -315,7 +334,9 @@ final class InAppPrompts: ObservableObject {
 
         guard roll <= donationProbabilityPercent else {
             appLogger.debug("Milestone prompt skipped (roll=\(roll))")
-            if !offeringPremium {
+            if offeringPremium {
+                logPremiumMomentSkipped(trigger: trigger, reason: .probabilityRoll, roll: roll)
+            } else {
                 logDonationPromptSkipped(trigger: trigger, reason: "probability_roll", roll: roll)
             }
             return
@@ -327,6 +348,10 @@ final class InAppPrompts: ObservableObject {
 
         if offeringPremium {
             try? await Task.sleep(nanoseconds: 1_000_000_000)
+            AnalyticsManager.shared.logPremiumMomentShown(
+                trigger.premiumMoment,
+                appLaunches: launches
+            )
             premiumMomentAlert = trigger.premiumMoment
             return
         }
@@ -343,9 +368,9 @@ final class InAppPrompts: ObservableObject {
     }
 
     // MARK: - Rate actions
-    func requestRate() {
+    func requestRate(trigger: RatePromptTrigger) {
         let defaults = UserDefaults.standard
-        AnalyticsManager.shared.logRatePromptShown()
+        AnalyticsManager.shared.logRatePromptShown(trigger: trigger)
         AnalyticsManager.shared.logRateConfirmed()
 
         if #available(iOS 16.0, *) {
@@ -406,11 +431,19 @@ final class InAppPrompts: ObservableObject {
 
     // MARK: - Premium moment actions
     func openPremiumMoment(_ moment: PremiumMoment) {
+        AnalyticsManager.shared.logPremiumMomentConfirmed(
+            moment,
+            appLaunches: UserDefaults.standard.integer(forKey: Keys.appLaunches)
+        )
         premiumMomentAlert = nil
         premiumMomentPaywall = moment
     }
 
-    func postponePremiumMoment() {
+    func postponePremiumMoment(_ moment: PremiumMoment) {
+        AnalyticsManager.shared.logPremiumMomentPostponed(
+            moment,
+            appLaunches: UserDefaults.standard.integer(forKey: Keys.appLaunches)
+        )
         premiumMomentAlert = nil
     }
 
@@ -479,7 +512,7 @@ struct InAppPromptsViewModifier: ViewModifier {
                     prompts.openPremiumMoment(moment)
                 }
                 Button("Not now", role: .cancel) {
-                    prompts.postponePremiumMoment()
+                    prompts.postponePremiumMoment(moment)
                 }
             } message: { moment in
                 Text(moment.message)

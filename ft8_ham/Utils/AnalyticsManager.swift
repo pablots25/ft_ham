@@ -43,8 +43,83 @@ enum AnalyticsParam {
     static let prefix = "prefix"
 }
 
+/// Event names shared by the prompt helpers and their tests.
+enum AnalyticsEventName {
+    static let ratePromptShown = "rate_prompt_shown"
+    static let premiumMomentShown = "premium_moment_shown"
+    static let premiumMomentConfirmed = "premium_moment_confirmed"
+    static let premiumMomentPostponed = "premium_moment_postponed"
+    static let premiumMomentSkipped = "premium_moment_skipped"
+}
+
+/// What asked for the App Store rating, sent as `trigger_source` on
+/// `rate_prompt_shown`.
+enum RatePromptTrigger: String {
+    /// The app launch threshold from the prompt config.
+    case launches
+    /// The QSO threshold behind `rateAfterQSO`.
+    case qso
+    /// The test button in Debug settings.
+    case debug
+}
+
+/// The single entry point every event goes through. `AnalyticsManager`
+/// sends to Firebase; tests record the calls instead.
+protocol AnalyticsLogging: AnyObject {
+    func logEvent(_ name: String, parameters: [String: Any]?)
+}
+
+extension AnalyticsLogging {
+
+    // MARK: - Rate Prompt
+
+    func logRatePromptShown(trigger: RatePromptTrigger) {
+        logEvent(AnalyticsEventName.ratePromptShown, parameters: [
+            AnalyticsParam.triggerSource: trigger.rawValue
+        ])
+    }
+
+    // MARK: - Premium Moments
+
+    func logPremiumMomentShown(_ moment: PremiumMoment, appLaunches: Int) {
+        logEvent(AnalyticsEventName.premiumMomentShown,
+                 parameters: premiumMomentParameters(moment, appLaunches: appLaunches))
+    }
+
+    func logPremiumMomentConfirmed(_ moment: PremiumMoment, appLaunches: Int) {
+        logEvent(AnalyticsEventName.premiumMomentConfirmed,
+                 parameters: premiumMomentParameters(moment, appLaunches: appLaunches))
+    }
+
+    func logPremiumMomentPostponed(_ moment: PremiumMoment, appLaunches: Int) {
+        logEvent(AnalyticsEventName.premiumMomentPostponed,
+                 parameters: premiumMomentParameters(moment, appLaunches: appLaunches))
+    }
+
+    func logPremiumMomentSkipped(
+        _ moment: PremiumMoment,
+        reason: PremiumMomentSkipReason,
+        appLaunches: Int,
+        roll: Int? = nil
+    ) {
+        var parameters = premiumMomentParameters(moment, appLaunches: appLaunches)
+        parameters[AnalyticsParam.reason] = reason.rawValue
+        if let roll {
+            parameters[AnalyticsParam.roll] = NSNumber(value: roll)
+        }
+        logEvent(AnalyticsEventName.premiumMomentSkipped, parameters: parameters)
+    }
+
+    private func premiumMomentParameters(_ moment: PremiumMoment, appLaunches: Int) -> [String: Any] {
+        [
+            AnalyticsParam.triggerSource: moment.rawValue,
+            AnalyticsParam.appLaunches: NSNumber(value: appLaunches)
+        ]
+    }
+}
+
 /// Singleton manager to handle anonymous app metrics, App Store compliant.
-final class AnalyticsManager {
+final class AnalyticsManager: AnalyticsLogging {
 
     private let appLogger = AppLogger(category: "ANL")
 
@@ -127,10 +202,6 @@ final class AnalyticsManager {
     }
 
     // MARK: - Rate & Share Events
-
-    func logRatePromptShown() {
-        logEvent("rate_prompt_shown")
-    }
 
     func logRateConfirmed() {
         logEvent("rate_confirmed")
