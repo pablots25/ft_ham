@@ -2712,31 +2712,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hilf mit, die App zu verbessern, indem du anonyme Nutzungsstatistiken teilst. Es werden keine persönlichen Daten erfasst."
+            "value" : "Hilf mit, die App zu verbessern, indem du anonyme Nutzungsstatistiken teilst. Dein Rufzeichen, dein Locator und dein Logbuch werden nie übertragen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Help improve the app by sharing anonymous usage statistics. No personal data is collected."
+            "value" : "Help improve the app by sharing anonymous usage statistics. Your callsign, locator and logbook are never included."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ayuda a mejorar la aplicación compartiendo estadísticas de uso anónimas. No se recopila ningún dato personal."
+            "value" : "Ayuda a mejorar la aplicación compartiendo estadísticas de uso anónimas. Nunca se incluyen tu indicativo, tu localizador ni tu logbook."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aidez à améliorer l'app en partageant des statistiques d'utilisation anonymes. Aucune donnée personnelle n'est collectée."
+            "value" : "Aidez à améliorer l'app en partageant des statistiques d'utilisation anonymes. Votre indicatif, votre locator et votre carnet de trafic ne sont jamais inclus."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aiuta a migliorare l'app condividendo statistiche d'uso anonime. Non vengono raccolti dati personali."
+            "value" : "Aiuta a migliorare l'app condividendo statistiche d'uso anonime. Il tuo nominativo, il tuo locator e il tuo log non vengono mai inclusi."
           }
         }
       }

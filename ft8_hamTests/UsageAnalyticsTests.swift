@@ -548,3 +548,45 @@ final class UsageAnalyticsEventTests: XCTestCase {
         #endif
     }
 }
+
+// MARK: - In-app disclosure
+
+/// The "Share usage statistics" help must match the Privacy Policy, which
+/// mentions an app-instance identifier, so it cannot claim no personal data.
+final class AnalyticsDisclosureTests: XCTestCase {
+
+    private let languages = ["en", "es", "de", "fr", "it"]
+
+    private func helpText(_ language: String) -> String? {
+        let appBundle = Bundle(for: AnalyticsManager.self)
+        guard
+            let path = appBundle.path(forResource: language, ofType: "lproj"),
+            let bundle = Bundle(path: path)
+        else { return nil }
+        let text = bundle.localizedString(forKey: "Analytics help", value: nil, table: nil)
+        return text == "Analytics help" ? nil : text
+    }
+
+    func test_helpText_existsInEveryLanguage() {
+        for language in languages {
+            XCTAssertNotNil(helpText(language), language)
+        }
+    }
+
+    func test_helpText_doesNotClaimNoPersonalData() {
+        let forbidden = [
+            "en": "No personal data", "es": "ningún dato personal", "de": "keine persönlichen Daten",
+            "fr": "Aucune donnée personnelle", "it": "Non vengono raccolti dati personali"
+        ]
+        for (language, phrase) in forbidden {
+            guard let text = helpText(language) else { continue }
+            XCTAssertFalse(text.contains(phrase), "\(language): \(text)")
+        }
+    }
+
+    func test_helpText_namesWhatIsNeverSent() {
+        let text = helpText("en") ?? ""
+        XCTAssertTrue(text.contains("callsign"), text)
+        XCTAssertTrue(text.contains("logbook"), text)
+    }
+}
