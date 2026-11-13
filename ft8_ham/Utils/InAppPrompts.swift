@@ -26,7 +26,6 @@ final class InAppPrompts: ObservableObject {
         static let hasShownSharePrompt = "hasShownSharePrompt"
         static let hasShownRatePrompt = "hasShownRatePrompt"
         static let postponedSharePrompt = "postponedSharePrompt"
-        static let postponedRatePrompt = "postponedRatePrompt"
         static let donationQSOCount = "donationQSOCount"
         static let donationADIFCount = "donationADIFCount"
         static let donationTXCount = "donationTXCount"
@@ -104,22 +103,17 @@ final class InAppPrompts: ObservableObject {
         appLogger.debug("App launch count: \(launches)")
 
         // MARK: - Rate logic
-        let rateShown = defaults.bool(forKey: Keys.hasShownRatePrompt)
-        let ratePostponed = defaults.integer(forKey: Keys.postponedRatePrompt)
-
-        let shouldShowRate =
-            isRatePromptEnabled &&
-            !rateShown &&
-            ((ratePostponed == 0 && launches == rateThreshold) ||
-             (ratePostponed > 0 && launches - ratePostponed >= reminderDelay))
+        let rateRoll = Int.random(in: 1...100)
+        let shouldShowRate = RatePromptPolicy.shouldRequestAfterLaunches(
+            enabled: isRatePromptEnabled,
+            alreadyRequested: hasRequestedRatingThisVersion,
+            launches: launches,
+            threshold: rateThreshold,
+            roll: rateRoll,
+            probabilityPercent: promptProbabilityPercent
+        )
 
         if shouldShowRate {
-            let roll = Int.random(in: 1...100)
-            guard roll <= promptProbabilityPercent else {
-                appLogger.debug("Rate prompt skipped (roll=\(roll))")
-                return
-            }
-
             hasPresentedPromptThisSession = true
 
             Task {
@@ -209,7 +203,7 @@ final class InAppPrompts: ObservableObject {
         guard PromptMomentPolicy.shouldRequestReviewAfterQSO(
             flagEnabled: FeatureFlagManager.shared.isEnabled(.rateAfterQSO),
             ratePromptEnabled: isRatePromptEnabled,
-            alreadyRequested: defaults.bool(forKey: Keys.hasShownRatePrompt),
+            alreadyRequested: hasRequestedRatingThisVersion,
             presentedThisSession: hasPresentedPromptThisSession,
             qsoCount: qsoCount
         ) else { return false }
@@ -368,10 +362,30 @@ final class InAppPrompts: ObservableObject {
     }
 
     // MARK: - Rate actions
+    /// Whether a rating was already requested in this major.minor version.
+    private var hasRequestedRatingThisVersion: Bool {
+        let defaults = UserDefaults.standard
+        let currentVersion = Bundle.main.shortVersion
+        let stored = defaults.string(forKey: RatePromptPolicy.lastRequestedVersionKey)
+        let lastRequested = RatePromptPolicy.lastRequestedVersion(
+            stored: stored,
+            legacyRequested: defaults.bool(forKey: Keys.hasShownRatePrompt),
+            currentVersion: currentVersion
+        )
+        // Persist the legacy migration, so the next minor version compares
+        // against the version that first saw it, not against itself.
+        if stored == nil, let lastRequested {
+            defaults.set(lastRequested, forKey: RatePromptPolicy.lastRequestedVersionKey)
+        }
+        return RatePromptPolicy.hasRequested(
+            lastRequestedVersion: lastRequested,
+            currentVersion: currentVersion
+        )
+    }
+
     func requestRate(trigger: RatePromptTrigger) {
         let defaults = UserDefaults.standard
         AnalyticsManager.shared.logRatePromptShown(trigger: trigger)
-        AnalyticsManager.shared.logRateConfirmed()
 
         if #available(iOS 16.0, *) {
             if let scene = UIApplication.shared.connectedScenes
@@ -386,14 +400,9 @@ final class InAppPrompts: ObservableObject {
         }
 
         defaults.set(true, forKey: Keys.hasShownRatePrompt)
-    }
-
-    func postponeRate() {
-        let defaults = UserDefaults.standard
-        AnalyticsManager.shared.logRatePostponed()
-
-        defaults.set(defaults.integer(forKey: Keys.appLaunches),
-                     forKey: Keys.postponedRatePrompt)
+        defaults.set(Bundle.main.shortVersion, forKey: RatePromptPolicy.lastRequestedVersionKey)
+        // The next version's QSO trigger counts its QSOs from here.
+        defaults.set(0, forKey: Keys.rateQSOCount)
     }
 
     // MARK: - Share actions

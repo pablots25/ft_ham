@@ -203,14 +203,6 @@ final class AnalyticsManager: AnalyticsLogging {
 
     // MARK: - Rate & Share Events
 
-    func logRateConfirmed() {
-        logEvent("rate_confirmed")
-    }
-
-    func logRatePostponed() {
-        logEvent("rate_postponed")
-    }
-
     func logShareCompleted() {
         logEvent("share_completed")
     }
