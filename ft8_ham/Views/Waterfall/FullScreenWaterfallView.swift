@@ -23,7 +23,7 @@ struct FullScreenWaterfallView: View {
     @State private var isSettingFrequency: Bool = false
     @State private var isSettingsExpanded: Bool = false
     @AppStorage("hasSeenFloatingButtonTutorial") private var hasSeenTutorial: Bool = false
-    @State private var showTutorial: Bool = true
+    @State private var showTutorial: Bool = false
 
     // Tutorial items for all toolbar buttons
     let tutorialItems: [ButtonTutorialItem] = [
@@ -44,6 +44,9 @@ struct FullScreenWaterfallView: View {
                 waterfallScreen
             }
         }
+        // The tutorial explains the toolbar, which only exists while RX is
+        // listening, and waits for any launch prompt or other tutorial.
+        .tutorialSlot(.waterfallButtons, isAvailable: viewModel.isListening, isPresented: $showTutorial)
     }
 
     private var waterfallScreen: some View {
@@ -130,6 +133,7 @@ struct FullScreenWaterfallView: View {
                         hasSeenTutorial = true
                         showTutorial = false
                         isSettingsExpanded = false
+                        GuidanceCoordinator.shared.finish(.waterfallButtons)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.blue)
@@ -161,6 +165,7 @@ struct FullScreenWaterfallView: View {
                         invalidateFrequencyTipIfNeeded()
                     }
                     hasSeenTutorial = true
+                    GuidanceCoordinator.shared.finish(.waterfallButtons)
                 }
             } label: {
                 Image(systemName: isSettingFrequency ? "checkmark.circle.fill" : "arrow.left.arrow.right")
