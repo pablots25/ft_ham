@@ -318,7 +318,7 @@ struct PremiumPaywallView: View {
             return
         } catch PremiumError.pending {
             logPurchaseFailed(PremiumError.pending)
-            errorMessage = "Your purchase is awaiting approval. You'll get access once it's approved."
+            errorMessage = String(localized: "Your purchase is awaiting approval. You'll get access once it's approved.")
             showError = true
         } catch {
             logPurchaseFailed(error)

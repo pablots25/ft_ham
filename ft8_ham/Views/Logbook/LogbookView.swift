@@ -604,8 +604,8 @@ struct LogbookView: View {
 
     private var selectionTitle: String {
         selectedIDs.isEmpty
-            ? "Select Items"
-            : "\(selectedIDs.count) Selected"
+            ? String(localized: "Select Items")
+            : String(localized: "\(selectedIDs.count) Selected")
     }
 
     // MARK: - Batch Delete

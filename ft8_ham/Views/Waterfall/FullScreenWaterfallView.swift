@@ -15,7 +15,9 @@ import TipKit
 struct ButtonTutorialItem: Identifiable {
     let id = UUID()
     let iconName: String
-    let description: String
+    /// Localized: a plain `String` would be shown verbatim by `Text`, which
+    /// left this tutorial in English in every language.
+    let description: LocalizedStringResource
 }
 
 struct FullScreenWaterfallView: View {
