@@ -56,9 +56,13 @@ extension FT8ViewModel {
                     
                     // 2. Wait for Boundary
                     try await self.slotManager.wait(until: nextSlot.startTime)
-                    
+
                     // 3. WAKE UP - CRITICAL SECTION
                     try Task.checkCancellation()
+
+                    // How late the loop got back to the main actor. The rest of
+                    // any lag seen in determineAction is the harvest below.
+                    let wakeLag = AppClock.now().timeIntervalSince(nextSlot.startTime)
                     
                     // --- HARVEST AND DECODE PREVIOUS SLOT ---
                     // The slot monitor has been analysing the audio as it
@@ -118,7 +122,7 @@ extension FT8ViewModel {
                     }
                     
                     // 4. Determine Action
-                    let action = self.determineAction(for: nextSlot)
+                    let action = self.determineAction(for: nextSlot, wakeLag: wakeLag)
                     
                     // 5. Execute Action
                     switch action {
@@ -205,6 +209,42 @@ extension FT8ViewModel {
         applicationState != .active || isSuspensionGap(lag: lag, isFT4: isFT4)
     }
 
+    /// How a slot that arrived late gets logged.
+    enum SlotLagSeverity: Equatable {
+        /// On time, or within `maxSlotLag`.
+        case onTime
+        /// Suspension or not active: the system delayed the app. Warning.
+        case expected
+        /// A real stall, but nothing was due to transmit, so RX loses nothing:
+        /// the slot monitor keeps capturing audio. Warning.
+        case receiveStall
+        /// A real stall that cost a transmission. Crashlytics non-fatal.
+        case transmitStall
+    }
+
+    nonisolated static func slotLagSeverity(
+        lag: TimeInterval,
+        isFT4: Bool,
+        applicationState: UIApplication.State,
+        transmitDue: Bool
+    ) -> SlotLagSeverity {
+        guard lag > maxSlotLag else { return .onTime }
+        if isExpectedSlotLag(lag: lag, isFT4: isFT4, applicationState: applicationState) {
+            return .expected
+        }
+        return transmitDue ? .transmitStall : .receiveStall
+    }
+
+    /// Splits a lag into the wake-up from the slot wait and the main-actor work
+    /// after it, e.g. `wake 0.012s, harvest 2.301s`. A late wake points at the
+    /// timer or a busy main actor; a long harvest points at the work done before
+    /// `determineAction`. Without `wakeLag` (tests) only the total is known.
+    nonisolated static func lagBreakdown(lag: TimeInterval, wakeLag: TimeInterval?) -> String {
+        guard let wakeLag else { return "phases unknown" }
+        let harvest = max(0, lag - wakeLag)
+        return String(format: "wake %.3fs, harvest %.3fs", wakeLag, harvest)
+    }
+
     nonisolated static func stateDescription(_ state: UIApplication.State) -> String {
         switch state {
         case .active: return "active"
@@ -215,45 +255,62 @@ extension FT8ViewModel {
     }
 
     @MainActor
-    internal func determineAction(for slot: SlotInfo) -> SequencerAction {
+    internal func determineAction(for slot: SlotInfo, wakeLag: TimeInterval? = nil) -> SequencerAction {
         if case .completed = qsoManager.qsoState {
             return .receive
         }
-        
+
         let lag = AppClock.now().timeIntervalSince(slot.startTime)
         if lag > Self.maxSlotLag {
-            let state = applicationState()
-            if Self.isExpectedSlotLag(lag: lag, isFT4: slot.isFT4, applicationState: state) {
-                // The app was suspended or is not active, so the system can
-                // delay it. Expected, not a bug.
-                appLogger.warning(
-                    "Slot \(slot.slotIndex) skipped (\(lag)s late, app state: \(Self.stateDescription(state)))"
-                )
-            } else {
-                appLogger.error("Severe system lag detected: \(lag)s. Skipping slot \(slot.slotIndex).")
-            }
+            logLateSlot(slot, lag: lag, wakeLag: wakeLag)
             return .skip
         }
-        
-        // Free text runs outside the QSO state machine: every my-turn slot.
-        if self.freeTextLoopActive {
-            return isMyTurn(slot) ? .transmit : .receive
-        }
 
-        // Check if we should transmit based on QSO state machine
-        // Only TX when: calling CQ, in a "sending" state, or isReadyForTX (immediate response)
-        let shouldTX = (self.transmitLoopActive && qsoManager.shouldTransmitThisSlot()) || self.isReadyForTX
-        
-        if shouldTX {
-            if isMyTurn(slot) {
-                // Clear isReadyForTX after using it to prevent repeated TX
-                self.isReadyForTX = false
-                appLogger.debug("Sequencer Decided: TRANSMIT (Slot \(slot.slotIndex), Even: \(slot.isEven))")
-                return .transmit
-            }
+        guard isTransmitDue(slot) else { return .receive }
+
+        if !self.freeTextLoopActive {
+            // Clear isReadyForTX after using it to prevent repeated TX
+            self.isReadyForTX = false
+            appLogger.debug("Sequencer Decided: TRANSMIT (Slot \(slot.slotIndex), Even: \(slot.isEven))")
         }
-        
-        return .receive
+        return .transmit
+    }
+
+    /// `true` when this slot would transmit if it were on time. No side effects.
+    @MainActor
+    internal func isTransmitDue(_ slot: SlotInfo) -> Bool {
+        guard isMyTurn(slot) else { return false }
+        // Free text runs outside the QSO state machine: every my-turn slot.
+        if self.freeTextLoopActive { return true }
+        // Only TX when: calling CQ, in a "sending" state, or isReadyForTX (immediate response)
+        return (self.transmitLoopActive && qsoManager.shouldTransmitThisSlot()) || self.isReadyForTX
+    }
+
+    @MainActor
+    private func logLateSlot(_ slot: SlotInfo, lag: TimeInterval, wakeLag: TimeInterval?) {
+        let state = applicationState()
+        let severity = Self.slotLagSeverity(
+            lag: lag, isFT4: slot.isFT4, applicationState: state, transmitDue: isTransmitDue(slot)
+        )
+        let phases = Self.lagBreakdown(lag: lag, wakeLag: wakeLag)
+
+        switch severity {
+        case .onTime:
+            return
+        case .expected:
+            // The app was suspended or is not active, so the system can
+            // delay it. Expected, not a bug.
+            appLogger.warning(
+                "Slot \(slot.slotIndex) skipped (\(lag)s late, \(phases), app state: \(Self.stateDescription(state)))"
+            )
+        case .receiveStall:
+            // RX keeps capturing through a skipped slot, so nothing is lost.
+            appLogger.warning("RX slot \(slot.slotIndex) late: \(lag)s (\(phases)).")
+        case .transmitStall:
+            appLogger.error(
+                "Severe system lag detected: \(lag)s (\(phases)). Skipping TX slot \(slot.slotIndex)."
+            )
+        }
     }
     
     /// Drops audio captured so far in this slot (e.g. after a band hop, so the
