@@ -67,6 +67,13 @@ final class InAppPrompts: ObservableObject {
     /// Milestone whose "See Premium" opened the paywall.
     @Published var premiumMomentPaywall: PremiumMoment?
 
+    /// `true` while one of these prompts is on screen, so first-run tutorials
+    /// wait for it (see `GuidanceCoordinator`).
+    var isPresentingPrompt: Bool {
+        showPreShareAlert || shareItem != nil || showDonationAlert
+            || premiumMomentAlert != nil || premiumMomentPaywall != nil
+    }
+
     struct ShareItem: Identifiable {
         let id = UUID()
         let url: URL
