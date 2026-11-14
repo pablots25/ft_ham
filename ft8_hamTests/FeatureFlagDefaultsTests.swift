@@ -20,6 +20,12 @@ final class FeatureFlagDefaultsTests: XCTestCase {
         XCTAssertFalse(FeatureFlag.controlsSheet.defaultValue)
     }
 
+    /// The new Configuration screen is live for everyone, so it must not depend
+    /// on Remote Config being reachable to show up.
+    func test_newConfigView_isOnByDefault() {
+        XCTAssertTrue(FeatureFlag.newConfigView.defaultValue)
+    }
+
     func test_heardMeFlag_usesItsRemoteConfigKey() {
         XCTAssertEqual(FeatureFlag.enableHeardMe.rawValue, "enableHeardMe")
         XCTAssertEqual(FeatureFlag.controlsSheet.rawValue, "controlsSheet")

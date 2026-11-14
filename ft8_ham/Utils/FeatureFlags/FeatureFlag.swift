@@ -13,6 +13,10 @@ enum FeatureFlag: String, CaseIterable {
     case enableIpadDashboard
     /// "Quick config" sheet opened from the message selector.
     case controlsSheet
+    /// The grouped, searchable Configuration screen. On by default: it is
+    /// live for everyone, and a device that never reaches Remote Config (a DNS
+    /// filter, no network at launch) would otherwise stay on the old screen.
+    /// Turning it off remotely still brings the old screen back.
     case newConfigView
     case donationsEnabled
     /// Free-text (type 0.0) transmission loop.
@@ -44,7 +48,7 @@ enum FeatureFlag: String, CaseIterable {
             #endif
         case .backgroundToast: return false
         case .enableIpadDashboard: return false
-        case .newConfigView: return false
+        case .newConfigView: return true
         case .donationsEnabled: return true
         // Off everywhere, including debug builds: switch it on from the
         // Debug screen (or Remote Config in release) when wanted.
