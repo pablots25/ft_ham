@@ -14,8 +14,18 @@ enum ExportOption: String, CaseIterable, Identifiable {
     case new = "New QSOs only"
     
     var id: String { rawValue }
-    
-    var description: String {
+
+    /// Name shown in the picker. `rawValue` stays the stable identifier.
+    var title: LocalizedStringResource {
+        switch self {
+        case .all: return "All Logs"
+        case .dateRange: return "Date Range"
+        case .recent: return "Recent (Last 7 Days)"
+        case .new: return "New QSOs only"
+        }
+    }
+
+    var description: LocalizedStringResource {
         switch self {
         case .all:
             return "Export all QSOs from your logbook"
@@ -156,7 +166,7 @@ struct ExportOptionsView: View {
         Section {
             Picker("Export Option", selection: $selectedOption) {
                 ForEach(ExportOption.allCases) { option in
-                    Text(option.rawValue).tag(option)
+                    Text(option.title).tag(option)
                 }
             }
             .pickerStyle(.inline)

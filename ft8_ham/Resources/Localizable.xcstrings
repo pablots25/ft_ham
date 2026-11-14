@@ -7301,6 +7301,24 @@
             "state" : "translated",
             "value" : "e.g. 14.074"
           }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z. B. 14.074"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ex. 14.074"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "es. 14.074"
+          }
         }
       }
     },
@@ -12886,6 +12904,24 @@
           }
         },
         "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nein"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No"
@@ -25270,6 +25306,528 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Questo non è un nominativo radioamatoriale standard. Viene inviato per intero come nominativo non standard, senza il tuo locatore. Trasmetti solo se sei autorizzato."
+          }
+        }
+      }
+    },
+    "Toggle frequency adjustment" : {
+      "comment" : "Waterfall tutorial: button that turns frequency adjustment on or off",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar o desactivar el ajuste de frecuencia"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequenzeinstellung ein- oder ausschalten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer ou désactiver le réglage de fréquence"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva o disattiva la regolazione della frequenza"
+          }
+        }
+      }
+    },
+    "Show/hide all overlays" : {
+      "comment" : "Waterfall tutorial: button that shows or hides every overlay",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar todas las capas"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Überlagerungen ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer toutes les superpositions"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi tutte le sovrapposizioni"
+          }
+        }
+      }
+    },
+    "Show/hide timestamps" : {
+      "comment" : "Waterfall tutorial: button that shows or hides timestamps",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar las marcas de hora"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeitstempel ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer l'horodatage"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi gli orari"
+          }
+        }
+      }
+    },
+    "Show/hide vertical labels" : {
+      "comment" : "Waterfall tutorial: button that shows or hides the vertical labels",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar las etiquetas verticales"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vertikale Beschriftungen ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer les étiquettes verticales"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi le etichette verticali"
+          }
+        }
+      }
+    },
+    "Show/hide frequency ticks" : {
+      "comment" : "Waterfall tutorial: button that shows or hides the frequency scale ticks",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar las marcas de frecuencia"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequenzskala ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer les graduations de fréquence"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi le tacche di frequenza"
+          }
+        }
+      }
+    },
+    "Show/hide frequency marker" : {
+      "comment" : "Waterfall tutorial: button that shows or hides the TX frequency marker",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar el marcador de frecuencia"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequenzmarkierung ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer le repère de fréquence"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi l'indicatore di frequenza"
+          }
+        }
+      }
+    },
+    "All Logs" : {
+      "comment" : "Export type: every QSO in the logbook",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los registros"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Einträge"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les journaux"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutti i registri"
+          }
+        }
+      }
+    },
+    "Recent (Last 7 Days)" : {
+      "comment" : "Export type: QSOs from the last 7 days",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recientes (últimos 7 días)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktuell (letzte 7 Tage)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Récents (7 derniers jours)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recenti (ultimi 7 giorni)"
+          }
+        }
+      }
+    },
+    "New QSOs only" : {
+      "comment" : "Export type: QSOs added since the last export",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo QSOs nuevos"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur neue QSOs"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveaux QSO uniquement"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo QSO nuovi"
+          }
+        }
+      }
+    },
+    "Export all QSOs from your logbook" : {
+      "comment" : "Description of the 'All Logs' export type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporta todos los QSOs de tu logbook"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle QSOs aus deinem Logbuch exportieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter tous les QSO de votre journal"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esporta tutti i QSO del tuo logbook"
+          }
+        }
+      }
+    },
+    "Select a custom date range to export" : {
+      "comment" : "Description of the 'Date Range' export type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige un rango de fechas para exportar"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einen eigenen Datumsbereich zum Exportieren wählen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez une plage de dates à exporter"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli un intervallo di date da esportare"
+          }
+        }
+      }
+    },
+    "Export only QSOs from the last 7 days" : {
+      "comment" : "Description of the 'Recent' export type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporta solo los QSOs de los últimos 7 días"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur QSOs der letzten 7 Tage exportieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter uniquement les QSO des 7 derniers jours"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esporta solo i QSO degli ultimi 7 giorni"
+          }
+        }
+      }
+    },
+    "Export only new QSOs since last export" : {
+      "comment" : "Description of the 'New QSOs only' export type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporta solo los QSOs nuevos desde la última exportación"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur neue QSOs seit dem letzten Export exportieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter uniquement les nouveaux QSO depuis le dernier export"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esporta solo i QSO nuovi dall'ultima esportazione"
+          }
+        }
+      }
+    },
+    "Select Items" : {
+      "comment" : "Logbook title while selecting QSOs and none is selected yet",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auswählen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionner"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleziona"
+          }
+        }
+      }
+    },
+    "%lld Selected" : {
+      "comment" : "Logbook title while selecting QSOs: how many are selected",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld seleccionados"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ausgewählt"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sélectionnés"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld selezionati"
+          }
+        }
+      }
+    },
+    "Invalid Maidenhead grid (e.g. EM72 or EM72ab)" : {
+      "comment" : "QSO editor: the grid locator is not valid",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locator Maidenhead no válido (p. ej. EM72 o EM72ab)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ungültiger Maidenhead-Locator (z. B. EM72 oder EM72ab)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locator Maidenhead non valide (ex. EM72 ou EM72ab)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locatore Maidenhead non valido (es. EM72 o EM72ab)"
+          }
+        }
+      }
+    },
+    "Your purchase is awaiting approval. You'll get access once it's approved." : {
+      "comment" : "Paywall: purchase waiting for approval (e.g. Ask to Buy)",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu compra está pendiente de aprobación. Tendrás acceso en cuanto se apruebe."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Kauf wartet auf Genehmigung. Du erhältst Zugriff, sobald er genehmigt ist."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre achat est en attente d'approbation. Vous y aurez accès dès qu'il sera approuvé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo acquisto è in attesa di approvazione. Avrai accesso non appena sarà approvato."
+          }
+        }
+      }
+    },
+    "Opens the QSO editor" : {
+      "comment" : "Accessibility hint on a logbook row",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre el editor del QSO"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnet den QSO-Editor"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvre l'éditeur de QSO"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apre l'editor del QSO"
           }
         }
       }
