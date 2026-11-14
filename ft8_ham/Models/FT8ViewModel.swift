@@ -442,6 +442,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         get { FT8Message.Band(rawValue: selectedBandRaw) ?? .band10m }
         set {
             selectedBandRaw = newValue.rawValue
+            UsageAnalytics.shared.recordBandInUse(effectiveBand)
             guard !isCatPollingUpdate else { return }
             scheduleCatFrequencyUpdate(reason: "band change")
         }

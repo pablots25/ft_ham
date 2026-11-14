@@ -21,6 +21,22 @@ enum AnalyticsScreen: String {
     case onboarding
     case terms
     case whatsNew = "whats_new"
+    case settingsStation = "settings_station"
+    case settingsRadio = "settings_radio"
+    case settingsAudio = "settings_audio"
+    case settingsAutomation = "settings_automation"
+    case settingsDisplay = "settings_display"
+    case settingsWaterfall = "settings_waterfall"
+    case settingsReporting = "settings_reporting"
+    case settingsCATControl = "settings_cat_control"
+    case settingsBandHopping = "settings_band_hopping"
+    case settingsQRZ = "settings_qrz"
+    case settingsLoTW = "settings_lotw"
+    case settingsEQSL = "settings_eqsl"
+    case settingsICloudSync = "settings_icloud_sync"
+    case settingsTutorials = "settings_tutorials"
+    case settingsDebug = "settings_debug"
+    case settingsLegal = "settings_legal"
 }
 
 enum RadioActivityType: String {

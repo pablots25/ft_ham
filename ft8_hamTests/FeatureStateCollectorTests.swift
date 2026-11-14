@@ -197,4 +197,87 @@ final class FeatureStateCollectorTests: XCTestCase {
         defaults.set(false, forKey: Keys.mapShowHeardMe)
         XCTAssertEqual(states()[.heardMe], .off)
     }
+
+    // MARK: - Map layers
+
+    func test_mapLayers_untouched_matchTheirDefaults() {
+        let states = states()
+        XCTAssertEqual(states[.mapGrids], .on)
+        XCTAssertEqual(states[.mapCountryCircles], .on)
+        XCTAssertEqual(states[.mapGeodesics], .on)
+        XCTAssertEqual(states[.mapAnnotations], .off)
+        XCTAssertEqual(states[.mapPresence], .on)
+    }
+
+    func test_mapLayers_followTheirSettings() {
+        defaults.set(false, forKey: Keys.mapShowGrids)
+        defaults.set(false, forKey: Keys.mapShowCountryCircles)
+        defaults.set(false, forKey: Keys.mapShowGeodesics)
+        defaults.set(true, forKey: Keys.mapShowAnnotations)
+        defaults.set(false, forKey: Keys.mapShowPresence)
+        let states = states()
+        XCTAssertEqual(states[.mapGrids], .off)
+        XCTAssertEqual(states[.mapCountryCircles], .off)
+        XCTAssertEqual(states[.mapGeodesics], .off)
+        XCTAssertEqual(states[.mapAnnotations], .on)
+        XCTAssertEqual(states[.mapPresence], .off)
+    }
+
+    func test_mapPresence_hiddenByItsFlag() {
+        XCTAssertNil(states(context(flagsOn: []))[.mapPresence])
+        XCTAssertEqual(states(context(flagsOn: []))[.mapGrids], .on)
+    }
+
+    // MARK: - Replying and filtering
+
+    func test_rxFilter_isOffOnAll_andOnWithAnyFilter() {
+        XCTAssertEqual(states()[.rxFilter], .off)
+
+        defaults.set(RXFilterMode.needed.rawValue, forKey: Keys.rxFilterMode)
+        XCTAssertEqual(states()[.rxFilter], .on)
+
+        defaults.set(RXFilterMode.all.rawValue, forKey: Keys.rxFilterMode)
+        defaults.set(RXFilterMode.mine.rawValue, forKey: Keys.rxFilterModeSeparated)
+        XCTAssertEqual(states()[.rxFilter], .on, "The separated layout has its own filter")
+    }
+
+    func test_waterfallTapToReply_isOnByDefault() {
+        XCTAssertEqual(states()[.waterfallTapToReply], .on)
+        defaults.set(false, forKey: Keys.waterfallTapToReply)
+        XCTAssertEqual(states()[.waterfallTapToReply], .off)
+    }
+
+    func test_replyDoubleTap_isOnOnlyForDouble() {
+        XCTAssertEqual(states()[.replyDoubleTap], .off)
+        defaults.set(ReplyTapGesture.double.rawValue, forKey: Keys.replyTapGesture)
+        XCTAssertEqual(states()[.replyDoubleTap], .on)
+        defaults.set(ReplyTapGesture.single.rawValue, forKey: Keys.replyTapGesture)
+        XCTAssertEqual(states()[.replyDoubleTap], .off)
+    }
+
+    func test_newFreeFeatures_areNeverLocked() {
+        defaults.set(RXFilterMode.mine.rawValue, forKey: Keys.rxFilterMode)
+        let states = states(context(isPremium: false))
+        XCTAssertEqual(states[.rxFilter], .on)
+        XCTAssertEqual(states[.mapGrids], .on)
+    }
+
+    // MARK: - Current band
+
+    func test_currentBand_defaultsTo10m() {
+        XCTAssertEqual(FeatureStateCollector.currentBand(defaults: defaults), .band10m)
+    }
+
+    func test_currentBand_readsTheSelectedBand() {
+        defaults.set(FT8Message.Band.band40m.rawValue, forKey: Keys.band)
+        XCTAssertEqual(FeatureStateCollector.currentBand(defaults: defaults), .band40m)
+    }
+
+    func test_currentBand_custom_usesTheDialFrequency() {
+        defaults.set(FT8Message.Band.custom.rawValue, forKey: Keys.band)
+        XCTAssertEqual(FeatureStateCollector.currentBand(defaults: defaults), .band20m, "Default custom dial is 14.074 MHz")
+
+        defaults.set(7_074_000.0, forKey: Keys.customDialFrequencyHz)
+        XCTAssertEqual(FeatureStateCollector.currentBand(defaults: defaults), .band40m)
+    }
 }

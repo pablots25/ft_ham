@@ -39,6 +39,21 @@ enum AnalyticsFeature: String, CaseIterable {
     case heardMe = "heard_me"
     case logbookImport = "logbook_import"
     case qsoEdit = "qso_edit"
+    case freeTextTX = "free_text_tx"
+    /// The band in use. The band itself goes in `source`.
+    case band
+    /// Deleting, searching and filtering the logbook.
+    case logbook
+    case mapGrids = "map_grids"
+    case mapCountryCircles = "map_country_circles"
+    case mapGeodesics = "map_geodesics"
+    case mapAnnotations = "map_annotations"
+    case mapPresence = "map_presence"
+    /// The RX list filter. The mode goes in `source`.
+    case rxFilter = "rx_filter"
+    case waterfallTapToReply = "waterfall_tap_to_reply"
+    case replyDoubleTap = "reply_double_tap"
+    case tutorials
 
     init(_ premium: PremiumFeature) {
         switch premium {
@@ -90,6 +105,29 @@ enum FeatureAction: String, CaseIterable {
     case cleared
     case connected
     case completed
+    /// A band, mode or setting picked from a list (value in `source`).
+    case selected
+    /// The band was in use during this session (band in `source`).
+    case used
+    case deleted
+    /// A delete was undone.
+    case restored
+    case searched
+    case filtered
+    /// Band hopping moved to another band on its own.
+    case hopped
+    /// The user skipped to the next band hop.
+    case skipped
+    /// QSOs confirmed by a log service (`count`).
+    case confirmed
+    /// QSOs from another device merged into the logbook (`count`).
+    case merged
+    /// The whole logbook uploaded by hand (`count`).
+    case uploadedAll = "uploaded_all"
+    /// Help messages or the onboarding shown again.
+    case reset
+    /// Other operators seen on the air this session (`count`, the most at once).
+    case seen
 }
 
 /// Services whose uploads are counted in `sync_upload`.
@@ -176,13 +214,24 @@ enum UsageErrorCode {
     }
 }
 
+/// Reads how many QSOs a confirmation fetch returned. QRZ answers with a
+/// plain number, LoTW and eQSL with an ADIF report (one `<eor>` per QSO).
+enum ConfirmationCounter {
+    static func count(in response: String?) -> Int {
+        guard let response = response?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !response.isEmpty else { return 0 }
+        if let number = Int(response) { return max(number, 0) }
+        return response.lowercased().components(separatedBy: "<eor>").count - 1
+    }
+}
+
 // MARK: - Events
 
 /// Every usage event, typed. `name` and `parameters` are the only place the
 /// wire format is written, so tests can check it without Firebase.
 enum UsageAnalyticsEvent: Equatable {
     case featureState(AnalyticsFeature, FeatureUsageState, trigger: FeatureStateTrigger)
-    case featureAction(AnalyticsFeature, FeatureAction, source: String? = nil)
+    case featureAction(AnalyticsFeature, FeatureAction, source: String? = nil, count: Int? = nil)
     case syncUpload(SyncService, succeeded: Int, failed: Int)
     case serviceError(AnalyticsFeature, action: String, errorCode: String)
     case catSession(durationSec: Int)
@@ -230,12 +279,13 @@ enum UsageAnalyticsEvent: Equatable {
                 AnalyticsParam.state: state.rawValue,
                 AnalyticsParam.triggerSource: trigger.rawValue
             ]
-        case let .featureAction(feature, action, source):
+        case let .featureAction(feature, action, source, count):
             var parameters: [String: Any] = [
                 AnalyticsParam.feature: feature.rawValue,
                 AnalyticsParam.action: action.rawValue
             ]
             if let source { parameters[AnalyticsParam.source] = source }
+            if let count { parameters[AnalyticsParam.count] = NSNumber(value: count) }
             return parameters
         case let .syncUpload(service, succeeded, failed):
             return [

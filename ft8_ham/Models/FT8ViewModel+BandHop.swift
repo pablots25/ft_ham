@@ -115,6 +115,7 @@ extension FT8ViewModel {
 
     @MainActor
     func skipToNextBand() {
+        UsageAnalytics.shared.recordAction(.bandHopping, .skipped)
         bandHopScheduler.skipToNext()
     }
 
@@ -139,6 +140,7 @@ extension FT8ViewModel {
         guard band != selectedBand else { return }
 
         selectedBand = band
+        UsageAnalytics.shared.recordAction(.bandHopping, .hopped, source: band.rawValue)
         clearRXBuffer()
         notifyPresenceContextChanged()
         appLogger.info("Band hop → \(band.rawValue)")

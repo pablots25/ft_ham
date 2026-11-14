@@ -224,8 +224,10 @@ final class LogSyncManager: ObservableObject {
     private func checkQRZAndEQSLConfirmations() {
         let since = Date(timeIntervalSinceNow: -Double(qrzConfirmIntervalHours) * 3600)
         Task {
-            _ = await qrzService.fetchConfirmations(since: since)
-            _ = await eqslService.fetchConfirmations(since: since)
+            let qrz = await qrzService.fetchConfirmations(since: since)
+            recordConfirmations(.qrzLogbook, response: qrz)
+            let eqsl = await eqslService.fetchConfirmations(since: since)
+            recordConfirmations(.eqslSync, response: eqsl)
             logger.info("QRZ and eQSL confirmation check completed")
         }
     }
@@ -234,9 +236,17 @@ final class LogSyncManager: ObservableObject {
     private func checkLoTWConfirmations() {
         let since = Date(timeIntervalSinceNow: -Double(lotwConfirmIntervalHours) * 3600)
         Task {
-            _ = await lotwService.fetchConfirmations(since: since)
+            let lotw = await lotwService.fetchConfirmations(since: since)
+            recordConfirmations(.lotwSync, response: lotw)
             logger.info("LoTW confirmation check completed")
         }
+    }
+
+    /// Counts the QSOs a confirmation fetch returned (never their content).
+    private func recordConfirmations(_ feature: AnalyticsFeature, response: String?) {
+        let count = ConfirmationCounter.count(in: response)
+        guard count > 0 else { return }
+        UsageAnalytics.shared.recordAction(feature, .confirmed, count: count)
     }
 
     // MARK: - Private: ADIF Builder
