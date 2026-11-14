@@ -50,6 +50,13 @@ struct DebugSettingsView: View {
                 }
 
                 Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.rxSlotCutOnAudioTime) },
+                    set: { flags.setOverride(.rxSlotCutOnAudioTime, value: $0) }
+                )) {
+                    Label("RX Slot Cut on Audio Time", systemImage: "scissors")
+                }
+
+                Toggle(isOn: Binding(
                     get: { flags.isEnabled(.enableBandHopping) },
                     set: { flags.setOverride(.enableBandHopping, value: $0) }
                 )) {

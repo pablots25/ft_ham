@@ -37,6 +37,10 @@ enum FeatureFlag: String, CaseIterable {
     /// Ask for an App Store rating after the first few logged QSOs instead
     /// of waiting for a launch count.
     case rateAfterQSO
+    /// RX: cut each slot at its UTC boundary on the audio's own time, so a
+    /// sequencer the system wakes late (background) still decodes the slot.
+    /// Off: slots are cut when the sequencer asks, as in 1.3.1.
+    case rxSlotCutOnAudioTime
 
     var defaultValue: Bool {
         switch self {
@@ -57,6 +61,14 @@ enum FeatureFlag: String, CaseIterable {
         case .premiumMoments, .rateAfterQSO: return false
         // Off everywhere until the look is settled.
         case .waterfallSlotContext: return false
+        // On in debug builds for device testing. Off in release until the
+        // Remote Config rollout turns it on: a missing key keeps 1.3.1's behaviour.
+        case .rxSlotCutOnAudioTime:
+            #if DEBUG
+            return true
+            #else
+            return false
+            #endif
         case .enableBandHopping, .enableICloudSync, .enablePresence:
             #if DEBUG
             return true

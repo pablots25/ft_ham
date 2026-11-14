@@ -32,6 +32,10 @@ extension FT8ViewModel {
             )
         }
 
+        // Kill switch for cutting slots on the audio's own time: off, the
+        // monitor ignores arrival times and only cuts when the sequencer asks.
+        bindSlotCutFlag(FeatureFlagManager.shared)
+
         // A serial queue: the global concurrent queue can run two consecutive
         // buffers on two threads, and audio fed to the monitor out of order
         // corrupts both the display and the decode.
@@ -42,9 +46,12 @@ extension FT8ViewModel {
                 guard let self else { return }
                 // One FFT pass serves both the waterfall (rows as they are
                 // analysed) and the decoder (snapshot at the slot boundary).
+                // The arrival time lets the monitor cut each slot at its UTC
+                // boundary itself, so a late sequencer loses no audio.
+                let arrivalTime = AppClock.now().timeIntervalSince1970
                 samples.withUnsafeBufferPointer { buffer in
                     guard let base = buffer.baseAddress else { return }
-                    self.slotMonitor.feedSamples(base, count: UInt(buffer.count))
+                    self.slotMonitor.feedSamples(base, count: UInt(buffer.count), arrivalTime: arrivalTime)
                 }
             }
             .store(in: &cancellables)
@@ -63,6 +70,25 @@ extension FT8ViewModel {
 
     }
     
+    /// Keeps `slotMonitor.cutsAtSlotBoundary` in step with the
+    /// `rxSlotCutOnAudioTime` flag, now and whenever the flags change.
+    internal func bindSlotCutFlag(_ flags: FeatureFlagManager) {
+        let monitor = slotMonitor
+        monitor.cutsAtSlotBoundary = flags.isEnabled(.rxSlotCutOnAudioTime)
+        // `values` mirrors what `isEnabled` returns once it changes (Remote
+        // Config in release, the Debug screen switch in debug). Its first
+        // value is skipped: in debug it holds the default, not the switch.
+        flags.$values
+            .dropFirst()
+            .map { $0[.rxSlotCutOnAudioTime] ?? FeatureFlag.rxSlotCutOnAudioTime.defaultValue }
+            .removeDuplicates()
+            .sink { [weak self] enabled in
+                monitor.cutsAtSlotBoundary = enabled
+                self?.rxLogger.info("Slot cut on audio time: \(enabled ? "on" : "off")")
+            }
+            .store(in: &cancellables)
+    }
+
     // MARK: - Audio Errors
 
     /// Surfaces audio engine errors, and any other `audioError` the view model
