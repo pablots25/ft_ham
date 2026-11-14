@@ -191,6 +191,7 @@ final class PresenceManager: ObservableObject {
         guard isActive else { return }
         do {
             stations = try await service.fetchOnline(since: Date().addingTimeInterval(-staleAfter))
+            UsageAnalytics.shared.presenceStationsSeen(stations.count)
             lastError = nil
         } catch {
             lastError = String(describing: error)

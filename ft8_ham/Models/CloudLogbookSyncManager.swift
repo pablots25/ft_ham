@@ -109,6 +109,7 @@ final class CloudLogbookSyncManager: ObservableObject {
     /// Uploads the whole logbook (used when enabling sync on a new device).
     func pushAll() async {
         guard isActive, let entries = viewModel?.qsoList, !entries.isEmpty else { return }
+        UsageAnalytics.shared.recordAction(.iCloudSync, .uploadedAll, count: entries.count)
         await push(entries, clearingKeys: Set(entries.map(\.dedupKey)))
     }
 
@@ -149,6 +150,7 @@ final class CloudLogbookSyncManager: ObservableObject {
             let added = merged.count - viewModel.qsoList.count
             if added > 0 {
                 viewModel.qsoList = merged
+                UsageAnalytics.shared.recordAction(.iCloudSync, .merged, count: added)
                 logger.info("Merged \(added) QSO(s) from iCloud")
             }
         } catch {
@@ -169,6 +171,7 @@ final class CloudLogbookSyncManager: ObservableObject {
             pendingKeys.removeAll()
             savePending()
             lastError = nil
+            UsageAnalytics.shared.recordAction(.iCloudSync, .deleted)
             logger.info("Deleted the iCloud copy of the logbook")
         } catch {
             lastError = String(describing: error)

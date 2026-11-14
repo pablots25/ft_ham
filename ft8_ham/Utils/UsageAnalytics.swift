@@ -50,6 +50,7 @@ final class UsageAnalytics {
     private var uploads: [SyncService: (succeeded: Int, failed: Int)] = [:]
     private var reportedErrors: Set<String> = []
     private var reportedActions: Set<String> = []
+    private var presenceStationsSeen = 0
 
     // Long-lived counters.
     private var catConnectedAt: Date?
@@ -88,17 +89,33 @@ final class UsageAnalytics {
 
     // MARK: - Feature actions
 
-    func recordAction(_ feature: AnalyticsFeature, _ action: FeatureAction, source: String? = nil) {
-        log(.featureAction(feature, action, source: source))
+    func recordAction(_ feature: AnalyticsFeature, _ action: FeatureAction, source: String? = nil, count: Int? = nil) {
+        log(.featureAction(feature, action, source: source, count: count))
     }
 
-    /// Like `recordAction`, but at most once per session (e.g. CAT
-    /// reconnecting on its own after a dropout).
-    func recordActionOncePerSession(_ feature: AnalyticsFeature, _ action: FeatureAction) {
-        let key = "\(feature.rawValue)|\(action.rawValue)"
+    /// Like `recordAction`, but at most once per session for each source
+    /// (e.g. CAT reconnecting on its own after a dropout).
+    func recordActionOncePerSession(_ feature: AnalyticsFeature, _ action: FeatureAction, source: String? = nil) {
+        let key = "\(feature.rawValue)|\(action.rawValue)|\(source ?? "")"
         guard isOptedIn(), !reportedActions.contains(key) else { return }
         reportedActions.insert(key)
-        recordAction(feature, action)
+        recordAction(feature, action, source: source)
+    }
+
+    // MARK: - Band
+
+    /// Sends `feature_action` band/used once per band each session. Custom
+    /// and unknown bands are not reported.
+    func recordBandInUse(_ band: FT8Message.Band) {
+        guard band != .custom, band != .unknown else { return }
+        recordActionOncePerSession(.band, .used, source: band.rawValue)
+    }
+
+    // MARK: - Presence
+
+    /// Remembers the most operators seen at once; sent by `flush()`.
+    func presenceStationsSeen(_ count: Int) {
+        presenceStationsSeen = max(presenceStationsSeen, count)
     }
 
     // MARK: - Service errors
@@ -224,6 +241,10 @@ final class UsageAnalytics {
             log(.syncUpload(service, succeeded: totals.succeeded, failed: totals.failed))
         }
         uploads.removeAll()
+        if presenceStationsSeen > 0 {
+            log(.featureAction(.presence, .seen, count: presenceStationsSeen))
+            presenceStationsSeen = 0
+        }
         // A CAT link that stays up in the background is reported in pieces.
         endCATSession(continuing: true)
         reportedErrors.removeAll()
@@ -256,6 +277,7 @@ extension UsageAnalytics {
             start()
             setPremium(PremiumManager.shared.isPremiumUnlocked)
             recordFeatureStates(FeatureStateCollector.current())
+            recordBandInUse(FeatureStateCollector.currentBand(defaults: .standard))
         case .background:
             recordFeatureStates(FeatureStateCollector.current())
             let stats = PremiumFeatures.pskReporter.stats

@@ -42,6 +42,26 @@ enum FeatureStateCollector {
         static let cqModifier = "cqModifier"
         static let holdTXFrequency = "holdTXFrequency"
         static let mapShowHeardMe = "mapShowHeardMe"
+        static let mapShowGrids = "mapShowGrids"
+        static let mapShowCountryCircles = "mapShowCountryCircles"
+        static let mapShowGeodesics = "mapShowGeodesics"
+        static let mapShowAnnotations = "mapShowAnnotations"
+        static let mapShowPresence = "mapShowPresence"
+        static let rxFilterMode = "rxFilterMode"
+        static let rxFilterModeSeparated = "rxFilterModeSeparated"
+        static let waterfallTapToReply = "waterfallTapToReply"
+        static let replyTapGesture = "replyTapGesture"
+        /// `FT8ViewModel.selectedBand`
+        static let band = "band"
+        static let customDialFrequencyHz = "customDialFrequencyHz"
+    }
+
+    /// The band the app is on, as `FT8ViewModel.effectiveBand` works it out.
+    static func currentBand(defaults: UserDefaults) -> FT8Message.Band {
+        let selected = defaults.string(forKey: Keys.band).flatMap(FT8Message.Band.init(rawValue:)) ?? .band10m
+        guard selected == .custom else { return selected }
+        let frequency = defaults.object(forKey: Keys.customDialFrequencyHz) as? Double ?? 14_074_000
+        return FT8Message.Band.fromFrequency(frequency)
     }
 
     /// Everything outside UserDefaults that decides a state.
@@ -91,8 +111,24 @@ enum FeatureStateCollector {
                 isSet(Keys.myPotaRef) || isSet(Keys.mySotaRef) || isSet(Keys.myWwffRef) || isSet(Keys.myIotaRef)
             ),
             .cqModifier: onOff((defaults.string(forKey: Keys.cqModifier) ?? CQModifier.none.rawValue) != CQModifier.none.rawValue),
-            .holdTXFrequency: onOff(bool(Keys.holdTXFrequency, default: false))
+            .holdTXFrequency: onOff(bool(Keys.holdTXFrequency, default: false)),
+
+            .mapGrids: onOff(bool(Keys.mapShowGrids, default: true)),
+            .mapCountryCircles: onOff(bool(Keys.mapShowCountryCircles, default: true)),
+            .mapGeodesics: onOff(bool(Keys.mapShowGeodesics, default: true)),
+            .mapAnnotations: onOff(bool(Keys.mapShowAnnotations, default: false)),
+            // On when either message list filters what it shows.
+            .rxFilter: onOff(
+                defaults.integer(forKey: Keys.rxFilterMode) != RXFilterMode.all.rawValue
+                    || defaults.integer(forKey: Keys.rxFilterModeSeparated) != RXFilterMode.all.rawValue
+            ),
+            .waterfallTapToReply: onOff(bool(Keys.waterfallTapToReply, default: true)),
+            .replyDoubleTap: onOff(defaults.string(forKey: Keys.replyTapGesture) == ReplyTapGesture.double.rawValue)
         ]
+
+        if context.isFlagEnabled(.enablePresence) {
+            states[.mapPresence] = onOff(bool(Keys.mapShowPresence, default: true))
+        }
 
         if context.isFlagEnabled(.enableHeardMe) {
             states[.heardMe] = onOff(bool(Keys.mapShowHeardMe, default: true))
