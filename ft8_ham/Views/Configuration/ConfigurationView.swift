@@ -483,7 +483,7 @@ struct ConfigurationView: View {
               title: String(localized: "Station"),
               systemImage: "antenna.radiowaves.left.and.right",
               keywords: ["callsign", "grid", "locator", "gps", "11 m", "cb",
-                         "cq", "modifier", "pota", "sota"])
+                         "swl", "free-text", "cq", "modifier", "pota", "sota"])
     }
 
     private var tutorialsItem: SettingsItem {

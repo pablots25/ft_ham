@@ -25157,6 +25157,122 @@
           }
         }
       }
+    },
+    "Free-text callsign" : {
+      "comment" : "A toggle that lets the user enter a non-standard callsign such as a listener (SWL) ID.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicativo de texto libre"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freitext-Rufzeichen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicatif en texte libre"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nominativo a testo libero"
+          }
+        }
+      }
+    },
+    "Use 3 to 11 letters and numbers, with at least one of each" : {
+      "comment" : "Error under the callsign field when a free-text callsign has an invalid format.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa de 3 a 11 letras y números, con al menos uno de cada"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verwende 3 bis 11 Buchstaben und Ziffern, mindestens je einen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisez de 3 à 11 lettres et chiffres, avec au moins un de chaque"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa da 3 a 11 lettere e numeri, con almeno uno di ciascuno"
+          }
+        }
+      }
+    },
+    "This is not a standard amateur callsign. If it is a listener (SWL) ID or another non-standard callsign, turn on \"Free-text callsign\" below." : {
+      "comment" : "Error under the callsign field suggesting the free-text callsign toggle.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este no es un indicativo de radioaficionado estándar. Si es un identificativo de escucha (SWL) u otro indicativo no estándar, activa \"Indicativo de texto libre\" más abajo."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dies ist kein Standard-Amateurfunkrufzeichen. Wenn es eine Hörer-Kennung (SWL) oder ein anderes nicht standardmäßiges Rufzeichen ist, aktiviere unten \"Freitext-Rufzeichen\"."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est pas un indicatif radioamateur standard. S'il s'agit d'un identifiant d'écouteur (SWL) ou d'un autre indicatif non standard, activez \"Indicatif en texte libre\" ci-dessous."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo non è un nominativo radioamatoriale standard. Se è un identificativo di ascolto (SWL) o un altro nominativo non standard, attiva \"Nominativo a testo libero\" qui sotto."
+          }
+        }
+      }
+    },
+    "This is not a standard amateur callsign. It is sent spelled out as a non-standard callsign, without your locator. Only transmit if you are allowed to." : {
+      "comment" : "Warning under the callsign field when a free-text callsign is in use.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este no es un indicativo de radioaficionado estándar. Se envía completo como indicativo no estándar, sin tu locator. Transmite solo si estás autorizado."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dies ist kein Standard-Amateurfunkrufzeichen. Es wird ausgeschrieben als nicht standardmäßiges Rufzeichen gesendet, ohne deinen Locator. Sende nur, wenn du dazu berechtigt bist."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est pas un indicatif radioamateur standard. Il est envoyé en entier comme indicatif non standard, sans votre locator. N'émettez que si vous y êtes autorisé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo non è un nominativo radioamatoriale standard. Viene inviato per intero come nominativo non standard, senza il tuo locatore. Trasmetti solo se sei autorizzato."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
