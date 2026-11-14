@@ -15,6 +15,10 @@ name: Release
 #   github-release  creates the GitHub Release, using .github/RELEASE_NOTES.md
 #                   from the tagged commit as the body when it names this version
 #
+# With CI_CAN_BUILD, the test job also runs scripts/benchmark.sh in report-only
+# mode and keeps the results as an artifact. The gating benchmark runs in
+# scripts/release.sh on the release Mac, where numbers are comparable.
+#
 # Manual run: Actions, Release, Run workflow. It defaults to a dry run that
 # checks everything and prints what it would publish.
 on:
@@ -155,6 +159,31 @@ jobs:
 
       - name: Run tests
         run: bundle exec fastlane tests
+
+      # Same benchmarks scripts/release.sh runs on the release Mac. Hosted
+      # runners vary too much to gate a release, so this only reports.
+      - name: Performance benchmarks (report only)
+        run: |
+          set -euo pipefail
+          udid="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          for runtime in sorted(devices, reverse=True):
+              for device in devices[runtime]:
+                  if device["name"].startswith("iPhone"):
+                      print(device["udid"]); sys.exit(0)
+          sys.exit(1)')"
+          bash scripts/benchmark.sh "$VERSION" "${{ github.run_number }}" \
+            --project-root . --simulator "$udid" --report-only
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks-${{ env.VERSION }}
+          path: ft_ham/benchmarks/*.json
+          if-no-files-found: ignore
+          retention-days: 90
 
   # ── Job 3: Build, sign and upload to TestFlight ────────────────────────────
   build-and-upload:

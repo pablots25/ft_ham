@@ -69,8 +69,35 @@ The script asks before every step that publishes something. It:
 1. Checks that the working tree is clean and `.github/RELEASE_NOTES.md` passes the style check.
 2. Creates a detached worktree `../ft_ham-release-b<BUILD>` and copies the three ignored inputs into it.
 3. Checks which branch `../ft_ham_premium` is on. If it is not the expected one, it builds against a detached premium worktree instead.
-4. Sets the build number, archives into `~/Library/Developer/Xcode/Archives`, and exports with `destination=upload` to App Store Connect.
-5. Zips the dSYMs next to the archive.
+4. Sets the build number and runs the performance benchmarks (see below). A regression stops the release unless you confirm.
+5. Archives into `~/Library/Developer/Xcode/Archives` and exports with `destination=upload` to App Store Connect.
+6. Zips the dSYMs next to the archive.
+
+## Performance benchmarks
+
+Every release is benchmarked before it is archived, so a feature that slows the app down is caught before it ships.
+
+`scripts/release.sh` runs `scripts/benchmark.sh` on the release worktree. It:
+
+1. Runs `PipelinePerformanceTests` on the default simulator: FT8 and FT4 decode of a busy synthetic slot, `MessageProcessor` on a busy batch, and any recorded WAVs in `ft8_hamTests/Performance/Fixtures/`.
+2. Writes the medians to `benchmarks/<version>-<build>.json`: wall clock and CPU in ms, peak memory in kB, plus the commit, host CPU, Xcode, simulator model and iOS version.
+3. Compares them with the newest earlier file taken on the same machine. Wall clock or peak memory more than 20% worse (and more than 1 ms or 5 MB) is a regression. CPU time is shown but never blocks.
+
+Commit the new `benchmarks/*.json` on the release branch. It is the baseline for the next release.
+
+Run it by hand to check a branch before it reaches a release:
+
+```bash
+scripts/benchmark.sh 1.3.3 0 --project-root .
+```
+
+Then delete the `-0` file instead of committing it. Other options: `--simulator <udid>` (or `FTHAM_BENCH_SIMULATOR`), `--threshold 0.3`, `--report-only`.
+
+When a regression is real and accepted (a feature that is worth the cost), confirm at the prompt and say so in the release commit. `--skip-benchmark` skips the step entirely, for example when the simulator is broken.
+
+Numbers only compare on the same machine. After changing Mac, Xcode or the simulator's iOS version, the first release just records a new baseline.
+
+The benchmarks measure the decode path on a fast host. How the app performs on operators' phones comes from MetricKit (`Slot Decode` and `Slot Pipeline` signposts) and the Xcode Organizer.
 
 ## Tagging
 
@@ -88,8 +115,8 @@ If the export fails with "Failed to Use Accounts", sign in again under Xcode Set
 
 | Workflow | When | What |
 |----|----|----|
-| `ci.yml` | Pull requests and pushes to `develop` and `main` | String catalog check, release notes style, premium import guard, shell and workflow lint |
-| `release.yml` | A pushed `X.Y.Z` tag, or a manual run | Checks the tag against `VERSION`, runs the strict string check, creates the GitHub Release with the hand-written notes |
+| `ci.yml` | Pull requests and pushes to `develop` and `main` | String catalog check, release notes style, premium import guard, script unit tests, shell and workflow lint |
+| `release.yml` | A pushed `X.Y.Z` tag, or a manual run | Checks the tag against `VERSION`, runs the strict string check, creates the GitHub Release with the hand-written notes. With `CI_CAN_BUILD`, also runs the unit tests and the benchmarks in report-only mode (hosted runners are too noisy to gate on) |
 
 The string check only warns on pull requests. On a release tag, missing translations or strings still marked `new` stop the release.
 
@@ -102,7 +129,8 @@ The string check only warns on pull requests. On a release tag, missing translat
 - [ ] `scripts/bump_version.sh X.Y.Z N`
 - [ ] `scripts/release_notes.sh X.Y.Z`, then rewritten by hand
 - [ ] `python3 scripts/check_release_notes.py X.Y.Z`
-- [ ] `scripts/release.sh X.Y.Z N` (archive and upload)
+- [ ] `scripts/release.sh X.Y.Z N` (benchmarks, archive and upload)
+- [ ] Commit `benchmarks/X.Y.Z-N.json` on the release branch
 - [ ] TestFlight smoke test, then submit for review (phased release)
 - [ ] Merge into `main` and `develop`, then `scripts/tag_release.sh X.Y.Z`
 - [ ] Check the GitHub Release page

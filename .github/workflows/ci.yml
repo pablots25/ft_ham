@@ -7,6 +7,7 @@
 #     (the Release workflow runs the same check in strict mode)
 #   * .github/RELEASE_NOTES.md follows the style rules when it is present
 #   * FTHamPremium is only imported inside #if canImport(FTHamPremium)
+#   * the Python release helpers pass their unit tests
 #   * shell scripts and workflows lint clean
 
 name: CI
@@ -47,9 +48,12 @@ jobs:
       - name: Premium imports are guarded
         run: python3 scripts/check_premium_guard.py
 
+      - name: Script unit tests
+        run: python3 -m unittest discover -s scripts/tests -v
+
       - name: ShellCheck
         # The release scripts only. Older helper scripts are not held to it yet.
-        run: shellcheck --severity=warning scripts/bump_version.sh scripts/release.sh scripts/release_notes.sh scripts/tag_release.sh
+        run: shellcheck --severity=warning scripts/benchmark.sh scripts/bump_version.sh scripts/release.sh scripts/release_notes.sh scripts/tag_release.sh
 
       - name: actionlint
         uses: raven-actions/actionlint@v2

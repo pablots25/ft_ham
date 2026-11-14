@@ -15,6 +15,7 @@
 #   --inputs <dir>           Checkout holding the ignored inputs (default: this repo, else ../ft_ham)
 #   --export-only            Skip the archive and upload the existing archive for this version and build
 #   --no-upload              Archive only, do not upload
+#   --skip-benchmark         Do not run scripts/benchmark.sh before archiving
 #   --dry-run                Print every step without running it
 #
 # Example:
@@ -22,7 +23,7 @@
 
 set -euo pipefail
 
-usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
 VERSION="${1:-}"
 BUILD="${2:-}"
@@ -34,6 +35,7 @@ PREMIUM_REF="main"
 INPUTS=""
 EXPORT_ONLY=false
 UPLOAD=true
+BENCHMARK=true
 DRY_RUN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,6 +44,7 @@ while [[ $# -gt 0 ]]; do
     --inputs) INPUTS="$2"; shift 2 ;;
     --export-only) EXPORT_ONLY=true; shift ;;
     --no-upload) UPLOAD=false; shift ;;
+    --skip-benchmark) BENCHMARK=false; shift ;;
     --dry-run) DRY_RUN=true; shift ;;
     *) usage ;;
   esac
@@ -151,7 +154,28 @@ if ! $EXPORT_ONLY; then
   step "Set version $VERSION and build $BUILD"
   run env PROJECT_ROOT="$WORKTREE" bash "$SCRIPT_DIR/bump_version.sh" "$VERSION" "$BUILD"
 
-  # ── 5. Archive ─────────────────────────────────────────────────────────────
+  # ── 5. Benchmarks ──────────────────────────────────────────────────────────
+  # Decode and message-processing benchmarks on the release commit, compared
+  # with the previous release measured on this Mac. See docs/RELEASING.md.
+  if $BENCHMARK; then
+    step "Benchmarks"
+    if $DRY_RUN; then
+      printf '+ %s\n' "bash $SCRIPT_DIR/benchmark.sh $VERSION $BUILD --project-root $WORKTREE"
+    else
+      bench_status=0
+      bash "$SCRIPT_DIR/benchmark.sh" "$VERSION" "$BUILD" --project-root "$WORKTREE" || bench_status=$?
+      case $bench_status in
+        0) ;;
+        2) confirm "Benchmarks regressed against the previous release. Archive anyway?" \
+             || fail "stopped on a performance regression. Profile it, or rerun with --skip-benchmark." ;;
+        *) fail "benchmarks could not run. Fix them, or rerun with --skip-benchmark." ;;
+      esac
+    fi
+  else
+    echo "Benchmarks skipped (--skip-benchmark)."
+  fi
+
+  # ── 6. Archive ─────────────────────────────────────────────────────────────
   step "Archive"
   run mkdir -p "$ARCHIVE_DIR"
   run xcodebuild archive \
@@ -170,12 +194,12 @@ else
   echo "Using $ARCHIVE"
 fi
 
-# ── 6. dSYMs ─────────────────────────────────────────────────────────────────
+# ── 7. dSYMs ─────────────────────────────────────────────────────────────────
 step "Zip dSYMs"
 DSYM_ZIP="$(dirname "$ARCHIVE")/ft8_ham-$VERSION-$BUILD-dSYMs.zip"
 run ditto -c -k --keepParent "$ARCHIVE/dSYMs" "$DSYM_ZIP"
 
-# ── 7. Upload ────────────────────────────────────────────────────────────────
+# ── 8. Upload ────────────────────────────────────────────────────────────────
 if $UPLOAD; then
   step "Upload to App Store Connect"
   team="$(sed -n 's/.*DEVELOPMENT_TEAM = \([A-Z0-9]*\);.*/\1/p' \
@@ -219,3 +243,6 @@ echo
 echo "Next: smoke test on TestFlight, submit for review, merge into main and develop,"
 echo "then tag both repositories with: scripts/tag_release.sh $VERSION --premium-ref $PREMIUM_SHA"
 echo "Remember to bump CURRENT_PROJECT_VERSION in your own checkout to $BUILD as well."
+if $BENCHMARK && ! $EXPORT_ONLY && [[ -f "$REPO/benchmarks/$VERSION-$BUILD.json" ]]; then
+  echo "Commit benchmarks/$VERSION-$BUILD.json on the release branch so the next release compares against it."
+fi
