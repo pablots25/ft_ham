@@ -437,6 +437,18 @@ private final class PresenceAdapter: PresenceServiceProtocol {
     }
 }
 
+// MARK: - Telemetry Adapter
+
+private enum PremiumTelemetryAdapter {
+    static func map(_ event: FTHamPremium.PremiumTelemetryEvent) -> PremiumServiceEvent? {
+        guard
+            let service = PremiumServiceEvent.Service(rawValue: event.service.rawValue),
+            let action = PremiumServiceEvent.Action(rawValue: event.action.rawValue)
+        else { return nil }
+        return PremiumServiceEvent(service: service, action: action, errorCode: event.errorCode)
+    }
+}
+
 #endif
 
 /// Factory for premium features.
@@ -446,6 +458,17 @@ private final class PresenceAdapter: PresenceServiceProtocol {
 /// are created only once per app session.
 @MainActor
 public enum PremiumFeatures {
+
+    /// Routes failures and settings changes reported inside the premium
+    /// services to `handler`. A no-op without the premium package.
+    static func installTelemetry(_ handler: @escaping @MainActor (PremiumServiceEvent) -> Void) {
+        #if canImport(FTHamPremium)
+        FTHamPremium.PremiumTelemetry.handler = { event in
+            guard let mapped = PremiumTelemetryAdapter.map(event) else { return }
+            handler(mapped)
+        }
+        #endif
+    }
 
     private static var _catController: (any CATControlProtocol)?
     public static var catController: any CATControlProtocol {

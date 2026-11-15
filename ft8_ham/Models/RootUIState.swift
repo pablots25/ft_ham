@@ -30,5 +30,48 @@ final class RootUIState: ObservableObject {
 final class QSOLogPrompt: ObservableObject {
     @Published var showConfirmQSOAlert: Bool = false
     @Published var pendingQSOToLog: LogEntry?
-    @Published var pendingQSOIsUnconfirmed: Bool = false
+    @Published var pendingReason: QSOLogPromptReason = .completed
+
+    /// True when the pending QSO did not finish its handshake.
+    var pendingQSOIsUnconfirmed: Bool { pendingReason != .completed }
+}
+
+/// Why the log confirmation alert is shown. It decides the alert's wording.
+enum QSOLogPromptReason: Equatable {
+    /// The QSO finished normally and auto-logging is off.
+    case completed
+    /// The sequencer gave up waiting for the final 73 after the reports were exchanged.
+    case timedOut
+    /// The operator pressed "Log QSO" while the QSO was still in progress.
+    case manual
+}
+
+/// The message the log confirmation alert shows. Kept apart from the view so
+/// the choice can be unit tested: the alert must never claim a report was
+/// exchanged when it was not.
+enum QSOLogPromptMessage: Equatable {
+    case confirm
+    case timedOut
+    case manualBothReports
+    case missingReceivedReport
+    case missingSentReport
+    case missingBothReports
+
+    static func make(reason: QSOLogPromptReason, qso: LogEntry) -> QSOLogPromptMessage {
+        guard reason != .completed else { return .confirm }
+
+        let hasSent = LogEntry.adifReport(qso.rstSent) != nil
+        let hasReceived = LogEntry.adifReport(qso.rstRcvd) != nil
+
+        switch (hasSent, hasReceived) {
+        case (false, false):
+            return .missingBothReports
+        case (true, false):
+            return .missingReceivedReport
+        case (false, true):
+            return .missingSentReport
+        case (true, true):
+            return reason == .timedOut ? .timedOut : .manualBothReports
+        }
+    }
 }

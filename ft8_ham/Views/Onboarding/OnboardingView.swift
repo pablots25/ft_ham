@@ -240,6 +240,7 @@ private struct OnboardingStationStep: View {
     @AppStorage("callsign") private var callsign = ""
     @AppStorage("locator") private var locator = ""
     @AppStorage("stationCallsignIsElevenMeter") private var isElevenMeter = false
+    @AppStorage(CompoundCallsign.freeTextOptInKey) private var isFreeText = false
 
     @State private var callsignText = ""
     @State private var locatorText = ""
@@ -258,6 +259,7 @@ private struct OnboardingStationStep: View {
                     callsignText: $callsignText,
                     validCallsign: $validCallsign,
                     isElevenMeterEnabled: isElevenMeter,
+                    isFreeTextEnabled: isFreeText,
                     onCommit: commitCallsign
                 )
 
@@ -265,6 +267,11 @@ private struct OnboardingStationStep: View {
                     Text("11 m / CB callsign")
                 }
                 .onChange(of: isElevenMeter) { _ in commitCallsign() }
+
+                Toggle(isOn: $isFreeText) {
+                    Text("Free-text callsign")
+                }
+                .onChange(of: isFreeText) { _ in commitCallsign() }
 
                 LocatorFieldView(
                     locatorText: $locatorText,
@@ -309,7 +316,9 @@ private struct OnboardingStationStep: View {
         .onAppear {
             callsignText = callsign
             locatorText = locator
-            validCallsign = isValidStationCallsign(callsign, allowElevenMeter: isElevenMeter)
+            validCallsign = isValidStationCallsign(
+                callsign, allowElevenMeter: isElevenMeter, allowFreeText: isFreeText
+            )
             validLocator = isValidLocator(locator)
         }
         // Once location is allowed, the GPS auto locator can fill the stored
@@ -325,7 +334,9 @@ private struct OnboardingStationStep: View {
     private func commitCallsign() {
         let text = callsignText.uppercased()
         callsignText = text
-        validCallsign = isValidStationCallsign(text, allowElevenMeter: isElevenMeter)
+        validCallsign = isValidStationCallsign(
+            text, allowElevenMeter: isElevenMeter, allowFreeText: isFreeText
+        )
         if validCallsign { callsign = text }
     }
 

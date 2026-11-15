@@ -140,6 +140,35 @@
         }
       }
     },
+    "Both signal reports were exchanged with %@, but the final 73 has not arrived. Log it anyway?" : {
+      "comment" : "Message of the alert that confirms logging an unfinished QSO. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beide Rapporte wurden mit %@ ausgetauscht, aber das abschließende 73 ist noch nicht angekommen. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se intercambiaron ambos reportes de señal con %@, pero no ha llegado el 73 final. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les deux reports ont été échangés avec %@, mais le 73 final n’est pas arrivé. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrambi i rapporti sono stati scambiati con %@, ma il 73 finale non è arrivato. Registrarlo comunque?"
+          }
+        }
+      }
+    },
     "Back" : {
       "localizations" : {
         "de" : {
@@ -242,6 +271,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Controlla nominativo e locator in Configurazione."
+          }
+        }
+      }
+    },
+    "Confirm QSOs on LoTW?" : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QSOs auf LoTW bestätigen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm QSOs on LoTW?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Confirmar QSOs en LoTW?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmer vos QSO sur LoTW ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confermare i QSO su LoTW?"
           }
         }
       }
@@ -494,6 +558,303 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nessuna uscita audio. Controlla il dispositivo audio."
+          }
+        }
+      }
+    },
+    "No signal report received from %@. It will be logged without the received report. Log it anyway?" : {
+      "comment" : "Message of the alert that confirms logging an unfinished QSO. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Rapport von %@ empfangen. Das QSO wird ohne empfangenen Rapport geloggt. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha recibido reporte de señal de %@. Se registrará sin el reporte recibido. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun report reçu de %@. Le QSO sera enregistré sans le report reçu. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun rapporto ricevuto da %@. Il QSO verrà registrato senza il rapporto ricevuto. Registrarlo comunque?"
+          }
+        }
+      }
+    },
+    "No signal report sent to %@. It will be logged without the sent report. Log it anyway?" : {
+      "comment" : "Message of the alert that confirms logging an unfinished QSO. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Rapport an %@ gesendet. Das QSO wird ohne gesendeten Rapport geloggt. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha enviado reporte de señal a %@. Se registrará sin el reporte enviado. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun report envoyé à %@. Le QSO sera enregistré sans le report envoyé. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun rapporto inviato a %@. Il QSO verrà registrato senza il rapporto inviato. Registrarlo comunque?"
+          }
+        }
+      }
+    },
+    "No signal reports were exchanged with %@. It will be logged without reports. Log it anyway?" : {
+      "comment" : "Message of the alert that confirms logging an unfinished QSO. The argument is the other station's callsign.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit %@ wurden keine Rapporte ausgetauscht. Das QSO wird ohne Rapporte geloggt. Trotzdem loggen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se intercambiaron reportes de señal con %@. Se registrará sin reportes. ¿Registrarlo de todos modos?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun report n’a été échangé avec %@. Le QSO sera enregistré sans reports. L’enregistrer quand même ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun rapporto è stato scambiato con %@. Il QSO verrà registrato senza rapporti. Registrarlo comunque?"
+          }
+        }
+      }
+    },
+    "Premium reports to PSK Reporter so you can see where your signal is received." : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium meldet an PSK Reporter, damit du siehst, wo dein Signal empfangen wird."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium reports to PSK Reporter so you can see where your signal is received."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium informa a PSK Reporter para que veas dónde se recibe tu señal."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium transmet à PSK Reporter pour que vous voyiez où votre signal est reçu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium invia i dati a PSK Reporter così vedi dove viene ricevuto il tuo segnale."
+          }
+        }
+      }
+    },
+    "Premium sends your QSOs to QRZ, LoTW and eQSL automatically." : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium sendet deine QSOs automatisch an QRZ, LoTW und eQSL."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium sends your QSOs to QRZ, LoTW and eQSL automatically."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium envía tus QSOs a QRZ, LoTW y eQSL automáticamente."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium envoie automatiquement vos QSO vers QRZ, LoTW et eQSL."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium invia automaticamente i tuoi QSO a QRZ, LoTW ed eQSL."
+          }
+        }
+      }
+    },
+    "Premium uploads every QSO to LoTW, QRZ and eQSL as you log it." : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium lädt jedes QSO beim Loggen zu LoTW, QRZ und eQSL hoch."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium uploads every QSO to LoTW, QRZ and eQSL as you log it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium sube cada QSO a LoTW, QRZ y eQSL en cuanto lo registras."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium envoie chaque QSO vers LoTW, QRZ et eQSL dès que vous l'enregistrez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium carica ogni QSO su LoTW, QRZ ed eQSL appena lo registri."
+          }
+        }
+      }
+    },
+    "See Premium" : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium ansehen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See Premium"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver Premium"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir Premium"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scopri Premium"
+          }
+        }
+      }
+    },
+    "Skip the export next time?" : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Den Export künftig sparen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip the export next time?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Te ahorras la exportación la próxima vez?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éviter l'export la prochaine fois ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saltare l'esportazione la prossima volta?"
+          }
+        }
+      }
+    },
+    "Where is your signal heard?" : {
+      "comment" : "Premium prompt shown at a usage milestone (QSO logged, ADIF export, transmit).",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wo wird dein Signal gehört?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where is your signal heard?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Dónde se escucha tu señal?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Où votre signal est-il entendu ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dove viene ascoltato il tuo segnale?"
           }
         }
       }
@@ -1216,6 +1577,12 @@
       "comment" : "A label indicating the received signal strength.",
       "isCommentAutoGenerated" : true,
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(RX)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1223,6 +1590,18 @@
           }
         },
         "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(RX)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(RX)"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "(RX)"
@@ -1234,6 +1613,12 @@
       "comment" : "A label indicating that the signal was transmitted.",
       "isCommentAutoGenerated" : true,
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(TX)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1241,6 +1626,18 @@
           }
         },
         "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(TX)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(TX)"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "(TX)"
@@ -3005,31 +3402,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hilf mit, die App zu verbessern, indem du anonyme Nutzungsstatistiken teilst. Es werden keine persönlichen Daten erfasst."
+            "value" : "Hilf mit, die App zu verbessern, indem du anonyme Nutzungsstatistiken teilst. Dein Rufzeichen, dein Locator und dein Logbuch werden nie übertragen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Help improve the app by sharing anonymous usage statistics. No personal data is collected."
+            "value" : "Help improve the app by sharing anonymous usage statistics. Your callsign, locator and logbook are never included."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ayuda a mejorar la aplicación compartiendo estadísticas de uso anónimas. No se recopila ningún dato personal."
+            "value" : "Ayuda a mejorar la aplicación compartiendo estadísticas de uso anónimas. Nunca se incluyen tu indicativo, tu localizador ni tu logbook."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aidez à améliorer l'app en partageant des statistiques d'utilisation anonymes. Aucune donnée personnelle n'est collectée."
+            "value" : "Aidez à améliorer l'app en partageant des statistiques d'utilisation anonymes. Votre indicatif, votre locator et votre carnet de trafic ne sont jamais inclus."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aiuta a migliorare l'app condividendo statistiche d'uso anonime. Non vengono raccolti dati personali."
+            "value" : "Aiuta a migliorare l'app condividendo statistiche d'uso anonime. Il tuo nominativo, il tuo locator e il tuo log non vengono mai inclusi."
           }
         }
       }
@@ -6301,6 +6698,12 @@
       "comment" : "A label displayed next to the \"dB\" column in the condensed message list view.",
       "isCommentAutoGenerated" : true,
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dB"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6308,6 +6711,18 @@
           }
         },
         "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dB"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dB"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "dB"
@@ -7477,6 +7892,24 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "e.g. 14.074"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "z. B. 14.074"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ex. 14.074"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "es. 14.074"
           }
         }
       }
@@ -9583,6 +10016,12 @@
     },
     "FT4" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT4"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -9590,6 +10029,18 @@
           }
         },
         "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT4"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT4"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "FT4"
@@ -9599,6 +10050,12 @@
     },
     "FT8" : {
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT8"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -9606,6 +10063,18 @@
           }
         },
         "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT8"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "FT8"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "FT8"
@@ -13067,6 +13536,24 @@
             "state" : "translated",
             "value" : "No"
           }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nein"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No"
+          }
         }
       }
     },
@@ -13858,6 +14345,12 @@
     "OK" : {
       "comment" : "Dismiss button",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -13865,6 +14358,18 @@
           }
         },
         "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
@@ -22462,6 +22967,12 @@
       "comment" : "A label indicating a transmission.",
       "isCommentAutoGenerated" : true,
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TX"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -22469,6 +22980,18 @@
           }
         },
         "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TX"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TX"
+          }
+        },
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "TX"
@@ -25321,6 +25844,12 @@
       "comment" : "A label for the change in time between two consecutive messages.",
       "isCommentAutoGenerated" : true,
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δt"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -25331,6 +25860,656 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Δt"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δt"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δt"
+          }
+        }
+      }
+    },
+    "Free-text callsign" : {
+      "comment" : "A toggle that lets the user enter a non-standard callsign such as a listener (SWL) ID.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicativo de texto libre"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freitext-Rufzeichen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indicatif en texte libre"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nominativo a testo libero"
+          }
+        }
+      }
+    },
+    "Use 3 to 11 letters and numbers, with at least one of each" : {
+      "comment" : "Error under the callsign field when a free-text callsign has an invalid format.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa de 3 a 11 letras y números, con al menos uno de cada"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verwende 3 bis 11 Buchstaben und Ziffern, mindestens je einen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisez de 3 à 11 lettres et chiffres, avec au moins un de chaque"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa da 3 a 11 lettere e numeri, con almeno uno di ciascuno"
+          }
+        }
+      }
+    },
+    "This is not a standard amateur callsign. If it is a listener (SWL) ID or another non-standard callsign, turn on \"Free-text callsign\" below." : {
+      "comment" : "Error under the callsign field suggesting the free-text callsign toggle.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este no es un indicativo de radioaficionado estándar. Si es un identificativo de escucha (SWL) u otro indicativo no estándar, activa \"Indicativo de texto libre\" más abajo."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dies ist kein Standard-Amateurfunkrufzeichen. Wenn es eine Hörer-Kennung (SWL) oder ein anderes nicht standardmäßiges Rufzeichen ist, aktiviere unten \"Freitext-Rufzeichen\"."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est pas un indicatif radioamateur standard. S'il s'agit d'un identifiant d'écouteur (SWL) ou d'un autre indicatif non standard, activez \"Indicatif en texte libre\" ci-dessous."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo non è un nominativo radioamatoriale standard. Se è un identificativo di ascolto (SWL) o un altro nominativo non standard, attiva \"Nominativo a testo libero\" qui sotto."
+          }
+        }
+      }
+    },
+    "This is not a standard amateur callsign. It is sent spelled out as a non-standard callsign, without your locator. Only transmit if you are allowed to." : {
+      "comment" : "Warning under the callsign field when a free-text callsign is in use.",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este no es un indicativo de radioaficionado estándar. Se envía completo como indicativo no estándar, sin tu locator. Transmite solo si estás autorizado."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dies ist kein Standard-Amateurfunkrufzeichen. Es wird ausgeschrieben als nicht standardmäßiges Rufzeichen gesendet, ohne deinen Locator. Sende nur, wenn du dazu berechtigt bist."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est pas un indicatif radioamateur standard. Il est envoyé en entier comme indicatif non standard, sans votre locator. N'émettez que si vous y êtes autorisé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo non è un nominativo radioamatoriale standard. Viene inviato per intero come nominativo non standard, senza il tuo locatore. Trasmetti solo se sei autorizzato."
+          }
+        }
+      }
+    },
+    "Toggle frequency adjustment" : {
+      "comment" : "Waterfall tutorial: button that turns frequency adjustment on or off",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar o desactivar el ajuste de frecuencia"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequenzeinstellung ein- oder ausschalten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer ou désactiver le réglage de fréquence"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva o disattiva la regolazione della frequenza"
+          }
+        }
+      }
+    },
+    "Show/hide all overlays" : {
+      "comment" : "Waterfall tutorial: button that shows or hides every overlay",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar todas las capas"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Überlagerungen ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer toutes les superpositions"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi tutte le sovrapposizioni"
+          }
+        }
+      }
+    },
+    "Show/hide timestamps" : {
+      "comment" : "Waterfall tutorial: button that shows or hides timestamps",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar las marcas de hora"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeitstempel ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer l'horodatage"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi gli orari"
+          }
+        }
+      }
+    },
+    "Show/hide vertical labels" : {
+      "comment" : "Waterfall tutorial: button that shows or hides the vertical labels",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar las etiquetas verticales"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vertikale Beschriftungen ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer les étiquettes verticales"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi le etichette verticali"
+          }
+        }
+      }
+    },
+    "Show/hide frequency ticks" : {
+      "comment" : "Waterfall tutorial: button that shows or hides the frequency scale ticks",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar las marcas de frecuencia"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequenzskala ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer les graduations de fréquence"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi le tacche di frequenza"
+          }
+        }
+      }
+    },
+    "Show/hide frequency marker" : {
+      "comment" : "Waterfall tutorial: button that shows or hides the TX frequency marker",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar u ocultar el marcador de frecuencia"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequenzmarkierung ein- oder ausblenden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ou masquer le repère de fréquence"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra o nascondi l'indicatore di frequenza"
+          }
+        }
+      }
+    },
+    "All Logs" : {
+      "comment" : "Export type: every QSO in the logbook",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los registros"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Einträge"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les journaux"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutti i registri"
+          }
+        }
+      }
+    },
+    "Recent (Last 7 Days)" : {
+      "comment" : "Export type: QSOs from the last 7 days",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recientes (últimos 7 días)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktuell (letzte 7 Tage)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Récents (7 derniers jours)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recenti (ultimi 7 giorni)"
+          }
+        }
+      }
+    },
+    "New QSOs only" : {
+      "comment" : "Export type: QSOs added since the last export",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo QSOs nuevos"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur neue QSOs"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveaux QSO uniquement"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo QSO nuovi"
+          }
+        }
+      }
+    },
+    "Export all QSOs from your logbook" : {
+      "comment" : "Description of the 'All Logs' export type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporta todos los QSOs de tu logbook"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle QSOs aus deinem Logbuch exportieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter tous les QSO de votre journal"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esporta tutti i QSO del tuo logbook"
+          }
+        }
+      }
+    },
+    "Select a custom date range to export" : {
+      "comment" : "Description of the 'Date Range' export type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige un rango de fechas para exportar"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einen eigenen Datumsbereich zum Exportieren wählen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez une plage de dates à exporter"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli un intervallo di date da esportare"
+          }
+        }
+      }
+    },
+    "Export only QSOs from the last 7 days" : {
+      "comment" : "Description of the 'Recent' export type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporta solo los QSOs de los últimos 7 días"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur QSOs der letzten 7 Tage exportieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter uniquement les QSO des 7 derniers jours"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esporta solo i QSO degli ultimi 7 giorni"
+          }
+        }
+      }
+    },
+    "Export only new QSOs since last export" : {
+      "comment" : "Description of the 'New QSOs only' export type",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporta solo los QSOs nuevos desde la última exportación"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur neue QSOs seit dem letzten Export exportieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter uniquement les nouveaux QSO depuis le dernier export"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esporta solo i QSO nuovi dall'ultima esportazione"
+          }
+        }
+      }
+    },
+    "Select Items" : {
+      "comment" : "Logbook title while selecting QSOs and none is selected yet",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auswählen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionner"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleziona"
+          }
+        }
+      }
+    },
+    "%lld Selected" : {
+      "comment" : "Logbook title while selecting QSOs: how many are selected",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld seleccionados"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ausgewählt"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sélectionnés"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld selezionati"
+          }
+        }
+      }
+    },
+    "Invalid Maidenhead grid (e.g. EM72 or EM72ab)" : {
+      "comment" : "QSO editor: the grid locator is not valid",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locator Maidenhead no válido (p. ej. EM72 o EM72ab)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ungültiger Maidenhead-Locator (z. B. EM72 oder EM72ab)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locator Maidenhead non valide (ex. EM72 ou EM72ab)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locatore Maidenhead non valido (es. EM72 o EM72ab)"
+          }
+        }
+      }
+    },
+    "Your purchase is awaiting approval. You'll get access once it's approved." : {
+      "comment" : "Paywall: purchase waiting for approval (e.g. Ask to Buy)",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu compra está pendiente de aprobación. Tendrás acceso en cuanto se apruebe."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Kauf wartet auf Genehmigung. Du erhältst Zugriff, sobald er genehmigt ist."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre achat est en attente d'approbation. Vous y aurez accès dès qu'il sera approuvé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo acquisto è in attesa di approvazione. Avrai accesso non appena sarà approvato."
+          }
+        }
+      }
+    },
+    "Opens the QSO editor" : {
+      "comment" : "Accessibility hint on a logbook row",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre el editor del QSO"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnet den QSO-Editor"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvre l'éditeur de QSO"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apre l'editor del QSO"
           }
         }
       }

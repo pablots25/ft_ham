@@ -8,6 +8,7 @@
 #import "ft8_SlotMonitor.h"
 
 #include <mach/mach_time.h>
+#include <cmath>
 #include <mutex>
 #include <vector>
 
@@ -23,6 +24,12 @@ static const int kMonitorFreqOSR = 2;
 // audio callback at least this long after the first, so rows reach the
 // display at a steady ~80 ms cadence. The audio tap runs every ~46 ms.
 static const double kStaggerSeconds = 0.070;
+// Samples are timed by counting them from an anchor: the arrival time of a
+// buffer, which is a little after its capture. The earliest arrival seen is
+// the closest to the truth, so the anchor follows any earlier arrival right
+// away and only follows a later one past this margin, which means audio was
+// lost (interruption, route change) or the two clocks drifted apart.
+static const double kClockResyncSeconds = 0.25;
 
 static double monotonicSeconds(void) {
   static mach_timebase_info_data_t timebase;
@@ -41,10 +48,13 @@ static double monotonicSeconds(void) {
   ftx_waterfall_t _wf;
 }
 
-- (instancetype)initWithMonitor:(const monitor_t *)mon slotSequence:(NSUInteger)slotSequence {
+- (instancetype)initWithMonitor:(const monitor_t *)mon
+                   slotSequence:(NSUInteger)slotSequence
+                      slotIndex:(int64_t)slotIndex {
   self = [super init];
   if (self) {
     _slotSequence = slotSequence;
+    _slotIndex = slotIndex;
     _wf = mon->wf;
     // Only the blocks written so far are copied; `max_blocks` shrinks to
     // match so nothing reads past the copy.
@@ -91,6 +101,16 @@ static double monotonicSeconds(void) {
   float _heldRowBinHz;
   NSUInteger _heldRowSlotSequence;
   int _heldRowSlotRow;
+  // Sample clock (see kClockResyncSeconds): `_totalSamples` counts every
+  // sample fed; sample `_anchorSample` arrived at `_anchorTime`.
+  uint64_t _totalSamples;
+  BOOL _clockValid;
+  uint64_t _anchorSample;
+  double _anchorTime;
+  // UTC slot the blocks being analysed belong to, -1 while unknown.
+  int64_t _currentSlot;
+  // The last slot the monitor cut at its boundary, until the sequencer takes it.
+  FT8WaterfallSnapshot *_completed;
 }
 
 - (instancetype)initWithSampleRate:(int)sampleRate isFT4:(BOOL)isFT4 {
@@ -98,6 +118,7 @@ static double monotonicSeconds(void) {
   if (self) {
     _sampleRate = sampleRate;
     _isFT4 = isFT4;
+    _cutsAtSlotBoundary = YES;
     [self setUpMonitorLocked];
   }
   return self;
@@ -142,6 +163,45 @@ static double monotonicSeconds(void) {
   _row.assign((size_t)_mon.wf.num_bins * _mon.wf.freq_osr, 0);
   _heldRow.assign(_row.size(), 0);
   _hasHeldRow = NO;
+  // The slot in progress is gone; the sample clock still holds.
+  _currentSlot = -1;
+  _completed = nil;
+}
+
+- (double)slotPeriod {
+  return _isFT4 ? 7.5 : 15.0;
+}
+
+/// Caller holds `_lock`.
+- (void)updateClockLockedWithEndSample:(uint64_t)endSample arrivalTime:(double)arrivalTime {
+  if (_clockValid) {
+    double late = arrivalTime - [self timeOfSampleLocked:endSample];
+    if (late > 0 && late <= kClockResyncSeconds) {
+      return;
+    }
+  }
+  _anchorSample = endSample;
+  _anchorTime = arrivalTime;
+  _clockValid = YES;
+}
+
+/// Seconds since 1970 at which sample `index` was captured. Caller holds
+/// `_lock` and has checked `_clockValid`.
+- (double)timeOfSampleLocked:(uint64_t)index {
+  return _anchorTime + ((double)index - (double)_anchorSample) / (double)_sampleRate;
+}
+
+/// Closes slot `_currentSlot` at its boundary and starts the next one,
+/// keeping the block in `_pending` as the new slot's first. Caller holds `_lock`.
+- (void)cutAtBoundaryLocked {
+  if (_hasHeldRow) {
+    [self emitHeldRowLocked];
+  }
+  _completed = [[FT8WaterfallSnapshot alloc] initWithMonitor:&_mon
+                                                slotSequence:_slotSequence
+                                                   slotIndex:_currentSlot];
+  monitor_reset(&_mon);
+  _slotSequence += 1;
 }
 
 - (float)rowPeriod {
@@ -159,10 +219,22 @@ static double monotonicSeconds(void) {
 }
 
 - (void)feedSamples:(const float *)samples count:(NSUInteger)count {
+  [self feedSamples:samples count:count arrivalTime:NAN];
+}
+
+- (void)feedSamples:(const float *)samples
+              count:(NSUInteger)count
+        arrivalTime:(NSTimeInterval)arrivalTime {
   if (samples == NULL || count == 0) {
     return;
   }
   std::lock_guard<std::mutex> guard(_lock);
+
+  if (std::isnan(arrivalTime) || !self.cutsAtSlotBoundary) {
+    _clockValid = NO;
+  } else {
+    [self updateClockLockedWithEndSample:_totalSamples + count arrivalTime:arrivalTime];
+  }
 
   const double now = monotonicSeconds();
   if (_hasHeldRow && now - _heldRowTime >= kStaggerSeconds) {
@@ -175,8 +247,23 @@ static double monotonicSeconds(void) {
     size_t take = std::min(blockSize - _pending.size(), (size_t)count - pos);
     _pending.insert(_pending.end(), samples + pos, samples + pos + take);
     pos += take;
+    _totalSamples += take;
     if (_pending.size() < blockSize) {
       break;
+    }
+
+    // A block that starts past the UTC slot boundary (by more than half a
+    // block) opens the next slot: the slot that just ended is cut here, on
+    // the audio's own time, however late the sequencer comes to collect it.
+    if (_clockValid) {
+      double blockStart = [self timeOfSampleLocked:_totalSamples - blockSize];
+      int64_t slot = (int64_t)std::floor((blockStart + 0.5 * _mon.symbol_period) / self.slotPeriod);
+      if (_currentSlot < 0) {
+        _currentSlot = slot;
+      } else if (slot > _currentSlot) {
+        [self cutAtBoundaryLocked];
+        _currentSlot = slot;
+      }
     }
 
     // The sequencer normally resets us every slot, and the store holds two.
@@ -273,6 +360,8 @@ static double monotonicSeconds(void) {
   }
   monitor_reset(&_mon);
   _slotSequence += 1;
+  _currentSlot = -1;
+  _completed = nil;
   // Drop the partial block so block 0 starts at the reset instant. Up to one
   // symbol of audio is skipped, which is exactly the audio that straddles
   // the slot boundary and belongs to neither slot.
@@ -282,8 +371,22 @@ static double monotonicSeconds(void) {
 - (FT8WaterfallSnapshot *)snapshotAndReset {
   std::lock_guard<std::mutex> guard(_lock);
   FT8WaterfallSnapshot *snapshot =
-      [[FT8WaterfallSnapshot alloc] initWithMonitor:&_mon slotSequence:_slotSequence];
+      [[FT8WaterfallSnapshot alloc] initWithMonitor:&_mon slotSequence:_slotSequence slotIndex:-1];
   [self resetSlotLocked];
+  return snapshot;
+}
+
+- (FT8WaterfallSnapshot *)snapshotAndResetForSlot:(int64_t)slotIndex {
+  std::lock_guard<std::mutex> guard(_lock);
+  FT8WaterfallSnapshot *done = _completed;
+  if (done != nil && done.slotIndex >= slotIndex) {
+    _completed = nil;
+    return done;
+  }
+  FT8WaterfallSnapshot *snapshot =
+      [[FT8WaterfallSnapshot alloc] initWithMonitor:&_mon slotSequence:_slotSequence slotIndex:-1];
+  [self resetSlotLocked];
+  _currentSlot = slotIndex + 1;
   return snapshot;
 }
 

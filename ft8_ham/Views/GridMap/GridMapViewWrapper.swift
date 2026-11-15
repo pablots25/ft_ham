@@ -78,6 +78,7 @@ struct GridMapViewWrapper: View {
         }
         .sheet(isPresented: $showHeardMeList) {
             HeardMeListView(store: heardMe, myCallsign: myCallsign, myLocator: myLocator)
+                .onAppear { UsageAnalytics.shared.recordAction(.heardMe, .opened) }
         }
     }
 

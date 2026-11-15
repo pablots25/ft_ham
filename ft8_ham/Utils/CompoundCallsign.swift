@@ -43,6 +43,12 @@ struct CompoundCallsign: Equatable {
         /// DXCC entity. FT8/FT4 is an amateur mode, so using it on 11 m is not
         /// standard practice and may not be permitted in every jurisdiction.
         case elevenMeter
+        /// The operator's own free-text callsign, e.g. a listener (SWL) ID such
+        /// as "EA40365FD". It follows no ITU structure, so it is only recognised
+        /// when it is the station callsign and the operator has opted in. It
+        /// always travels as a non-standard callsign and never maps to a DXCC
+        /// entity of its own.
+        case freeText
     }
 
     /// The plain callsign without its modifier, e.g. "VE6XAD" in "I/VE6XAD".
@@ -61,6 +67,8 @@ struct CompoundCallsign: Equatable {
 
     var isElevenMeter: Bool { kind == .elevenMeter }
 
+    var isFreeText: Bool { kind == .freeText }
+
     // MARK: - Protocol limits
 
     /// A non-standard callsign travels as 11 characters of plain text in a
@@ -69,6 +77,31 @@ struct CompoundCallsign: Equatable {
 
     /// The longest modifier accepted on either side of the slash.
     static let maxModifierLength = 4
+
+    /// The shortest free-text callsign accepted.
+    static let minFreeTextLength = 3
+
+    // MARK: - Free-text station callsign
+
+    /// UserDefaults key of the "Free-text callsign" opt-in in Station settings.
+    static let freeTextOptInKey = "stationCallsignIsFreeText"
+
+    /// UserDefaults key of the operator's own callsign.
+    static let stationCallsignKey = "callsign"
+
+    /// The operator's own callsign when it is a free-text one they opted in to,
+    /// read straight from UserDefaults so every caller sees the current value.
+    /// `nil` when the opt-in is off or the stored call is not free-text shaped.
+    static var registeredFreeTextCallsign: String? {
+        registeredFreeTextCallsign(in: .standard)
+    }
+
+    static func registeredFreeTextCallsign(in defaults: UserDefaults) -> String? {
+        guard defaults.bool(forKey: freeTextOptInKey),
+              let stored = defaults.string(forKey: stationCallsignKey)?.uppercased(),
+              isFreeTextFormat(stored) else { return nil }
+        return stored
+    }
 
     // MARK: - Character tables
 
@@ -100,7 +133,15 @@ struct CompoundCallsign: Equatable {
     /// Accepts plain calls ("VE6XAD"), prefixed calls ("I/VE6XAD") and suffixed
     /// calls ("VE6XAD/P", "W1AW/VE3"). Rejects protocol tokens, grid locators,
     /// signal reports, multiple modifiers and anything too long to transmit.
-    static func parse(_ text: String) -> CompoundCallsign? {
+    ///
+    /// `freeTextStation` is the operator's opted-in free-text callsign, if any.
+    /// Only that exact text is accepted as a `.freeText` call: any other
+    /// free-form token in a decoded message is still not a callsign. It is only
+    /// evaluated when nothing else matched, so the common path never reads it.
+    static func parse(
+        _ text: String,
+        freeTextStation: @autoclosure () -> String? = CompoundCallsign.registeredFreeTextCallsign
+    ) -> CompoundCallsign? {
         var upper = text.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
         upper.removeAll(where: { $0.isWhitespace })
 
@@ -119,6 +160,11 @@ struct CompoundCallsign: Equatable {
         // letters, an 11 m call ends in digits), so it is only reached here.
         if isElevenMeterFormat(upper) {
             return CompoundCallsign(baseCall: upper, modifier: nil, text: upper, kind: .elevenMeter)
+        }
+
+        // The operator's own free-text callsign (e.g. an SWL ID), and only that.
+        if isFreeTextFormat(upper), let station = freeTextStation(), upper == station {
+            return CompoundCallsign(baseCall: upper, modifier: nil, text: upper, kind: .freeText)
         }
 
         return nil
@@ -170,6 +216,23 @@ struct CompoundCallsign: Equatable {
         upper.removeAll(where: { $0.isWhitespace })
         guard upper.count <= maxLength else { return false }
         return wholeMatch(elevenMeterRegex, upper)
+    }
+
+    /// True when `text` can be used as a free-text station callsign: 3 to 11
+    /// letters and digits with at least one of each, e.g. the listener (SWL) ID
+    /// "EA40365FD". It must not read as a protocol token, a grid locator or a
+    /// signal report, so the decoder cannot confuse it with message fields.
+    static func isFreeTextFormat(_ text: String) -> Bool {
+        var upper = text.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        upper.removeAll(where: { $0.isWhitespace })
+        guard (minFreeTextLength...maxLength).contains(upper.count) else { return false }
+        guard upper.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return false }
+        guard upper.contains(where: { $0.isLetter }), upper.contains(where: { $0.isNumber }) else {
+            return false
+        }
+        guard !protocolTokens.contains(upper) else { return false }
+        guard !isValidLocator(upper) else { return false }
+        return !isSignalReport(Substring(upper))
     }
 
     /// True when `text` is a plain ITU-format callsign with no modifier.

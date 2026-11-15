@@ -37,11 +37,24 @@ struct QSOLogConfirmationModifier: ViewModifier {
                     manager.cancelLogging()
                 }
             } message: { qso in
-                if prompt.pendingQSOIsUnconfirmed {
-                    Text("The QSO with \(qso.callsign) timed out before the final 73, but both signal reports were exchanged. Log it anyway?")
-                } else {
-                    Text("Do you want to log the QSO with \(qso.callsign)?")
-                }
+                Self.messageText(for: QSOLogPromptMessage.make(reason: prompt.pendingReason, qso: qso), callsign: qso.callsign)
             }
+    }
+
+    private static func messageText(for message: QSOLogPromptMessage, callsign: String) -> Text {
+        switch message {
+        case .confirm:
+            Text("Do you want to log the QSO with \(callsign)?")
+        case .timedOut:
+            Text("The QSO with \(callsign) timed out before the final 73, but both signal reports were exchanged. Log it anyway?")
+        case .manualBothReports:
+            Text("Both signal reports were exchanged with \(callsign), but the final 73 has not arrived. Log it anyway?")
+        case .missingReceivedReport:
+            Text("No signal report received from \(callsign). It will be logged without the received report. Log it anyway?")
+        case .missingSentReport:
+            Text("No signal report sent to \(callsign). It will be logged without the sent report. Log it anyway?")
+        case .missingBothReports:
+            Text("No signal reports were exchanged with \(callsign). It will be logged without reports. Log it anyway?")
+        }
     }
 }

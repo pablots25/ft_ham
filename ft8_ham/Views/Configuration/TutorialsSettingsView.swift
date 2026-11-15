@@ -21,12 +21,14 @@ struct TutorialsSettingsContent: View {
 
             Button {
                 AppStorageResetter.resetTutorials()
+                UsageAnalytics.shared.recordAction(.tutorials, .reset, source: "help_messages")
             } label: {
                 Label("Reset help messages", systemImage: "arrow.counterclockwise")
             }
 
             Button {
                 AppStorageResetter.resetOnboarding()
+                UsageAnalytics.shared.recordAction(.tutorials, .reset, source: "onboarding")
             } label: {
                 Label("Show initial tutorial", systemImage: "play.circle")
             }

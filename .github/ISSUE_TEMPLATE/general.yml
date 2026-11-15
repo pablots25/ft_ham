@@ -1,0 +1,13 @@
+name: Question or other
+description: Anything that is not a bug or a feature request
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question or comment
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: FT Ham version, if relevant

@@ -43,12 +43,22 @@ func isValidCallsign(_ text: String) -> Bool {
 ///
 /// An 11 m / CB call (e.g. "26TE231") is not a standard amateur callsign, so it
 /// is accepted only when the operator has explicitly opted in via
-/// `allowElevenMeter`. Amateur calls are unaffected by the flag.
-func isValidStationCallsign(_ text: String, allowElevenMeter: Bool) -> Bool {
+/// `allowElevenMeter`. A free-text callsign such as a listener (SWL) ID
+/// ("EA40365FD") is likewise accepted only with `allowFreeText`. Amateur calls
+/// are unaffected by either flag.
+func isValidStationCallsign(
+    _ text: String,
+    allowElevenMeter: Bool,
+    allowFreeText: Bool = false
+) -> Bool {
+    // Judge the text on its own, not against the callsign already stored.
+    let parsed = CompoundCallsign.parse(text, freeTextStation: nil)
     if CompoundCallsign.isElevenMeterFormat(text) {
-        return allowElevenMeter && isValidCallsign(text)
+        if allowElevenMeter { return parsed != nil }
+    } else if parsed != nil {
+        return true
     }
-    return isValidCallsign(text)
+    return allowFreeText && CompoundCallsign.isFreeTextFormat(text)
 }
 
 
