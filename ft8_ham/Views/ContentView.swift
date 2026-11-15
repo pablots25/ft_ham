@@ -108,9 +108,13 @@ struct ContentView: View {
                         shouldNavigateToConfiguration = true
                     }
                 }
+                // After the decision above: on a fresh install this stores the
+                // version What's New compares against on the next update.
+                AppVersionManager.shared.recordInstallBaselineIfNeeded()
                 // Once UI is ready, evaluate RX start
                 evaluateAutoRX()
                 presentMessagesGuideIfNeeded()
+                GuidanceCoordinator.shared.setBlocked(isGuidanceBlocked)
             }
             .onChange(of: hasCompletedOnboarding) { completed in
                 if completed {
@@ -147,6 +151,10 @@ struct ContentView: View {
             }
             .onChange(of: showConfigAlert) { isShowing in
                 if !isShowing { presentMessagesGuideIfNeeded() }
+            }
+            // Tutorials wait for every launch prompt, alert and sheet above.
+            .onChange(of: isGuidanceBlocked) { blocked in
+                GuidanceCoordinator.shared.setBlocked(blocked)
             }
             .onChange(of: autoRXAtStart) { enabled in
                 if enabled {
@@ -277,7 +285,10 @@ struct ContentView: View {
                 Text("Please fill in your callsign and locator in the Configuration tab to start using the app")
             }
             .onAppear {
-                if hasCompletedOnboarding && hasAcceptedTerms && hasCompletedInitialPermissionFlow && root.settingsLoaded {
+                // Rating, sharing and donation prompts come last: never over a
+                // launch prompt or a first-run tutorial.
+                if hasCompletedOnboarding && hasAcceptedTerms && hasCompletedInitialPermissionFlow && root.settingsLoaded
+                    && !isGuidanceBlocked && GuidanceCoordinator.shared.isIdle {
                     InAppPrompts.shared.checkPrompts()
                 }
             }
@@ -289,12 +300,26 @@ struct ContentView: View {
     }
     
     // MARK: - Prompt sequencing helpers
+    /// Anything on screen, or due, that a first-run tutorial must not cover:
+    /// launch covers, the settings alert, the Messages Guide (shown or still
+    /// owed on TX/RX), the revocation alert and in-app prompts. UI tests skip
+    /// the launch flow, so tutorials keep their old behaviour there.
+    private var isGuidanceBlocked: Bool {
+        guard !AppEnvironment.current.isUITest else { return false }
+        let messagesGuideOwed = !hasSeenMessagesGuide && AppTab(rawValue: selectedTab) == .transmissions
+        return !hasCompletedOnboarding || !hasAcceptedTerms
+            || isPresentingOnboarding || isPresentingLicense || isPresentingWhatsNew
+            || showConfigAlert || isPresentingMessagesGuide || isPresentingRevocationAlert
+            || messagesGuideOwed || prompts.isPresentingPrompt
+    }
+
     /// Anything on screen, or still to come, that the guide must not cover.
     private var isMessagesGuideBlocked: Bool {
         AppEnvironment.current.isUITest
             || !hasCompletedOnboarding || !hasAcceptedTerms
             || isPresentingOnboarding || isPresentingLicense || isPresentingWhatsNew
             || showConfigAlert || isPresentingMessagesGuide
+            || !GuidanceCoordinator.shared.isIdle
     }
 
     /// Shows the Messages Guide the first time the TX/RX tab is on screen.

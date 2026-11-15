@@ -79,8 +79,12 @@ class ProductManager: ObservableObject {
             
             AnalyticsManager.shared.logPurchaseCompleted(
                 productID: transaction.productID,
-                value: NSDecimalNumber(decimal: product.price).doubleValue,
-                currency: product.priceFormatStyle.currencyCode
+                revenue: PurchaseRevenue(
+                    price: transaction.price,
+                    currency: transaction.currency,
+                    fallbackPrice: product.price,
+                    fallbackCurrencyCode: product.priceFormatStyle.currencyCode
+                )
             )
             
             ProductManager.showSuccessPrompt()

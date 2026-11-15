@@ -26,10 +26,6 @@ struct TransmissionView: View {
     @State private var visibleSection: TransmissionSection = .received
     private let sectionSpacing: CGFloat = 12
 
-    private var needsTutorial: Bool {
-        !hasSeenTutorial
-    }
-
     var body: some View {
         GeometryReader { geo in
             // Detect landscape normally, force portrait on iPad
@@ -54,14 +50,14 @@ struct TransmissionView: View {
                     ) {
                         hasSeenTutorial = true
                         showTutorial = false
+                        GuidanceCoordinator.shared.finish(.slideToReply)
                     }
                 }
             }
             .coordinateSpace(name: "TransmissionSpace")
         }
-        .onAppear {
-            showTutorial = needsTutorial
-        }
+        // Shown only when no launch prompt or other tutorial is on screen.
+        .tutorialSlot(.slideToReply, isPresented: $showTutorial)
     }
 }
 

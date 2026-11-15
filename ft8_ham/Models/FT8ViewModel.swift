@@ -278,12 +278,16 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         get { logPrompt.pendingQSOToLog }
         set { logPrompt.pendingQSOToLog = newValue }
     }
-    /// True when the pending confirmation is for a QSO that timed out before the
-    /// final handshake (reports exchanged but unconfirmed). Drives a distinct
-    /// confirmation message so the operator knows it wasn't a clean completion.
+    /// Why the pending confirmation is shown (normal completion, timeout or
+    /// manual "Log QSO"). Drives the alert's wording.
+    internal var pendingLogReason: QSOLogPromptReason {
+        get { logPrompt.pendingReason }
+        set { logPrompt.pendingReason = newValue }
+    }
+    /// True when the pending confirmation is for a QSO that did not finish its
+    /// handshake (timed out, or logged by hand with "Log QSO").
     internal var pendingQSOIsUnconfirmed: Bool {
-        get { logPrompt.pendingQSOIsUnconfirmed }
-        set { logPrompt.pendingQSOIsUnconfirmed = newValue }
+        logPrompt.pendingQSOIsUnconfirmed
     }
     
     
@@ -438,6 +442,7 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         get { FT8Message.Band(rawValue: selectedBandRaw) ?? .band10m }
         set {
             selectedBandRaw = newValue.rawValue
+            UsageAnalytics.shared.recordBandInUse(effectiveBand)
             guard !isCatPollingUpdate else { return }
             scheduleCatFrequencyUpdate(reason: "band change")
         }
@@ -731,7 +736,9 @@ final class FT8ViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate, @pr
         setCatPTT(false, reason: "tx finished")
 
         txLogger.info("TX finished (AudioManager): \(txMessage.text)")
-        AnalyticsManager.shared.stopRadioActivity()
+        // A manual or sequencer stop has already reported the TX as failed,
+        // so this only counts when the audio really played to the end.
+        AnalyticsManager.shared.stopRadioActivity(outcome: .completed)
 
         // Free text is not part of a QSO: nothing to advance.
         if activeTXIsFreeText {

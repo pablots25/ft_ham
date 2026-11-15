@@ -21,6 +21,22 @@ enum AnalyticsScreen: String {
     case onboarding
     case terms
     case whatsNew = "whats_new"
+    case settingsStation = "settings_station"
+    case settingsRadio = "settings_radio"
+    case settingsAudio = "settings_audio"
+    case settingsAutomation = "settings_automation"
+    case settingsDisplay = "settings_display"
+    case settingsWaterfall = "settings_waterfall"
+    case settingsReporting = "settings_reporting"
+    case settingsCATControl = "settings_cat_control"
+    case settingsBandHopping = "settings_band_hopping"
+    case settingsQRZ = "settings_qrz"
+    case settingsLoTW = "settings_lotw"
+    case settingsEQSL = "settings_eqsl"
+    case settingsICloudSync = "settings_icloud_sync"
+    case settingsTutorials = "settings_tutorials"
+    case settingsDebug = "settings_debug"
+    case settingsLegal = "settings_legal"
 }
 
 enum RadioActivityType: String {
@@ -41,10 +57,101 @@ enum AnalyticsParam {
     static let viewMode = "view_mode"
     static let radioMode = "radio_mode"
     static let prefix = "prefix"
+    // Usage analytics vocabulary. Each one is a GA4 custom dimension, so
+    // reuse these before adding a new key.
+    static let feature = "feature"
+    static let action = "action"
+    static let state = "state"
+    static let service = "service"
+    static let source = "source"
+    static let failed = "failed"
+    static let errorCode = "error_code"
+    static let outcome = "outcome"
+}
+
+/// GA4 user properties. Values are at most 36 characters.
+enum AnalyticsUserProperty {
+    static let isPremium = "is_premium"
+}
+
+/// Event names shared by the prompt helpers and their tests.
+enum AnalyticsEventName {
+    static let ratePromptShown = "rate_prompt_shown"
+    static let premiumMomentShown = "premium_moment_shown"
+    static let premiumMomentConfirmed = "premium_moment_confirmed"
+    static let premiumMomentPostponed = "premium_moment_postponed"
+    static let premiumMomentSkipped = "premium_moment_skipped"
+}
+
+/// What asked for the App Store rating, sent as `trigger_source` on
+/// `rate_prompt_shown`.
+enum RatePromptTrigger: String {
+    /// The app launch threshold from the prompt config.
+    case launches
+    /// The QSO threshold behind `rateAfterQSO`.
+    case qso
+    /// The test button in Debug settings.
+    case debug
+}
+
+/// The single entry point every event goes through. `AnalyticsManager`
+/// sends to Firebase; tests record the calls instead.
+protocol AnalyticsLogging: AnyObject {
+    func logEvent(_ name: String, parameters: [String: Any]?)
+    func setUserProperty(_ value: String?, forName name: String)
+}
+
+extension AnalyticsLogging {
+
+    // MARK: - Rate Prompt
+
+    func logRatePromptShown(trigger: RatePromptTrigger) {
+        logEvent(AnalyticsEventName.ratePromptShown, parameters: [
+            AnalyticsParam.triggerSource: trigger.rawValue
+        ])
+    }
+
+    // MARK: - Premium Moments
+
+    func logPremiumMomentShown(_ moment: PremiumMoment, appLaunches: Int) {
+        logEvent(AnalyticsEventName.premiumMomentShown,
+                 parameters: premiumMomentParameters(moment, appLaunches: appLaunches))
+    }
+
+    func logPremiumMomentConfirmed(_ moment: PremiumMoment, appLaunches: Int) {
+        logEvent(AnalyticsEventName.premiumMomentConfirmed,
+                 parameters: premiumMomentParameters(moment, appLaunches: appLaunches))
+    }
+
+    func logPremiumMomentPostponed(_ moment: PremiumMoment, appLaunches: Int) {
+        logEvent(AnalyticsEventName.premiumMomentPostponed,
+                 parameters: premiumMomentParameters(moment, appLaunches: appLaunches))
+    }
+
+    func logPremiumMomentSkipped(
+        _ moment: PremiumMoment,
+        reason: PremiumMomentSkipReason,
+        appLaunches: Int,
+        roll: Int? = nil
+    ) {
+        var parameters = premiumMomentParameters(moment, appLaunches: appLaunches)
+        parameters[AnalyticsParam.reason] = reason.rawValue
+        if let roll {
+            parameters[AnalyticsParam.roll] = NSNumber(value: roll)
+        }
+        logEvent(AnalyticsEventName.premiumMomentSkipped, parameters: parameters)
+    }
+
+    private func premiumMomentParameters(_ moment: PremiumMoment, appLaunches: Int) -> [String: Any] {
+        [
+            AnalyticsParam.triggerSource: moment.rawValue,
+            AnalyticsParam.appLaunches: NSNumber(value: appLaunches)
+        ]
+    }
 }
 
 /// Singleton manager to handle anonymous app metrics, App Store compliant.
-final class AnalyticsManager {
+final class AnalyticsManager: AnalyticsLogging {
 
     private let appLogger = AppLogger(category: "ANL")
 
@@ -52,8 +159,7 @@ final class AnalyticsManager {
     static let shared = AnalyticsManager()
 
     // MARK: - Radio Activity State
-    private var activeRadioActivity: RadioActivityType?
-    private var radioActivityStartTime: Date?
+    private lazy var radioActivity = RadioActivityTracker(logger: self)
 
     private init() {
         UserDefaults.standard.register(defaults: ["analyticsEnabled": true])
@@ -111,6 +217,12 @@ final class AnalyticsManager {
         Analytics.logEvent(name, parameters: parameters)
     }
 
+    func setUserProperty(_ value: String?, forName name: String) {
+        guard isAnalyticsEnabled else { return }
+        appLogger.debug("Analytics user property: \(name)=\(value ?? "nil")")
+        Analytics.setUserProperty(value, forName: name)
+    }
+
     // MARK: - App Lifecycle
     func logAppOpened() {
         logEvent(AnalyticsEventAppOpen)
@@ -127,18 +239,6 @@ final class AnalyticsManager {
     }
 
     // MARK: - Rate & Share Events
-
-    func logRatePromptShown() {
-        logEvent("rate_prompt_shown")
-    }
-
-    func logRateConfirmed() {
-        logEvent("rate_confirmed")
-    }
-
-    func logRatePostponed() {
-        logEvent("rate_postponed")
-    }
 
     func logShareCompleted() {
         logEvent("share_completed")
@@ -202,6 +302,10 @@ final class AnalyticsManager {
         logEvent(AnalyticsEventPurchase, parameters: parameters)
     }
 
+    func logPurchaseCompleted(productID: String, revenue: PurchaseRevenue) {
+        logPurchaseCompleted(productID: productID, value: revenue.value, currency: revenue.currency)
+    }
+
     // MARK: - Errors
 
     /// Logs a prefix missing from the country table. Only the prefix is sent,
@@ -230,52 +334,17 @@ final class AnalyticsManager {
 
     func startRadioActivity(_ activity: RadioActivityType) {
         guard isAnalyticsEnabled else { return }
-        guard activeRadioActivity != activity else { return }
-
-        flushRadioActivityUsage()
-
-        activeRadioActivity = activity
-        radioActivityStartTime = Date()
-
-        if activity == .tx {
-            logEvent("transmission_started")
-        }
+        radioActivity.start(activity)
     }
 
-    func stopRadioActivity(success: Bool? = nil, failureReason: String? = nil) {
-        if let success {
-            if success {
-                logEvent("transmission_success")
-            } else {
-                logEvent("transmission_failed", parameters: [
-                    AnalyticsParam.reason: failureReason ?? "unknown"
-                ])
-            }
-        }
-        flushRadioActivityUsage()
+    /// Stops timing RX or TX. `outcome` is reported only if a TX is running.
+    func stopRadioActivity(outcome: TransmissionOutcome? = nil) {
+        radioActivity.stop(outcome: outcome)
     }
 
-    private func flushRadioActivityUsage() {
-        guard
-            isAnalyticsEnabled,
-            let activity = activeRadioActivity,
-            let start = radioActivityStartTime
-        else { return }
-
-        let duration = Int(Date().timeIntervalSince(start))
-        guard duration > 2 else {
-            activeRadioActivity = nil
-            radioActivityStartTime = nil
-            return
-        }
-
-        logEvent("radio_activity_usage", parameters: [
-            AnalyticsParam.activity: activity.rawValue,
-            AnalyticsParam.durationSec: NSNumber(value: duration)
-        ])
-
-        activeRadioActivity = nil
-        radioActivityStartTime = nil
+    /// Reports the running TX as failed. Leaves RX timing alone.
+    func interruptTransmission(_ reason: TransmissionFailureReason) {
+        radioActivity.interruptTransmission(reason)
     }
 
     // MARK: - Decoded Messages Logic
@@ -321,7 +390,12 @@ final class AnalyticsManager {
         if scenePhase == .background || scenePhase == .inactive {
             flushDecodedMessages()
             flushQSOs()
-            stopRadioActivity()
+        }
+        // Only .background ends radio activity. .inactive (Control Center, a
+        // notification banner) leaves the TX audio playing, and it always
+        // comes before .background, so stopping here would hide the outcome.
+        if scenePhase == .background {
+            stopRadioActivity(outcome: .interrupted(.appBackground))
         }
     }
 

@@ -14,6 +14,8 @@ extension FT8ViewModel {
     @MainActor
     func stopCurrentTX() {
         txLogger.log(.info, "Stopping current TX...")
+        // Before stopPlayback: its "finished" callback must not count as a success.
+        AnalyticsManager.shared.interruptTransmission(.userStopped)
         audioManager.stopPlayback()
 
         setCatPTT(false, reason: "manual stop")
