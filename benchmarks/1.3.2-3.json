@@ -1,0 +1,29 @@
+{
+  "version": "1.3.2",
+  "build": 3,
+  "commit": "ed373fa913414c99c231670628a59dd071cba475",
+  "date": "2026-11-15T00:04:01Z",
+  "machine": {
+    "host_cpu": "Apple M3 Pro",
+    "xcode": "Xcode 26.6 Build version 17F113",
+    "device": "iPhone 16",
+    "os": "iOS Simulator 18.6"
+  },
+  "tests": {
+    "test_decodeBusySlot_FT4": {
+      "clock_ms": 13.411,
+      "cpu_ms": 27.684,
+      "memory_peak_kb": 76450.744
+    },
+    "test_decodeBusySlot_FT8": {
+      "clock_ms": 16.658,
+      "cpu_ms": 17.427,
+      "memory_peak_kb": 85806.008
+    },
+    "test_processBusyBatch": {
+      "clock_ms": 2.317,
+      "cpu_ms": 6.403,
+      "memory_peak_kb": 67505.08
+    }
+  }
+}
