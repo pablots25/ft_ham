@@ -7,223 +7,69 @@
 
 import SwiftUI
 import CoreLocation
-import UserNotifications
 import AVFoundation
 
+/// First-run onboarding in four button-driven steps: welcome and terms,
+/// station, audio and ready. The full feature slides live in
+/// `FeatureTourView`, reachable from Configuration > Tutorials.
 struct OnboardingView: View {
+    /// Called right before the onboarding marks itself complete, so the
+    /// caller knows whether to start RX.
+    var onFinish: (OnboardingExit) -> Void = { _ in }
+
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @AppStorage("hasCompletedInitialPermissionFlow") private var hasCompletedInitialPermissionFlow: Bool = false
     @AppStorage("hasAcceptedTerms") private var hasAcceptedTerms: Bool = false
-    @State private var currentPage = 0
+    @State private var step: OnboardingStep = .welcome
     @StateObject private var locationRequester = LocationPermissionRequester()
-    @State private var permissionInProgress = false
-    @State private var showTermsSafari = false
-    @State private var showPrivacySafari = false
-    
-    private let contentPageCount = 10
-    // After content pages: 1 terms page + 1 station page + permission pages + 1 finish page
-    private var permissionSteps: [InitialPermissionStep] {
-        [.location, .notifications, .microphone]
-    }
-    
-    private var termsPageIndex: Int { contentPageCount }
-    private var stationPageIndex: Int { contentPageCount + 1 }
-    private var firstPermissionPageIndex: Int { stationPageIndex + 1 }
-    private var finishPageIndex: Int { firstPermissionPageIndex + permissionSteps.count }
-    private var totalPages: Int { finishPageIndex + 1 }
-    
+
     var body: some View {
-        ZStack {
-            TabView(selection: $currentPage) {
-                ForEach(0..<totalPages, id: \.self) { index in
-                    pageContent(for: index)
-                        .tag(index)
-                        .padding(.top, 50)
+        VStack(spacing: 0) {
+            header
+            Group {
+                switch step {
+                case .welcome:
+                    OnboardingWelcomeStep(onContinue: acceptTermsAndAdvance)
+                case .station:
+                    OnboardingStationStep(locationRequester: locationRequester, onContinue: advance)
+                case .audio:
+                    OnboardingAudioStep(onContinue: advance)
+                case .ready:
+                    OnboardingReadyStep(onSetUpStation: { go(to: .station) }, onFinish: finish)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            .indexViewStyle(.page(backgroundDisplayMode: .always))
-            
-            VStack {
-                HStack {
-                    Spacer()
-                    if currentPage < contentPageCount {
-                        Button("Skip") {
-                            withAnimation { currentPage = contentPageCount }
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.top, 10)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading))
+                .combined(with: .opacity))
+            .id(step)
         }
     }
-    
-    // MARK: - Page Router
-    @ViewBuilder
-    private func pageContent(for index: Int) -> some View {
-        if index < contentPageCount {
-            contentPage(for: index)
-        } else if index == termsPageIndex {
-            termsPage()
-        } else if index == stationPageIndex {
-            OnboardingStationStep(onContinue: advancePage)
-        } else if index < finishPageIndex {
-            permissionPage(for: permissionSteps[index - firstPermissionPageIndex])
-        } else {
-            finishPage()
-        }
-    }
-    
-    @ViewBuilder
-    private func contentPage(for index: Int) -> some View {
-        switch index {
-        case 0:
-            onboardingPage(image: "antenna.radiowaves.left.and.right", color: .blue, title: "onb_title_welcome") {
-                Text("onb_welcome_text")
-            }
-        case 1:
-            onboardingPage(image: "cable.connector", color: .green, title: "onb_title_equipment") {
-                VStack(alignment: .leading, spacing: 12) {
-                    equipmentRow(image: "radio", text: "onb_equipment_radio")
-                    equipmentRow(image: "cable.connector.horizontal", text: "onb_equipment_interface")
-                    equipmentRow(image: "mic.fill", text: "onb_equipment_microphone")
-                    Text("onb_equipment_license")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                .multilineTextAlignment(.leading)
-            }
-        case 2:
-            onboardingPage(image: "wave.3.right", color: .orange, title: "onb_title_rx") {
-                VStack(spacing: 8) {
-                    Text("onb_rx_ft8_explainer")
-                        .bold()
-                    Text("onb_rx_text1")
-                    Text("onb_rx_text2")
+
+    // MARK: - Header
+
+    /// Back button and "Step 2 of 4". The welcome step has neither, since
+    /// the terms must be accepted before going on.
+    private var header: some View {
+        HStack {
+            if let previous = OnboardingStep(rawValue: step.rawValue - 1), step != .welcome {
+                Button {
+                    go(to: previous)
+                } label: {
+                    Label("Back", systemImage: "chevron.backward")
                 }
             }
-        case 3:
-            onboardingPage(image: "waveform", color: .cyan, title: "onb_title_waterfall") {
-                VStack(spacing: 8) {
-                    Text("onb_waterfall_text1")
-                    Text("onb_waterfall_text2")
-                }
-            }
-        case 4:
-            onboardingPage(image: "arrowshape.turn.up.left.fill", color: .mint, title: "onb_title_reply") {
-                VStack(spacing: 8) {
-                    Text("onb_reply_text1")
-                    Text("onb_reply_text2")
-                }
-            }
-        case 5:
-            onboardingPage(image: "text.bubble.fill", color: .teal, title: "onb_title_views") {
-                VStack(spacing: 8) {
-                    Text("onb_views_condensed").bold()
-                    Text("onb_views_condensed_desc")
-                    Text("onb_views_separated").bold()
-                    Text("onb_views_separated_desc")
-                    Text("onb_views_vertical").bold()
-                    Text("onb_views_vertical_desc")
-                }
-            }
-        case 6:
-            onboardingPage(image: "map.fill", color: .purple, title: "onb_title_map") {
-                VStack(spacing: 8) {
-                    Text("onb_map_text1")
-                    Text("onb_map_text2")
-                }
-            }
-        case 7:
-            onboardingPage(image: "paperplane.fill", color: .red, title: "onb_title_tx") {
-                VStack(spacing: 8) {
-                    Text("onb_tx_text1")
-                    Text("onb_tx_text2")
-                }
-            }
-        case 8:
-            onboardingPage(image: "book.fill", color: .brown, title: "onb_title_logbook") {
-                VStack(spacing: 8) {
-                    Text("onb_logbook_text1")
-                    Text("onb_logbook_text2")
-                    Text("onb_logbook_text3")
-                }
-            }
-        case 9:
-            onboardingPage(image: "gearshape.fill", color: .purple, title: "onb_title_autosequencing") {
-                VStack(spacing: 8) {
-                    Text("onb_autosequencing_text1")
-                    Text("onb_autosequencing_text2")
-                    Text("onb_autosequencing_text3")
-                }
-            }
-        default:
-            EmptyView()
-        }
-    }
-    
-    // MARK: - Terms Page
-    private func termsPage() -> some View {
-        VStack(spacing: 20) {
             Spacer()
-
-            Image(systemName: "doc.plaintext.fill")
-                .font(.system(size: 100))
-                .foregroundStyle(.blue)
-
-            Text("Terms & Privacy")
-                .font(.largeTitle)
-                .bold()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("By using FT Ham, you agree to the Terms of Use and End-User License Agreement (EULA).")
-                        .multilineTextAlignment(.leading)
-
-                    Text("Please review the full documents:")
-                        .font(.headline)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Button("Terms of Use") { showTermsSafari = true }
-                        Button("Privacy Policy") { showPrivacySafari = true }
-                    }
-                    .foregroundStyle(.blue)
-                    .sheet(isPresented: $showTermsSafari) {
-                        SafariView(url: URL(string: "https://ftham.turrion.dev/terms")!)
-                            .ignoresSafeArea()
-                    }
-                    .sheet(isPresented: $showPrivacySafari) {
-                        SafariView(url: URL(string: "https://ftham.turrion.dev/privacy")!)
-                            .ignoresSafeArea()
-                    }
-
-                    Divider()
-
-                    Text("FT Ham collects anonymous usage statistics with Firebase Analytics to improve the app. You can turn this off in Configuration, under Legal & Licenses. Optional services such as QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 32)
-            }
-
-            Spacer()
-
-            Button {
-                acceptTermsAndAdvance()
-            } label: {
-                Text("I Accept")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.blue)
-            .controlSize(.large)
-            .padding(.horizontal, 40)
-            .padding(.bottom, 60)
+            Text("onb_step_progress \(step.number) \(OnboardingStep.count)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.updatesFrequently)
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .frame(minHeight: 44)
     }
+
+    // MARK: - Navigation
 
     private func acceptTermsAndAdvance() {
         if !hasAcceptedTerms {
@@ -231,194 +77,164 @@ struct OnboardingView: View {
             AnalyticsManager.shared.logTermsAccepted()
             hasAcceptedTerms = true
         }
-        advancePage()
+        advance()
     }
 
-    // MARK: - Permission Pages
-    //
-    // These pages explain WHY the permission is needed.
-    // Tapping "Continue" fires the real iOS system permission dialog.
-    // Tapping "Not now" skips the OS dialog and advances without requesting.
-    @ViewBuilder
-    private func permissionPage(for step: InitialPermissionStep) -> some View {
-        VStack(spacing: 24) {
-            Spacer()
-            
-            Image(systemName: step.iconName)
-                .font(.system(size: 100))
-                .foregroundStyle(step.pageColor)
-            
-            Text(step.title)
-                .font(.largeTitle)
-                .bold()
-            
-            VStack(spacing: 10) {
-                Text(step.bodyText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                
-                Text(step.impactText)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+    private func advance() {
+        guard let next = step.next else { return }
+        go(to: next)
+    }
+
+    private func go(to target: OnboardingStep) {
+        withAnimation(.easeInOut(duration: 0.3)) { step = target }
+    }
+
+    private func finish(_ exit: OnboardingExit) {
+        onFinish(exit)
+        AnalyticsManager.shared.logOnboardingCompleted()
+        hasCompletedInitialPermissionFlow = true
+        hasCompletedOnboarding = true
+    }
+}
+
+// MARK: - Shared layout
+
+/// Scrollable step body with its buttons pinned at the bottom, so large text
+/// sizes never push the buttons off screen.
+private struct OnboardingStepLayout<Content: View, Actions: View>: View {
+    let image: String
+    let color: Color
+    let title: LocalizedStringKey
+    @ViewBuilder var content: Content
+    @ViewBuilder var actions: Actions
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ScrollView {
+                VStack(spacing: 20) {
+                    Image(systemName: image)
+                        .font(.system(size: 72))
+                        .foregroundStyle(color)
+                        .padding(.top, 24)
+                        .accessibilityHidden(true)
+
+                    Text(title)
+                        .font(.largeTitle)
+                        .bold()
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
+
+                    content
+                }
+                .padding(.horizontal, 32)
+                .padding(.bottom, 16)
             }
-            
-            Spacer()
-            
+            .scrollDismissesKeyboard(.interactively)
+
             VStack(spacing: 12) {
-                // Tapping "Continue" shows the iOS system permission dialog.
-                Button {
-                    Task { @MainActor in
-                        await requestAndAdvance(step: step)
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        if permissionInProgress {
-                            ProgressView().controlSize(.small)
-                        }
-                        Text("Continue")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(step.pageColor)
-                .controlSize(.large)
-                .disabled(permissionInProgress)
-                
-                // "Not now" skips the OS dialog for this step.
-                Button("Not now") {
-                    advancePage()
-                }
-                .foregroundStyle(.secondary)
-                .disabled(permissionInProgress)
+                actions
             }
             .padding(.horizontal, 40)
-            .padding(.bottom, 60)
-        }
-    }
-    
-    // MARK: - Generic UI Components
-    private func onboardingPage<Content: View>(
-        image: String,
-        color: Color,
-        title: LocalizedStringKey,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(spacing: 24) {
-            Spacer()
-            
-            Image(systemName: image)
-                .font(.system(size: 100))
-                .foregroundStyle(color)
-            
-            Text(title)
-                .font(.largeTitle)
-                .bold()
-            
-            content()
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            
-            Spacer()
-            
-            Text("onb_slide_continue")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 60)
-        }
-    }
-    
-    /// One line of the "What You Need" page: an SF Symbol and a short sentence.
-    private func equipmentRow(image: String, text: LocalizedStringKey) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: image)
-                .foregroundStyle(.green)
-                .frame(width: 28)
-                .accessibilityHidden(true)
-            Text(text)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func finishPage() -> some View {
-        VStack(spacing: 24) {
-            Spacer()
-            
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 100))
-                .foregroundStyle(.green)
-            
-            Text("onb_finish_title")
-                .font(.largeTitle)
-                .bold()
-            
-            Text("onb_finish_text")
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            
-            Button {
-                // Accept terms if the user swiped past the terms page
-                if !hasAcceptedTerms {
-                    AnalyticsManager.shared.grantAnalyticsConsent()
-                    AnalyticsManager.shared.logTermsAccepted()
-                    hasAcceptedTerms = true
-                }
-                AnalyticsManager.shared.logOnboardingCompleted()
-                hasCompletedInitialPermissionFlow = true
-                hasCompletedOnboarding = true
-            } label: {
-                Text("onb_finish_button")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .controlSize(.large)
-            .padding(.horizontal, 40)
-            
-            Spacer()
-        }
-    }
-    
-    // MARK: - Permission request helpers
-    
-    @MainActor
-    private func requestAndAdvance(step: InitialPermissionStep) async {
-        permissionInProgress = true
-        defer { permissionInProgress = false }
-        
-        switch step {
-        case .location:
-            _ = await locationRequester.requestWhenInUseAuthorization()
-        case .notifications:
-            _ = try? await UNUserNotificationCenter.current()
-                .requestAuthorization(options: [.alert, .sound, .badge])
-        case .microphone:
-            if #available(iOS 17, *) {
-                _ = await AVAudioApplication.requestRecordPermission()
-            } else {
-                await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
-                    AVAudioSession.sharedInstance().requestRecordPermission { _ in c.resume() }
-                }
-            }
-        }
-        
-        advancePage()
-    }
-    
-    private func advancePage() {
-        withAnimation {
-            currentPage = min(currentPage + 1, totalPages - 1)
+            .padding(.bottom, 24)
         }
     }
 }
 
-// MARK: - Station Step
+/// An SF Symbol and a sentence, used by the welcome and audio steps.
+private struct OnboardingRow: View {
+    let image: String
+    let color: Color
+    let text: LocalizedStringKey
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: image)
+                .foregroundStyle(color)
+                .frame(width: 28)
+                .accessibilityHidden(true)
+            Text(text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct PrimaryButton: View {
+    let title: LocalizedStringKey
+    let color: Color
+    var isLoading = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if isLoading { ProgressView().controlSize(.small) }
+                Text(title)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(color)
+        .controlSize(.large)
+        .disabled(isLoading)
+    }
+}
+
+// MARK: - Step 1: Welcome
+
+private struct OnboardingWelcomeStep: View {
+    var onContinue: () -> Void
+
+    @State private var showTermsSafari = false
+    @State private var showPrivacySafari = false
+
+    var body: some View {
+        OnboardingStepLayout(image: "antenna.radiowaves.left.and.right", color: .blue, title: "onb_title_welcome") {
+            Text("onb_welcome_text")
+                .multilineTextAlignment(.center)
+
+            VStack(alignment: .leading, spacing: 14) {
+                OnboardingRow(image: "waveform", color: .orange, text: "onb_highlight_decode")
+                OnboardingRow(image: "arrowshape.turn.up.left.fill", color: .mint, text: "onb_highlight_reply")
+                OnboardingRow(image: "book.fill", color: .brown, text: "onb_highlight_log")
+            }
+            .padding(.top, 8)
+
+            VStack(spacing: 8) {
+                Text("onb_terms_notice")
+                    .foregroundStyle(.secondary)
+                // Tinted like links, so they read as tappable.
+                HStack(spacing: 16) {
+                    Button("Terms of Use") { showTermsSafari = true }
+                    Button("Privacy Policy") { showPrivacySafari = true }
+                }
+                Text("FT Ham collects anonymous usage statistics with Firebase Analytics to improve the app. You can turn this off in Configuration, under Legal & Licenses. Optional services such as QRZ, LoTW, eQSL and PSK Reporter only receive data after you turn them on.")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.footnote)
+            .multilineTextAlignment(.center)
+            .padding(.top, 12)
+        } actions: {
+            PrimaryButton(title: "onb_get_started", color: .blue, action: onContinue)
+        }
+        .sheet(isPresented: $showTermsSafari) {
+            SafariView(url: URL(string: "https://ftham.turrion.dev/terms")!)
+                .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showPrivacySafari) {
+            SafariView(url: URL(string: "https://ftham.turrion.dev/privacy")!)
+                .ignoresSafeArea()
+        }
+    }
+}
+
+// MARK: - Step 2: Station
 
 /// Asks for the callsign and locator with the same fields and validation as
 /// the Station settings screen. Both are optional here: the launch alert in
 /// `ContentView` still points to Configuration when they are missing.
 private struct OnboardingStationStep: View {
+    @ObservedObject var locationRequester: LocationPermissionRequester
     var onContinue: () -> Void
 
     @AppStorage("callsign") private var callsign = ""
@@ -430,78 +246,72 @@ private struct OnboardingStationStep: View {
     @State private var locatorText = ""
     @State private var validCallsign = false
     @State private var validLocator = false
+    @State private var isLocating = false
+    @State private var locationFailed = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            ScrollView {
-                VStack(spacing: 24) {
-                    Image(systemName: "person.crop.circle.badge.checkmark")
-                        .font(.system(size: 100))
-                        .foregroundStyle(.indigo)
-                        .padding(.top, 40)
+        OnboardingStepLayout(image: "person.crop.circle.badge.checkmark", color: .indigo, title: "onb_title_station") {
+            Text("onb_station_text2")
+                .multilineTextAlignment(.center)
 
-                    Text("onb_title_station")
-                        .font(.largeTitle)
-                        .bold()
+            VStack(alignment: .leading, spacing: 16) {
+                CallsignFieldView(
+                    callsignText: $callsignText,
+                    validCallsign: $validCallsign,
+                    isElevenMeterEnabled: isElevenMeter,
+                    isFreeTextEnabled: isFreeText,
+                    onCommit: commitCallsign
+                )
 
-                    Text("onb_station_text2")
-                        .multilineTextAlignment(.center)
+                Toggle(isOn: $isElevenMeter) {
+                    Text("11 m / CB callsign")
+                }
+                .onChange(of: isElevenMeter) { _ in commitCallsign() }
 
-                    VStack(alignment: .leading, spacing: 16) {
-                        CallsignFieldView(
-                            callsignText: $callsignText,
-                            validCallsign: $validCallsign,
-                            isElevenMeterEnabled: isElevenMeter,
-                            isFreeTextEnabled: isFreeText,
-                            onCommit: commitCallsign
-                        )
+                Toggle(isOn: $isFreeText) {
+                    Text("Free-text callsign")
+                }
+                .onChange(of: isFreeText) { _ in commitCallsign() }
 
-                        Toggle(isOn: $isElevenMeter) {
-                            Text("11 m / CB callsign")
+                LocatorFieldView(
+                    locatorText: $locatorText,
+                    validLocator: $validLocator,
+                    onCommit: commitLocator
+                )
+
+                Button {
+                    Task { await fillLocatorFromLocation() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isLocating {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "location.fill")
                         }
-                        .onChange(of: isElevenMeter) { _ in commitCallsign() }
-
-                        Toggle(isOn: $isFreeText) {
-                            Text("Free-text callsign")
-                        }
-                        .onChange(of: isFreeText) { _ in commitCallsign() }
-
-                        LocatorFieldView(
-                            locatorText: $locatorText,
-                            validLocator: $validLocator,
-                            onCommit: commitLocator
-                        )
+                        Text("onb_use_my_location")
                     }
+                }
+                .disabled(isLocating)
 
-                    Text("You can skip this and add them later in the Configuration tab.")
+                if locationFailed {
+                    Text("onb_location_failed")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 32)
             }
-            .scrollDismissesKeyboard(.interactively)
 
-            VStack(spacing: 12) {
-                Button {
-                    commitCallsign()
-                    commitLocator()
-                    onContinue()
-                } label: {
-                    Text("Continue")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.indigo)
-                .controlSize(.large)
-
-                Button("Not now") {
-                    onContinue()
-                }
+            Text("You can skip this and add them later in the Configuration tab.")
+                .font(.footnote)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        } actions: {
+            PrimaryButton(title: "Continue", color: .indigo) {
+                commitCallsign()
+                commitLocator()
+                onContinue()
             }
-            .padding(.horizontal, 40)
-            .padding(.bottom, 60)
+            Button("Not now", action: onContinue)
+                .foregroundStyle(.secondary)
         }
         .onAppear {
             callsignText = callsign
@@ -510,6 +320,13 @@ private struct OnboardingStationStep: View {
                 callsign, allowElevenMeter: isElevenMeter, allowFreeText: isFreeText
             )
             validLocator = isValidLocator(locator)
+        }
+        // Once location is allowed, the GPS auto locator can fill the stored
+        // locator by itself. Show it while the field is still empty.
+        .onChange(of: locator) { newValue in
+            guard locatorText.isEmpty, isValidLocator(newValue) else { return }
+            locatorText = newValue
+            validLocator = true
         }
     }
 
@@ -529,7 +346,111 @@ private struct OnboardingStationStep: View {
         text.removeAll(where: { $0.isWhitespace })
         if text.count > 4 { text = String(text.prefix(4)) }
         locatorText = text
-        if isValidLocator(text) { locator = text }
+        validLocator = isValidLocator(text)
+        if validLocator { locator = text }
+    }
+
+    @MainActor
+    private func fillLocatorFromLocation() async {
+        isLocating = true
+        locationFailed = false
+        defer { isLocating = false }
+
+        guard let location = await locationRequester.requestCurrentLocation(),
+              let grid = OnboardingStation.locator(
+                latitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude
+              ) else {
+            locationFailed = true
+            return
+        }
+        locatorText = grid
+        commitLocator()
+    }
+}
+
+// MARK: - Step 3: Audio
+
+/// What You Need, then the microphone permission.
+private struct OnboardingAudioStep: View {
+    var onContinue: () -> Void
+
+    @State private var isRequesting = false
+
+    var body: some View {
+        OnboardingStepLayout(image: "cable.connector", color: .green, title: "onb_title_equipment") {
+            VStack(alignment: .leading, spacing: 12) {
+                OnboardingRow(image: "radio", color: .green, text: "onb_equipment_radio")
+                OnboardingRow(image: "cable.connector.horizontal", color: .green, text: "onb_equipment_interface")
+                OnboardingRow(image: "mic.fill", color: .green, text: "onb_equipment_microphone")
+                Text("onb_equipment_license")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            VStack(spacing: 8) {
+                Text(InitialPermissionStep.microphone.bodyText)
+                Text(InitialPermissionStep.microphone.impactText)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+        } actions: {
+            PrimaryButton(title: "onb_allow_microphone", color: .green, isLoading: isRequesting) {
+                Task { await requestMicrophoneAndContinue() }
+            }
+            Button("Not now", action: onContinue)
+                .foregroundStyle(.secondary)
+                .disabled(isRequesting)
+        }
+    }
+
+    @MainActor
+    private func requestMicrophoneAndContinue() async {
+        isRequesting = true
+        defer { isRequesting = false }
+        if #available(iOS 17, *) {
+            _ = await AVAudioApplication.requestRecordPermission()
+        } else {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                AVAudioSession.sharedInstance().requestRecordPermission { _ in continuation.resume() }
+            }
+        }
+        onContinue()
+    }
+}
+
+// MARK: - Step 4: Ready
+
+private struct OnboardingReadyStep: View {
+    var onSetUpStation: () -> Void
+    var onFinish: (OnboardingExit) -> Void
+
+    @AppStorage("callsign") private var callsign = ""
+    @AppStorage("locator") private var locator = ""
+
+    private var stationReady: Bool {
+        OnboardingStation.isReady(callsign: callsign, locator: locator)
+    }
+
+    var body: some View {
+        OnboardingStepLayout(image: "checkmark.seal.fill", color: .green, title: "onb_finish_title") {
+            Text(stationReady ? "onb_finish_text" : "onb_finish_station_missing")
+                .multilineTextAlignment(.center)
+
+            FirstRunChecklistView(isEmbedded: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } actions: {
+            if stationReady {
+                PrimaryButton(title: "onb_start_receiving", color: .green) { onFinish(.startReceiving) }
+            } else {
+                PrimaryButton(title: "onb_set_up_station", color: .indigo, action: onSetUpStation)
+            }
+            Button("onb_explore_first") { onFinish(.explore) }
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

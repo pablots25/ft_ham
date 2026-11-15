@@ -9,8 +9,16 @@ import SwiftUI
 
 /// Lets the operator bring back the onboarding tour and the one-time help tips.
 struct TutorialsSettingsContent: View {
+    @State private var isPresentingFeatureTour = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
+            Button {
+                isPresentingFeatureTour = true
+            } label: {
+                Label("onb_feature_tour", systemImage: "rectangle.stack")
+            }
+
             Button {
                 AppStorageResetter.resetTutorials()
                 UsageAnalytics.shared.recordAction(.tutorials, .reset, source: "help_messages")
@@ -28,6 +36,9 @@ struct TutorialsSettingsContent: View {
             Text("Re-display help messages or the initial onboarding tutorial.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+        }
+        .sheet(isPresented: $isPresentingFeatureTour) {
+            FeatureTourView()
         }
     }
 }

@@ -43,6 +43,9 @@ struct ContentView: View {
     @State private var isPresentingWhatsNew = false
     @State private var isPresentingRevocationAlert = false
     @State private var isPresentingMessagesGuide = false
+    /// Set when the operator taps "Start receiving" on the last onboarding
+    /// step. RX then starts once every launch prompt is out of the way.
+    @State private var startRXAfterOnboarding = false
     /// Bumped when the app becomes active so the slot bar resyncs at once.
     @State private var progressResyncToken = 0
     @Environment(\.scenePhase) private var scenePhase
@@ -52,7 +55,9 @@ struct ContentView: View {
             .toast($root.toast)
             // 1) Onboarding first
             .fullScreenCover(isPresented: $isPresentingOnboarding) {
-                OnboardingView()
+                OnboardingView { exit in
+                    startRXAfterOnboarding = exit == .startReceiving
+                }
                     .interactiveDismissDisabled(true)
                     .onAppear { AnalyticsManager.shared.trackScreen(.onboarding) }
             }
@@ -81,9 +86,13 @@ struct ContentView: View {
                 isPresentingRevocationAlert = true
             }
             .task {
-                // Set initial tab: 4 if first launch, otherwise last used tab
+                // Set initial tab on first launch: TX/RX after the onboarding,
+                // Configuration when onboarding was already done. Otherwise
+                // the last used tab.
                 if !hasLaunchedBefore {
-                    selectedTab = 4
+                    selectedTab = hasCompletedOnboarding
+                        ? AppTab.configuration.rawValue
+                        : AppTab.transmissions.rawValue
                     hasLaunchedBefore = true
                 } else {
                     selectedTab = lastSelectedTab
@@ -119,6 +128,9 @@ struct ContentView: View {
             .onChange(of: hasCompletedOnboarding) { completed in
                 if completed {
                     isPresentingOnboarding = false
+                    // Both ways out of the onboarding land on TX/RX.
+                    selectedTab = AppTab.transmissions.rawValue
+                    presentMessagesGuideIfNeeded()
                     if !hasAcceptedTerms {
                         isPresentingLicense = true
                     } else if AppVersionManager.shared.shouldShowWhatsNew {
@@ -361,13 +373,15 @@ struct ContentView: View {
               hasAcceptedTerms,
               hasCompletedInitialPermissionFlow,
               root.settingsLoaded,
-              autoRXAtStart else {
+              autoRXAtStart || startRXAfterOnboarding else {
             return
         }
         // Do not start during full-screen overlays
         guard !isPresentingOnboarding,
               !isPresentingLicense,
               !isPresentingWhatsNew else { return }
+        // The onboarding request is used once, whether or not RX was running.
+        startRXAfterOnboarding = false
         // Prevent double start
         guard !viewModel.isSequencerRunning else { return }
         // Start RX
