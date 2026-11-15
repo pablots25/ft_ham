@@ -22,6 +22,32 @@ private enum SettingsDestination: Hashable {
     case debug
     #endif
     case legal
+
+    /// The `screen_view` name of this settings screen.
+    var analyticsScreen: AnalyticsScreen {
+        switch self {
+        case .station: return .settingsStation
+        case .radio: return .settingsRadio
+        case .audio: return .settingsAudio
+        case .automation: return .settingsAutomation
+        case .display: return .settingsDisplay
+        case .waterfall: return .settingsWaterfall
+        case .reporting: return .settingsReporting
+        #if canImport(FTHamPremium)
+        case .catControl: return .settingsCATControl
+        case .bandHopping: return .settingsBandHopping
+        case .qrzLogbook: return .settingsQRZ
+        case .loTW: return .settingsLoTW
+        case .eQSL: return .settingsEQSL
+        case .iCloudSync: return .settingsICloudSync
+        #endif
+        case .tutorials: return .settingsTutorials
+        #if DEBUG
+        case .debug: return .settingsDebug
+        #endif
+        case .legal: return .settingsLegal
+        }
+    }
 }
 
 private struct SettingsItem: Identifiable {
@@ -215,6 +241,7 @@ struct ConfigurationView: View {
 
         return NavigationLink {
             destination(for: .station)
+                .trackScreen(SettingsDestination.station.analyticsScreen)
         } label: {
             HStack(spacing: 14) {
                 ZStack {
@@ -278,6 +305,7 @@ struct ConfigurationView: View {
         } else {
             NavigationLink {
                 destination(for: item.destination)
+                    .trackScreen(item.destination.analyticsScreen)
             } label: {
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
@@ -455,7 +483,7 @@ struct ConfigurationView: View {
               title: String(localized: "Station"),
               systemImage: "antenna.radiowaves.left.and.right",
               keywords: ["callsign", "grid", "locator", "gps", "11 m", "cb",
-                         "cq", "modifier", "pota", "sota"])
+                         "swl", "free-text", "cq", "modifier", "pota", "sota"])
     }
 
     private var tutorialsItem: SettingsItem {

@@ -326,36 +326,67 @@ final class AudioManager: NSObject, AudioManaging {
 
     // MARK: - Audio Session
 
+    /// Category, mode and options the app runs the session with.
+    static let sessionCategory: AVAudioSession.Category = .playAndRecord
+    static let sessionMode: AVAudioSession.Mode = .measurement
+    static let sessionCategoryOptions: AVAudioSession.CategoryOptions = [
+        .defaultToSpeaker,
+        .allowBluetoothHFP,
+        .allowBluetoothA2DP,
+        .allowAirPlay
+    ]
+    static let preferredSessionSampleRate: Double = 44100
+
+    /// `true` when the session's category or options differ from what the app
+    /// needs. `setCategory` is a synchronous call into the media server that can
+    /// block for seconds while a Bluetooth route settles, so it is only issued
+    /// when something actually has to change (route changes used to call it on
+    /// the main thread every time, which caused multi-second hangs).
+    static func sessionCategoryNeedsUpdate(
+        category: AVAudioSession.Category,
+        options: AVAudioSession.CategoryOptions
+    ) -> Bool {
+        category != sessionCategory || !options.isSuperset(of: sessionCategoryOptions)
+    }
+
+    /// `true` when the session's mode differs from the app's.
+    static func sessionModeNeedsUpdate(mode: AVAudioSession.Mode) -> Bool {
+        mode != sessionMode
+    }
+
+    /// `true` when the preferred sample rate differs from the app's.
+    static func sessionSampleRateNeedsUpdate(preferredSampleRate: Double) -> Bool {
+        preferredSampleRate != preferredSessionSampleRate
+    }
+
     private func configureAudioSession() throws {
         isSessionConfigured = false
         let session = AVAudioSession.sharedInstance()
 
-        do {
-            try session.setCategory(
-                .playAndRecord,
-                options: [
-                    .defaultToSpeaker,
-                    .allowBluetoothHFP,
-                    .allowBluetoothA2DP,
-                    .allowAirPlay
-                ]
-            )
-        } catch {
-            throw AudioManagerError.sessionCategoryConfiguration(underlying: error)
-        }
-        
-        do {
-            try session.setMode(.measurement)
-        } catch {
-            throw AudioManagerError.sessionModeConfiguration(underlying: error)
+        if Self.sessionCategoryNeedsUpdate(category: session.category, options: session.categoryOptions) {
+            do {
+                try session.setCategory(Self.sessionCategory, options: Self.sessionCategoryOptions)
+            } catch {
+                throw AudioManagerError.sessionCategoryConfiguration(underlying: error)
+            }
         }
 
-        do {
-            try session.setPreferredSampleRate(44100)
-        } catch {
-            throw AudioManagerError.sessionSampleRateConfiguration(underlying: error)
+        if Self.sessionModeNeedsUpdate(mode: session.mode) {
+            do {
+                try session.setMode(Self.sessionMode)
+            } catch {
+                throw AudioManagerError.sessionModeConfiguration(underlying: error)
+            }
         }
-        
+
+        if Self.sessionSampleRateNeedsUpdate(preferredSampleRate: session.preferredSampleRate) {
+            do {
+                try session.setPreferredSampleRate(Self.preferredSessionSampleRate)
+            } catch {
+                throw AudioManagerError.sessionSampleRateConfiguration(underlying: error)
+            }
+        }
+
         do {
             try session.setActive(true)
         } catch {

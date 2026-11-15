@@ -25,6 +25,7 @@ struct StatisticsView: View {
             entries: entries.map { $0.toStatisticsQSO() },
             myGrid: myGrid
         )
+        .onAppear { UsageAnalytics.shared.recordAction(.statistics, .opened) }
     }
 }
 

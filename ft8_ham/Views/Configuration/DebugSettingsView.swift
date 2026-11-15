@@ -50,6 +50,13 @@ struct DebugSettingsView: View {
                 }
 
                 Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.rxSlotCutOnAudioTime) },
+                    set: { flags.setOverride(.rxSlotCutOnAudioTime, value: $0) }
+                )) {
+                    Label("RX Slot Cut on Audio Time", systemImage: "scissors")
+                }
+
+                Toggle(isOn: Binding(
                     get: { flags.isEnabled(.enableBandHopping) },
                     set: { flags.setOverride(.enableBandHopping, value: $0) }
                 )) {
@@ -82,6 +89,20 @@ struct DebugSettingsView: View {
                     set: { flags.setOverride(.controlsSheet, value: $0) }
                 )) {
                     Label("Quick Config Sheet", systemImage: "list.bullet")
+                }
+
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.premiumMoments) },
+                    set: { flags.setOverride(.premiumMoments, value: $0) }
+                )) {
+                    Label("Premium Moments", systemImage: "star.circle")
+                }
+
+                Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.rateAfterQSO) },
+                    set: { flags.setOverride(.rateAfterQSO, value: $0) }
+                )) {
+                    Label("Rate After QSO", systemImage: "star.bubble")
                 }
 
                 Button {
@@ -117,7 +138,7 @@ struct DebugSettingsView: View {
                 Button {
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(500))
-                        InAppPrompts.shared.requestRate()
+                        InAppPrompts.shared.requestRate(trigger: .debug)
                     }
                 } label: {
                     Label("Test Rate Prompt", systemImage: "star.fill")

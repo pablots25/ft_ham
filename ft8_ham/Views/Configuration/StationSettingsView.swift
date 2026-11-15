@@ -11,12 +11,17 @@ struct StationSettingsContent: View {
     @EnvironmentObject private var viewModel: FT8ViewModel
 
     @AppStorage("stationCallsignIsElevenMeter") private var isElevenMeter = false
+    @AppStorage(CompoundCallsign.freeTextOptInKey) private var isFreeText = false
 
     @State private var callsignText: String = ""
     @State private var locatorText: String = ""
     @State private var validCallsign = false
     @State private var validLocator = false
     @State private var activeHelp: HelpTip?
+
+    private func isStationCallsignValid(_ text: String) -> Bool {
+        isValidStationCallsign(text, allowElevenMeter: isElevenMeter, allowFreeText: isFreeText)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -27,10 +32,11 @@ struct StationSettingsContent: View {
                 callsignText: $callsignText,
                 validCallsign: $validCallsign,
                 isElevenMeterEnabled: isElevenMeter,
+                isFreeTextEnabled: isFreeText,
                 onCommit: {
                     let text = callsignText.uppercased()
                     callsignText = text
-                    validCallsign = isValidStationCallsign(text, allowElevenMeter: isElevenMeter)
+                    validCallsign = isStationCallsignValid(text)
                     if validCallsign { viewModel.callsign = text }
                 }
             )
@@ -43,7 +49,18 @@ struct StationSettingsContent: View {
                 // Re-validate the current entry under the new rule and store it
                 // if the operator has just made an 11 m call acceptable.
                 let text = callsignText.uppercased()
-                validCallsign = isValidStationCallsign(text, allowElevenMeter: enabled)
+                validCallsign = isValidStationCallsign(text, allowElevenMeter: enabled, allowFreeText: isFreeText)
+                if validCallsign { viewModel.callsign = text }
+            }
+
+            Toggle(isOn: $isFreeText) {
+                Text("Free-text callsign")
+                    .font(.body)
+            }
+            .onChange(of: isFreeText) { enabled in
+                // Same as above, for a listener (SWL) ID or other free-text call.
+                let text = callsignText.uppercased()
+                validCallsign = isValidStationCallsign(text, allowElevenMeter: isElevenMeter, allowFreeText: enabled)
                 if validCallsign { viewModel.callsign = text }
             }
 
@@ -85,13 +102,13 @@ struct StationSettingsContent: View {
         .onAppear {
             callsignText = viewModel.callsign
             locatorText = viewModel.locator
-            validCallsign = isValidStationCallsign(viewModel.callsign, allowElevenMeter: isElevenMeter)
+            validCallsign = isStationCallsignValid(viewModel.callsign)
             validLocator = isValidLocator(viewModel.locator)
             activeHelp = nil
         }
         .onChange(of: viewModel.callsign) { newValue in
             callsignText = newValue
-            let isValid = isValidStationCallsign(newValue, allowElevenMeter: isElevenMeter)
+            let isValid = isStationCallsignValid(newValue)
             if validCallsign != isValid { validCallsign = isValid }
             if isValid && !newValue.isEmpty {
                 AnalyticsManager.shared.logConfigurationSaved()

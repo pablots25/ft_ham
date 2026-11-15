@@ -183,6 +183,7 @@ final class PresenceManager: ObservableObject {
         } catch {
             lastError = String(describing: error)
             logger.warning("Presence publish failed: \(String(describing: error))")
+            UsageAnalytics.shared.recordServiceError(.presence, action: "publish", error: error)
         }
     }
 
@@ -190,10 +191,12 @@ final class PresenceManager: ObservableObject {
         guard isActive else { return }
         do {
             stations = try await service.fetchOnline(since: Date().addingTimeInterval(-staleAfter))
+            UsageAnalytics.shared.presenceStationsSeen(stations.count)
             lastError = nil
         } catch {
             lastError = String(describing: error)
             logger.warning("Presence fetch failed: \(String(describing: error))")
+            UsageAnalytics.shared.recordServiceError(.presence, action: "fetch", error: error)
         }
     }
 }

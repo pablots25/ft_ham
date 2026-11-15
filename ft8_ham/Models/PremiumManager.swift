@@ -242,8 +242,12 @@ final class PremiumManager: ObservableObject {
             logger.info("Purchase successful! Premium unlocked.")
             AnalyticsManager.shared.logPurchaseCompleted(
                 productID: product.id,
-                value: NSDecimalNumber(decimal: product.price).doubleValue,
-                currency: product.priceFormatStyle.currencyCode
+                revenue: PurchaseRevenue(
+                    price: transaction.price,
+                    currency: transaction.currency,
+                    fallbackPrice: product.price,
+                    fallbackCurrencyCode: product.priceFormatStyle.currencyCode
+                )
             )
 
         case .userCancelled:
@@ -335,16 +339,13 @@ final class PremiumManager: ObservableObject {
     /// Logs purchase revenue for a transaction we didn't originate via a direct purchase() call.
     /// `Transaction.price`/`currency` reflect what was actually paid (unlike `Product.price`,
     /// which is the catalog price and would misreport promo/offer-code discounts).
+    /// Both properties are back-deployed by StoreKit (`price` to iOS 15, `currency` to iOS 16),
+    /// so every supported OS reports the revenue.
     private func logExternalPurchase(_ transaction: StoreKit.Transaction) {
-        if #available(iOS 17.0, *) {
-            AnalyticsManager.shared.logPurchaseCompleted(
-                productID: transaction.productID,
-                value: transaction.price.map { NSDecimalNumber(decimal: $0).doubleValue },
-                currency: transaction.currency?.identifier
-            )
-        } else {
-            AnalyticsManager.shared.logPurchaseCompleted(productID: transaction.productID)
-        }
+        AnalyticsManager.shared.logPurchaseCompleted(
+            productID: transaction.productID,
+            revenue: PurchaseRevenue(price: transaction.price, currency: transaction.currency)
+        )
     }
 
     // MARK: - Verification Helper

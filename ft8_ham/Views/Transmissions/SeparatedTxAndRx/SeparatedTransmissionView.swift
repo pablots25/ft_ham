@@ -22,10 +22,6 @@ struct SeparatedTransmissionView: View {
 
     @State private var showLegend: Bool = false
 
-    private var needsTutorial: Bool {
-        !hasSeenTutorial
-    }
-
     init(section: TransmissionSection, allowReply: Bool = false) {
         self.section = section
         self.allowReply = allowReply
@@ -54,14 +50,14 @@ struct SeparatedTransmissionView: View {
                     ) {
                         hasSeenTutorial = true
                         showTutorial = false
+                        GuidanceCoordinator.shared.finish(.slideToReply)
                     }
                 }
             }
             .coordinateSpace(name: "SeparatedTransmissionSpace")
         }
-        .onAppear {
-            showTutorial = allowReply && needsTutorial
-        }
+        // Shown only when no launch prompt or other tutorial is on screen.
+        .tutorialSlot(.slideToReply, isAvailable: allowReply, isPresented: $showTutorial)
     }
 
     // MARK: - Tutorial frame adjustment

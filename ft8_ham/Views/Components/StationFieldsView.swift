@@ -15,6 +15,10 @@ struct CallsignFieldView: View {
     /// Whether the operator has opted in to 11 m / CB callsigns. When off, an
     /// 11 m-format entry is rejected and the error nudges towards the toggle.
     var isElevenMeterEnabled: Bool = false
+    /// Whether the operator has opted in to a free-text callsign such as a
+    /// listener (SWL) ID. When off, such an entry is rejected and the error
+    /// nudges towards the toggle.
+    var isFreeTextEnabled: Bool = false
     var onCommit: () -> Void
 
     @FocusState private var isFocused: Bool
@@ -23,6 +27,12 @@ struct CallsignFieldView: View {
     private var isElevenMeterCallsign: Bool {
         validCallsign && isElevenMeterEnabled
             && CompoundCallsign.isElevenMeterFormat(callsignText)
+    }
+
+    /// Whether the current entry is valid only because free text is allowed.
+    private var isFreeTextCallsign: Bool {
+        validCallsign && isFreeTextEnabled && !isElevenMeterCallsign
+            && CompoundCallsign.parse(callsignText, freeTextStation: nil) == nil
     }
 
     /// Shown under the field while the text is not a usable callsign. Being told
@@ -39,6 +49,13 @@ struct CallsignFieldView: View {
         // Looks like an 11 m call but the operator has not opted in.
         if !isElevenMeterEnabled && CompoundCallsign.isElevenMeterFormat(text) {
             return "This looks like an 11 m / CB callsign. Turn on \"11 m / CB callsign\" below to use it."
+        }
+        if isFreeTextEnabled {
+            return "Use 3 to 11 letters and numbers, with at least one of each"
+        }
+        // Not an amateur call, but usable as a free-text one (e.g. an SWL ID).
+        if CompoundCallsign.isFreeTextFormat(text) {
+            return "This is not a standard amateur callsign. If it is a listener (SWL) ID or another non-standard callsign, turn on \"Free-text callsign\" below."
         }
         return "Enter a valid callsign (e.g. EA4IQL)"
     }
@@ -65,7 +82,11 @@ struct CallsignFieldView: View {
                             $0.isLetter || $0.isNumber || $0 == "/"
                         }
                         if cleaned != newValue { callsignText = cleaned }
-                        validCallsign = isValidStationCallsign(cleaned, allowElevenMeter: isElevenMeterEnabled)
+                        validCallsign = isValidStationCallsign(
+                            cleaned,
+                            allowElevenMeter: isElevenMeterEnabled,
+                            allowFreeText: isFreeTextEnabled
+                        )
                     }
                     .onChange(of: isFocused) { focused in
                         // Commit when the field is left, not only when Return is
@@ -90,6 +111,10 @@ struct CallsignFieldView: View {
                     .foregroundStyle(.red)
             } else if isElevenMeterCallsign {
                 Text("This is not a standard FT8/FT4 amateur callsign. It is sent as a non-standard callsign, and FT8/FT4 on the 11 m band may not be permitted where you operate.")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            } else if isFreeTextCallsign {
+                Text("This is not a standard amateur callsign. It is sent spelled out as a non-standard callsign, without your locator. Only transmit if you are allowed to.")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             } else {

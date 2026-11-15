@@ -16,7 +16,7 @@ extension FT8ViewModel  {
 
     func cancelLogging() {
         pendingQSOToLog = nil
-        pendingQSOIsUnconfirmed = false
+        pendingLogReason = .completed
         logAction = nil
         showConfirmQSOAlert = false
     }
@@ -62,7 +62,8 @@ extension FT8ViewModel  {
         resetQSOState()
 
         // Always confirm a manually forced log (it is, by definition, incomplete).
-        offerLogging(qso: entry, unconfirmed: true)
+        // The alert says which report, if any, is missing.
+        offerLogging(qso: entry, reason: .manual)
     }
 
     func handleQSOLogging(qso: LogEntry) {
@@ -70,7 +71,7 @@ extension FT8ViewModel  {
              appLogger.info("Automatic log for \(dxCallsign)")
             logQSO(qso: qso)
         } else {
-            pendingQSOIsUnconfirmed = false
+            pendingLogReason = .completed
             pendingQSOToLog = qso
             logAction = logQSO
             showConfirmQSOAlert = true
@@ -80,14 +81,14 @@ extension FT8ViewModel  {
 
     /// Always prompts the operator to confirm logging, regardless of the
     /// autoQSOLogging setting. Used for QSOs that timed out before the final
-    /// handshake — the reports were exchanged but the contact is unconfirmed,
-    /// so it should never be logged silently.
-    func offerLogging(qso: LogEntry, unconfirmed: Bool) {
-        pendingQSOIsUnconfirmed = unconfirmed
+    /// handshake and for the manual "Log QSO" button. Both are unconfirmed
+    /// contacts, so they should never be logged silently.
+    func offerLogging(qso: LogEntry, reason: QSOLogPromptReason) {
+        pendingLogReason = reason
         pendingQSOToLog = qso
         logAction = logQSO
         showConfirmQSOAlert = true
-        appLogger.info("Offering manual log for \(qso.callsign) (unconfirmed: \(unconfirmed))")
+        appLogger.info("Offering manual log for \(qso.callsign) (reason: \(reason))")
     }
     
     private func finalizeLogging() {
@@ -152,7 +153,7 @@ extension FT8ViewModel  {
         appLogger.info("Finalizing QSO after logging")
 
         pendingQSOToLog = nil
-        pendingQSOIsUnconfirmed = false
+        pendingLogReason = .completed
         logAction = nil
         showConfirmQSOAlert = false
     }

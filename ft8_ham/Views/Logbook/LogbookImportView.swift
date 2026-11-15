@@ -208,6 +208,7 @@ struct LogbookImportView: View {
             CloudLogbookSyncManager.shared.syncImported(entriesToWrite)
 
             lastImportResult = ImportResult(imported: entriesToWrite.count, skipped: previewSkipped)
+            UsageAnalytics.shared.recordAction(.logbookImport, .completed)
             isCommitting = false
             dismiss()
         }
