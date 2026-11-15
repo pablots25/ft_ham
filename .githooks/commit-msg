@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Gitflow guard: work lands on long-lived branches only through merges.
+#
+#   main, develop          merges only
+#   release/*, hotfix/*    merges, plus "chore(release): ..." commits
+#                          (version bump, release notes, benchmark baseline)
+#   anything else          free
+#
+# Create a fix/ or feature/ branch from the line instead, commit there and
+# merge it back with --no-ff. To override once on purpose: git commit --no-verify
+#
+# Shared by every worktree (core.hooksPath) and by ft_ham_premium, which links
+# its .git/hooks/commit-msg here.
+set -euo pipefail
+
+msg_file="${1:-}"
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+
+# Detached HEAD (rebase, bisect, scripts): nothing to guard.
+[[ -z "$branch" ]] && exit 0
+
+# A merge, including one whose conflicts were resolved by hand.
+if git rev-parse --quiet --verify MERGE_HEAD >/dev/null 2>&1; then
+  exit 0
+fi
+case "${GIT_REFLOG_ACTION:-}" in
+  merge*|pull*) exit 0 ;;
+esac
+
+subject=""
+if [[ -n "$msg_file" && -f "$msg_file" ]]; then
+  subject="$(grep -v '^#' "$msg_file" | sed -n '/[^[:space:]]/{p;q;}' || true)"
+fi
+
+case "$branch" in
+  main|develop)
+    allowed="merges only" ;;
+  release/*|hotfix/*)
+    [[ "$subject" == chore\(release\):* ]] && exit 0
+    allowed="merges and \"chore(release): ...\" commits only" ;;
+  *)
+    exit 0 ;;
+esac
+
+cat >&2 <<EOF
+
+Commit blocked: '$branch' takes $allowed.
+
+Create a branch from it, commit there and merge it back:
+  git switch -c fix/<name> $branch
+  git commit ...
+  git switch $branch && git merge --no-ff fix/<name>
+
+Override once on purpose: git commit --no-verify
+EOF
+exit 1
