@@ -159,6 +159,7 @@ struct ft8_hamApp: App {
         }
         .onChange(of: scenePhase) { newPhase in
             AnalyticsManager.shared.flushAllOnBackground(scenePhase: newPhase)
+            UsageAnalytics.shared.scenePhaseChanged(newPhase)
 
             switch newPhase {
             case .background:

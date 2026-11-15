@@ -37,6 +37,7 @@ extension FT8ViewModel {
             toggleTransmit()
         }
         freeTextLoopActive = true
+        UsageAnalytics.shared.recordAction(.freeTextTX, .started)
         invalidatePendingTX(reason: "free text loop enabled")
         appLogger.info("Free text loop enabled: '\(text)'")
         if sequencerTask == nil {
@@ -48,6 +49,7 @@ extension FT8ViewModel {
     func stopFreeTextLoop() {
         guard freeTextLoopActive else { return }
         freeTextLoopActive = false
+        UsageAnalytics.shared.recordAction(.freeTextTX, .stopped)
         appLogger.info("Free text loop disabled")
     }
 

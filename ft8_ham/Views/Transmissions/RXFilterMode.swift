@@ -21,6 +21,16 @@ enum RXFilterMode: Int, CaseIterable {
         self = RXFilterMode(rawValue: rawValue) ?? .all
     }
 
+    /// The `source` value sent when the user picks this mode.
+    var analyticsValue: String {
+        switch self {
+        case .all: return "all"
+        case .mine: return "mine"
+        case .mineAndCQ: return "mine_and_cq"
+        case .needed: return "needed"
+        }
+    }
+
     var next: RXFilterMode {
         RXFilterMode(rawValue: rawValue + 1) ?? .all
     }
@@ -74,9 +84,11 @@ struct RXFilterButton: View {
 
     var body: some View {
         Button {
+            let next = mode.next
             withAnimation(.easeInOut(duration: 0.15)) {
-                filterMode = mode.next.rawValue
+                filterMode = next.rawValue
             }
+            UsageAnalytics.shared.recordAction(.rxFilter, .selected, source: next.analyticsValue)
         } label: {
             Image(systemName: mode.systemImage)
                 .font(.system(size: 16, weight: .medium))

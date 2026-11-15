@@ -59,7 +59,7 @@ struct QSOEditView: View {
         guard !trimmed.isEmpty else { return nil }
         let pattern = #"^[A-R]{2}\d{2}([A-X]{2}(\d{2})?)?$"#
         if trimmed.range(of: pattern, options: .regularExpression) == nil {
-            return "Invalid Maidenhead grid (e.g. EM72 or EM72ab)"
+            return String(localized: "Invalid Maidenhead grid (e.g. EM72 or EM72ab)")
         }
         return nil
     }

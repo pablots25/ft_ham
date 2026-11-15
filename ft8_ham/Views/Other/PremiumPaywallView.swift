@@ -36,6 +36,7 @@ struct PremiumPaywallView: View {
     @State private var errorMessage = ""
     @State private var showPurchaseSuccess = false
     @State private var showRestoreSuccess = false
+    @State private var outcome: PaywallOutcome = .closed
 
     var body: some View {
         NavigationStack {
@@ -97,9 +98,13 @@ struct PremiumPaywallView: View {
         .onAppear {
             AnalyticsManager.shared.logPremiumPaywallShown(source: source.analyticsValue)
         }
+        .onDisappear {
+            UsageAnalytics.shared.log(.paywallDismissed(source: source.analyticsValue, outcome: outcome))
+        }
         // A redeemed offer code unlocks premium outside purchase and restore.
         .onChange(of: premiumManager.isPremiumUnlocked) { isUnlocked in
             if isUnlocked && !isPurchasing && !isRestoring {
+                outcome = .redeemed
                 showPurchaseSuccess = true
             }
         }
@@ -301,20 +306,32 @@ struct PremiumPaywallView: View {
     private func handlePurchase() async {
         isPurchasing = true
         defer { isPurchasing = false }
-        
+        UsageAnalytics.shared.log(.purchaseStarted(source: source.analyticsValue))
+
         do {
             try await premiumManager.purchasePremium()
+            outcome = .purchased
             showPurchaseSuccess = true
         } catch PremiumError.userCancelled {
             // User cancelled - no error needed
+            logPurchaseFailed(PremiumError.userCancelled)
             return
         } catch PremiumError.pending {
-            errorMessage = "Your purchase is awaiting approval. You'll get access once it's approved."
+            logPurchaseFailed(PremiumError.pending)
+            errorMessage = String(localized: "Your purchase is awaiting approval. You'll get access once it's approved.")
             showError = true
         } catch {
+            logPurchaseFailed(error)
             errorMessage = error.localizedDescription
             showError = true
         }
+    }
+
+    private func logPurchaseFailed(_ error: Error) {
+        UsageAnalytics.shared.log(.purchaseFailed(
+            source: source.analyticsValue,
+            errorCode: UsageErrorCode.code(for: error)
+        ))
     }
     
     private func redeemOfferCode() async {
@@ -332,6 +349,7 @@ struct PremiumPaywallView: View {
         
         do {
             try await premiumManager.restorePurchases()
+            outcome = .restored
             showRestoreSuccess = true
         } catch StoreKitError.userCancelled {
             // User cancelled the Apple Account sign-in - no error needed

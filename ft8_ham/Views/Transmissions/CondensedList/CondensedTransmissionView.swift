@@ -19,10 +19,6 @@ struct CondensedTransmissionView: View {
 
     @State private var showLegend: Bool = false
 
-    private var needsTutorial: Bool {
-        !hasSeenTutorial
-    }
-
     var body: some View {
         GeometryReader { geo in
             // Detect landscape normally, force portrait on iPad
@@ -46,14 +42,14 @@ struct CondensedTransmissionView: View {
                     ) {
                         hasSeenTutorial = true
                         showTutorial = false
+                        GuidanceCoordinator.shared.finish(.slideToReply)
                     }
                 }
             }
             .coordinateSpace(name: "CondensedTransmissionSpace")
         }
-        .onAppear {
-            showTutorial = needsTutorial
-        }
+        // Shown only when no launch prompt or other tutorial is on screen.
+        .tutorialSlot(.slideToReply, isPresented: $showTutorial)
     }
 
     // MARK: - Layouts

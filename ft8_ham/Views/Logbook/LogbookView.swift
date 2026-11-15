@@ -187,6 +187,9 @@ struct LogbookView: View {
                         },
                         onActivationTap: { reference in
                             activationFilter = activationFilter == reference ? nil : reference
+                            if activationFilter != nil {
+                                UsageAnalytics.shared.recordAction(.logbook, .filtered, source: "activation")
+                            }
                             applyFilter()
                         }
                     )
@@ -197,7 +200,10 @@ struct LogbookView: View {
             .environment(\.editMode, isSelecting ? .constant(.active) : .constant(.inactive))
             .searchable(text: $searchText, prompt: "Callsign, grid, country, mode, band…")
             .refreshable { applyFilter() }
-            .onChange(of: searchText) { _ in
+            .onChange(of: searchText) { text in
+                if !text.isEmpty {
+                    UsageAnalytics.shared.recordActionOncePerSession(.logbook, .searched)
+                }
                 searchTask?.cancel()
                 searchTask = Task {
                     try? await Task.sleep(nanoseconds: 200_000_000)
@@ -434,6 +440,7 @@ struct LogbookView: View {
             QSOEditView(entry: entry) { updated in
                 if let idx = viewModel.qsoList.firstIndex(where: { $0.id == updated.id }) {
                     viewModel.qsoList[idx] = updated
+                    UsageAnalytics.shared.recordAction(.qsoEdit, .completed)
                 }
             }
         }
@@ -441,7 +448,12 @@ struct LogbookView: View {
             DateRangeFilterView(
                 startDate: $filterStartDate,
                 endDate: $filterEndDate,
-                onApply: { applyFilter() }
+                onApply: {
+                    if filterStartDate != nil || filterEndDate != nil {
+                        UsageAnalytics.shared.recordAction(.logbook, .filtered, source: "date")
+                    }
+                    applyFilter()
+                }
             )
         }
         .alert("Import Complete", isPresented: $showImportResultAlert) {
@@ -558,6 +570,7 @@ struct LogbookView: View {
         Haptics.success()
 
         if !deleted.isEmpty {
+            UsageAnalytics.shared.recordAction(.logbook, .deleted, count: deleted.count)
             recentlyDeletedEntries = deleted
             withAnimation { showUndoBanner = true }
             undoDismissTask = Task {
@@ -575,6 +588,7 @@ struct LogbookView: View {
 
     private func undoDelete() {
         undoDismissTask?.cancel()
+        UsageAnalytics.shared.recordAction(.logbook, .restored, count: recentlyDeletedEntries.count)
         for item in recentlyDeletedEntries.reversed() {
             let safeIndex = min(item.index, viewModel.qsoList.count)
             viewModel.qsoList.insert(item.entry, at: safeIndex)
@@ -590,8 +604,8 @@ struct LogbookView: View {
 
     private var selectionTitle: String {
         selectedIDs.isEmpty
-            ? "Select Items"
-            : "\(selectedIDs.count) Selected"
+            ? String(localized: "Select Items")
+            : String(localized: "\(selectedIDs.count) Selected")
     }
 
     // MARK: - Batch Delete
@@ -622,6 +636,7 @@ struct LogbookView: View {
         isSelecting = false
 
         if !deleted.isEmpty {
+            UsageAnalytics.shared.recordAction(.logbook, .deleted, count: deleted.count)
             recentlyDeletedEntries = deleted
             withAnimation { showUndoBanner = true }
             undoDismissTask = Task {

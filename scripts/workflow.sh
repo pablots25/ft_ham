@@ -34,7 +34,7 @@ cmd_status() {
     echo ""
     
     echo "📁 Premium repo (ft_ham_premium):"
-    if [ -d "$FT_HAM_PREMIUM_DIR" ]; then
+    if [[ -d "$FT_HAM_PREMIUM_DIR" ]]; then
         cd "$FT_HAM_PREMIUM_DIR"
         git status -sb 2>/dev/null || echo "  Not a git repository"
     else
@@ -59,7 +59,7 @@ cmd_check_clean() {
         found=1
     fi
     
-    if [ $found -eq 0 ]; then
+    if [[ $found -eq 0 ]]; then
         echo "✅ No premium references found in public repo"
     else
         echo ""
@@ -93,7 +93,7 @@ cmd_test_hook() {
     
     echo ""
     echo "Hook status:"
-    if [ -f .githooks/pre-push ]; then
+    if [[ -f .githooks/pre-push ]]; then
         echo "  ✅ pre-push hook exists"
     else
         echo "  ❌ pre-push hook missing - run: ./scripts/install-git-hooks.sh"
@@ -115,7 +115,7 @@ cmd_list_changes() {
     
     echo ""
     echo "Premium repo (ft_ham_premium):"
-    if [ -d "$FT_HAM_PREMIUM_DIR" ]; then
+    if [[ -d "$FT_HAM_PREMIUM_DIR" ]]; then
         cd "$FT_HAM_PREMIUM_DIR"
         git status --short 2>/dev/null || echo "  Not a git repository"
     else

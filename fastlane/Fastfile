@@ -29,7 +29,8 @@ platform :ios do
     run_tests(
       project:      PROJECT,
       scheme:       TEST_SCHEME,
-      device:       "iPhone 16",
+      # Default simulator from AGENTS.md. Override with FT_HAM_TEST_DEVICE.
+      destination:  "platform=iOS Simulator,id=#{ENV.fetch('FT_HAM_TEST_DEVICE', '186863B5-23F5-41F4-99C1-65794D33C739')}",
       clean:        true,
       output_files: "test_output/report.junit",
       output_types: "junit"

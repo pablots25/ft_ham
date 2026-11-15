@@ -21,6 +21,7 @@ extension FT8ViewModel {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] connected in
                 guard let self else { return }
+                UsageAnalytics.shared.catConnectionChanged(connected)
                 if self.catConnected != connected { self.catConnected = connected }
                 // A restored connection clears a stale error state.
                 if connected, !self.catStatusOK { self.catStatusOK = true }
@@ -33,6 +34,11 @@ extension FT8ViewModel {
     /// check rigctld / rely on VOX, without spamming a banner every TX slot.
     @MainActor
     private func recordCatFailure(_ message: String, isPTT: Bool) {
+        UsageAnalytics.shared.recordServiceError(
+            .catControl,
+            action: isPTT ? "ptt" : "command",
+            errorCode: UsageErrorCode.commandFailed
+        )
         catStatusOK = false
         catLastError = message
         catConnected = catController.isConnected
