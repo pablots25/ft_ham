@@ -1,0 +1,28 @@
+name: Feature request
+description: An idea that would make FT Ham better on the air
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: The situation on the air or in the logbook where the app gets in your way
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you picture it working in the app
+    validations:
+      required: true
+  - type: input
+    id: equipment
+    attributes:
+      label: Radio and setup, if it matters
+      placeholder: FT-891, portable with an iPad
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, links to specs (ADIF, LoTW, PSK Reporter), or how other tools handle it
