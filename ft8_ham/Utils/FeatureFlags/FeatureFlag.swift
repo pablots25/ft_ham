@@ -31,6 +31,8 @@ enum FeatureFlag: String, CaseIterable {
     case waterfallSlotContext
     /// Map: "heard me" layer (stations that decoded us, from PSK Reporter).
     case enableHeardMe
+    /// Mac: keep RX/TX running while the window is hidden or minimized.
+    case macBackgroundOperation
     /// Free users: offer Premium at usage milestones (QSO logged, ADIF
     /// export, transmit) instead of the tip prompt.
     case premiumMoments
@@ -57,6 +59,8 @@ enum FeatureFlag: String, CaseIterable {
         // Off everywhere, including debug builds: switch it on from the
         // Debug screen (or Remote Config in release) when wanted.
         case .enableFreeText, .controlsSheet, .enableHeardMe: return false
+        // Ship dark: switch on from the Debug screen or Remote Config.
+        case .macBackgroundOperation: return false
         // Off everywhere until switched on from the Debug screen or Remote Config.
         case .premiumMoments, .rateAfterQSO: return false
         // Off everywhere until the look is settled.

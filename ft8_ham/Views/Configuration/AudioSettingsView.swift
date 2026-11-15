@@ -26,6 +26,8 @@ struct AudioSettingsContent: View {
     @State private var txSliderTempValue: Float = 1.0
     @State private var activeHelp: HelpTip?
     @StateObject private var deviceVolume = DeviceVolumeMonitor()
+    @StateObject private var audioRoute = AudioRouteMonitor()
+    private let isMac = RunningPlatform.isMac
 
     private let minInputGain = Float(AudioGainLimits.minInput)
     private let maxInputGain = Float(AudioGainLimits.maxInput)
@@ -70,9 +72,14 @@ struct AudioSettingsContent: View {
 
             txOutputGainView
 
-            Text("RX Gain: adjust microphone sensitivity for decoding. TX Output: raise if your radio's VOX won't activate (also ensure phone volume is at maximum).")
+            Text(AudioGuidance.levelsFootnote(isMac: isMac))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            if isMac {
+                Divider()
+                macAudioDeviceView
+            }
         }
         .onAppear {
             frequencyText = Self.frequencyFormatter.string(
@@ -227,7 +234,7 @@ struct AudioSettingsContent: View {
                 }
             )
 
-            if deviceVolume.showsLowVolumeHint {
+            if AudioGuidance.showsLowVolumeHint(isMac: isMac, volume: deviceVolume.volume) {
                 Label {
                     Text("Device volume is below maximum. Turn it all the way up with the volume buttons so the TX audio is loud enough to trigger your radio's VOX.")
                 } icon: {
@@ -238,7 +245,38 @@ struct AudioSettingsContent: View {
                 .transition(.opacity)
             }
         }
-        .animation(.default, value: deviceVolume.showsLowVolumeHint)
+        .animation(.default, value: AudioGuidance.showsLowVolumeHint(isMac: isMac, volume: deviceVolume.volume))
+    }
+
+    // MARK: - Mac audio device
+
+    /// The app uses the Mac's default sound devices, so it names them and
+    /// says where to switch to the radio interface.
+    private var macAudioDeviceView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Audio device")
+                .font(.headline)
+
+            if let input = audioRoute.inputName {
+                Label {
+                    Text("Input: \(input)")
+                } icon: {
+                    Image(systemName: "mic")
+                }
+            }
+            if let output = audioRoute.outputName {
+                Label {
+                    Text("Output: \(output)")
+                } icon: {
+                    Image(systemName: "speaker.wave.2")
+                }
+            }
+
+            Text("FT Ham uses your Mac's default sound input and output. To use your radio's audio interface, choose it in System Settings > Sound.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .onAppear { audioRoute.refresh() }
     }
 
     // MARK: - Frequency commit

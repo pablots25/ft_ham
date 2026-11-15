@@ -12,6 +12,8 @@ struct MessageColorLegendView: View {
 
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var rowColors = RowColorStore.shared
+    @AppStorage("replyTapGesture") private var replyTapGesture: ReplyTapGesture = .single
+    private let isMac = RunningPlatform.isMac
 
     var body: some View {
         NavigationStack {
@@ -128,15 +130,15 @@ struct MessageColorLegendView: View {
                 Section {
                     HStack(spacing: 14) {
                         ZStack {
-                            Image(systemName: "chevron.right.2")
+                            Image(systemName: ReplyGuidance.legendSymbol(isMac: isMac, gesture: replyTapGesture))
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(.blue)
                         }
                         .frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Swipe right to reply")
+                            Text(ReplyGuidance.legendTitle(isMac: isMac, gesture: replyTapGesture))
                                 .font(.subheadline)
-                            Text("On any received message, swipe right to pre-fill it as your current QSO target. A short vibration confirms the selection.")
+                            Text(ReplyGuidance.legendDetail(isMac: isMac, gesture: replyTapGesture))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

@@ -92,6 +92,13 @@ struct DebugSettingsView: View {
                 }
 
                 Toggle(isOn: Binding(
+                    get: { flags.isEnabled(.macBackgroundOperation) },
+                    set: { flags.setOverride(.macBackgroundOperation, value: $0) }
+                )) {
+                    Label("Mac: Keep Running When Hidden", systemImage: "macwindow")
+                }
+
+                Toggle(isOn: Binding(
                     get: { flags.isEnabled(.premiumMoments) },
                     set: { flags.setOverride(.premiumMoments, value: $0) }
                 )) {

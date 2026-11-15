@@ -77,7 +77,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         addSubview(metalView)
 
         for l in [scrollLayer, slotsLayer, timestampsLayer, labelsLayer, staticLayer] {
-            l.contentsScale = UIScreen.main.scale
+            l.contentsScale = layerScale
             l.masksToBounds = false
         }
         scrollLayer.addSublayer(slotsLayer)
@@ -89,6 +89,53 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    // MARK: Display scale
+
+    /// Backing scale of the screen the view is on. `UIScreen.main` is fixed at
+    /// launch, so on a Mac moving the window between a Retina and a standard
+    /// display left the labels blurry or oversized. The scale follows the
+    /// window instead.
+    private var layerScale: CGFloat {
+        Self.resolvedScale(windowScale: window?.screen.scale, traitScale: traitCollection.displayScale)
+    }
+
+    /// Exposed as `internal` for deterministic unit testing.
+    static func resolvedScale(windowScale: CGFloat?, traitScale: CGFloat) -> CGFloat {
+        if let windowScale, windowScale > 0 { return windowScale }
+        return traitScale > 0 ? traitScale : 2
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        applyLayerScale()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.displayScale != traitCollection.displayScale {
+            applyLayerScale()
+        }
+    }
+
+    /// Re-renders the overlay layers (text, pills, stripes) at the current
+    /// scale. The Metal view sizes its own drawable.
+    private func applyLayerScale() {
+        let scale = layerScale
+        guard scale != staticLayer.contentsScale else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for root in [scrollLayer, staticLayer] {
+            Self.setContentsScale(scale, on: root)
+        }
+        CATransaction.commit()
+    }
+
+    private static func setContentsScale(_ scale: CGFloat, on layer: CALayer) {
+        layer.contentsScale = scale
+        layer.setNeedsDisplay()
+        for sub in layer.sublayers ?? [] { setContentsScale(scale, on: sub) }
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -294,7 +341,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         line.backgroundColor = UIColor.yellow.cgColor
         group.addSublayer(line)
 
-        let label = Self.makePill(text, size: 10, weight: .regular, color: .white, background: Self.pillBackground)
+        let label = Self.makePill(text, size: 10, weight: .regular, color: .white, background: Self.pillBackground, scale: layerScale)
         label.name = "label"
         group.addSublayer(label)
 
@@ -369,7 +416,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         let color = Self.color(for: placed.label.kind)
         let label = Self.makePill(
             text, size: Self.labelFontSize, weight: .bold, color: color,
-            background: Self.pillBackground, height: Self.labelBoxHeight
+            background: Self.pillBackground, scale: layerScale, height: Self.labelBoxHeight
         )
         label.setValue(placed.anchorRow, forKey: Self.absRowKey)
         let textWidth = label.bounds.width
@@ -425,7 +472,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
                 path.addLine(to: CGPoint(x: tx, y: h))
                 let label = Self.makePill(
                     String(format: "%.1f kHz", hz / 1000), size: 10, weight: .regular,
-                    color: .white, background: Self.pillBackground
+                    color: .white, background: Self.pillBackground, scale: layerScale
                 )
                 let size = label.bounds.size
                 // The last label would run off the right edge: flip it, and
@@ -464,7 +511,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
 
             let label = Self.makePill(
                 String(format: "%.0f Hz", style.txFrequency), size: 10, weight: .semibold,
-                color: .red, background: UIColor.white.withAlphaComponent(0.85), height: 18, padding: 10
+                color: .red, background: UIColor.white.withAlphaComponent(0.85), scale: layerScale, height: 18, padding: 10
             )
             // Centred on the band the signal occupies, not on its base tone.
             let bandCentreX = x(forHz: style.txFrequency + bandwidthHz / 2)
@@ -489,14 +536,14 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
     private static let pillBackground = UIColor.black.withAlphaComponent(0.55)
 
     private static func makeTextLayer(
-        _ text: String, size: CGFloat, weight: UIFont.Weight, color: UIColor
+        _ text: String, size: CGFloat, weight: UIFont.Weight, color: UIColor, scale: CGFloat
     ) -> CATextLayer {
         let layer = CATextLayer()
         layer.string = text
         layer.font = font(size: size, weight: weight)
         layer.fontSize = size
         layer.foregroundColor = color.cgColor
-        layer.contentsScale = UIScreen.main.scale
+        layer.contentsScale = scale
         layer.truncationMode = .none
         layer.isWrapped = false
         layer.alignmentMode = .center
@@ -509,7 +556,7 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
     /// `position`.
     private static func makePill(
         _ text: String, size: CGFloat, weight: UIFont.Weight, color: UIColor,
-        background: UIColor, height: CGFloat = 14, padding: CGFloat = 8
+        background: UIColor, scale: CGFloat, height: CGFloat = 14, padding: CGFloat = 8
     ) -> CALayer {
         let uiFont = font(size: size, weight: weight)
         let textSize = (text as NSString).size(withAttributes: [.font: uiFont])
@@ -517,9 +564,9 @@ final class WaterfallRenderView: UIView, WaterfallRenderSink {
         pill.bounds = CGRect(x: 0, y: 0, width: (textSize.width + padding).rounded(.up), height: height)
         pill.backgroundColor = background.cgColor
         pill.cornerRadius = 3
-        pill.contentsScale = UIScreen.main.scale
+        pill.contentsScale = scale
 
-        let label = makeTextLayer(text, size: size, weight: weight, color: color)
+        let label = makeTextLayer(text, size: size, weight: weight, color: color, scale: scale)
         let lineHeight = uiFont.lineHeight.rounded(.up)
         label.frame = CGRect(x: 0, y: ((height - lineHeight) / 2).rounded(), width: pill.bounds.width, height: lineHeight)
         pill.addSublayer(label)

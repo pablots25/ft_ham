@@ -90,6 +90,9 @@ struct CondensedMsgListView: View {
                                         ) {
                                             viewModel.reply(to: msg)
                                         }
+                                        .decodedMessageContextMenu(msg, allowReply: allowReply) {
+                                            viewModel.reply(to: msg)
+                                        }
                                         .accessibilityIdentifier("decodeRow_\(msg.callsign ?? "")")
                                         .id(msg.id)
                                 }

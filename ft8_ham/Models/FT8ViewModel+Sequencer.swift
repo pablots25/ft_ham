@@ -536,7 +536,9 @@ extension FT8ViewModel {
         // The scenePhase handler stops the sequencer on backgrounding, but a TX
         // task already in flight can reach this point afterwards. Starting audio
         // in the background has no IO cycle and crashes AVAudioPlayerNode.
-        guard applicationState() != .background else {
+        // A Mac keeps the audio engine running while hidden, so the policy
+        // lets TX go ahead there.
+        guard applicationState() != .background || keepsRadioRunningInBackground() else {
             txLogger.warning("TX skipped for slot \(slot.slotIndex): app is in background")
             return
         }

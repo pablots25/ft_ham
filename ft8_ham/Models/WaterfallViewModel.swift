@@ -318,6 +318,12 @@ final class WaterfallViewModel: ObservableObject {
 
     @objc
     private func handleDidEnterBackground() {
+        // On a Mac that keeps the radio running while hidden, real rows keep
+        // coming in, so there is no gap to paint black.
+        guard !BackgroundOperationPolicy.current else {
+            wfLogger.log(.info, "App entered background, waterfall keeps running")
+            return
+        }
         wfLogger.log(.info, "App entered background, writing black rows")
         isInBackground = true
     }
